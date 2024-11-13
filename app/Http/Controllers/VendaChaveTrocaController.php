@@ -390,6 +390,10 @@ class VendaChaveTrocaController extends Controller
         $game['lucroRS'] = $this->formulas->calcLucroReal($game['incomeSimulado'], $game['valorPagoIndividual']);
 
         $game['lucroPercentual'] = $this->formulas->calcLucroPercentual($game['lucroRS'], $game['valorPagoIndividual']);
+        
+        $game['lucroVendaRS'] = $this->formulas->calcLucroVendaReal($game['valorVendido'], $game['valorPagoIndividual']);
+        
+        $game['lucroVendaPercentual'] = $this->formulas->calcLucroVendaPercentual($game['lucroVendaRS'], $game['valorPagoIndividual']);
 
         $game['randomClassificationG2A'] = $this->formulas->classificacaoRandomG2A($game['precoJogo'], $game['notaMetacritic']);
 

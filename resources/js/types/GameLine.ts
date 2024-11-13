@@ -61,6 +61,9 @@ export interface GameLine {
     devolucoes: boolean;
     lucroRS: number | null;
     lucroPercentual: number | null;
+    valorVendido: number | null;
+    lucroVendaRS: number | null;
+    lucroVendaPercentual: number | null;
     dataAdquirida: string;
     dataVenda: string;
     dataVendida: string;

@@ -106,7 +106,7 @@ const selectedNewObject = {
   id_leilao_g2a: 1,
   id_leilao_gamivo: 1,
   id_leilao_kinguin: 1,
-  id_plataforma: 1,
+  id_plataforma: 3,
   precoCliente: null,
   chaveEntregue: '',
   valorPagoTotal: '',
@@ -115,6 +115,9 @@ const selectedNewObject = {
   leiloes: 1,
   quantidade: 1,
   devolucoes: false,
+  valorVendido: null,
+  lucroVendaRS: null,
+  lucroVendaPercentual: null,
   dataAdquirida: '',
   dataVenda: '',
   dataVendida: '',
@@ -408,19 +411,19 @@ const addOrRemove = (add: boolean) => {
           </div>
         </div>
         <div class="d-flex flex-column">
-          <label class="fw-bold">Chave Recebida</label>
+          <label class="fw-bold">Chave Recebida*</label>
           <div class="d-flex gap-5 mb-3">
             <InputText class="flex-auto" v-model="item.chaveRecebida" />
           </div>
         </div>
         <div class="d-flex flex-column">
-          <label class="fw-bold">Nome do jogo</label>
+          <label class="fw-bold">Nome do jogo*</label>
           <div class="d-flex gap-5 mb-3">
             <InputText class="flex-auto" v-model="item.nomeJogo" />
           </div>
         </div>
         <div class="d-flex flex-column">
-          <label class="fw-bold">Preço do Jogo</label>
+          <label class="fw-bold">Preço do Jogo*</label>
           <div class="d-flex gap-5 mb-3">
             <InputNumber class="flex-auto" v-model="item.precoJogo" mode="decimal" showButtons :minFractionDigits="2"
               :maxFractionDigits="2" useGrouping />
@@ -470,21 +473,20 @@ const addOrRemove = (add: boolean) => {
         </div>
         <div class="d-flex flex-column">
           <label class="fw-bold">Plataforma</label>
-          {{ item.id_plataforma }}
           <div class="d-flex gap-5 mb-3">
             <Select v-model="item.id_plataforma" :options="props.plataformas" optionLabel="name" optionValue="id"
               class="w-full md:w-56" />
           </div>
         </div>
         <div class="d-flex flex-column">
-          <label class="fw-bold">Preço Cliente</label>
+          <label class="fw-bold">Preço Cliente*</label>
           <div class="d-flex gap-5 mb-3">
             <InputNumber class="flex-auto" v-model="item.precoCliente" mode="decimal" showButtons :minFractionDigits="2"
               :maxFractionDigits="2" :min="0" useGrouping />
           </div>
         </div>
         <div class="d-flex flex-column">
-          <label class="fw-bold">Quantidade de TF2</label>
+          <label class="fw-bold">Quantidade de TF2*</label>
           <div class="d-flex gap-5 mb-3">
             <InputNumber class="flex-auto" v-model="item.qtdTF2" mode="decimal" showButtons :minFractionDigits="2"
               :maxFractionDigits="2" useGrouping />
@@ -534,7 +536,14 @@ const addOrRemove = (add: boolean) => {
           </div>
         </div>
         <div class="d-flex flex-column">
-          <label class="fw-bold text-nowrap">Data Adquirida</label>
+          <label class="fw-bold">Valor Vendido</label>
+          <div class="d-flex gap-5 mb-3">
+            <InputNumber class="flex-auto" v-model="item.valorVendido" mode="decimal" showButtons :minFractionDigits="2"
+              :maxFractionDigits="2" useGrouping />
+          </div>
+        </div>
+        <div class="d-flex flex-column">
+          <label class="fw-bold text-nowrap">Data Adquirida*</label>
           <div class="d-flex gap-5 mb-3">
             <DatePicker v-model="item.dataAdquirida" dateFormat="dd/mm/yy" showIcon fluid :showOnFocus="false"
               showButtonBar style="min-width: 10rem" />
@@ -555,7 +564,7 @@ const addOrRemove = (add: boolean) => {
           </div>
         </div>
         <div class="d-flex flex-column">
-          <label class="fw-bold text-nowrap">Perfil/Origem</label>
+          <label class="fw-bold text-nowrap">Perfil/Origem*</label>
           <div class="d-flex gap-5 mb-3">
             <InputText class="flex-auto" v-model="item.perfilOrigem" />
           </div>
@@ -897,6 +906,23 @@ const addOrRemove = (add: boolean) => {
           <template #body="slotProps">
             <div :style="getLucroPercentualStyle(slotProps.data)" style="width: 100%; height: 100%;">
               {{ slotProps.data.lucroPercentual }}%
+            </div>
+          </template>
+        </Column>
+        <Column field="valorVendido" header="Valor Vendido" sortable class="text-center p-0">
+          <template #body="slotProps">
+            € {{ slotProps.data.valorVendido }}
+          </template>
+        </Column>
+        <Column field="lucroVendaRS" header="Lucro Venda(€)" sortable class="text-center p-0">
+          <template #body="slotProps">
+            € {{ slotProps.data.lucroVendaRS }}
+          </template>
+        </Column>
+        <Column field="lucroVendaPercentual" header="Lucro Venda(%)" sortable class="text-center p-0">
+          <template #body="slotProps">
+            <div :style="getLucroPercentualStyle(slotProps.data)" style="width: 100%; height: 100%;">
+              {{ slotProps.data.lucroVendaPercentual }}%
             </div>
           </template>
         </Column>

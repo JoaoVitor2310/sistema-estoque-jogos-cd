@@ -47,6 +47,7 @@ class StoreGameRequestArray extends FormRequest
             "games.*.leiloes" => "integer|min:0",
             "games.*.quantidade" => "integer|min:0",
             "games.*.devolucoes" => "boolean",
+            "games.*.valorVendido" => ["nullable", "decimal:0,2"],
             "games.*.dataAdquirida" => ["required", "date"],
             "games.*.dataVenda" => ["nullable", "date"],
             "games.*.dataVendida" => ["nullable", "date"],
