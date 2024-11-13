@@ -90,3 +90,28 @@ const handleLogout = async () => {
     </nav>
   </main>
 </template>
+
+<style>
+.navbar a,
+.navbar .nav-link,
+.navbar {
+  color: white !important;
+}
+
+.navbar .dropdown-menu {
+  background-color: white !important;
+  /* Fundo branco para o menu dropdown */
+}
+
+.navbar .dropdown-menu .dropdown-item {
+  color: black !important;
+  /* Texto preto para itens do dropdown */
+}
+
+.navbar .dropdown-menu .dropdown-item:hover {
+  background-color: #f1f1f1;
+  /* Fundo de hover para itens do dropdown */
+  color: black;
+  /* Mantém o texto preto no hover */
+}
+</style>

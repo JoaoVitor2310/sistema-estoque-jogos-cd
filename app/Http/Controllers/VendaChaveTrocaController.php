@@ -171,26 +171,28 @@ class VendaChaveTrocaController extends Controller
     {
         $data = $request->validated();
 
+        
         $resultFirstFormulas = $this->calculateFirstFormulas($data['games']);
-
+        
         $data['games'] = $resultFirstFormulas['games'];
         $somatorioIncomes = $resultFirstFormulas['somatorioIncomes'];
-
+        
         foreach ($data['games'] as $game) {
             $game['id_fornecedor'] = $this->criarAdicionarFornecedor($game['perfilOrigem'], $game['tipo_reclamacao_id']);
-
+            
             // Calcula as fórmulas
             $game = $this->calculateFormulas($game, $somatorioIncomes);
-
+            
             $repeatedGame = Venda_chave_troca::select('*')->where('chaveRecebida', $game['chaveRecebida'])->first();
-
+            
             if ($repeatedGame) {
                 $game['repetido'] = true;
             }
-
-            // Criar função para identificar a plataforma do jogo
+            
+            // Função para identificar a plataforma do jogo
             $game['plataformaIdentificada'] = $this->identifyPlatform($game['chaveRecebida']);
-
+            
+            // return $this->response(200, 'DEBUG.', $game);
             try {
                 $created = Venda_chave_troca::create($game);
                 if ($created) {
@@ -202,7 +204,7 @@ class VendaChaveTrocaController extends Controller
                         'leilaoGamivo',
                         'leilaoKinguin',
                         'plataforma'
-                    ])->first();
+                        ])->first();
 
                     $fullGames[] = $fullGame;
                 } else {

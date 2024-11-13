@@ -125,7 +125,7 @@ class Formulas
     // public function calcularLucroPercentual($lucroRS, $valorPagoIndividual){
     //     return  $lucroRS /$valorPagoIndividual;
     // }
-    public function classificacaoRandomG2A($precoJogo, $nota){
+    public function classificacaoRandomG2A($precoJogo, $nota = 1){
         if ($precoJogo >= 39.99 && $nota >= 80) {
             return "VIP";
         } elseif ($precoJogo >= 29.99 && $nota >= 80) {
@@ -147,10 +147,8 @@ class Formulas
         }
     }
 
-    public function classificacaoRandomKinguin($precoJogo, $nota){
-        if (empty($precoJogo) || empty($nota)) {
-            return "";
-        } elseif ($precoJogo >= 16.99 && $nota >= 80) {
+    public function classificacaoRandomKinguin($precoJogo, $nota = 1){
+        if ($precoJogo >= 16.99 && $nota >= 80) {
             return "Deluxe";
         } elseif ($precoJogo >= 11.99 && $nota >= 75) {
             return "Gold";

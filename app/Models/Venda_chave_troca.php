@@ -35,7 +35,7 @@ class Venda_chave_troca extends Model
         "id_leilao_g2a",
         "id_leilao_gamivo",
         "id_leilao_kinguin",
-        "plataforma",
+        "id_plataforma",
         "precoCliente",
         "precoVenda",
         "incomeReal",

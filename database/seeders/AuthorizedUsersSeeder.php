@@ -14,7 +14,7 @@ class AuthorizedUsersSeeder extends Seeder
     public function run(): void
     {
         DB::table('authorized_users')->insert([
-            ['name' => 'Gustavo', 'email' => 'joaovitormatosgouveia@gmail.com', 'status' => true],
+            ['name' => 'Carca Deals', 'email' => 'joaovitormatosgouveia@gmail.com', 'status' => true],
         ]);
     }
 }
