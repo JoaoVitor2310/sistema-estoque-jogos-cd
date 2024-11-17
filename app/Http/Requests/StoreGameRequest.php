@@ -46,7 +46,7 @@ class StoreGameRequest extends FormRequest
             "leiloes" => "integer|min:0",
             "quantidade" => "integer|min:0",
             "devolucoes" => "boolean",
-            "valorVendido" => ["required", "decimal:0,2"],
+            "valorVendido" => ["nullable", "decimal:0,2"],
             "dataAdquirida" => ["required", "date"],
             "dataVenda" => ["nullable", "date"],
             "dataVendida" => ["nullable", "date"],

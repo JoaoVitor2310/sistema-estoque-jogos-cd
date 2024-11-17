@@ -171,27 +171,26 @@ class VendaChaveTrocaController extends Controller
     {
         $data = $request->validated();
 
-        
+
         $resultFirstFormulas = $this->calculateFirstFormulas($data['games']);
-        
+
         $data['games'] = $resultFirstFormulas['games'];
         $somatorioIncomes = $resultFirstFormulas['somatorioIncomes'];
-        
+
         foreach ($data['games'] as $game) {
             $game['id_fornecedor'] = $this->criarAdicionarFornecedor($game['perfilOrigem'], $game['tipo_reclamacao_id']);
-            
+
             // Calcula as fórmulas
-            $game = $this->calculateFormulas($game, $somatorioIncomes);
-            
+            $game = $this->calculateFormulas($game, $somatorioIncomes, false);
+
             $repeatedGame = Venda_chave_troca::select('*')->where('chaveRecebida', $game['chaveRecebida'])->first();
-            
+
             if ($repeatedGame) {
                 $game['repetido'] = true;
             }
-            
-            // Função para identificar a plataforma do jogo
+
             $game['plataformaIdentificada'] = $this->identifyPlatform($game['chaveRecebida']);
-            
+
             // return $this->response(200, 'DEBUG.', $game);
             try {
                 $created = Venda_chave_troca::create($game);
@@ -204,7 +203,7 @@ class VendaChaveTrocaController extends Controller
                         'leilaoGamivo',
                         'leilaoKinguin',
                         'plataforma'
-                        ])->first();
+                    ])->first();
 
                     $fullGames[] = $fullGame;
                 } else {
@@ -235,18 +234,18 @@ class VendaChaveTrocaController extends Controller
             return $this->error(404, 'Jogo não encontrado');
 
         $updatedGame = $request->validated();
+        $updatedGame['valorPagoIndividual'] = $game['valorPagoIndividual']; // O valor pago individual vem do banco, e nao do request
 
         if (!isset($updatedGame['qtdTF2'])) {
             $updatedGame['qtdTF2'] = $game['qtdTF2'];
         }
 
-
         // Calcula as fórmulas
         $resultFirstFormulas = $this->calculateFirstFormulas([$updatedGame]);
         $data = $resultFirstFormulas['games'];
         $somatorioIncomes = $resultFirstFormulas['somatorioIncomes'];
-        $data = $this->calculateFormulas($data[0], $somatorioIncomes);
-
+        $data = $this->calculateFormulas($data[0], $somatorioIncomes, true);
+        $data['plataformaIdentificada'] = $this->identifyPlatform($data['chaveRecebida']);
 
 
         // Lógica para fornecedores
@@ -270,9 +269,6 @@ class VendaChaveTrocaController extends Controller
         ])->first();
 
         return $this->response(200, 'Jogo atualizado com sucesso', $game);
-
-        // return $this->response(200, 'Jogo atualizado com sucesso', $game);
-
     }
 
     /**
@@ -315,7 +311,7 @@ class VendaChaveTrocaController extends Controller
     // Funções auxiliares
 
     private function editarFornecedor($data, $game): mixed
-    { // data = enviado; game = cadastrado
+    { // data = jogo enviado; game = jogo cadastrado
         $fornecedorCadastrado = Fornecedor::select('*')->where('perfilOrigem', $game['perfilOrigem'])->first();
         $fornecedorEnviado = Fornecedor::select('*')->where('perfilOrigem', $data['perfilOrigem'])->first();
         if (!$fornecedorEnviado) { // Se não existe o fornecedor enviado, cria
@@ -335,7 +331,9 @@ class VendaChaveTrocaController extends Controller
                     $fornecedorEnviado->where('id', $fornecedorEnviado['id'])->update(['quantidade_reclamacoes' => $fornecedorEnviado->quantidade_reclamacoes + 1]);
                 }
             } else { // Se for o mesmo, verifica se mudou de true para false e retira um
-                if ($data['tipo_reclamacao_id'] != 1 && $game->tipoReclamacao->id == 1) { // NÃO tinha reclamação e agora tem
+                if ($data['tipo_reclamacao_id'] != 1 && $game->tipoReclamacao->id != 1) { // Tinha reclamação e continua tendo reclamação
+                    return $data;
+                } else if ($data['tipo_reclamacao_id'] != 1 && $game->tipoReclamacao->id == 1) { // NÃO tinha reclamação e agora tem
                     // return $fornecedorEnviado['quantidade_reclamacoes'];
                     $fornecedorEnviado->where('id', $fornecedorEnviado['id'])->update(['quantidade_reclamacoes' => $fornecedorEnviado->quantidade_reclamacoes + 1]);
                 } else { // Tinha reclamação e agora não tem
@@ -382,17 +380,18 @@ class VendaChaveTrocaController extends Controller
         return ['games' => $games, 'somatorioIncomes' => $somatorioIncomes];
     }
 
-    private function calculateFormulas($game, $somatorioIncomes)
+    private function calculateFormulas($game, $somatorioIncomes, $isEdit = false)
     {
-
-        $game['valorPagoIndividual'] = $this->formulas->calcValorPagoIndividual($game['qtdTF2'], $somatorioIncomes, $game['incomeSimulado']); // CONFERIR incomeSimulado primeiroIncome
+        if (!$isEdit) { // Não pode alterar quando for editar, se não vai calcular errado o somatório dos incomes
+            $game['valorPagoIndividual'] = $this->formulas->calcValorPagoIndividual($game['qtdTF2'], $somatorioIncomes, $game['incomeSimulado']);
+        }
 
         $game['lucroRS'] = $this->formulas->calcLucroReal($game['incomeSimulado'], $game['valorPagoIndividual']);
 
         $game['lucroPercentual'] = $this->formulas->calcLucroPercentual($game['lucroRS'], $game['valorPagoIndividual']);
-        
+
         $game['lucroVendaRS'] = $this->formulas->calcLucroVendaReal($game['valorVendido'], $game['valorPagoIndividual']);
-        
+
         $game['lucroVendaPercentual'] = $this->formulas->calcLucroVendaPercentual($game['lucroVendaRS'], $game['valorPagoIndividual']);
 
         $game['randomClassificationG2A'] = $this->formulas->classificacaoRandomG2A($game['precoJogo'], $game['notaMetacritic']);
@@ -402,7 +401,7 @@ class VendaChaveTrocaController extends Controller
         return $game;
     }
 
-    private function identifyPlatform($chaveRecebida)
+    private function identifyPlatform($chaveRecebida) // Função para identificar a plataforma do jogo
     {
         // Definição de padrões usando expressões regulares para identificar as plataformas
         $patterns = [

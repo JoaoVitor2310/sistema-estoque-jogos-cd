@@ -38,7 +38,7 @@ class Formulas
         // Itera sobre as faixas para encontrar a correspondente ao preço do cliente
         foreach ($faixas as $faixa) {
             if ($precoCliente >= $faixa->minimo && $precoCliente <= $faixa->maximo) {
-                return round($precoCliente / (1 + $faixa->taxa), 2);
+                return number_format($precoCliente / (1 + $faixa->taxa), 2);
             }
         }
 
@@ -46,7 +46,7 @@ class Formulas
         return $precoCliente;
     }
 
-    public function calcIncomeReal($idFormato, $idPlataforma, $precoCliente, $precoVenda, $leiloes, $quantidade)
+    public function calcIncomeReal($idFormato, $idPlataforma, $precoCliente, $precoVenda, $leiloes, $quantidade) // iGUAL AO SIMULADO, MAS É PARA G2A
     {
         $resultado = 0;
 
@@ -66,7 +66,7 @@ class Formulas
             $resultado = $precoCliente; // Valor padrão caso nenhuma condição seja atendida
         }
 
-        return round($resultado, 2);
+        return number_format($resultado, 2);
     }
 
     public function calcIncomeSimulado($idFormato, $idPlataforma, $precoCliente, $precoVenda)
@@ -87,7 +87,7 @@ class Formulas
             $resultado = $precoVenda + (-0.1228071 * $precoVenda) - 0.306;
         }
 
-        return round($resultado, 2);
+        return number_format($resultado, 2);
     }
 
     public function calcValorPagoIndividual($qtdTF2, $somatorioIncomes, $primeiroIncome)
@@ -100,14 +100,14 @@ class Formulas
             return 0;
         }
 
-        return $qtdTF2 * $valorChaveEUR / $somatorioIncomes * $primeiroIncome;
+        return number_format($qtdTF2 * $valorChaveEUR / $somatorioIncomes * $primeiroIncome, 2);
         // return $valorChaveEUR;
     }
 
     function calcLucroReal($incomeSimulado, $valorPagoIndividual)
     {
         if (!empty($incomeSimulado)) {
-            return round($incomeSimulado - $valorPagoIndividual, 2);
+            return number_format($incomeSimulado - $valorPagoIndividual, 2);
         } else {
             return 0;
         }
@@ -117,7 +117,7 @@ class Formulas
     {
         // Verifica se lucroRS não está vazio ou nulo
         if (!empty($lucroRS) && $valorPagoIndividual > 0) {
-            return round(($lucroRS / $valorPagoIndividual) * 100, 2);
+            return number_format(($lucroRS / $valorPagoIndividual) * 100, 2);
         } else {
             return 0;
         }
@@ -126,7 +126,7 @@ class Formulas
     function calcLucroVendaReal($valorVendido, $valorPagoIndividual)
     {
         if (!empty($valorVendido)) {
-            return round($valorVendido - $valorPagoIndividual, 2);
+            return number_format($valorVendido - $valorPagoIndividual, 2);
         } else {
             return 0;
         }
@@ -135,15 +135,12 @@ class Formulas
     function calcLucroVendaPercentual($lucroVendaRS, $valorPagoIndividual)
     {
         if (!empty($lucroVendaRS) && $valorPagoIndividual > 0) {
-            return round(($lucroVendaRS / $valorPagoIndividual) * 100, 2);
+            return number_format(($lucroVendaRS / $valorPagoIndividual) * 100, 2);
         } else {
             return 0;
         }
     }
 
-    // public function calcularLucroPercentual($lucroRS, $valorPagoIndividual){
-    //     return  $lucroRS /$valorPagoIndividual;
-    // }
     public function classificacaoRandomG2A($precoJogo, $nota = 1)
     {
         if ($precoJogo >= 39.99 && $nota >= 80) {

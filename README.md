@@ -23,7 +23,7 @@ Imagine o seguinte cenário: você possui mais de 2000 jogos em estoque e precis
 Desenvolver um sistema web no qual o usuário insere apenas as informações essenciais, e o sistema realiza automaticamente todos os cálculos, incluindo taxas e lucros, de forma rápida e precisa.
 
 ### Benefícios
-Esse sistema mantém os preços dos jogos sempre competitivos e atualizados, respeitando as regras do marketplace. Ele identifica preços muito baixos e monitora a concorrência que também usa automação de preços. Com isso, o vendedor reduz o trabalho manual e potencializa os lucros, mantendo seus produtos com os preços mais competitivos.
+Esse sistema mantém os preços dos jogos sempre competitivos e atualizados, respeitando as regras do marketplace. Ele identifica preços muito baixos e monitora a concorrência que também usa automação de preços. Com isso, o vendedor reduz o trabalho manual e potencializa os lucros, mantendo seus produtos com os preços mais competitivos. Além disso, esses dados serão de suma importância para automações futuras.
 
 ---
 

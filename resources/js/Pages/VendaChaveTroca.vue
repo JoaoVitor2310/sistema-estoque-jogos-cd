@@ -159,6 +159,7 @@ const onEdit = async (selected: any) => {
   }
   try {
     const res = await axiosInstance.put(`/venda-chave-troca/${product.id}`, product);
+    // console.log(res.data);
     showResponse(res, toast.add);
 
     if (res.status === 200) {
@@ -375,6 +376,7 @@ const addOrRemove = (add: boolean) => {
       :style="{ width: '80rem', paddingBottom: '5rem' }" maximizable>
       <span class="d-block mb-3" v-if="!isEdit">Insira os dados para criar.</span>
       <span class="d-block mb-3" v-if="isEdit">Edite os dados.</span>
+      <span class="d-block mb-3"><strong>Dica:</strong> Utilize "shift + scroll" para navegar horizontalmente.</span>
 
       <Button class="flex-auto mb-3 me-2" v-if="!isEdit" @click="addOrRemove(true)" label="Adicionar jogo"
         icon="pi pi-plus" />
@@ -423,7 +425,7 @@ const addOrRemove = (add: boolean) => {
           </div>
         </div>
         <div class="d-flex flex-column">
-          <label class="fw-bold">Preço do Jogo*</label>
+          <label class="fw-bold">Preço Steam*</label>
           <div class="d-flex gap-5 mb-3">
             <InputNumber class="flex-auto" v-model="item.precoJogo" mode="decimal" showButtons :minFractionDigits="2"
               :maxFractionDigits="2" useGrouping />
@@ -485,7 +487,7 @@ const addOrRemove = (add: boolean) => {
               :maxFractionDigits="2" :min="0" useGrouping />
           </div>
         </div>
-        <div class="d-flex flex-column">
+        <div v-if="!isEdit" class="d-flex flex-column">
           <label class="fw-bold">Quantidade de TF2*</label>
           <div class="d-flex gap-5 mb-3">
             <InputNumber class="flex-auto" v-model="item.qtdTF2" mode="decimal" showButtons :minFractionDigits="2"
@@ -621,7 +623,7 @@ const addOrRemove = (add: boolean) => {
         <Column field="tipo_reclamacao.name" header="Reclamação?" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
-            <MultiSelect v-model="searchFilter.tipo_reclamacao_id" :options="props.tiposReclamacao" optionLabel="name"
+            <MultiSelect placeholder="Pesquisar" v-model="searchFilter.tipo_reclamacao_id" :options="props.tiposReclamacao" optionLabel="name"
               optionValue="id" style="min-width: 14rem">
             </MultiSelect>
           </template>
@@ -642,7 +644,7 @@ const addOrRemove = (add: boolean) => {
         <Column field="tipo_formato.name" header="Formato" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
-            <MultiSelect v-model="searchFilter.tipo_formato_id" :options="props.tiposFormato" optionLabel="name"
+            <MultiSelect v-model="searchFilter.tipo_formato_id" placeholder="Pesquisar" :options="props.tiposFormato" optionLabel="name"
               optionValue="id" style="min-width: 14rem">
             </MultiSelect>
           </template>
@@ -681,25 +683,25 @@ const addOrRemove = (add: boolean) => {
             <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
           </template>
         </Column>
-        <Column field="precoJogo" header="Preço do jogo" sortable class="text-center p-0">
+        <Column field="precoJogo" header="Preço Steam" sortable class="text-center p-0">
           <template #body="slotProps">
-            € {{ slotProps.data.precoJogo }}
+            <span v-if="slotProps.data.precoJogo"> € {{ slotProps.data.precoJogo }} </span> 
           </template>
           <template #editor="{ data, field }">
-            <InputNumber v-model="data[field]" @change="onEdit(data)" mode="decimal" :minFractionDigits="2"
+            <InputNumber v-model="data[field]" @update:modelValue="onEdit(data)" mode="decimal" :minFractionDigits="2"
               :maxFractionDigits="2" useGrouping autofocus fluid />
           </template>
         </Column>
         <Column field="notaMetacritic" header="Nota Metacritic" sortable class="text-center p-0">
           <template #editor="{ data, field }">
-            <InputNumber v-model="data[field]" @change="onEdit(data)" mode="decimal" :max="100" useGrouping autofocus
+            <InputNumber v-model="data[field]" @update:modelValue="onEdit(data)" mode="decimal" :max="100" useGrouping autofocus
               fluid />
           </template>
         </Column>
         <Column field="isSteam" header="É Steam?" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
-            <MultiSelect v-model="searchFilter.isSteam" :options="[{ name: true }, { name: false }]" optionLabel="name"
+            <MultiSelect v-model="searchFilter.isSteam" :options="[{ name: true }, { name: false }]" placeholder="Pesquisar" optionLabel="name"
               optionValue="name" style="min-width: 14rem">
             </MultiSelect>
           </template>
@@ -787,7 +789,7 @@ const addOrRemove = (add: boolean) => {
         <Column field="plataforma.name" header="Plataforma" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
-            <MultiSelect v-model="searchFilter.id_plataforma" :options="props.plataformas" optionLabel="name"
+            <MultiSelect v-model="searchFilter.id_plataforma" :options="props.plataformas" placeholder="Pesquisar" optionLabel="name"
               optionValue="id" style="min-width: 14rem">
             </MultiSelect>
           </template>
@@ -801,7 +803,7 @@ const addOrRemove = (add: boolean) => {
             € {{ slotProps.data.precoCliente }}
           </template>
           <template #editor="{ data, field }">
-            <InputNumber v-model="data[field]" @change="onEdit(data)" mode="decimal" :minFractionDigits="2"
+            <InputNumber v-model="data[field]" @update:modelValue="onEdit(data)" mode="decimal" :minFractionDigits="2"
               :maxFractionDigits="2" useGrouping autofocus fluid />
           </template>
         </Column>
@@ -846,7 +848,7 @@ const addOrRemove = (add: boolean) => {
         <Column field="vendido" header="Vendido" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
-            <MultiSelect v-model="searchFilter.vendido" :options="[{ name: true }, { name: false }]" optionLabel="name"
+            <MultiSelect v-model="searchFilter.vendido" :options="[{ name: true }, { name: false }]" placeholder="Pesquisar" optionLabel="name"
               optionValue="name" style="min-width: 14rem">
             </MultiSelect>
           </template>
@@ -866,20 +868,20 @@ const addOrRemove = (add: boolean) => {
         </Column>
         <Column field="leiloes" header="Leilões" sortable class="text-center p-0">
           <template #editor="{ data, field }">
-            <InputNumber v-model="data[field]" @change="onEdit(data)" mode="decimal" :min="0" useGrouping autofocus
+            <InputNumber v-model="data[field]" @update:modelValue="onEdit(data)" mode="decimal" :min="0" useGrouping autofocus
               fluid />
           </template>
         </Column>
         <Column field="quantidade" header="Quantidade" sortable class="text-center p-0">
           <template #editor="{ data, field }">
-            <InputNumber v-model="data[field]" @change="onEdit(data)" mode="decimal" :min="0" useGrouping autofocus
+            <InputNumber v-model="data[field]" @update:modelValue="onEdit(data)" mode="decimal" :min="0" useGrouping autofocus
               fluid />
           </template>
         </Column>
         <Column field="devolucoes" header="Devoluções" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
-            <MultiSelect v-model="searchFilter.devolucoes" :options="[{ name: true }, { name: false }]"
+            <MultiSelect v-model="searchFilter.devolucoes" :options="[{ name: true }, { name: false }]" placeholder="Pesquisar"
               optionLabel="name" optionValue="name" style="min-width: 14rem">
             </MultiSelect>
           </template>
@@ -911,12 +913,12 @@ const addOrRemove = (add: boolean) => {
         </Column>
         <Column field="valorVendido" header="Valor Vendido" sortable class="text-center p-0">
           <template #body="slotProps">
-            € {{ slotProps.data.valorVendido }}
+            <span v-if="slotProps.data.valorVendido">€ {{ slotProps.data.valorVendido }}</span>
           </template>
         </Column>
         <Column field="lucroVendaRS" header="Lucro Venda(€)" sortable class="text-center p-0">
           <template #body="slotProps">
-            € {{ slotProps.data.lucroVendaRS }}
+           <span v-if="slotProps.data.valorVendido">€ {{ slotProps.data.valorVendido }}</span>
           </template>
         </Column>
         <Column field="lucroVendaPercentual" header="Lucro Venda(%)" sortable class="text-center p-0">
@@ -936,7 +938,7 @@ const addOrRemove = (add: boolean) => {
             {{ formatDateToBR(slotProps.data.dataAdquirida) }}
           </template>
           <template #editor="{ data, field }">
-            <DatePicker v-model="data[field]" @change="onEdit(data)" dateFormat="dd/mm/yy" showIcon fluid
+            <DatePicker v-model="data[field]" @update:modelValue="onEdit(data)" dateFormat="dd/mm/yy" showIcon fluid
               :showOnFocus="false" showButtonBar />
           </template>
         </Column>
@@ -950,7 +952,7 @@ const addOrRemove = (add: boolean) => {
             {{ formatDateToBR(slotProps.data.dataVenda) }}
           </template>
           <template #editor="{ data, field }">
-            <DatePicker v-model="data[field]" @change="onEdit(data)" dateFormat="dd/mm/yy" showIcon fluid
+            <DatePicker v-model="data[field]" @update:modelValue="onEdit(data)" dateFormat="dd/mm/yy" showIcon fluid
               :showOnFocus="false" showButtonBar />
           </template>
         </Column>
@@ -964,7 +966,7 @@ const addOrRemove = (add: boolean) => {
             {{ formatDateToBR(slotProps.data.dataVendida) }}
           </template>
           <template #editor="{ data, field }">
-            <DatePicker v-model="data[field]" @change="onEdit(data)" dateFormat="dd/mm/yy" showIcon fluid
+            <DatePicker v-model="data[field]" @update:modelValue="onEdit(data)" dateFormat="dd/mm/yy" showIcon fluid
               :showOnFocus="false" showButtonBar />
           </template>
         </Column>

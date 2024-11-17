@@ -63,7 +63,7 @@ return new class extends Migration
             $table->boolean('devolucoes')->nullable();
             $table->decimal('lucroRS', total: 8, places: 2)->default(0);
             $table->decimal('lucroPercentual', total: 8, places: 2)->default(0);
-            $table->decimal('valorVendido', total: 8, places: 2)->default(0);
+            $table->decimal('valorVendido', total: 8, places: 2)->default(0)->nullable();
             $table->decimal('lucroVendaRS', total: 8, places: 2)->default(0);
             $table->decimal('lucroVendaPercentual', total: 8, places: 2)->default(0);
             $table->date('dataAdquirida')->nullable();
