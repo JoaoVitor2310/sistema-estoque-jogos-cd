@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\ProfileController;
+use Illuminate\Foundation\Application;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AuthorizedUsersController;
 use App\Http\Controllers\TaxaController;
@@ -36,8 +38,10 @@ Route::get('/login', function () {
 // API
 
 Route::prefix('auth')->group(function () { // Logar
+    // Google
     Route::get('/redirect', [AuthController::class, 'redirectToGoogle'])->name('auth.google.redirect');
     Route::get('/google/callback', [AuthController::class, 'handleGoogleCallback'])->name('auth.google.callback');
+    // As rotas de autenticação do Breeze estão no arquivo ./auth.php
     Route::post('/logout', [AuthController::class, 'logout'])->name('auth.logout');
     Route::get('/logged', [AuthController::class, 'logged'])->name('auth.logged');
 });
@@ -90,3 +94,26 @@ Route::prefix('authorize') // Gerenciar quem tem acesso
         Route::delete('/{id}', 'destroy')->name('authorize.destroy');
         Route::delete('/', 'destroyArray')->name('authorize.destroyArray');
     });
+
+//Breeze
+
+// Route::get('/', function () {
+//     return Inertia::render('Welcome', [
+//         'canLogin' => Route::has('login'),
+//         'canRegister' => Route::has('register'),
+//         'laravelVersion' => Application::VERSION,
+//         'phpVersion' => PHP_VERSION,
+//     ]);
+// });
+
+Route::get('/dashboard', function () {
+    return Inertia::render('Dashboard');
+})->middleware(['auth', 'verified'])->name('dashboard');
+
+Route::middleware('auth')->group(function () {
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+});
+
+require __DIR__ . '/auth.php';

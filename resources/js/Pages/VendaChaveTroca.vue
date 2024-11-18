@@ -189,7 +189,7 @@ const handleAddButton = async (): Promise<void> => { // Mostra o dialog com o el
 const onAdd = async (): Promise<void> => { // Faz a req pra api add o elemento
   try {
     const res = await axiosInstance.post(`/venda-chave-troca`, { games: selected });
-    // console.log(res.data);
+    // console.log(res.data.data);
     showResponse(res, toast.add);
     if (res.status === 200 || res.status === 201) {
       DialogVisible.value = false;

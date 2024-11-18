@@ -219,8 +219,15 @@ class VendaChaveTrocaController extends Controller
             }
         }
 
-        return $this->response(201, 'Jogos cadastrados com sucesso', $fullGames);
+        $hasUnidentified = array_filter($fullGames, function ($game) {
+            return isset($game['plataformaIdentificada']) && $game['plataformaIdentificada'] === "DESCONHECIDO";
+        });
 
+        if(!empty($hasUnidentified)){
+            return $this->response(201, 'Jogos cadastrados com sucesso, mas tem pelo menos um com a plataforma não identificada.', $fullGames);
+        }
+
+        return $this->response(201, 'Jogos cadastrados com sucesso', $fullGames);
     }
 
     /**
@@ -249,9 +256,7 @@ class VendaChaveTrocaController extends Controller
 
 
         // Lógica para fornecedores
-        // return $this->error(500, 'debug', [$game['tipo_reclamacao']]);
         $data = $this->editarFornecedor($data, $game);
-        // return response()->json($data);
 
         $result = Venda_chave_troca::where('id', $id)->update($data);
 
@@ -267,6 +272,10 @@ class VendaChaveTrocaController extends Controller
             'leilaoKinguin',
             'plataforma'
         ])->first();
+
+        if($game['plataformaIdentificada'] === 'DESCONHECIDO'){
+            return $this->response(200, 'Jogo atualizado, mas a plataforma não foi identificada.', $game);
+        };
 
         return $this->response(200, 'Jogo atualizado com sucesso', $game);
     }

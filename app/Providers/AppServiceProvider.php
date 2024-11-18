@@ -1,10 +1,10 @@
 <?php
 
 namespace App\Providers;
-
 use App\Models\AuthorizedUsers;
 use App\Models\User;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -31,5 +31,6 @@ class AppServiceProvider extends ServiceProvider
 
             return $authorizedUser && $authorizedUser->status === true;
         });
+        // Vite::prefetch(concurrency: 3);
     }
 }

@@ -27,6 +27,6 @@ class DatabaseSeeder extends Seeder
             VendaChaveTrocaSeeder::class,
         ]);
 
-        Venda_chave_troca::factory(20000)->create();
+        Venda_chave_troca::factory(10)->create();
     }
 }

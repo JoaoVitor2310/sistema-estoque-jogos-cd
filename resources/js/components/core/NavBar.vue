@@ -71,10 +71,9 @@ const handleLogout = async () => {
               aria-expanded="false">
               Olá, {{ user.name }}!
             </a>
-            <ul class="dropdown-menu" aria-labelledby="userDropdown">
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
               <a href="#" class="dropdown-item px-3 w-auto" @click.prevent="handleLogout">
                 <li class="d-flex justify-content-center align-items-center gap-3 text-center">
-                  <!-- <Link class="nav-link" :href="route('auth.logout')">Logout</Link> -->
                   <i class="pi pi-user"></i>
                   Logout
                 </li>
