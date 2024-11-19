@@ -364,9 +364,16 @@ const getChaveRecebidaStyle = (data: GameLine) => {
   return {};
 };
 
-const getLucroPercentualStyle = (data: GameLine) => {
-  const lucroPercentual = data.lucroPercentual ?? null;
-  if (lucroPercentual === null) return {};
+const getStyleByPercentual = (data: GameLine, field: keyof GameLine) => {
+  const value = data[field];
+
+  // Verifica se o valor é um número ou uma string que pode ser convertida para número
+  const percentual = typeof value === 'number' ? value : parseFloat(value as string);
+
+  // Se não for um número válido ou for 0, retorna estilo vazio
+  if (isNaN(percentual) || percentual === 0) {
+    return {};
+  }
 
   const ranges = [
     { min: -Infinity, max: 0, backgroundColor: '#ff0000', color: '#ffffff' }, // Vermelho para valores abaixo de 0
@@ -375,7 +382,7 @@ const getLucroPercentualStyle = (data: GameLine) => {
     { min: 80, max: Infinity, backgroundColor: '#008000', color: '#ffffff' }, // Verde acima de 80
   ];
 
-  const style = ranges.find(range => lucroPercentual >= range.min && lucroPercentual <= range.max);
+  const style = ranges.find(range => percentual > range.min && percentual <= range.max);
   return style ? { backgroundColor: style.backgroundColor, color: style.color } : {};
 };
 
@@ -434,37 +441,31 @@ const addOrRemove = (add: boolean) => {
           </div>
         </div> -->
         <div class="d-flex flex-column">
-          <label class="fw-bold">IdGamivo</label>
-          <div class="d-flex gap-5 mb-3">
-            <InputText class="flex-auto" v-model="item.idGamivo" />
-          </div>
-        </div>
-        <div class="d-flex flex-column">
           <label class="fw-bold">Formato</label>
           <div class="d-flex gap-5 mb-3">
             <Select v-model="item.tipo_formato_id" :options="props.tiposFormato" optionValue="id" optionLabel="name"
               placeholder="Formato do Jogo" class="w-full md:w-56" />
+            </div>
           </div>
-        </div>
-        <div class="d-flex flex-column">
-          <label class="fw-bold">Chave Recebida*</label>
-          <div class="d-flex gap-5 mb-3">
-            <InputText class="flex-auto" v-model="item.chaveRecebida" />
+          <div class="d-flex flex-column">
+            <label class="fw-bold">Chave Recebida*</label>
+            <div class="d-flex gap-5 mb-3">
+              <InputText class="flex-auto" v-model="item.chaveRecebida" />
+            </div>
           </div>
-        </div>
-        <div class="d-flex flex-column">
-          <label class="fw-bold">Nome do jogo*</label>
-          <div class="d-flex gap-5 mb-3">
-            <InputText class="flex-auto" v-model="item.nomeJogo" />
+          <div class="d-flex flex-column">
+            <label class="fw-bold">Nome do jogo*</label>
+            <div class="d-flex gap-5 mb-3">
+              <InputText class="flex-auto" v-model="item.nomeJogo" />
+            </div>
           </div>
-        </div>
-        <div class="d-flex flex-column">
-          <label class="fw-bold">Preço Steam*</label>
-          <div class="d-flex gap-5 mb-3">
-            <InputNumber class="flex-auto" v-model="item.precoJogo" mode="decimal" showButtons :minFractionDigits="2"
+          <!-- <div class="d-flex flex-column">
+            <label class="fw-bold">Preço Steam*</label>
+            <div class="d-flex gap-5 mb-3">
+              <InputNumber class="flex-auto" v-model="item.precoJogo" mode="decimal" showButtons :minFractionDigits="2"
               :maxFractionDigits="2" useGrouping />
-          </div>
-        </div>
+            </div>
+          </div> -->
         <!-- <div class="d-flex flex-column">
           <label class="fw-bold">Nota Metacritic</label>
           <div class="d-flex gap-5 mb-3">
@@ -490,28 +491,34 @@ const addOrRemove = (add: boolean) => {
           <label class="fw-bold text-nowrap">Leilão G2A</label>
           <div class="d-flex gap-5 mb-3">
             <Select v-model="item.id_leilao_g2a" :options="props.tiposLeilao" optionLabel="name" optionValue="id"
-              class="w-full md:w-56" />
+            class="w-full md:w-56" />
           </div>
         </div>
         <div class="d-flex flex-column">
           <label class="fw-bold text-nowrap">Leilão Gamivo</label>
           <div class="d-flex gap-5 mb-3">
             <Select v-model="item.id_leilao_gamivo" :options="props.tiposLeilao" optionLabel="name" optionValue="id"
-              class="w-full" />
+            class="w-full" />
           </div>
         </div>
         <div class="d-flex flex-column">
           <label class="fw-bold text-nowrap">Leilão Kinguin</label>
           <div class="d-flex gap-5 mb-3">
             <Select v-model="item.id_leilao_kinguin" :options="props.tiposLeilao" optionLabel="name" optionValue="id"
-              class="w-full md:w-56" />
+            class="w-full md:w-56" />
           </div>
         </div> -->
         <div class="d-flex flex-column">
           <label class="fw-bold">Plataforma</label>
           <div class="d-flex gap-5 mb-3">
             <Select v-model="item.id_plataforma" :options="props.plataformas" optionLabel="name" optionValue="id"
-              class="w-full md:w-56" />
+            class="w-full md:w-56" />
+          </div>
+        </div>
+        <div class="d-flex flex-column">
+          <label class="fw-bold">Id Gamivo</label>
+          <div class="d-flex gap-5 mb-3">
+            <InputText class="flex-auto" v-model="item.idGamivo" />
           </div>
         </div>
         <div class="d-flex flex-column">
@@ -757,7 +764,7 @@ const addOrRemove = (add: boolean) => {
               @change="onEdit(data)" optionLabel="label" optionValue="value" />
           </template>
         </Column> -->
-        <Column field="idGamivo" header="ID GAMIVO" filterField="searchField"
+        <Column field="idGamivo" header="Id Gamivo" filterField="searchField"
           :showFilterMenu="true" :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false"
           class="text-center p-0">
           <template #filter>
@@ -963,7 +970,7 @@ const addOrRemove = (add: boolean) => {
         </Column>
         <Column field="lucroPercentual" header="Lucro Compra(%)" sortable class="text-center p-0">
           <template #body="slotProps">
-            <div :style="getLucroPercentualStyle(slotProps.data)" style="width: 100%; height: 100%;">
+            <div :style="getStyleByPercentual(slotProps.data, 'lucroPercentual')" style="width: 100%; height: 100%;">
               {{ slotProps.data.lucroPercentual }}%
             </div>
           </template>
@@ -980,7 +987,7 @@ const addOrRemove = (add: boolean) => {
         </Column>
         <Column field="lucroVendaPercentual" header="Lucro Venda(%)" sortable class="text-center p-0">
           <template #body="slotProps">
-            <div :style="getLucroPercentualStyle(slotProps.data)" style="width: 100%; height: 100%;">
+            <div :style="getStyleByPercentual(slotProps.data, 'lucroVendaPercentual')" style="width: 100%; height: 100%;">
               {{ slotProps.data.lucroVendaPercentual }}%
             </div>
           </template>

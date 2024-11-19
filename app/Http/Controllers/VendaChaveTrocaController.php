@@ -222,7 +222,7 @@ class VendaChaveTrocaController extends Controller
             return isset($game['plataformaIdentificada']) && $game['plataformaIdentificada'] === "DESCONHECIDO";
         });
 
-        if(!empty($hasUnidentified)){
+        if (!empty($hasUnidentified)) {
             return $this->response(201, 'Jogos cadastrados com sucesso, mas tem pelo menos um com a plataforma não identificada.', $fullGames);
         }
 
@@ -257,7 +257,12 @@ class VendaChaveTrocaController extends Controller
         // Lógica para fornecedores
         $data = $this->editarFornecedor($data, $game);
 
-        $result = Venda_chave_troca::where('id', $id)->update($data);
+        // Lógica para checar se o jogo é repetido
+        $repeatedGame = Venda_chave_troca::select('*')->where('chaveRecebida', $data['chaveRecebida'])->whereNot('id', $game['id'])->first();
+
+        $data['repetido'] = $repeatedGame !== null? true : false;
+
+        $result = Venda_chave_troca::where('id', $id)->update($data); // Atualiza
 
         if (!$result)
             return $this->error(500, 'Erro interno ao atualizar jogo');
@@ -272,9 +277,10 @@ class VendaChaveTrocaController extends Controller
             'plataforma'
         ])->first();
 
-        if($game['plataformaIdentificada'] === 'DESCONHECIDO'){
+        if ($game['plataformaIdentificada'] === 'DESCONHECIDO') {
             return $this->response(200, 'Jogo atualizado, mas a plataforma não foi identificada.', $game);
-        };
+        }
+        ;
 
         return $this->response(200, 'Jogo atualizado com sucesso', $game);
     }
@@ -315,7 +321,7 @@ class VendaChaveTrocaController extends Controller
 
         return $this->response(200, 'Jogos deletados com sucesso', $games);
     }
-    
+
     public function whenToSell(Request $request)
     {
         $gamesToList = Venda_chave_troca::select(['idGamivo', 'minimoParaVenda', 'chaveRecebida', 'nomeJogo'])->whereNotNull('idGamivo')->whereNotNull('minimoParaVenda')->get();
