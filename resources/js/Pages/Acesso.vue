@@ -159,7 +159,7 @@ const handleDeleteButton = (event: any, qtd: number) => {
 <template>
   <Toast position="bottom-right" />
   <ConfirmPopup />
-  <Dialog v-model:visible="DialogVisible" modal :header="isEdit ? 'Editar' : 'Criar'" :style="{ width: '50rem' }">
+  <Dialog v-model:visible="DialogVisible" modal :header="isEdit ? 'Editar' : 'Criar'" :style="{ width: '90%' }">
     <span class=" d-block mb-3" v-if="!isEdit">Insira os dados para criar.</span>
     <span class=" d-block mb-3" v-if="isEdit">Edite os dados.</span>
     <div class="d-flex flex-row gap-2">
@@ -176,7 +176,7 @@ const handleDeleteButton = (event: any, qtd: number) => {
         </div>
       </div>
       <div class="d-flex flex-column">
-        <label class="fw-bold">Devoluções</label>
+        <label class="fw-bold">Status</label>
         <div class="d-flex gap-2 mb-3">
           <label>Ativo</label>
           <RadioButton v-model="selected.status" :value="true" />

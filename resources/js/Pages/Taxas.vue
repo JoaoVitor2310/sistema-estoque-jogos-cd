@@ -145,7 +145,7 @@ const handleDeleteButton = (event: any, qtd: number) => {
   <!-- {{ selected }} -->
   <Toast position="bottom-right" />
   <ConfirmPopup />
-  <Dialog v-model:visible="DialogVisible" modal :header="isEdit ? 'Editar' : 'Criar'" :style="{ width: '50rem' }">
+  <Dialog v-model:visible="DialogVisible" modal :header="isEdit ? 'Editar' : 'Criar'" :style="{ width: '90%' }">
     <span class=" d-block mb-3" v-if="!isEdit">Insira os dados para criar.</span>
     <span class=" d-block mb-3" v-if="!isEdit">Edite os dados.</span>
     <div class="d-flex items-center gap-4 mb-2">

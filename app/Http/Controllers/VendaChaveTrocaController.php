@@ -171,7 +171,6 @@ class VendaChaveTrocaController extends Controller
     {
         $data = $request->validated();
 
-
         $resultFirstFormulas = $this->calculateFirstFormulas($data['games']);
 
         $data['games'] = $resultFirstFormulas['games'];
@@ -315,6 +314,15 @@ class VendaChaveTrocaController extends Controller
         }
 
         return $this->response(200, 'Jogos deletados com sucesso', $games);
+    }
+    
+    public function whenToSell(Request $request)
+    {
+        $gamesToList = Venda_chave_troca::select(['idGamivo', 'minimoParaVenda', 'chaveRecebida', 'nomeJogo'])->whereNotNull('idGamivo')->whereNotNull('minimoParaVenda')->get();
+
+        is_object($gamesToList) ? $gamesToList = $gamesToList->toArray() : $gamesToList; // Garante que sempre será um array, mesmo que tenha só um elemento
+
+        return $this->response(200, 'Jogos para listar encontrados com sucesso', $gamesToList);
     }
 
     // Funções auxiliares

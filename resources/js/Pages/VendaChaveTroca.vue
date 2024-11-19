@@ -95,6 +95,7 @@ const selectedNewObject = {
   color: '',
   tipo_reclamacao_id: 1,
   steamId: '',
+  idGamivo: '',
   tipo_formato_id: 1,
   chaveRecebida: '',
   repetido: false,
@@ -108,6 +109,7 @@ const selectedNewObject = {
   id_leilao_kinguin: 1,
   id_plataforma: 3,
   precoCliente: null,
+  minimoParaVenda: null,
   chaveEntregue: '',
   valorPagoTotal: '',
   valorPagoIndividual: null,
@@ -188,8 +190,9 @@ const handleAddButton = async (): Promise<void> => { // Mostra o dialog com o el
 
 const onAdd = async (): Promise<void> => { // Faz a req pra api add o elemento
   try {
+    console.log(selected)
     const res = await axiosInstance.post(`/venda-chave-troca`, { games: selected });
-    // console.log(res.data.data);
+    console.log(res.data.data);
     showResponse(res, toast.add);
     if (res.status === 200 || res.status === 201) {
       DialogVisible.value = false;
@@ -222,23 +225,47 @@ const handleDeleteButton = (event: any, qtd: number) => {
     },
     accept: async () => {
       if (qtd === 1) {
-        const res = await axiosInstance.delete(`/venda-chave-troca/${selected[0].id}`);
-        showResponse(res, toast.add);
-        const itemToDelete = rowData.findIndex(item => item.id === selected[0].id);
-        console.log(itemToDelete);
-        rowData.splice(itemToDelete, 1);
-        DialogVisible.value = false;
-      } else {
-        const res = await axiosInstance.delete(`/venda-chave-troca`, {
-          params: {
-            games: selectedProduct.value
+        try {
+          const res = await axiosInstance.delete(`/venda-chave-troca/${selected[0].id}`);
+          showResponse(res, toast.add);
+          if (res.status === 200 || res.status === 201) {
+            const itemToDelete = rowData.findIndex(item => item.id === selected[0].id);
+            console.log(itemToDelete);
+            rowData.splice(itemToDelete, 1);
+            DialogVisible.value = false;
           }
-        });
-        showResponse(res, toast.add);
-        const selectedProductIds = selectedProduct.value.map(item => item.id);
-        const filteredRowData = rowData.filter(item => !selectedProductIds.includes(item.id));
-        rowData.splice(0, rowData.length, ...filteredRowData);
-        selectedProduct.value = null;
+        } catch (error) {
+          toast.add({
+            severity: 'error',
+            summary: 'Erro Interno, tente novamente.',
+            detail: error,
+            life: 7000
+          });
+          console.log(error);
+        }
+      } else {
+        try {
+          const res = await axiosInstance.delete(`/venda-chave-troca`, {
+            params: {
+              games: selectedProduct.value
+            }
+          });
+          showResponse(res, toast.add);
+          if (res.status === 200 || res.status === 201) {
+            const selectedProductIds = selectedProduct.value.map(item => item.id);
+            const filteredRowData = rowData.filter(item => !selectedProductIds.includes(item.id));
+            rowData.splice(0, rowData.length, ...filteredRowData);
+            selectedProduct.value = null;
+          }
+        } catch (error) {
+          toast.add({
+            severity: 'error',
+            summary: 'Erro Interno, tente novamente.',
+            detail: error,
+            life: 7000
+          });
+          console.log(error);
+        }
       }
     }
   });
@@ -256,6 +283,7 @@ const searchFilter = reactive({
   plataformaIdentificada: '',
   nomeJogo: '',
   isSteam: [],
+  idGamivo: '',
   randomClassificationG2A: '',
   randomClassificationKinguin: '',
   id_plataforma: [],
@@ -373,7 +401,7 @@ const addOrRemove = (add: boolean) => {
     <Toast position="bottom-right" />
     <ConfirmPopup />
     <Dialog v-model:visible="DialogVisible" modal :header="isEdit ? 'Editar' : 'Criar'"
-      :style="{ width: '80rem', paddingBottom: '5rem' }" maximizable>
+      :style="{ width: '90%', paddingBottom: '5rem' }" maximizable>
       <span class="d-block mb-3" v-if="!isEdit">Insira os dados para criar.</span>
       <span class="d-block mb-3" v-if="isEdit">Edite os dados.</span>
       <span class="d-block mb-3"><strong>Dica:</strong> Utilize "shift + scroll" para navegar horizontalmente.</span>
@@ -399,10 +427,16 @@ const addOrRemove = (add: boolean) => {
               optionValue="id" class="w-full md:w-56" />
           </div>
         </div>
-        <div class="d-flex flex-column">
+        <!-- <div class="d-flex flex-column">
           <label class="fw-bold">SteamID</label>
           <div class="d-flex gap-5 mb-3">
             <InputText class="flex-auto" v-model="item.steamId" />
+          </div>
+        </div> -->
+        <div class="d-flex flex-column">
+          <label class="fw-bold">IdGamivo</label>
+          <div class="d-flex gap-5 mb-3">
+            <InputText class="flex-auto" v-model="item.idGamivo" />
           </div>
         </div>
         <div class="d-flex flex-column">
@@ -431,7 +465,7 @@ const addOrRemove = (add: boolean) => {
               :maxFractionDigits="2" useGrouping />
           </div>
         </div>
-        <div class="d-flex flex-column">
+        <!-- <div class="d-flex flex-column">
           <label class="fw-bold">Nota Metacritic</label>
           <div class="d-flex gap-5 mb-3">
             <InputNumber class="flex-auto" v-model.number="item.notaMetacritic" showButtons :min="0" :max="100" />
@@ -445,14 +479,14 @@ const addOrRemove = (add: boolean) => {
             <label for="ingredient1" class="">Não</label>
             <RadioButton v-model="item.isSteam" :value="false" />
           </div>
-        </div>
+        </div> -->
         <div class="d-flex flex-column">
           <label class="fw-bold">Observação</label>
           <div class="d-flex gap-5 mb-3">
             <InputText class="flex-auto" v-model="item.observacao" />
           </div>
         </div>
-        <div class="d-flex flex-column">
+        <!-- <div class="d-flex flex-column">
           <label class="fw-bold text-nowrap">Leilão G2A</label>
           <div class="d-flex gap-5 mb-3">
             <Select v-model="item.id_leilao_g2a" :options="props.tiposLeilao" optionLabel="name" optionValue="id"
@@ -472,7 +506,7 @@ const addOrRemove = (add: boolean) => {
             <Select v-model="item.id_leilao_kinguin" :options="props.tiposLeilao" optionLabel="name" optionValue="id"
               class="w-full md:w-56" />
           </div>
-        </div>
+        </div> -->
         <div class="d-flex flex-column">
           <label class="fw-bold">Plataforma</label>
           <div class="d-flex gap-5 mb-3">
@@ -481,9 +515,16 @@ const addOrRemove = (add: boolean) => {
           </div>
         </div>
         <div class="d-flex flex-column">
-          <label class="fw-bold">Preço Cliente*</label>
+          <label class="fw-bold">Preço Plataforma*</label>
           <div class="d-flex gap-5 mb-3">
             <InputNumber class="flex-auto" v-model="item.precoCliente" mode="decimal" showButtons :minFractionDigits="2"
+              :maxFractionDigits="2" :min="0" useGrouping />
+          </div>
+        </div>
+        <div class="d-flex flex-column">
+          <label class="fw-bold">Preço Mínimo para Venda</label>
+          <div class="d-flex gap-5 mb-3">
+            <InputNumber class="flex-auto" v-model="item.minimoParaVenda" mode="decimal" showButtons :minFractionDigits="2"
               :maxFractionDigits="2" :min="0" useGrouping />
           </div>
         </div>
@@ -494,7 +535,7 @@ const addOrRemove = (add: boolean) => {
               :maxFractionDigits="2" useGrouping />
           </div>
         </div>
-        <div class="d-flex flex-column">
+        <!-- <div class="d-flex flex-column">
           <label class="fw-bold">Chave Entregue</label>
           <div class="d-flex gap-5 mb-3">
             <InputText class="flex-auto" v-model="item.chaveEntregue" />
@@ -505,18 +546,17 @@ const addOrRemove = (add: boolean) => {
           <div class="d-flex gap-5 mb-3">
             <InputText class="flex-auto" v-model="item.valorPagoTotal" />
           </div>
-        </div>
-        <div class="d-flex flex-column">
+        </div> -->
+        <!-- <div class="d-flex flex-column">
           <label class="fw-bold">Vendido</label>
           <div class="d-flex gap-2 mb-3">
-            <!-- <InputText  class="flex-auto" v-model="item.name" /> -->
             <label for="ingredient1">Sim</label>
             <RadioButton v-model="item.vendido" :value="true" />
             <label for="ingredient1">Não</label>
             <RadioButton v-model="item.vendido" :value="false" />
           </div>
-        </div>
-        <div class="d-flex flex-column">
+        </div> -->
+        <!-- <div class="d-flex flex-column">
           <label class="fw-bold">Leilões</label>
           <div class="d-flex gap-5 mb-3">
             <InputNumber class="flex-auto" v-model="item.leiloes" showButtons :min="0" />
@@ -536,7 +576,7 @@ const addOrRemove = (add: boolean) => {
             <label>Não</label>
             <RadioButton v-model="item.devolucoes" :value="false" />
           </div>
-        </div>
+        </div> -->
         <div class="d-flex flex-column">
           <label class="fw-bold">Valor Vendido</label>
           <div class="d-flex gap-5 mb-3">
@@ -552,7 +592,7 @@ const addOrRemove = (add: boolean) => {
           </div>
         </div>
         <div class="d-flex flex-column">
-          <label class="fw-bold">Data Venda</label>
+          <label class="fw-bold">Data posto a Venda</label>
           <div class="d-flex gap-5 mb-3">
             <DatePicker v-model="item.dataVenda" dateFormat="dd/mm/yy" showIcon fluid :showOnFocus="false" showButtonBar
               style="min-width: 10rem" />
@@ -618,13 +658,11 @@ const addOrRemove = (add: boolean) => {
         </template>
         <!-- <Column selectionMode="multiple" headerStyle="width: 3rem"></Column> -->
         <Column field="id" header="ID" sortable></Column>
-        <Column field="fornecedor.quantidade_reclamacoes" header="Reclamações Anteriores">
-        </Column>
         <Column field="tipo_reclamacao.name" header="Reclamação?" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
-            <MultiSelect placeholder="Pesquisar" v-model="searchFilter.tipo_reclamacao_id" :options="props.tiposReclamacao" optionLabel="name"
-              optionValue="id" style="min-width: 14rem">
+            <MultiSelect placeholder="Pesquisar" v-model="searchFilter.tipo_reclamacao_id"
+              :options="props.tiposReclamacao" optionLabel="name" optionValue="id" style="min-width: 14rem">
             </MultiSelect>
           </template>
           <template #editor="{ data, field }">
@@ -632,7 +670,7 @@ const addOrRemove = (add: boolean) => {
               optionLabel="name" optionValue="id" />
           </template>
         </Column>
-        <Column field="steamId" header="SteamID" filterField="searchField" :showFilterMenu="true"
+        <!-- <Column field="steamId" header="SteamID" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
             <InputText v-model="searchFilter.steamId" type="text" placeholder="Pesquisar" />
@@ -640,12 +678,12 @@ const addOrRemove = (add: boolean) => {
           <template #editor="{ data, field }">
             <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
           </template>
-        </Column>
+        </Column> -->
         <Column field="tipo_formato.name" header="Formato" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
-            <MultiSelect v-model="searchFilter.tipo_formato_id" placeholder="Pesquisar" :options="props.tiposFormato" optionLabel="name"
-              optionValue="id" style="min-width: 14rem">
+            <MultiSelect v-model="searchFilter.tipo_formato_id" placeholder="Pesquisar" :options="props.tiposFormato"
+              optionLabel="name" optionValue="id" style="min-width: 14rem">
             </MultiSelect>
           </template>
           <template #editor="{ data, field }">
@@ -683,26 +721,26 @@ const addOrRemove = (add: boolean) => {
             <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
           </template>
         </Column>
-        <Column field="precoJogo" header="Preço Steam" sortable class="text-center p-0">
+        <!-- <Column field="precoJogo" header="Preço Steam" sortable class="text-center p-0">
           <template #body="slotProps">
-            <span v-if="slotProps.data.precoJogo"> € {{ slotProps.data.precoJogo }} </span> 
+            <span v-if="slotProps.data.precoJogo"> € {{ slotProps.data.precoJogo }} </span>
           </template>
           <template #editor="{ data, field }">
             <InputNumber v-model="data[field]" @update:modelValue="onEdit(data)" mode="decimal" :minFractionDigits="2"
               :maxFractionDigits="2" useGrouping autofocus fluid />
           </template>
-        </Column>
-        <Column field="notaMetacritic" header="Nota Metacritic" sortable class="text-center p-0">
+        </Column> -->
+        <!-- <Column field="notaMetacritic" header="Nota Metacritic" sortable class="text-center p-0">
           <template #editor="{ data, field }">
-            <InputNumber v-model="data[field]" @update:modelValue="onEdit(data)" mode="decimal" :max="100" useGrouping autofocus
-              fluid />
+            <InputNumber v-model="data[field]" @update:modelValue="onEdit(data)" mode="decimal" :max="100" useGrouping
+              autofocus fluid />
           </template>
         </Column>
         <Column field="isSteam" header="É Steam?" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
-            <MultiSelect v-model="searchFilter.isSteam" :options="[{ name: true }, { name: false }]" placeholder="Pesquisar" optionLabel="name"
-              optionValue="name" style="min-width: 14rem">
+            <MultiSelect v-model="searchFilter.isSteam" :options="[{ name: true }, { name: false }]"
+              placeholder="Pesquisar" optionLabel="name" optionValue="name" style="min-width: 14rem">
             </MultiSelect>
           </template>
           <template #body="{ data }">
@@ -718,8 +756,18 @@ const addOrRemove = (add: boolean) => {
             <Select v-model="data.isSteam" :options="[{ label: 'Sim', value: true }, { label: 'Não', value: false }]"
               @change="onEdit(data)" optionLabel="label" optionValue="value" />
           </template>
+        </Column> -->
+        <Column field="idGamivo" header="ID GAMIVO" filterField="searchField"
+          :showFilterMenu="true" :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false"
+          class="text-center p-0">
+          <template #filter>
+            <InputText v-model="searchFilter.idGamivo" type="text" placeholder="Pesquisar" />
+          </template>
+          <template #editor="{ data, field }">
+            <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
+          </template>
         </Column>
-        <Column field="randomClassificationG2A" header="Classificação G2A" filterField="searchField"
+        <!-- <Column field="randomClassificationG2A" header="Classificação G2A" filterField="searchField"
           :showFilterMenu="true" :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false"
           class="text-center p-0">
           <template #filter>
@@ -732,13 +780,13 @@ const addOrRemove = (add: boolean) => {
           <template #filter>
             <InputText v-model="searchFilter.randomClassificationKinguin" type="text" placeholder="Pesquisar" />
           </template>
-        </Column>
+        </Column> -->
         <Column field="observacao" header="Observação" class="text-center p-0">
           <template #editor="{ data, field }">
             <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
           </template>
         </Column>
-        <Column field="leilao_g2_a.name" header="Leilão G2A" class="text-center p-0">
+        <!-- <Column field="leilao_g2_a.name" header="Leilão G2A" class="text-center p-0">
           <template #body="{ data }">
             <i class="pi m-1 fw-bold" :class="[
               data.leilao_g2_a.id === 1 ? 'pi-check-circle' :
@@ -785,12 +833,12 @@ const addOrRemove = (add: boolean) => {
             <Select v-model="data.leilao_kinguin.id" :options="props.tiposLeilao" @change="onEdit(data)"
               optionLabel="name" optionValue="id" />
           </template>
-        </Column>
+        </Column> -->
         <Column field="plataforma.name" header="Plataforma" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
-            <MultiSelect v-model="searchFilter.id_plataforma" :options="props.plataformas" placeholder="Pesquisar" optionLabel="name"
-              optionValue="id" style="min-width: 14rem">
+            <MultiSelect v-model="searchFilter.id_plataforma" :options="props.plataformas" placeholder="Pesquisar"
+              optionLabel="name" optionValue="id" style="min-width: 14rem">
             </MultiSelect>
           </template>
           <template #editor="{ data, field }">
@@ -807,7 +855,16 @@ const addOrRemove = (add: boolean) => {
               :maxFractionDigits="2" useGrouping autofocus fluid />
           </template>
         </Column>
-        <Column field="precoVenda" header="Preço Venda" sortable class="text-center p-0">
+        <Column field="minimoParaVenda" header="Preço Minimo Venda" sortable class="text-center p-0">
+          <template #body="slotProps">
+            € {{ slotProps.data.minimoParaVenda }}
+          </template>
+          <template #editor="{ data, field }">
+            <InputNumber v-model="data[field]" @update:modelValue="onEdit(data)" mode="decimal" :minFractionDigits="2"
+              :maxFractionDigits="2" useGrouping autofocus fluid />
+          </template>
+        </Column>
+        <!-- <Column field="precoVenda" header="Preço Venda" sortable class="text-center p-0">
           <template #body="slotProps">
             € {{ slotProps.data.precoVenda }}
           </template>
@@ -816,7 +873,7 @@ const addOrRemove = (add: boolean) => {
           <template #body="slotProps">
             € {{ slotProps.data.incomeReal }}
           </template>
-        </Column>
+        </Column> -->
         <Column field="incomeSimulado" header="Income Simulado" sortable class="text-center p-0">
           <template #body="slotProps">
             € {{ slotProps.data.incomeSimulado }}
@@ -845,11 +902,11 @@ const addOrRemove = (add: boolean) => {
             € {{ slotProps.data.valorPagoIndividual }}
           </template>
         </Column>
-        <Column field="vendido" header="Vendido" filterField="searchField" :showFilterMenu="true"
+        <!-- <Column field="vendido" header="Vendido" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
-            <MultiSelect v-model="searchFilter.vendido" :options="[{ name: true }, { name: false }]" placeholder="Pesquisar" optionLabel="name"
-              optionValue="name" style="min-width: 14rem">
+            <MultiSelect v-model="searchFilter.vendido" :options="[{ name: true }, { name: false }]"
+              placeholder="Pesquisar" optionLabel="name" optionValue="name" style="min-width: 14rem">
             </MultiSelect>
           </template>
           <template #body="{ data }">
@@ -865,24 +922,24 @@ const addOrRemove = (add: boolean) => {
             <Select v-model="data[field]" :options="[{ label: 'Sim', value: true }, { label: 'Não', value: false }]"
               @change="onEdit(data)" optionLabel="label" optionValue="value" />
           </template>
-        </Column>
-        <Column field="leiloes" header="Leilões" sortable class="text-center p-0">
+        </Column> -->
+        <!-- <Column field="leiloes" header="Leilões" sortable class="text-center p-0">
           <template #editor="{ data, field }">
-            <InputNumber v-model="data[field]" @update:modelValue="onEdit(data)" mode="decimal" :min="0" useGrouping autofocus
-              fluid />
+            <InputNumber v-model="data[field]" @update:modelValue="onEdit(data)" mode="decimal" :min="0" useGrouping
+              autofocus fluid />
           </template>
         </Column>
         <Column field="quantidade" header="Quantidade" sortable class="text-center p-0">
           <template #editor="{ data, field }">
-            <InputNumber v-model="data[field]" @update:modelValue="onEdit(data)" mode="decimal" :min="0" useGrouping autofocus
-              fluid />
+            <InputNumber v-model="data[field]" @update:modelValue="onEdit(data)" mode="decimal" :min="0" useGrouping
+              autofocus fluid />
           </template>
         </Column>
         <Column field="devolucoes" header="Devoluções" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
-            <MultiSelect v-model="searchFilter.devolucoes" :options="[{ name: true }, { name: false }]" placeholder="Pesquisar"
-              optionLabel="name" optionValue="name" style="min-width: 14rem">
+            <MultiSelect v-model="searchFilter.devolucoes" :options="[{ name: true }, { name: false }]"
+              placeholder="Pesquisar" optionLabel="name" optionValue="name" style="min-width: 14rem">
             </MultiSelect>
           </template>
           <template #body="{ data }">
@@ -898,13 +955,13 @@ const addOrRemove = (add: boolean) => {
             <Select v-model="data[field]" :options="[{ label: 'Sim', value: true }, { label: 'Não', value: false }]"
               @change="onEdit(data)" optionLabel="label" optionValue="value" />
           </template>
-        </Column>
-        <Column field="lucroRS" header="Lucro(€)" sortable class="text-center p-0">
+        </Column> -->
+        <Column field="lucroRS" header="Lucro Compra(€)" sortable class="text-center p-0">
           <template #body="slotProps">
             € {{ slotProps.data.lucroRS }}
           </template>
         </Column>
-        <Column field="lucroPercentual" header="Lucro(%)" sortable class="text-center p-0">
+        <Column field="lucroPercentual" header="Lucro Compra(%)" sortable class="text-center p-0">
           <template #body="slotProps">
             <div :style="getLucroPercentualStyle(slotProps.data)" style="width: 100%; height: 100%;">
               {{ slotProps.data.lucroPercentual }}%
@@ -918,7 +975,7 @@ const addOrRemove = (add: boolean) => {
         </Column>
         <Column field="lucroVendaRS" header="Lucro Venda(€)" sortable class="text-center p-0">
           <template #body="slotProps">
-           <span v-if="slotProps.data.valorVendido">€ {{ slotProps.data.valorVendido }}</span>
+            <span v-if="slotProps.data.valorVendido">€ {{ slotProps.data.valorVendido }}</span>
           </template>
         </Column>
         <Column field="lucroVendaPercentual" header="Lucro Venda(%)" sortable class="text-center p-0">
@@ -942,7 +999,7 @@ const addOrRemove = (add: boolean) => {
               :showOnFocus="false" showButtonBar />
           </template>
         </Column>
-        <Column field="dataVenda" header="Data Venda" filterField="searchField" :showFilterMenu="true"
+        <Column field="dataVenda" header="Data posto a Venda" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
             <DatePicker v-model="searchFilter.dataVenda" dateFormat="dd/mm/yy" showIcon fluid :showOnFocus="false"
@@ -978,6 +1035,8 @@ const addOrRemove = (add: boolean) => {
           <template #editor="{ data, field }">
             <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
           </template>
+        </Column>
+        <Column field="fornecedor.quantidade_reclamacoes" header="Reclamações Anteriores">
         </Column>
         <Column field="email" header="Email" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">

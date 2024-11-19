@@ -14,8 +14,8 @@ class TaxasSeeder extends Seeder
     public function run(): void
     {
         DB::table('taxas')->insert([
-            ['name' => 'gamivoPercentualMaior4', 'preco' => 0.079],
-            ['name' => 'gamivoFixoMaior4', 'preco' => 0.35],
+            ['name' => 'gamivoPercentualMaior4', 'preco' => 0.099],
+            ['name' => 'gamivoFixoMaior4', 'preco' => 0.45],
             
             ['name' => 'gamivoPercentualMenor4', 'preco' => 0.05],
             ['name' => 'gamivoFixoMenor4', 'preco' => 0.1],

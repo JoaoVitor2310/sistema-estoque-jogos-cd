@@ -21,6 +21,7 @@ return new class extends Migration
             $table->foreign('tipo_reclamacao_id')->references('id')->on('tipo_reclamacao');
             
             $table->string('steamId')->nullable();
+            $table->string('idGamivo')->nullable();
             $table->integer('tipo_formato_id')->default(1);
             $table->foreign('tipo_formato_id')->references('id')->on('tipo_formato');
             
@@ -50,6 +51,7 @@ return new class extends Migration
             $table->foreign('id_plataforma')->references('id')->on('plataforma');
             
             $table->decimal('precoCliente', total: 8, places: 2)->nullable();
+            $table->decimal('minimoParaVenda', total: 8, places: 2)->nullable();
             $table->decimal('precoVenda', total: 8, places: 2)->nullable();
             $table->decimal('incomeReal', total: 8, places: 2)->nullable();
             $table->decimal('incomeSimulado', total: 8, places: 2)->nullable();

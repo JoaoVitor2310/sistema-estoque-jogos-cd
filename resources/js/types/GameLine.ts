@@ -38,6 +38,7 @@ export interface GameLine {
     id: number;
     color: string;
     steamId: string;
+    idGamivo: string;
     chaveRecebida: string;
     repetido: boolean;
     plataformaIdentificada: string;
@@ -49,6 +50,7 @@ export interface GameLine {
     randomClassificationKinguin: string;
     observacao: string;
     precoCliente: number | null;
+    minimoParaVenda: number | null;
     precoVenda: number | null;
     incomeReal: number | null;
     incomeSimulado: number | null;

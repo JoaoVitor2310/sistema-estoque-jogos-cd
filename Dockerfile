@@ -47,9 +47,4 @@ COPY . /var/www/html
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
-RUN npm install
-# RUN npm run build #prod
-
-# ENTRYPOINT ["/usr/local/bin/entrypoint.sh"] #prod
-
-# CMD ["php-fpm"] #prod
+CMD ["php-fpm"]

@@ -47,7 +47,7 @@ Route::prefix('auth')->group(function () { // Logar
 });
 
 Route::prefix('fees')
-    // ->middleware(CheckAdmin::class)
+    ->middleware(CheckAdmin::class)
     ->controller(TaxaController::class)->group(function () {
         Route::post('/', 'store')->name('fees.store');
         Route::put('/{id}', 'update')->name('fees.update');
@@ -56,7 +56,7 @@ Route::prefix('fees')
     });
 
 Route::prefix('ranges-g2a')
-    // ->middleware(CheckAdmin::class)
+    ->middleware(CheckAdmin::class)
     ->controller(TaxaController::class)->group(function () {
         Route::post('/', 'storeRangeG2A')->name('ranges-g2a.storeRangeG2A');
         Route::put('/{id}', 'updateRangeG2A')->name('ranges-g2a.updateRangeG2A');
@@ -65,7 +65,7 @@ Route::prefix('ranges-g2a')
     });
 
 Route::prefix('resources')
-    // ->middleware(CheckAdmin::class)
+    ->middleware(CheckAdmin::class)
     ->controller(ResourceController::class)
     ->group(function () {
         Route::post('/', 'store')->name('resources.store');
@@ -75,7 +75,7 @@ Route::prefix('resources')
     });
 
 Route::prefix('venda-chave-troca')
-    // ->middleware(CheckPermission::class)
+    ->middleware(CheckPermission::class)
     ->controller(VendaChaveTrocaController::class)
     ->group(function () {
         Route::get('/paginated', 'paginated')->name('venda-chave-troca.paginated')->withoutMiddleware([CheckPermission::class]);
@@ -84,10 +84,11 @@ Route::prefix('venda-chave-troca')
         Route::put('/{id}', 'update')->name('venda-chave-troca.update');
         Route::delete('/{id}', 'destroy')->name('venda-chave-troca.destroy');
         Route::delete('/', 'destroyArray')->name('venda-chave-troca.destroyArray');
+        Route::get('/when-to-sell', 'whenToSell')->name('venda-chave-troca.when-to-sell')->withoutMiddleware([CheckPermission::class]);
     });
 
 Route::prefix('authorize') // Gerenciar quem tem acesso
-    // ->middleware(CheckAdmin::class) // Somente o admin poderá acessar essas rotas
+    ->middleware(CheckAdmin::class) // Somente o admin poderá acessar essas rotas
     ->controller(AuthorizedUsersController::class)->group(function () {
         Route::post('/', 'store')->name('authorize.store');
         Route::put('/{id}', 'update')->name('authorize.update');
@@ -107,13 +108,21 @@ Route::prefix('authorize') // Gerenciar quem tem acesso
 // });
 
 Route::get('/dashboard', function () {
-    return Inertia::render('Dashboard');
+    return redirect(route('venda-chave-troca', absolute: false));
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    Route::get('/profile', function () {
+        return redirect(route('venda-chave-troca', absolute: false));
+    })->name('profile.edit');
+
+    Route::patch('/profile', function () {
+        return redirect(route('venda-chave-troca', absolute: false));
+    })->name('profile.update');
+
+    Route::delete('/profile', function () {
+        return redirect(route('venda-chave-troca', absolute: false));
+    })->name('profile.destroy');
 });
 
 require __DIR__ . '/auth.php';
