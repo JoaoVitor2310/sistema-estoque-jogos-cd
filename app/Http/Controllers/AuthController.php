@@ -50,7 +50,8 @@ class AuthController extends Controller
         if ($user) {
             return response()->json($user); // Retorna os dados do usuário logado
         }
-        return response()->json('Usuário não logado', 401); // 401 Unauthorized
+
+        return $this->error(401, 'Você não está autenticado. Tente novamente.');
     }
 
     /**

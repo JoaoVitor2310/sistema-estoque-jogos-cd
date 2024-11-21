@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue';
+import { reactive, ref, watch } from 'vue';
 import axiosInstance from '../axios';
 import { GameLine } from '../types/GameLine';
-import { formatDateToBR, formatDateToDB } from '../helpers/formatHelpers';
+import { convertToDbDate, formatDateToBR, formatDateToDB } from '../helpers/formatHelpers';
 
 // Inertia
 import { showResponse } from '../helpers/showResponse';
@@ -120,7 +120,7 @@ const selectedNewObject = {
   valorVendido: null,
   lucroVendaRS: null,
   lucroVendaPercentual: null,
-  dataAdquirida: '',
+  dataAdquirida: null,
   dataVenda: '',
   dataVendida: '',
   perfilOrigem: '',
@@ -129,6 +129,22 @@ const selectedNewObject = {
 };
 
 const selected = reactive([selectedNewObject]);
+
+const sharedQtdTF2 = ref(null);
+const sharedDataAdquirida = ref(null);
+
+// Sincroniza o valor de qtdTF2 em todos os itens
+watch(sharedQtdTF2, (newValue) => {
+  selected.forEach(item => {
+    item.qtdTF2 = newValue;
+  });
+});
+
+watch(sharedDataAdquirida, (newValue) => {
+  selected.forEach(item => {
+    item.dataAdquirida = newValue;
+  });
+});
 
 const handleEditButton = (data: any) => {
   DialogVisible.value = true;
@@ -147,9 +163,17 @@ const onEdit = async (selected: any) => {
   let product;
   if (Array.isArray(selected)) {
     product = { ...selected[0] };
-    product['dataAdquirida'] = formatDateToDB(product.dataAdquirida);
-    product['dataVenda'] = formatDateToDB(product.dataVenda);
-    product['dataVendida'] = formatDateToDB(product.dataVendida);
+    product.forEach(item => {
+      if (item.dataAdquirida) {
+        item.dataAdquirida = convertToDbDate(item.dataAdquirida);
+      }
+      if (item.dataVenda) {
+        item.dataVenda = convertToDbDate(item.dataVenda);
+      }
+      if (item.dataVendida) {
+        item.dataVendida = convertToDbDate(item.dataVendida);
+      }
+    });
   } else {
     product = { ...selected };
     product.tipo_reclamacao_id = selected.tipo_reclamacao.id;
@@ -183,12 +207,40 @@ const onEdit = async (selected: any) => {
 }
 
 const handleAddButton = async (): Promise<void> => { // Mostra o dialog com o elemento clicado
+  try {
+    const res = await axiosInstance.get(`/auth/logged`);
+    console.log(res.data.data);
+    if (res.status === 400 || res.status === 401) {
+      showResponse(res, toast.add);
+      return;
+    }
+  } catch (error) {
+    toast.add({
+      severity: 'error',
+      summary: 'Erro Interno, tente novamente.',
+      detail: error,
+      life: 7000
+    });
+    console.log(error);
+  }
   isEdit.value = false;
   selected.splice(0, selected.length, { ...selectedNewObject }); // Zera o valor para criar um novo
   DialogVisible.value = true;
 }
 
 const onAdd = async (): Promise<void> => { // Faz a req pra api add o elemento
+  selected.forEach(item => {
+    if (item.dataAdquirida) {
+      item.dataAdquirida = convertToDbDate(item.dataAdquirida);
+    }
+    if (item.dataVenda) {
+      item.dataVenda = convertToDbDate(item.dataVenda);
+    }
+    if (item.dataVendida) {
+      item.dataVendida = convertToDbDate(item.dataVendida);
+    }
+  });
+
   try {
     console.log(selected)
     const res = await axiosInstance.post(`/venda-chave-troca`, { games: selected });
@@ -445,21 +497,21 @@ const addOrRemove = (add: boolean) => {
           <div class="d-flex gap-5 mb-3">
             <Select v-model="item.tipo_formato_id" :options="props.tiposFormato" optionValue="id" optionLabel="name"
               placeholder="Formato do Jogo" class="w-full md:w-56" />
-            </div>
           </div>
-          <div class="d-flex flex-column">
-            <label class="fw-bold">Chave Recebida*</label>
-            <div class="d-flex gap-5 mb-3">
-              <InputText class="flex-auto" v-model="item.chaveRecebida" />
-            </div>
+        </div>
+        <div class="d-flex flex-column">
+          <label class="fw-bold">Chave Recebida*</label>
+          <div class="d-flex gap-5 mb-3">
+            <InputText class="flex-auto" v-model="item.chaveRecebida" />
           </div>
-          <div class="d-flex flex-column">
-            <label class="fw-bold">Nome do jogo*</label>
-            <div class="d-flex gap-5 mb-3">
-              <InputText class="flex-auto" v-model="item.nomeJogo" />
-            </div>
+        </div>
+        <div class="d-flex flex-column">
+          <label class="fw-bold">Nome do jogo*</label>
+          <div class="d-flex gap-5 mb-3">
+            <InputText class="flex-auto" v-model="item.nomeJogo" />
           </div>
-          <!-- <div class="d-flex flex-column">
+        </div>
+        <!-- <div class="d-flex flex-column">
             <label class="fw-bold">Preço Steam*</label>
             <div class="d-flex gap-5 mb-3">
               <InputNumber class="flex-auto" v-model="item.precoJogo" mode="decimal" showButtons :minFractionDigits="2"
@@ -512,7 +564,7 @@ const addOrRemove = (add: boolean) => {
           <label class="fw-bold">Plataforma</label>
           <div class="d-flex gap-5 mb-3">
             <Select v-model="item.id_plataforma" :options="props.plataformas" optionLabel="name" optionValue="id"
-            class="w-full md:w-56" />
+              class="w-full md:w-56" />
           </div>
         </div>
         <div class="d-flex flex-column">
@@ -522,7 +574,7 @@ const addOrRemove = (add: boolean) => {
           </div>
         </div>
         <div class="d-flex flex-column">
-          <label class="fw-bold">Preço Plataforma*</label>
+          <label class="fw-bold">Preço Cliente*</label>
           <div class="d-flex gap-5 mb-3">
             <InputNumber class="flex-auto" v-model="item.precoCliente" mode="decimal" showButtons :minFractionDigits="2"
               :maxFractionDigits="2" :min="0" useGrouping />
@@ -531,14 +583,14 @@ const addOrRemove = (add: boolean) => {
         <div class="d-flex flex-column">
           <label class="fw-bold">Preço Mínimo para Venda</label>
           <div class="d-flex gap-5 mb-3">
-            <InputNumber class="flex-auto" v-model="item.minimoParaVenda" mode="decimal" showButtons :minFractionDigits="2"
-              :maxFractionDigits="2" :min="0" useGrouping />
+            <InputNumber class="flex-auto" v-model="item.minimoParaVenda" mode="decimal" showButtons
+              :minFractionDigits="2" :maxFractionDigits="2" :min="0" useGrouping />
           </div>
         </div>
         <div v-if="!isEdit" class="d-flex flex-column">
           <label class="fw-bold">Quantidade de TF2*</label>
           <div class="d-flex gap-5 mb-3">
-            <InputNumber class="flex-auto" v-model="item.qtdTF2" mode="decimal" showButtons :minFractionDigits="2"
+            <InputNumber class="flex-auto" v-model="sharedQtdTF2" mode="decimal" showButtons :minFractionDigits="2"
               :maxFractionDigits="2" useGrouping />
           </div>
         </div>
@@ -594,22 +646,19 @@ const addOrRemove = (add: boolean) => {
         <div class="d-flex flex-column">
           <label class="fw-bold text-nowrap">Data Adquirida*</label>
           <div class="d-flex gap-5 mb-3">
-            <DatePicker v-model="item.dataAdquirida" dateFormat="dd/mm/yy" showIcon fluid :showOnFocus="false"
-              showButtonBar style="min-width: 10rem" />
+            <InputText class="flex-auto" v-model="sharedDataAdquirida" />
           </div>
         </div>
         <div class="d-flex flex-column">
           <label class="fw-bold">Data posto a Venda</label>
           <div class="d-flex gap-5 mb-3">
-            <DatePicker v-model="item.dataVenda" dateFormat="dd/mm/yy" showIcon fluid :showOnFocus="false" showButtonBar
-              style="min-width: 10rem" />
+            <InputText class="flex-auto" v-model="item.dataVenda" />
           </div>
         </div>
         <div class="d-flex flex-column">
           <label class="fw-bold text-nowrap">Data Vendida</label>
           <div class="d-flex gap-5 mb-3">
-            <DatePicker v-model="item.dataVendida" dateFormat="dd/mm/yy" showIcon fluid :showOnFocus="false"
-              showButtonBar style="min-width: 10rem" />
+            <InputText class="flex-auto" v-model="item.dataVendida" />
           </div>
         </div>
         <div class="d-flex flex-column">
@@ -764,9 +813,8 @@ const addOrRemove = (add: boolean) => {
               @change="onEdit(data)" optionLabel="label" optionValue="value" />
           </template>
         </Column> -->
-        <Column field="idGamivo" header="Id Gamivo" filterField="searchField"
-          :showFilterMenu="true" :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false"
-          class="text-center p-0">
+        <Column field="idGamivo" header="Id Gamivo" filterField="searchField" :showFilterMenu="true"
+          :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
             <InputText v-model="searchFilter.idGamivo" type="text" placeholder="Pesquisar" />
           </template>
@@ -987,7 +1035,8 @@ const addOrRemove = (add: boolean) => {
         </Column>
         <Column field="lucroVendaPercentual" header="Lucro Venda(%)" sortable class="text-center p-0">
           <template #body="slotProps">
-            <div :style="getStyleByPercentual(slotProps.data, 'lucroVendaPercentual')" style="width: 100%; height: 100%;">
+            <div :style="getStyleByPercentual(slotProps.data, 'lucroVendaPercentual')"
+              style="width: 100%; height: 100%;">
               {{ slotProps.data.lucroVendaPercentual }}%
             </div>
           </template>
@@ -1002,8 +1051,7 @@ const addOrRemove = (add: boolean) => {
             {{ formatDateToBR(slotProps.data.dataAdquirida) }}
           </template>
           <template #editor="{ data, field }">
-            <DatePicker v-model="data[field]" @update:modelValue="onEdit(data)" dateFormat="dd/mm/yy" showIcon fluid
-              :showOnFocus="false" showButtonBar />
+            <InputText class="flex-auto" v-model="data[field]" @change="onEdit(data)" />
           </template>
         </Column>
         <Column field="dataVenda" header="Data posto a Venda" filterField="searchField" :showFilterMenu="true"
@@ -1016,8 +1064,7 @@ const addOrRemove = (add: boolean) => {
             {{ formatDateToBR(slotProps.data.dataVenda) }}
           </template>
           <template #editor="{ data, field }">
-            <DatePicker v-model="data[field]" @update:modelValue="onEdit(data)" dateFormat="dd/mm/yy" showIcon fluid
-              :showOnFocus="false" showButtonBar />
+            <InputText class="flex-auto" v-model="data[field]" @change="onEdit(data)" />
           </template>
         </Column>
         <Column field="dataVendida" header="Data Vendida" filterField="searchField" :showFilterMenu="true"
@@ -1030,8 +1077,7 @@ const addOrRemove = (add: boolean) => {
             {{ formatDateToBR(slotProps.data.dataVendida) }}
           </template>
           <template #editor="{ data, field }">
-            <DatePicker v-model="data[field]" @update:modelValue="onEdit(data)" dateFormat="dd/mm/yy" showIcon fluid
-              :showOnFocus="false" showButtonBar />
+            <InputText class="flex-auto" v-model="data[field]" @change="onEdit(data)" />
           </template>
         </Column>
         <Column field="perfilOrigem" header="Perfil/Origem" filterField="searchField" :showFilterMenu="true"

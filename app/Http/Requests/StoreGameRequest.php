@@ -32,7 +32,7 @@ class StoreGameRequest extends FormRequest
             "tipo_formato_id" => "integer|min:1|max:7",
             "chaveRecebida" => "required",
             "nomeJogo" => "required",
-            "precoJogo" => ["required", "decimal:0,2"],
+            "precoJogo" => ["nullable", "decimal:0,2"],
             "notaMetacritic" => "integer|min:0|max:100",
             "isSteam" => ["boolean", "nullable"],
             "observacao" => ["string", "nullable"],

@@ -29,7 +29,7 @@ return new class extends Migration
             $table->boolean('repetido')->default(false);
             $table->string('plataformaIdentificada')->default('Nenhuma');
             $table->string('nomeJogo');
-            $table->decimal('precoJogo', total: 8, places: 2);
+            $table->decimal('precoJogo', total: 8, places: 2)->nullable();
             $table->integer('notaMetacritic')->default(0);
             $table->boolean('isSteam')->nullable();
             $table->string('randomClassificationG2A')->nullable();

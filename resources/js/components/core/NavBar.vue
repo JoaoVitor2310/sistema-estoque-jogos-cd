@@ -38,10 +38,9 @@ const handleLogout = async () => {
           <ul class="navbar-nav me-auto mb-2 mb-lg-0">
             <li class="nav-item">
             </li>
-            <li class="nav-item" v-if="user && user.email === 'joaovitormatosgouveia@gmail.com'">
+            <li class="nav-item" v-if="user && user.email === 'carcadeals@gmail.com'">
               <Link class="nav-link" :href="route('acesso')">Acesso</Link>
             </li>
-            <!-- <li><RouterLink class="nav-link" to="/venda-chave-troca">Venda-Chave-Troca</RouterLink></li> -->
             <li>
               <Link class="nav-link" :href="route('venda-chave-troca')">Venda-Chave-Troca</Link>
             </li>

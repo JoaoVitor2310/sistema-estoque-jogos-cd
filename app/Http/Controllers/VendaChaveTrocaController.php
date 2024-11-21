@@ -324,7 +324,7 @@ class VendaChaveTrocaController extends Controller
 
     public function whenToSell(Request $request)
     {
-        $gamesToList = Venda_chave_troca::select(['idGamivo', 'minimoParaVenda', 'chaveRecebida', 'nomeJogo'])->whereNotNull('idGamivo')->whereNotNull('minimoParaVenda')->get();
+        $gamesToList = Venda_chave_troca::select(['idGamivo', 'minimoParaVenda', 'chaveRecebida', 'nomeJogo', 'dataAdquirida'])->whereNotNull('idGamivo')->whereNotNull('minimoParaVenda')->get();
 
         is_object($gamesToList) ? $gamesToList = $gamesToList->toArray() : $gamesToList; // Garante que sempre será um array, mesmo que tenha só um elemento
 
