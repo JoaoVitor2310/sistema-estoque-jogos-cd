@@ -132,6 +132,7 @@ const selected = reactive([selectedNewObject]);
 
 const sharedQtdTF2 = ref(null);
 const sharedDataAdquirida = ref(null);
+const sharedPerfilOrigem = ref('');
 
 // Sincroniza o valor de qtdTF2 em todos os itens
 watch(sharedQtdTF2, (newValue) => {
@@ -143,6 +144,12 @@ watch(sharedQtdTF2, (newValue) => {
 watch(sharedDataAdquirida, (newValue) => {
   selected.forEach(item => {
     item.dataAdquirida = newValue;
+  });
+});
+
+watch(sharedPerfilOrigem, (newValue) => {
+  selected.forEach(item => {
+    item.perfilOrigem = newValue;
   });
 });
 
@@ -664,7 +671,7 @@ const addOrRemove = (add: boolean) => {
         <div class="d-flex flex-column">
           <label class="fw-bold text-nowrap">Perfil/Origem*</label>
           <div class="d-flex gap-5 mb-3">
-            <InputText class="flex-auto" v-model="item.perfilOrigem" />
+            <InputText class="flex-auto" v-model="sharedPerfilOrigem" />
           </div>
         </div>
         <div class="d-flex flex-column">
@@ -912,7 +919,7 @@ const addOrRemove = (add: boolean) => {
         </Column>
         <Column field="minimoParaVenda" header="Preço Minimo Venda" sortable class="text-center p-0">
           <template #body="slotProps">
-            € {{ slotProps.data.minimoParaVenda }}
+            <span v-if="slotProps.data.minimoParaVenda">€ {{ slotProps.data.minimoParaVenda }}</span>
           </template>
           <template #editor="{ data, field }">
             <InputNumber v-model="data[field]" @update:modelValue="onEdit(data)" mode="decimal" :minFractionDigits="2"

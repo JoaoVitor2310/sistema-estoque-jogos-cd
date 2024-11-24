@@ -55,7 +55,7 @@
             "@php artisan migrate --graceful --ansi"
         ],
         "migrate": [
-            "@php artisan migrate --seed"
+            "@php artisan migrate"
         ]
     },
     "extra": {
