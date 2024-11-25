@@ -1,11 +1,11 @@
 <h1 align="center" style="font-weight: bold;"> Sistema Estoque de Jogos 💻</h1>
 
-<p align="center">
+<!-- <p align="center">
  <a href="#problema-e-contextualizacao">Problema e Contextualização</a> • 
  <a href="#tecnologias-utilizadas">Tecnologias Utilizadas</a> • 
  <a href="#primeiros-passos">Como Executar</a> •
  <a href="#apis-utilizadas">APIs Utilizadas</a> 
-</p>
+</p> -->
 
 <p align="center">
     <strong>Sistema para controle e gerenciamento de estoque de jogos virtuais.</strong>
@@ -35,6 +35,12 @@ Um sistema completo para automação e controle dos jogos em estoque, eliminando
 3️⃣ Centraliza dados em um banco de dados seguro e acessível.  
 4️⃣ Facilita consultas e abre portas para futuras automações, otimizando tempo e recursos.
 
+### 🌟 Resultado:  
+Mais eficiência, controle e tempo para focar nas atividades que realmente importam para o negócio!
+
+### 🌐 Deploy
+
+O sistema foi implementado em uma VPS, utilizando Nginx e PHP-FPM para gerenciar o servidor web, garantindo alta performance e estabilidade em produção. Link: http://191.101.70.89:170/venda-chave-troca 
 
 ---
 
@@ -84,6 +90,3 @@ Para o desenvolvimento do projeto, foram utilizadas as seguintes tecnologias:
    docker compose up -d
    ```
 
-### 🌐 Deploy
-
-O sistema foi implementado em uma VPS, utilizando Nginx e PHP-FPM para gerenciar o servidor web, garantindo alta performance e estabilidade em produção. Link: http://191.101.70.89:170/venda-chave-troca 
