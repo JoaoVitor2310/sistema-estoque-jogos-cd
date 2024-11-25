@@ -26,12 +26,15 @@ import DatePicker from 'primevue/datepicker';
 import Paginator, { PageState } from 'primevue/paginator';
 import MultiSelect from 'primevue/multiselect';
 import ColorPicker from 'primevue/colorpicker';
+import { usePage } from '@inertiajs/vue3';
 
 // onMouted {
 let rowData: GameLine[] = reactive([]);
 const props = defineProps({ games: Array, totalGames: Number, pagination: Object, tiposFormato: Array, tiposLeilao: Array, plataformas: Array, tiposReclamacao: Array });
-console.log(props.tiposFormato);
+// console.log(props.tiposFormato);
 Object.assign(rowData, props.games);
+// @ts-ignore
+let user = ref(usePage().props.auth.user);
 // }
 
 // const columns = ref([ // Será importante para criar a tabela programaticamente
@@ -216,7 +219,7 @@ const onEdit = async (selected: any) => {
 const handleAddButton = async (): Promise<void> => { // Mostra o dialog com o elemento clicado
   try {
     const res = await axiosInstance.get(`/auth/logged`);
-    console.log(res.data.data);
+    // console.log(res.data.data);
     if (res.status === 400 || res.status === 401) {
       showResponse(res, toast.add);
       return;
@@ -249,9 +252,9 @@ const onAdd = async (): Promise<void> => { // Faz a req pra api add o elemento
   });
 
   try {
-    console.log(selected)
+    // console.log(selected)
     const res = await axiosInstance.post(`/venda-chave-troca`, { games: selected });
-    console.log(res.data.data);
+    // console.log(res.data.data);
     showResponse(res, toast.add);
     if (res.status === 200 || res.status === 201) {
       DialogVisible.value = false;
@@ -289,7 +292,7 @@ const handleDeleteButton = (event: any, qtd: number) => {
           showResponse(res, toast.add);
           if (res.status === 200 || res.status === 201) {
             const itemToDelete = rowData.findIndex(item => item.id === selected[0].id);
-            console.log(itemToDelete);
+            // console.log(itemToDelete);
             rowData.splice(itemToDelete, 1);
             DialogVisible.value = false;
           }
@@ -755,7 +758,7 @@ const addOrRemove = (add: boolean) => {
           </template>
         </Column>
         <Column field="chaveRecebida" header="Chave Recebida" filterField="searchField" :showFilterMenu="true"
-          :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
+          :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0" v-if="user && user.email === 'carcadeals@gmail.com'">
           <template #filter>
             <InputText v-model="searchFilter.chaveRecebida" type="text" placeholder="Pesquisar" />
           </template>
@@ -1088,7 +1091,7 @@ const addOrRemove = (add: boolean) => {
           </template>
         </Column>
         <Column field="perfilOrigem" header="Perfil/Origem" filterField="searchField" :showFilterMenu="true"
-          :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
+          :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0" v-if="user && user.email === 'carcadeals@gmail.com'">
           <template #filter>
             <InputText v-model="searchFilter.perfilOrigem" type="text" placeholder="Pesquisar" />
           </template>
