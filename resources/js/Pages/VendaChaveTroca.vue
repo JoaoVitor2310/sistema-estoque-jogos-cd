@@ -944,7 +944,7 @@ const addOrRemove = (add: boolean) => {
             € {{ slotProps.data.incomeSimulado }}
           </template>
         </Column>
-        <Column field="chaveEntregue" header="Chave Entregue" filterField="searchField" :showFilterMenu="true"
+        <!-- <Column field="chaveEntregue" header="Chave Entregue" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
             <InputText v-model="searchFilter.chaveEntregue" type="text" placeholder="Pesquisar" />
@@ -952,7 +952,7 @@ const addOrRemove = (add: boolean) => {
           <template #editor="{ data, field }">
             <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
           </template>
-        </Column>
+        </Column> -->
         <Column field="valorPagoTotal" header="Valor Pago Total" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
