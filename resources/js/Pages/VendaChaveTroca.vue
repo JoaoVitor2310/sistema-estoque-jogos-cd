@@ -166,6 +166,8 @@ const handleEditButton = (data: any) => {
   selected[0].id_leilao_gamivo = data[0].leilao_gamivo.id;
   selected[0].id_leilao_kinguin = data[0].leilao_kinguin.id;
   selected[0].id_plataforma = data[0].plataforma.id;
+  sharedDataAdquirida.value = data[0].dataAdquirida;
+  sharedPerfilOrigem.value = data[0].perfilOrigem;
 };
 
 const onEdit = async (selected: any) => {
@@ -173,17 +175,18 @@ const onEdit = async (selected: any) => {
   let product;
   if (Array.isArray(selected)) {
     product = { ...selected[0] };
-    product.forEach(item => {
-      if (item.dataAdquirida) {
-        item.dataAdquirida = convertToDbDate(item.dataAdquirida);
-      }
-      if (item.dataVenda) {
-        item.dataVenda = convertToDbDate(item.dataVenda);
-      }
-      if (item.dataVendida) {
-        item.dataVendida = convertToDbDate(item.dataVendida);
-      }
-    });
+    if (sharedDataAdquirida.value) {
+      product.dataAdquirida = sharedDataAdquirida.value;
+    }
+    if (sharedPerfilOrigem.value !== '') {
+      product.perfilOrigem = sharedPerfilOrigem.value;
+    }
+    if (product.dataVenda) {
+      product.dataVenda = convertToDbDate(product.dataVenda);
+    }
+    if (product.dataVendida) {
+      product.dataVendida = convertToDbDate(product.dataVendida);
+    }
   } else {
     product = { ...selected };
     product.tipo_reclamacao_id = selected.tipo_reclamacao.id;
@@ -235,6 +238,8 @@ const handleAddButton = async (): Promise<void> => { // Mostra o dialog com o el
   }
   isEdit.value = false;
   selected.splice(0, selected.length, { ...selectedNewObject }); // Zera o valor para criar um novo
+  sharedDataAdquirida.value = null;
+  sharedPerfilOrigem.value = '';
   DialogVisible.value = true;
 }
 
@@ -509,7 +514,7 @@ const addOrRemove = (add: boolean) => {
               placeholder="Formato do Jogo" class="w-full md:w-56" />
           </div>
         </div>
-        <div class="d-flex flex-column">
+        <div class="d-flex flex-column" v-if="user && user.email === 'carcadeals@gmail.com'">
           <label class="fw-bold">Chave Recebida*</label>
           <div class="d-flex gap-5 mb-3">
             <InputText class="flex-auto" v-model="item.chaveRecebida" />
@@ -758,7 +763,8 @@ const addOrRemove = (add: boolean) => {
           </template>
         </Column>
         <Column field="chaveRecebida" header="Chave Recebida" filterField="searchField" :showFilterMenu="true"
-          :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0" v-if="user && user.email === 'carcadeals@gmail.com'">
+          :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0"
+          v-if="user && user.email === 'carcadeals@gmail.com'">
           <template #filter>
             <InputText v-model="searchFilter.chaveRecebida" type="text" placeholder="Pesquisar" />
           </template>
@@ -1091,7 +1097,8 @@ const addOrRemove = (add: boolean) => {
           </template>
         </Column>
         <Column field="perfilOrigem" header="Perfil/Origem" filterField="searchField" :showFilterMenu="true"
-          :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0" v-if="user && user.email === 'carcadeals@gmail.com'">
+          :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0"
+          v-if="user && user.email === 'carcadeals@gmail.com'">
           <template #filter>
             <InputText v-model="searchFilter.perfilOrigem" type="text" placeholder="Pesquisar" />
           </template>
@@ -1116,7 +1123,7 @@ const addOrRemove = (add: boolean) => {
               <Button label="Editar" aria-label="Editar" icon="pi pi-pencil" @click="handleEditButton([slotProps.data])"
                 outlined />
               <Button label="Excluir" aria-label="Excluir" icon="pi pi-times"
-                @click="handleDeleteButton($event, 1); Object.assign(selected, slotProps.data);" severity="danger"
+                @click="handleDeleteButton($event, 1); Object.assign(selected, slotProps.data); selected[0].id = slotProps.data.id" severity="danger"
                 outlined />
             </div>
           </template>
