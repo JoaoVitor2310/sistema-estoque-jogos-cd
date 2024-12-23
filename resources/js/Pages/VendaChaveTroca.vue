@@ -181,12 +181,6 @@ const onEdit = async (selected: any) => {
     if (sharedPerfilOrigem.value !== '') {
       product.perfilOrigem = sharedPerfilOrigem.value;
     }
-    if (product.dataVenda) {
-      product.dataVenda = convertToDbDate(product.dataVenda);
-    }
-    if (product.dataVendida) {
-      product.dataVendida = convertToDbDate(product.dataVendida);
-    }
   } else {
     product = { ...selected };
     product.tipo_reclamacao_id = selected.tipo_reclamacao.id;

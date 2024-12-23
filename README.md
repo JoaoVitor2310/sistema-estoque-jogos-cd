@@ -40,7 +40,7 @@ Mais eficiência, controle e tempo para focar nas atividades que realmente impor
 
 ### 🌐 Deploy
 
-O sistema foi implementado em uma VPS, utilizando Nginx e PHP-FPM para gerenciar o servidor web, garantindo alta performance e estabilidade em produção. Link: http://191.101.70.89:170/venda-chave-troca 
+O sistema foi implementado em uma VPS, utilizando Nginx e PHP-FPM para gerenciar o servidor web, garantindo alta performance e estabilidade em produção. OBS: infelizmente não poderei compartilhar o link, pois o sistema possui dados privados.
 
 ---
 
