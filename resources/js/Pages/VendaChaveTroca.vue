@@ -2,7 +2,7 @@
 import { reactive, ref, watch } from 'vue';
 import axiosInstance from '../axios';
 import { GameLine } from '../types/GameLine';
-import { convertToDbDate, formatDateToBR, formatDateToDB } from '../helpers/formatHelpers';
+import { convertToDbDate, formatDateToBR, formatDateToDB, identifyAndFormatDate } from '../helpers/formatHelpers';
 
 // Inertia
 import { showResponse } from '../helpers/showResponse';
@@ -189,6 +189,16 @@ const onEdit = async (selected: any) => {
     product.id_leilao_g2a = selected.leilao_g2_a.id;
     product.id_leilao_gamivo = selected.leilao_gamivo.id;
     product.id_leilao_kinguin = selected.leilao_kinguin.id;
+    if (selected.dataAdquirida) {
+      selected.dataAdquirida = identifyAndFormatDate(selected.dataAdquirida);
+    }
+    if (selected.dataVenda) {
+      selected.dataVenda = identifyAndFormatDate(selected.dataVenda);
+    }
+    if (selected.dataVendida) {
+      selected.dataVendida = identifyAndFormatDate(selected.dataVendida);
+    }
+    console.log(selected);
   }
   try {
     const res = await axiosInstance.put(`/venda-chave-troca/${product.id}`, product);
@@ -230,6 +240,12 @@ const handleAddButton = async (): Promise<void> => { // Mostra o dialog com o el
     });
     console.log(error);
   }
+  toast.add({
+    severity: 'warn',
+    summary: 'Atenção!',
+    detail: 'Lembre-se de atualizar o valor da chave antes de adicionar os jogos.',
+    life: 7000
+  });
   isEdit.value = false;
   selected.splice(0, selected.length, { ...selectedNewObject }); // Zera o valor para criar um novo
   sharedDataAdquirida.value = null;
@@ -240,13 +256,13 @@ const handleAddButton = async (): Promise<void> => { // Mostra o dialog com o el
 const onAdd = async (): Promise<void> => { // Faz a req pra api add o elemento
   selected.forEach(item => {
     if (item.dataAdquirida) {
-      item.dataAdquirida = convertToDbDate(item.dataAdquirida);
+      item.dataAdquirida = identifyAndFormatDate(item.dataAdquirida);
     }
     if (item.dataVenda) {
-      item.dataVenda = convertToDbDate(item.dataVenda);
+      item.dataVenda = identifyAndFormatDate(item.dataVenda);
     }
     if (item.dataVendida) {
-      item.dataVendida = convertToDbDate(item.dataVendida);
+      item.dataVendida = identifyAndFormatDate(item.dataVendida);
     }
   });
 
@@ -1037,6 +1053,10 @@ const addOrRemove = (add: boolean) => {
           <template #body="slotProps">
             <span v-if="slotProps.data.valorVendido">€ {{ slotProps.data.valorVendido }}</span>
           </template>
+          <template #editor="{ data, field }">
+            <InputNumber v-model="data[field]" @update:modelValue="onEdit(data)" mode="decimal" :minFractionDigits="2"
+              :maxFractionDigits="2" useGrouping autofocus fluid />
+          </template>
         </Column>
         <Column field="lucroVendaRS" header="Lucro Venda(€)" sortable class="text-center p-0">
           <template #body="slotProps">
@@ -1117,8 +1137,8 @@ const addOrRemove = (add: boolean) => {
               <Button label="Editar" aria-label="Editar" icon="pi pi-pencil" @click="handleEditButton([slotProps.data])"
                 outlined />
               <Button label="Excluir" aria-label="Excluir" icon="pi pi-times"
-                @click="handleDeleteButton($event, 1); Object.assign(selected, slotProps.data); selected[0].id = slotProps.data.id" severity="danger"
-                outlined />
+                @click="handleDeleteButton($event, 1); Object.assign(selected, slotProps.data); selected[0].id = slotProps.data.id"
+                severity="danger" outlined />
             </div>
           </template>
         </Column>

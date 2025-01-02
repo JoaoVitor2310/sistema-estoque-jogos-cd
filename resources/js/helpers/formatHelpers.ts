@@ -18,7 +18,7 @@ export const formatDateToBR = (dateString: string): string => {
         return `${day}/${month}/${year}`;
     }
 
-    console.error("Formato de data inválido:", dateString);
+    // console.error("Formato de data inválido:", dateString);
     return '';
 };
 
@@ -36,4 +36,24 @@ export const convertToDbDate = (brDate) => {
 
     // Retorna no formato yyyy/mm/dd
     return `${year.toString().padStart(4, '0')}/${month.toString().padStart(2, '0')}/${day.toString().padStart(2, '0')}`;
+};
+
+export const identifyAndFormatDate = (date: string): string => {
+    const brazilianDatePattern = /^\d{2}[-/]\d{2}[-/]\d{4}$/; // DD/MM/YYYY ou DD-MM-YYYY
+    const americanDatePattern = /^\d{4}[-/]\d{2}[-/]\d{2}$/; // YYYY/MM/DD ou YYYY-MM-DD
+
+    if (brazilianDatePattern.test(date)) {
+        // Converte a data brasileira para o formato americano (com traços) e depois formata para o banco
+        const [day, month, year] = date.split(/[-/]/); // Divide por barra ou traço
+        const formattedDate = `${year}-${month}-${day}`;
+        return formatDateToDB(formattedDate);
+    } else if (americanDatePattern.test(date)) {
+        // Converte a data americana para o formato brasileiro (com traços) e depois formata para o banco
+        const [year, month, day] = date.split(/[-/]/); // Divide por barra ou traço
+        const formattedDate = `${year}/${month}/${day}`;
+        return formatDateToDB(formattedDate);
+    }
+
+    // Retorna uma string vazia se o formato for inválido
+    return '';
 };
