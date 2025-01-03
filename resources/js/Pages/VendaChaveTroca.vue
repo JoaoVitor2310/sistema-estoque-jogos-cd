@@ -136,6 +136,7 @@ const selected = reactive([selectedNewObject]);
 const sharedQtdTF2 = ref(null);
 const sharedDataAdquirida = ref(null);
 const sharedPerfilOrigem = ref('');
+const sharedValorPagoTotal = ref('');
 
 // Sincroniza o valor de qtdTF2 em todos os itens
 watch(sharedQtdTF2, (newValue) => {
@@ -156,6 +157,12 @@ watch(sharedPerfilOrigem, (newValue) => {
   });
 });
 
+watch(sharedValorPagoTotal, (newValue) => {
+  selected.forEach(item => {
+    item.valorPagoTotal = newValue;
+  });
+});
+
 const handleEditButton = (data: any) => {
   DialogVisible.value = true;
   isEdit.value = true;
@@ -168,6 +175,7 @@ const handleEditButton = (data: any) => {
   selected[0].id_plataforma = data[0].plataforma.id;
   sharedDataAdquirida.value = data[0].dataAdquirida;
   sharedPerfilOrigem.value = data[0].perfilOrigem;
+  sharedValorPagoTotal.value = data[0].valorPagoTotal;
 };
 
 const onEdit = async (selected: any) => {
@@ -180,6 +188,9 @@ const onEdit = async (selected: any) => {
     }
     if (sharedPerfilOrigem.value !== '') {
       product.perfilOrigem = sharedPerfilOrigem.value;
+    }
+    if (sharedValorPagoTotal.value !== '') {
+      product.valorPagoTotal = sharedValorPagoTotal.value;
     }
   } else {
     product = { ...selected };
@@ -250,6 +261,7 @@ const handleAddButton = async (): Promise<void> => { // Mostra o dialog com o el
   selected.splice(0, selected.length, { ...selectedNewObject }); // Zera o valor para criar um novo
   sharedDataAdquirida.value = null;
   sharedPerfilOrigem.value = '';
+  sharedValorPagoTotal.value = '';
   DialogVisible.value = true;
 }
 
@@ -626,13 +638,13 @@ const addOrRemove = (add: boolean) => {
           <div class="d-flex gap-5 mb-3">
             <InputText class="flex-auto" v-model="item.chaveEntregue" />
           </div>
-        </div>
+        </div>-->
         <div class="d-flex flex-column">
           <label class="fw-bold">Valor Pago Total</label>
           <div class="d-flex gap-5 mb-3">
-            <InputText class="flex-auto" v-model="item.valorPagoTotal" />
+            <InputText class="flex-auto" v-model="sharedValorPagoTotal" />
           </div>
-        </div> -->
+        </div> 
         <!-- <div class="d-flex flex-column">
           <label class="fw-bold">Vendido</label>
           <div class="d-flex gap-2 mb-3">
