@@ -389,9 +389,9 @@ const onPageChange = async (search: boolean, event: PageState | null = null) => 
   let method = 'GET';
 
   if (isSearching.value) {
-    searchFilter.dataAdquirida = formatDateToDB(searchFilter.dataAdquirida);
-    searchFilter.dataVenda = formatDateToDB(searchFilter.dataVenda);
-    searchFilter.dataVendida = formatDateToDB(searchFilter.dataVendida);
+    // searchFilter.dataAdquirida = formatDateToDB(searchFilter.dataAdquirida);
+    // searchFilter.dataVenda = formatDateToDB(searchFilter.dataVenda);
+    // searchFilter.dataVendida = formatDateToDB(searchFilter.dataVendida);
     url = `/venda-chave-troca/search?page=${page}`;
     method = 'POST';
   }
@@ -401,6 +401,8 @@ const onPageChange = async (search: boolean, event: PageState | null = null) => 
       method,
       data: method === 'POST' ? searchFilter : null
     });
+    console.log(res.data);
+    // return;
     if (res.status === 200 || res.status === 201) {
       localTotalGames.value = res.data.data.totalGames;
       rowData.splice(0, rowData.length, ...res.data.data.games.data);
@@ -1060,7 +1062,7 @@ const addOrRemove = (add: boolean) => {
         </Column>
         <Column field="lucroVendaRS" header="Lucro Venda(€)" sortable class="text-center p-0">
           <template #body="slotProps">
-            <span v-if="slotProps.data.valorVendido">€ {{ slotProps.data.valorVendido }}</span>
+            <span v-if="slotProps.data.valorVendido">€ {{ slotProps.data.lucroVendaRS }}</span>
           </template>
         </Column>
         <Column field="lucroVendaPercentual" header="Lucro Venda(%)" sortable class="text-center p-0">
@@ -1074,8 +1076,8 @@ const addOrRemove = (add: boolean) => {
         <Column field="dataAdquirida" header="Data Adquirida" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
-            <DatePicker v-model="searchFilter.dataAdquirida" dateFormat="dd/mm/yy" showIcon fluid :showOnFocus="false"
-              showButtonBar />
+            <!-- <DatePicker v-model="searchFilter.dataAdquirida" dateFormat="dd/mm/yy" showIcon fluid :showOnFocus="false"
+              showButtonBar /> -->
           </template>
           <template #body="slotProps">
             {{ formatDateToBR(slotProps.data.dataAdquirida) }}
@@ -1087,8 +1089,13 @@ const addOrRemove = (add: boolean) => {
         <Column field="dataVenda" header="Data posto a Venda" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
-            <DatePicker v-model="searchFilter.dataVenda" dateFormat="dd/mm/yy" showIcon fluid :showOnFocus="false"
-              showButtonBar />
+            <!-- <label>Não posto a venda</label>
+            <RadioButton v-model="searchFilter.dataVenda" :value="false" />
+            <DatePicker v-model="searchFilter.dataVenda" selectionMode="range" dateFormat="dd/mm/yy" showIcon fluid :showOnFocus="false"
+              showButtonBar /> -->
+            <Select  v-model="searchFilter.dataVenda" :options="[{ name: 'Não', value: true }]"
+              placeholder="Já posto a venda?" optionLabel="name" optionValue="value" style="min-width: 14rem">
+            </Select >
           </template>
           <template #body="slotProps">
             {{ formatDateToBR(slotProps.data.dataVenda) }}
@@ -1100,8 +1107,11 @@ const addOrRemove = (add: boolean) => {
         <Column field="dataVendida" header="Data Vendida" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
-            <DatePicker v-model="searchFilter.dataVendida" dateFormat="dd/mm/yy" showIcon fluid :showOnFocus="false"
-              showButtonBar />
+            <!-- <DatePicker v-model="searchFilter.dataVendida" dateFormat="dd/mm/yy" showIcon fluid :showOnFocus="false"
+              showButtonBar /> -->
+              <Select  v-model="searchFilter.dataVendida" :options="[{ name: 'Não', value: true }]"
+              placeholder="Já vendido?" optionLabel="name" optionValue="value" style="min-width: 14rem">
+            </Select >
           </template>
           <template #body="slotProps">
             {{ formatDateToBR(slotProps.data.dataVendida) }}

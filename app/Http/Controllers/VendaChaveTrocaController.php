@@ -76,7 +76,7 @@ class VendaChaveTrocaController extends Controller
         // return $this->response(200, 'Jogos encontrados com sucesso.', $jogos);
     }
 
-    public function paginated(Request $request)// Não renderiza a tela inicial
+    public function paginated(Request $request) // Não renderiza a tela inicial
     {
         $limit = $request->query('limit', 100);  // Valor padrão de 100
         // $offset = $request->query('offset', 0);  // Valor padrão de 0
@@ -144,6 +144,8 @@ class VendaChaveTrocaController extends Controller
                     $query->whereIn($key, $value);
                 } else if (is_string($value)) {
                     $query->where($key, 'ILIKE', "%" . $value . "%");
+                } else if (is_bool($value) && str_starts_with($key, 'data')) {
+                    $query->whereNull($key);
                 } else {
                     $query->where($key, $value);
                 }
@@ -207,9 +209,7 @@ class VendaChaveTrocaController extends Controller
                     $fullGames[] = $fullGame;
                 } else {
                     return $this->error(400, 'Algo deu errado!');
-
                 }
-
             } catch (\Exception $e) {
                 // Log the error
                 \Log::error($e);
@@ -260,7 +260,7 @@ class VendaChaveTrocaController extends Controller
         // Lógica para checar se o jogo é repetido
         $repeatedGame = Venda_chave_troca::select('*')->where('chaveRecebida', $data['chaveRecebida'])->whereNot('id', $game['id'])->first();
 
-        $data['repetido'] = $repeatedGame !== null? true : false;
+        $data['repetido'] = $repeatedGame !== null ? true : false;
 
         $result = Venda_chave_troca::where('id', $id)->update($data); // Atualiza
 
@@ -279,8 +279,7 @@ class VendaChaveTrocaController extends Controller
 
         if ($game['plataformaIdentificada'] === 'DESCONHECIDO') {
             return $this->response(200, 'Jogo atualizado, mas a plataforma não foi identificada.', $game);
-        }
-        ;
+        };
 
         return $this->response(200, 'Jogo atualizado com sucesso', $game);
     }
