@@ -333,14 +333,11 @@ class VendaChaveTrocaController extends Controller
     public function updateSoldOffers(Request $request)
     {
         $soldGames = $request->all();
-        // return $this->response(200, 'Jogos para listar encontrados com sucesso', ['aaa']);
+        // return $this->response(200, 'Jogos para listar encontrados com sucesso', $soldGames);
 
         $notUpdated = [];
-        $newSoldGames = [];
 
-        $newSoldGames[] = $soldGames[13];
-
-        foreach ($newSoldGames as $game) {
+        foreach ($soldGames as $game) {
             // return $this->response(200, 'Jogos para listar encontrados com sucesso', $game);
 
             foreach ($game['keys'] as $key) {
@@ -351,18 +348,21 @@ class VendaChaveTrocaController extends Controller
 
                 if ($itemToUpdate['valorVendido']) continue;
 
+                $lucroVendaRS = $this->formulas->calcLucroVendaReal($game['profit'], $itemToUpdate->valorPagoIndividual);
+                $lucroVendaPercentual = $this->formulas->calcLucroVendaPercentual($lucroVendaRS, $itemToUpdate->valorPagoIndividual);
+
                 $updated = $itemToUpdate->update([
                     'dataVendida' => $game['saleDate'],
                     'valorVendido' => $game['profit'],
-                    'lucroVendaRS' => $this->formulas->calcLucroVendaReal($game['profit'], $itemToUpdate->valorPagoIndividual),
-                    'lucroVendaPercentual' => $this->formulas->calcLucroVendaPercentual($itemToUpdate->lucroVendaRS, $itemToUpdate->valorPagoIndividual),
+                    'lucroVendaRS' => $lucroVendaRS,
+                    'lucroVendaPercentual' => $lucroVendaPercentual,
                 ]);
 
                 if (!$updated) $notUpdated[] = $itemToUpdate;
             }
         }
 
-        return $this->response(200, 'Jogos para listar encontrados com sucesso', $notUpdated);
+        return $this->response(200, 'Jogos atualizados com sucesso', $notUpdated);
     }
 
     // Funções auxiliares
