@@ -212,7 +212,7 @@ class VendaChaveTrocaController extends Controller
                 }
             } catch (\Exception $e) {
                 // Log the error
-                \Log::error($e);
+                // \Log::error($e);
 
                 return $this->error(500, 'Erro interno ao cadastrar novo jogo', [$e->getMessage()]);
             }
@@ -330,6 +330,41 @@ class VendaChaveTrocaController extends Controller
         return $this->response(200, 'Jogos para listar encontrados com sucesso', $gamesToList);
     }
 
+    public function updateSoldOffers(Request $request)
+    {
+        $soldGames = $request->all();
+        // return $this->response(200, 'Jogos para listar encontrados com sucesso', ['aaa']);
+
+        $notUpdated = [];
+        $newSoldGames = [];
+
+        $newSoldGames[] = $soldGames[13];
+
+        foreach ($newSoldGames as $game) {
+            // return $this->response(200, 'Jogos para listar encontrados com sucesso', $game);
+
+            foreach ($game['keys'] as $key) {
+
+                $itemToUpdate = Venda_chave_troca::select('*')->where('chaveRecebida', $key)->first();
+
+                if (!$itemToUpdate) continue;
+
+                if ($itemToUpdate['valorVendido']) continue;
+
+                $updated = $itemToUpdate->update([
+                    'dataVendida' => $game['saleDate'],
+                    'valorVendido' => $game['profit'],
+                    'lucroVendaRS' => $this->formulas->calcLucroVendaReal($game['profit'], $itemToUpdate->valorPagoIndividual),
+                    'lucroVendaPercentual' => $this->formulas->calcLucroVendaPercentual($itemToUpdate->lucroVendaRS, $itemToUpdate->valorPagoIndividual),
+                ]);
+
+                if (!$updated) $notUpdated[] = $itemToUpdate;
+            }
+        }
+
+        return $this->response(200, 'Jogos para listar encontrados com sucesso', $notUpdated);
+    }
+
     // Funções auxiliares
 
     private function editarFornecedor($data, $game): mixed
@@ -427,7 +462,7 @@ class VendaChaveTrocaController extends Controller
     {
         // Definição de padrões usando expressões regulares para identificar as plataformas
         $patterns = [
-            'Steam' => '/^\w{5}-\w{5}-\w{5}$|^\w{5}-\w{5}-\w{5}-\w{5}-\w{5}$|^\w{15}\s\w{2}$/', // 12345-12345-12345
+            'Steam' => '/^\w{5}-\w{5}-\w{5}$|^\w{15}\s\w{2}$/', // 12345-12345-12345
             'EA' => '/^\w{4}-\w{4}-\w{4}-\w{4}-\w{4}$/', // 1234-1234-1234-1234-1234
             'EA/Ubisoft' => '/^\w{4}-\w{4}-\w{4}-\w{4}$/', // 1234-1234-1234-1234
             'EGS' => '/^\w{5}-\w{5}-\w{5}-\w{5}$/', // 12345-12345-12345-12345

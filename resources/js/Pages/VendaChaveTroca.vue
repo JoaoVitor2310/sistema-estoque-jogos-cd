@@ -786,6 +786,13 @@ const addOrRemove = (add: boolean) => {
               optionLabel="name" optionValue="id" />
           </template>
         </Column>
+        <Column field="plataformaIdentificada" header="Plataforma Identificada" filterField="searchField"
+          :showFilterMenu="true" :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false"
+          class="text-center p-0">
+          <template #filter>
+            <InputText v-model="searchFilter.plataformaIdentificada" type="text" placeholder="Pesquisar" />
+          </template>
+        </Column>
         <Column field="chaveRecebida" header="Chave Recebida" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0"
           v-if="user && user.email === 'carcadeals@gmail.com'">
@@ -799,13 +806,6 @@ const addOrRemove = (add: boolean) => {
           </template>
           <template #editor="{ data, field }">
             <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
-          </template>
-        </Column>
-        <Column field="plataformaIdentificada" header="Plataforma Identificada" filterField="searchField"
-          :showFilterMenu="true" :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false"
-          class="text-center p-0">
-          <template #filter>
-            <InputText v-model="searchFilter.plataformaIdentificada" type="text" placeholder="Pesquisar" />
           </template>
         </Column>
         <Column field="nomeJogo" header="Nome do Jogo" filterField="searchField" :showFilterMenu="true"
