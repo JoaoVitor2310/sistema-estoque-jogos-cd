@@ -786,7 +786,7 @@ const addOrRemove = (add: boolean) => {
               optionLabel="name" optionValue="id" />
           </template>
         </Column>
-        <Column field="plataformaIdentificada" header="Plataforma Identificada" filterField="searchField"
+        <Column field="plataformaIdentificada" header="Plat. Identificada" filterField="searchField"
           :showFilterMenu="true" :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false"
           class="text-center p-0">
           <template #filter>
@@ -950,7 +950,7 @@ const addOrRemove = (add: boolean) => {
               :maxFractionDigits="2" useGrouping autofocus fluid />
           </template>
         </Column>
-        <Column field="minimoParaVenda" header="Preço Minimo Venda" sortable class="text-center p-0">
+        <Column field="minimoParaVenda" header="Preço Min. Listar" sortable class="text-center p-0">
           <template #body="slotProps">
             <span v-if="slotProps.data.minimoParaVenda">€ {{ slotProps.data.minimoParaVenda }}</span>
           </template>
@@ -969,11 +969,11 @@ const addOrRemove = (add: boolean) => {
             € {{ slotProps.data.incomeReal }}
           </template>
         </Column> -->
-        <Column field="incomeSimulado" header="Income Simulado" sortable class="text-center p-0">
+        <!-- <Column field="incomeSimulado" header="Income Simulado" sortable class="text-center p-0">
           <template #body="slotProps">
             € {{ slotProps.data.incomeSimulado }}
           </template>
-        </Column>
+        </Column> -->
         <!-- <Column field="chaveEntregue" header="Chave Entregue" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
@@ -992,7 +992,7 @@ const addOrRemove = (add: boolean) => {
             <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
           </template>
         </Column>
-        <Column field="valorPagoIndividual" header="Valor Pago Individual" sortable class="text-center p-0">
+        <Column field="valorPagoIndividual" header="Valor Pago Indiv." sortable class="text-center p-0">
           <template #body="slotProps">
             € {{ slotProps.data.valorPagoIndividual }}
           </template>
