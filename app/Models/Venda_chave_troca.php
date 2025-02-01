@@ -59,6 +59,8 @@ class Venda_chave_troca extends Model
         "dataVenda",
         "dataVendida",
         "perfilOrigem",
+        "minApiGamivo",
+        "maxApiGamivo",
         "email"
     ];
 

@@ -191,6 +191,7 @@ class VendaChaveTrocaController extends Controller
             }
 
             $game['plataformaIdentificada'] = $this->identifyPlatform($game['chaveRecebida']);
+            $game = $this->calculateMinMaxApi($game);
 
             // return $this->response(200, 'DEBUG.', $game);
             try {
@@ -478,5 +479,27 @@ class VendaChaveTrocaController extends Controller
         }
 
         return 'DESCONHECIDO';
+    }
+
+    private function calculateMinMaxApi($game)
+    {
+        $minApiGamivo = 0; $maxApiGamivo = 100;
+        if ($game['valorPagoIndividual'] < 4) {
+            $minApiGamivo = $game['valorPagoIndividual'] * 1.6;
+        } elseif ($game['valorPagoIndividual'] > 10) {
+            $minApiGamivo = $game['valorPagoIndividual'] * 1.4;
+        } elseif ($game['valorPagoIndividual'] > 4.6) {
+            $minApiGamivo = $game['valorPagoIndividual'] * 1.5;
+        } else {
+            $minApiGamivo = $game['valorPagoIndividual']; // Caso não se encaixe em nenhuma regra
+        }
+
+        $maxApiGamivo = $game['valorPagoIndividual'] * 8;
+
+        $game['minApiGamivo'] = $minApiGamivo;
+
+        $game['maxApiGamivo'] = $maxApiGamivo;
+
+        return $game;
     }
 }

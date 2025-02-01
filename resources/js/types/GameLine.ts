@@ -1,4 +1,4 @@
-export interface Fornecedor {
+export type Fornecedor = {
     id: number;
     perfilOrigem: string;
     quantidade_reclamacoes: number;
@@ -6,35 +6,35 @@ export interface Fornecedor {
     updated_at: string | null;
 }
 
-export interface TipoReclamacao {
+export type TipoReclamacao = {
     id: number;
     name: string;
     created_at: string | null;
     updated_at: string | null;
 }
 
-export interface TipoFormato {
+export type TipoFormato = {
     id: number;
     name: string;
     created_at: string | null;
     updated_at: string | null;
 }
 
-export interface Leilao {
+export type Leilao = {
     id: number;
     name: string;
     created_at: string | null;
     updated_at: string | null;
 }
 
-export interface Plataforma {
+export type Plataforma = {
     id: number;
     name: string;
     created_at: string | null;
     updated_at: string | null;
 }
 
-export interface GameLine {
+export type GameLine = {
     id: number;
     color: string;
     steamId: string;
@@ -71,7 +71,10 @@ export interface GameLine {
     dataVendida: string;
     perfilOrigem: string;
     email: string;
+    minApiGamivo: number;
+    maxApiGamivo: number;
     
+    // Relacionamentos
     fornecedor: Fornecedor;
     tipo_reclamacao: TipoReclamacao;
     tipo_formato: TipoFormato;

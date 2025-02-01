@@ -43,6 +43,8 @@ class StoreGameRequestArray extends FormRequest
             "games.*.id_plataforma" => "integer|min:1|max:5",
             "games.*.precoCliente" => ["required", "decimal:0,2"],
             "games.*.minimoParaVenda" => ["nullable", "decimal:0,2"],
+            "games.*.minApiGamivo" => ["nullable", "decimal:0,2"],
+            "games.*.maxApiGamivo" => ["nullable", "decimal:0,2"],
             "games.*.chaveEntregue" => ["string", "nullable"],
             "games.*.valorPagoTotal" => ["string", "nullable"],
             "games.*.vendido" => "boolean",

@@ -116,6 +116,8 @@ const selectedNewObject = {
   chaveEntregue: '',
   valorPagoTotal: '',
   valorPagoIndividual: null,
+  minApiGamivo: null,
+  maxApiGamivo: null,
   vendido: false,
   leiloes: 1,
   quantidade: 1,
@@ -259,6 +261,7 @@ const handleAddButton = async (): Promise<void> => { // Mostra o dialog com o el
   });
   isEdit.value = false;
   selected.splice(0, selected.length, { ...selectedNewObject }); // Zera o valor para criar um novo
+  sharedQtdTF2.value = null;
   sharedDataAdquirida.value = null;
   sharedPerfilOrigem.value = '';
   sharedValorPagoTotal.value = '';
@@ -950,7 +953,7 @@ const addOrRemove = (add: boolean) => {
               :maxFractionDigits="2" useGrouping autofocus fluid />
           </template>
         </Column>
-        <Column field="minimoParaVenda" header="Preço Min. Listar" sortable class="text-center p-0">
+        <Column field="minimoParaVenda" header="Preço Min. Venda" sortable class="text-center p-0">
           <template #body="slotProps">
             <span v-if="slotProps.data.minimoParaVenda">€ {{ slotProps.data.minimoParaVenda }}</span>
           </template>
@@ -995,6 +998,24 @@ const addOrRemove = (add: boolean) => {
         <Column field="valorPagoIndividual" header="Valor Pago Indiv." sortable class="text-center p-0">
           <template #body="slotProps">
             € {{ slotProps.data.valorPagoIndividual }}
+          </template>
+        </Column>
+        <Column field="minApiGamivo" header="Min. API Gamivo" sortable class="text-center p-0">
+          <template #body="slotProps">
+            € {{ slotProps.data.minApiGamivo }}
+          </template>
+          <template #editor="{ data, field }">
+            <InputNumber v-model="data[field]" @update:modelValue="onEdit(data)" mode="decimal" :minFractionDigits="2"
+              :maxFractionDigits="2" useGrouping autofocus fluid />
+          </template>
+        </Column>
+        <Column field="maxApiGamivo" header="Max. API Gamivo" sortable class="text-center p-0">
+          <template #body="slotProps">
+            € {{ slotProps.data.maxApiGamivo }}
+          </template>
+          <template #editor="{ data, field }">
+            <InputNumber v-model="data[field]" @update:modelValue="onEdit(data)" mode="decimal" :minFractionDigits="2"
+              :maxFractionDigits="2" useGrouping autofocus fluid />
           </template>
         </Column>
         <!-- <Column field="vendido" header="Vendido" filterField="searchField" :showFilterMenu="true"
