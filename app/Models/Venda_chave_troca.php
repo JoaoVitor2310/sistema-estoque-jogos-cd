@@ -56,7 +56,7 @@ class Venda_chave_troca extends Model
         "lucroVendaRS",
         "lucroVendaPercentual",
         "dataAdquirida",
-        "dataVenda",
+        "dataVenda", // Data posto a venda
         "dataVendida",
         "perfilOrigem",
         "minApiGamivo",

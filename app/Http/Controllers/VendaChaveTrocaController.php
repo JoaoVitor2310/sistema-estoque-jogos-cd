@@ -366,6 +366,11 @@ class VendaChaveTrocaController extends Controller
         return $this->response(200, 'Jogos atualizados com sucesso', $notUpdated);
     }
 
+    public function searchByIdGamivo(Request $request, string $idGamivo){
+        $games = Venda_chave_troca::select(['minApiGamivo', 'maxApiGamivo'])->where('idGamivo', $idGamivo)->whereNull('dataVendida')->get()->toArray();
+        return $this->response(200, 'Jogos encontrados com sucesso', $games);
+    }
+
     // Funções auxiliares
 
     private function editarFornecedor($data, $game): mixed
