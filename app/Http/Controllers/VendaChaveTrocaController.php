@@ -9,6 +9,7 @@ use App\Models\Plataforma;
 use App\Models\Tipo_formato;
 use App\Models\Tipo_leilao;
 use App\Models\Tipo_reclamacao;
+use App\Services\GameService;
 use App\Traits\HttpResponses;
 use Illuminate\Http\Request;
 use App\Models\Venda_chave_troca;
@@ -193,7 +194,13 @@ class VendaChaveTrocaController extends Controller
             $game['plataformaIdentificada'] = $this->identifyPlatform($game['chaveRecebida']);
             $game = $this->calculateMinMaxApi($game);
 
-            // return $this->response(200, 'DEBUG.', $game);
+            if ($game['idGamivo'] == '') {
+                $gameService = new GameService();
+                $idGamivo = $gameService->fillIdGamivo($game['nomeJogo']);
+                if ($idGamivo) $game['idGamivo'] = $idGamivo;
+            }
+
+            // return $this->response(200, 'DEBUG.', [$idGamivo]);
             try {
                 $created = Venda_chave_troca::create($game);
                 if ($created) {
@@ -262,6 +269,12 @@ class VendaChaveTrocaController extends Controller
         $repeatedGame = Venda_chave_troca::select('*')->where('chaveRecebida', $data['chaveRecebida'])->whereNot('id', $game['id'])->first();
 
         $data['repetido'] = $repeatedGame !== null ? true : false;
+
+        if ($data['idGamivo'] == '') {
+            $gameService = new GameService();
+            $idGamivo = $gameService->fillIdGamivo($data['nomeJogo']);
+            if ($idGamivo) $data['idGamivo'] = $idGamivo;
+        }
 
         $result = Venda_chave_troca::where('id', $id)->update($data); // Atualiza
 
@@ -366,7 +379,8 @@ class VendaChaveTrocaController extends Controller
         return $this->response(200, 'Jogos atualizados com sucesso', $notUpdated);
     }
 
-    public function searchByIdGamivo(Request $request, string $idGamivo){
+    public function searchByIdGamivo(Request $request, string $idGamivo)
+    {
         $games = Venda_chave_troca::select(['minApiGamivo', 'maxApiGamivo'])->where('idGamivo', $idGamivo)->whereNull('dataVendida')->get()->toArray();
         return $this->response(200, 'Jogos encontrados com sucesso', $games);
     }
@@ -488,7 +502,8 @@ class VendaChaveTrocaController extends Controller
 
     private function calculateMinMaxApi($game)
     {
-        $minApiGamivo = 0; $maxApiGamivo = 100;
+        $minApiGamivo = 0;
+        $maxApiGamivo = 100;
         if ($game['valorPagoIndividual'] < 4) {
             $minApiGamivo = $game['valorPagoIndividual'] * 1.6;
         } elseif ($game['valorPagoIndividual'] > 10) {
