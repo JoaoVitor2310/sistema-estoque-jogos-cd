@@ -193,6 +193,7 @@ class VendaChaveTrocaController extends Controller
 
             $game['plataformaIdentificada'] = $this->identifyPlatform($game['chaveRecebida']);
             $game = $this->calculateMinMaxApi($game);
+            $game['nomeJogo'] = trim($game['nomeJogo']);
 
             if ($game['idGamivo'] == '') {
                 $gameService = new GameService();
