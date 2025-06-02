@@ -87,6 +87,7 @@ Route::prefix('venda-chave-troca')
         Route::get('/when-to-sell', 'whenToSell')->name('venda-chave-troca.when-to-sell')->withoutMiddleware([CheckPermission::class]);
         Route::post('/update-sold-offers', 'updateSoldOffers')->name('venda-chave-troca.update-sold-offers')->withoutMiddleware([CheckPermission::class]);
         Route::get('/search-by-id-gamivo/{idGamivo}', 'searchByIdGamivo')->name('venda-chave-troca.search-by-id-gamivo')->withoutMiddleware([CheckPermission::class]);
+        Route::post('/insert-data-venda', 'insertDataVenda')->name('venda-chave-troca.insert-data-venda')->withoutMiddleware([CheckPermission::class]);
     });
 
 Route::prefix('authorize') // Gerenciar quem tem acesso

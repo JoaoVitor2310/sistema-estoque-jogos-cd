@@ -386,6 +386,24 @@ class VendaChaveTrocaController extends Controller
         return $this->response(200, 'Jogos encontrados com sucesso', $games);
     }
 
+    public function insertDataVenda(Request $request)
+    {
+        $chaveRecebida = $request->input('chaveRecebida');
+
+        if (!$chaveRecebida) return $this->error(404, 'Chave não encontrada', ['chaveRecebida' => 'Chave não encontrada']);
+
+        $updated = Venda_chave_troca::where('chaveRecebida', $chaveRecebida)
+            ->whereNull('dataVenda') // evita sobrescrever se já tiver valor
+            ->update([
+                'dataVenda' => now()->toDateString(), // mais claro e usa Carbon por trás
+            ]);
+
+        if ($updated === 0) {
+            return $this->error(404, 'Nenhum registro foi atualizado. Verifique se a chave existe ou se já possui dataVenda.');
+        }
+        return $this->response(200, 'Data posto a venda inserida com sucesso.', []);
+    }
+
     // Funções auxiliares
 
     private function editarFornecedor($data, $game): mixed
