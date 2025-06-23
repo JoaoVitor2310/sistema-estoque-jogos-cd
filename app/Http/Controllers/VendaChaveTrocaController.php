@@ -200,7 +200,11 @@ class VendaChaveTrocaController extends Controller
                 $idGamivo = $gameService->fillIdGamivo($game['nomeJogo']);
                 if ($idGamivo) $game['idGamivo'] = $idGamivo;
             }
-
+            
+            if ($game['minimoParaVenda'] == '') {
+                $game['minimoParaVenda'] = $game['precoCliente'] * 1.1;
+            }
+            
             // return $this->response(200, 'DEBUG.', [$idGamivo]);
             try {
                 $created = Venda_chave_troca::create($game);
