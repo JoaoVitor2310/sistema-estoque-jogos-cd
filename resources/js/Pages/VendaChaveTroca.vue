@@ -1122,13 +1122,11 @@ const addOrRemove = (add: boolean) => {
         <Column field="dataVenda" header="Data posto a Venda" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
-            <!-- <label>Não posto a venda</label>
-            <RadioButton v-model="searchFilter.dataVenda" :value="false" />
-            <DatePicker v-model="searchFilter.dataVenda" selectionMode="range" dateFormat="dd/mm/yy" showIcon fluid :showOnFocus="false"
-              showButtonBar /> -->
-            <Select  v-model="searchFilter.dataVenda" :options="[{ name: 'Não', value: true }]"
-              placeholder="Já posto a venda?" optionLabel="name" optionValue="value" style="min-width: 14rem">
-            </Select >
+            <Select v-model="searchFilter.dataVenda" :options="[
+              { name: 'Sim', value: 'sim' },
+              { name: 'Não', value: 'nao' }
+            ]" placeholder="Já posto a venda?" optionLabel="name" optionValue="value" style="min-width: 14rem">
+            </Select>
           </template>
           <template #body="slotProps">
             {{ formatDateToBR(slotProps.data.dataVenda) }}
@@ -1140,11 +1138,11 @@ const addOrRemove = (add: boolean) => {
         <Column field="dataVendida" header="Data Vendida" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
-            <!-- <DatePicker v-model="searchFilter.dataVendida" dateFormat="dd/mm/yy" showIcon fluid :showOnFocus="false"
-              showButtonBar /> -->
-              <Select  v-model="searchFilter.dataVendida" :options="[{ name: 'Não', value: true }]"
-              placeholder="Já vendido?" optionLabel="name" optionValue="value" style="min-width: 14rem">
-            </Select >
+            <Select v-model="searchFilter.dataVendida" :options="[
+              { name: 'Sim', value: 'sim' },
+              { name: 'Não', value: 'nao' }
+            ]" placeholder="Já vendido?" optionLabel="name" optionValue="value" style="min-width: 14rem">
+            </Select>
           </template>
           <template #body="slotProps">
             {{ formatDateToBR(slotProps.data.dataVendida) }}
