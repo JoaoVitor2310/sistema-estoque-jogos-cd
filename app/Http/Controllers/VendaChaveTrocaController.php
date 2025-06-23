@@ -224,6 +224,11 @@ class VendaChaveTrocaController extends Controller
                 $game['minimoParaVenda'] = $game['precoCliente'] * 1.1;
             }
             
+            // Inserir o valor pago total no padrão
+            if ($game['valorPagoTotal'] == '') {
+                $game['valorPagoTotal'] = $game['qtdTF2'] . "x TF2 Keys / " . count($data['games']);
+            }
+
             // return $this->response(200, 'DEBUG.', [$idGamivo]);
             try {
                 $created = Venda_chave_troca::create($game);
