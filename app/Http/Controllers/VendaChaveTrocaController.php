@@ -424,6 +424,7 @@ class VendaChaveTrocaController extends Controller
             ->whereNull('dataVenda') // evita sobrescrever se já tiver valor
             ->update([
                 'dataVenda' => now()->toDateString(), // mais claro e usa Carbon por trás
+                'minApiGamivo' => 0.01,
             ]);
 
         if ($updated === 0) {
