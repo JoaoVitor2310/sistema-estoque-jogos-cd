@@ -42,9 +42,10 @@ COPY --from=composer:lts /usr/bin/composer /usr/bin/composer
 WORKDIR /var/www/html 
 # Daqui iria direto pro COPY comentado
 
-COPY composer.json composer.lock artisan ./
-
-RUN composer install --no-dev --optimize-autoloader
+COPY composer.json composer.lock ./
+COPY artisan artisan
+COPY bootstrap/ bootstrap/
+COPY config/ config/
 
 # Só depois copia o restante do código
 COPY . .
