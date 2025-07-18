@@ -39,9 +39,17 @@ RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
 COPY --from=composer:lts /usr/bin/composer /usr/bin/composer
 
-WORKDIR /var/www/html
+WORKDIR /var/www/html 
+# Daqui iria direto pro COPY comentado
 
-COPY . /var/www/html
+COPY composer.json composer.lock ./
+
+RUN composer install --no-dev --optimize-autoloader
+
+# Só depois copia o restante do código
+COPY . .
+
+# COPY . /var/www/html
 
 # Copia o script de entrypoint para o container
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
