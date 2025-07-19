@@ -138,6 +138,7 @@ const selected = reactive([selectedNewObject]);
 const sharedQtdTF2 = ref(null);
 const sharedDataAdquirida = ref(null);
 const sharedPerfilOrigem = ref('');
+const sharedEmail = ref('');
 const sharedValorPagoTotal = ref('');
 
 // Sincroniza o valor de qtdTF2 em todos os itens
@@ -156,6 +157,12 @@ watch(sharedDataAdquirida, (newValue) => {
 watch(sharedPerfilOrigem, (newValue) => {
   selected.forEach(item => {
     item.perfilOrigem = newValue;
+  });
+});
+
+watch(sharedEmail, (newValue) => {
+  selected.forEach(item => {
+    item.email = newValue;
   });
 });
 
@@ -178,6 +185,7 @@ const handleEditButton = (data: any) => {
   sharedDataAdquirida.value = data[0].dataAdquirida;
   sharedPerfilOrigem.value = data[0].perfilOrigem;
   sharedValorPagoTotal.value = data[0].valorPagoTotal;
+  sharedEmail.value = data[0].email;
 };
 
 const onEdit = async (selected: any) => {
@@ -190,6 +198,9 @@ const onEdit = async (selected: any) => {
     }
     if (sharedPerfilOrigem.value !== '') {
       product.perfilOrigem = sharedPerfilOrigem.value;
+    }
+    if (sharedEmail.value !== '') {
+      product.email = sharedEmail.value;
     }
     if (sharedValorPagoTotal.value !== '') {
       product.valorPagoTotal = sharedValorPagoTotal.value;
@@ -262,8 +273,9 @@ const handleAddButton = async (): Promise<void> => { // Mostra o dialog com o el
   isEdit.value = false;
   selected.splice(0, selected.length, { ...selectedNewObject }); // Zera o valor para criar um novo
   sharedQtdTF2.value = null;
-  sharedDataAdquirida.value = null;
+  sharedDataAdquirida.value = new Date().toLocaleDateString('pt-BR');
   sharedPerfilOrigem.value = '';
+  sharedEmail.value = '';
   sharedValorPagoTotal.value = '';
   DialogVisible.value = true;
 }
@@ -712,7 +724,7 @@ const addOrRemove = (add: boolean) => {
         <div class="d-flex flex-column">
           <label class="fw-bold me-2">Email</label>
           <div class="d-flex gap-5 mb-3">
-            <InputText class="flex-auto" v-model="item.email" />
+            <InputText class="flex-auto" v-model="sharedEmail" />
           </div>
         </div>
       </div>
