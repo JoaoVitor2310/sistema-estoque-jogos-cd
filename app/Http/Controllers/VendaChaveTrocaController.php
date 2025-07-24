@@ -221,7 +221,7 @@ class VendaChaveTrocaController extends Controller
             }
             
             if ($game['minimoParaVenda'] == '') {
-                $game['minimoParaVenda'] = $game['precoCliente'] * 1.1;
+                $game['minimoParaVenda'] = $game['precoCliente'] * 1.05;
             }
             
             // Inserir o valor pago total no padrão
