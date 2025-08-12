@@ -145,15 +145,7 @@ class VendaChaveTrocaController extends Controller
                     $query->whereIn($key, $value);
                 } else if (is_string($value)) {
                     // Tratamento especial para o filtro dataVenda
-                    if ($key === 'dataVenda') {
-                        if ($value === 'sim') {
-                            $query->whereNotNull($key);
-                        } else if ($value === 'nao') {
-                            $query->whereNull($key);
-                        } else {
-                            $query->where($key, 'ILIKE', "%" . $value . "%");
-                        }
-                    } else if ($key === 'dataVendida') {
+                    if ($key === 'dataVenda' || $key === 'dataVendida' || $key === 'dataExpiracao') {
                         if ($value === 'sim') {
                             $query->whereNotNull($key);
                         } else if ($value === 'nao') {

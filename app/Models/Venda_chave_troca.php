@@ -58,6 +58,7 @@ class Venda_chave_troca extends Model
         "dataAdquirida",
         "dataVenda", // Data posto a venda
         "dataVendida",
+        "dataExpiracao",
         "perfilOrigem",
         "minApiGamivo",
         "maxApiGamivo",

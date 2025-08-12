@@ -54,6 +54,7 @@ class StoreGameRequest extends FormRequest
             "dataAdquirida" => ["required", "string"],
             "dataVenda" => ["nullable", "string"],
             "dataVendida" => ["nullable", "string"],
+            "dataExpiracao" => ["nullable", "string"],
             "perfilOrigem" => ["required", "string"],
             "email" => ["nullable", "string"],
             "qtdTF2" => ["nullable", "decimal:0,2"],

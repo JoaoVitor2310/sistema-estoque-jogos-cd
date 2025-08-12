@@ -55,6 +55,7 @@ class StoreGameRequestArray extends FormRequest
             "games.*.dataAdquirida" => ["required", "string"],
             "games.*.dataVenda" => ["nullable", "string"],
             "games.*.dataVendida" => ["nullable", "string"],
+            "games.*.dataExpiracao" => ["nullable", "string"],
             "games.*.perfilOrigem" => ["required", "string"],
             "games.*.email" => ["nullable", "string"],
             "games.*.qtdTF2" => ["required", "decimal:0,2"],

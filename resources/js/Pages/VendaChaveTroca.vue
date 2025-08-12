@@ -398,6 +398,7 @@ const searchFilter = reactive({
   dataAdquirida: '',
   dataVenda: '',
   dataVendida: '',
+  dataExpiracao: '',
   perfilOrigem: '',
   email: '',
 })
