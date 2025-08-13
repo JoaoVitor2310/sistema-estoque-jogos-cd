@@ -1164,6 +1164,22 @@ const addOrRemove = (add: boolean) => {
             <InputText class="flex-auto" v-model="data[field]" @change="onEdit(data)" />
           </template>
         </Column>
+        <Column field="dataExpiracao" header="Data Expiração" filterField="searchField" :showFilterMenu="true"
+          :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
+          <template #filter>
+            <Select v-model="searchFilter.dataExpiracao" :options="[
+              { name: 'Sim', value: 'sim' },
+              { name: 'Não', value: 'nao' }
+            ]" placeholder="Expirado?" optionLabel="name" optionValue="value" style="min-width: 14rem">
+            </Select>
+          </template>
+          <template #body="slotProps">
+            {{ formatDateToBR(slotProps.data.dataExpiracao) }}
+          </template>
+          <template #editor="{ data, field }">
+            <InputText class="flex-auto" v-model="data[field]" @change="onEdit(data)" />
+          </template>
+        </Column>
         <Column field="perfilOrigem" header="Perfil/Origem" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0"
           v-if="user && user.email === 'carcadeals@gmail.com'">
