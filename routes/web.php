@@ -4,6 +4,8 @@ use App\Http\Controllers\ProfileController;
 use Illuminate\Foundation\Application;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AuthorizedUsersController;
+use App\Http\Controllers\BundleController;
+use App\Http\Controllers\GameController;
 use App\Http\Controllers\TaxaController;
 use App\Http\Controllers\VendaChaveTrocaController;
 use App\Http\Controllers\ResourceController;
@@ -24,10 +26,13 @@ Route::get('/ranges-taxa-G2A', [TaxaController::class, 'showRangesG2A'])->name('
 
 Route::get('/resources', [ResourceController::class, 'show'])->name('resources');
 
+Route::get('/bundles', [BundleController::class, 'index'])->name('bundles');
+
+Route::get('/games', [GameController::class, 'index'])->name('games');
+
 Route::get('/venda-chave-troca', [VendaChaveTrocaController::class, 'show'])->name('venda-chave-troca');
 
 Route::get('/acesso', [AuthorizedUsersController::class, 'index'])->name('acesso');
-
 
 Route::get('/login', function () {
     return Inertia::render('Login', [
@@ -53,6 +58,24 @@ Route::prefix('fees')
         Route::put('/{id}', 'update')->name('fees.update');
         Route::delete('/{id}', 'destroy')->name('fees.destroy');
         Route::delete('/', 'destroyArray')->name('fees.destroyArray');
+    });
+
+Route::prefix('games')
+    ->middleware(CheckAdmin::class)
+    ->controller(GameController::class)->group(function () {
+        Route::post('/', 'store')->name('games.store');
+        Route::put('/{id}', 'update')->name('games.update');
+        Route::delete('/{id}', 'destroy')->name('games.destroy');
+        Route::delete('/', 'destroyArray')->name('games.destroyArray');
+    });
+
+Route::prefix('bundles')
+    ->middleware(CheckAdmin::class)
+    ->controller(BundleController::class)->group(function () {
+        Route::post('/', 'store')->name('bundles.store');
+        Route::put('/{id}', 'update')->name('bundles.update');
+        Route::delete('/{id}', 'destroy')->name('bundles.destroy');
+        Route::delete('/', 'destroyArray')->name('bundles.destroyArray');
     });
 
 Route::prefix('ranges-g2a')

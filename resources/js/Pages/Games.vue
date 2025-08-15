@@ -25,9 +25,9 @@ import { Resource } from '../types/Resource';
 
 // onMouted {
 let rowData: Resource[] = reactive([]);
-const props = defineProps({ resources: Array as PropType<Resource[]> });
-// console.log(props.resources)
-Object.assign(rowData, props.resources);
+const props = defineProps({ bundles: Array as PropType<Resource[]> });
+console.log(props.bundles)
+Object.assign(rowData, props.bundles);
 // }
 
 const filters = ref({
@@ -178,63 +178,10 @@ const handleDeleteButton = (event: any, qtd: number) => {
 
   <div class="container text-center">
 
-    <h1>Recursos</h1>
+    <h1>Jogos</h1>
     <div class="w-50 m-auto">
-      <p>Recursos utilizados para trade.</p>
+      <p>Dados dos jogos.</p>
     </div>
-    <DataTable :value="rowData" showGridlines sortMode="multiple" removableSort :globalFilterFields="['name', 'preco']"
-      v-model:filters="filters" v-model:selection="selectedProduct" selectionMode="multiple" scrollable
-      scrollHeight="100vh" editMode="cell" dataKey="id" size="large" tableStyle="min-width: 50rem">
-      <template #header>
-        <div class="d-flex justify-content-between">
-          <div class="d-flex gap-2">
-            <Button label="Novo" aria-label="Novo" icon="pi pi-plus" @click="handleAddButton()" raised />
-            <Button label="Deletar" :disabled="!selectedProduct || selectedProduct.length === 0" aria-label="Deletar"
-              severity="danger" icon="pi pi-plus" @click="handleDeleteButton($event, 2)" raised />
-          </div>
-          <div class="w-25">
-            <InputGroup>
-              <InputGroupAddon>
-                <i class="pi pi-search" />
-              </InputGroupAddon>
-              <InputText v-model="filters['global'].value" placeholder="Pesquisar" />
-            </InputGroup>
-          </div>
-        </div>
-      </template>
-      <template #empty> Nenhum item encontrado. </template>
-      <Column field="id" header="ID" sortable></Column>
-      <Column field="name" header="Nome" sortable>
-      </Column>
-      <Column field="preco_euro" header="Preço(euro)" sortable>
-        <template #editor="{ data, field }">
-          <InputNumber v-model="data[field]" @blur="onEdit(data)" mode="decimal" :minFractionDigits="3"
-            :maxFractionDigits="3" useGrouping autofocus fluid />
-        </template>
-      </Column>
-      <Column field="preco_dolar" header="Preço(dólar)" sortable>
-        <template #editor="{ data, field }">
-          <InputNumber v-model="data[field]" @blur="onEdit(data)" mode="decimal" :minFractionDigits="3"
-            :maxFractionDigits="3" useGrouping autofocus fluid />
-        </template>
-      </Column>
-      <Column field="preco_real" header="Preço(real)" sortable>
-        <template #editor="{ data, field }">
-          <InputNumber v-model="data[field]" @blur="onEdit(data)" mode="decimal" :minFractionDigits="3"
-            :maxFractionDigits="3" useGrouping autofocus fluid />
-        </template>
-      </Column>
-      <Column header="Ação">
-        <template #body="slotProps">
-          <div class="d-flex gap-1">
-            <Button label="Editar" aria-label="Editar" icon="pi pi-pencil"
-              @click="DialogVisible = true; Object.assign(selected, slotProps.data); isEdit = true" outlined />
-            <Button label="Excluir" aria-label="Excluir" icon="pi pi-times"
-              @click="handleDeleteButton($event, 1); Object.assign(selected, slotProps.data);" severity="danger"
-              outlined />
-          </div>
-        </template>
-      </Column>
-    </DataTable>
+   
   </div>
 </template>

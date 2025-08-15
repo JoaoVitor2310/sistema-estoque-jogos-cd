@@ -44,6 +44,12 @@ const handleLogout = async () => {
             <li>
               <Link class="nav-link" :href="route('venda-chave-troca')">Venda-Chave-Troca</Link>
             </li>
+            <li>
+              <Link class="nav-link" :href="route('bundles')">Bundles</Link>
+            </li>
+            <li>
+              <Link class="nav-link" :href="route('games')">Jogos</Link>
+            </li>
             <li class="nav-item dropdown">
               <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown"
                 aria-expanded="false">
