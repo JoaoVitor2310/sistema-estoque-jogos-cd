@@ -211,11 +211,11 @@ class VendaChaveTrocaController extends Controller
                 $idGamivo = $gameService->fillIdGamivo($game['nomeJogo']);
                 if ($idGamivo) $game['idGamivo'] = $idGamivo;
             }
-            
+
             if ($game['minimoParaVenda'] == '') {
                 $game['minimoParaVenda'] = $game['precoCliente'] * 1.05;
             }
-            
+
             // Inserir o valor pago total no padrão
             if ($game['valorPagoTotal'] == '') {
                 $game['valorPagoTotal'] = $game['qtdTF2'] . "x TF2 Keys / " . count($data['games']);
@@ -358,13 +358,13 @@ class VendaChaveTrocaController extends Controller
 
     public function autoSell(Request $request)
     {
-        $gamesToList = Venda_chave_troca::select(['idGamivo', 'minimoParaVenda', 'valorPagoIndividual', 'chaveRecebida', 'nomeJogo', 'dataAdquirida', 'dataVenda', 'dataVendida', 'dataExpiracao'])->whereNotNull('idGamivo')->whereNull('dataVenda')->whereNull('dataVendida')->get();
+        $gamesToList = Venda_chave_troca::select(['idGamivo', 'minimoParaVenda', 'valorPagoIndividual', 'chaveRecebida', 'nomeJogo', 'dataAdquirida', 'dataVenda', 'dataVendida', 'dataExpiracao'])->whereNotNull('idGamivo')->whereNull('dataVenda')->whereNull('dataVendida')->where('plataformaIdentificada', '!=', 'DESCONHECIDO')->get();
 
         is_object($gamesToList) ? $gamesToList = $gamesToList->toArray() : $gamesToList; // Garante que sempre será um array, mesmo que tenha só um elemento
 
         return $this->response(200, 'Jogos para listar a venda automaticamente encontrados com sucesso', $gamesToList);
     }
-    
+
     public function whenToSell(Request $request)
     {
         $gamesToList = Venda_chave_troca::select(['idGamivo', 'minimoParaVenda', 'valorPagoIndividual', 'chaveRecebida', 'nomeJogo', 'dataAdquirida', 'dataVenda', 'dataVendida', 'dataExpiracao'])->whereNotNull('idGamivo')->whereNotNull('minimoParaVenda')->whereNull('dataVenda')->whereNull('dataVendida')->get();
@@ -418,15 +418,21 @@ class VendaChaveTrocaController extends Controller
     public function insertDataVenda(Request $request)
     {
         $chaveRecebida = $request->input('chaveRecebida');
+        $updateMinApiGamivo = $request->input('updateMinApiGamivo', true);
 
         if (!$chaveRecebida) return $this->error(404, 'Chave não encontrada', ['chaveRecebida' => 'Chave não encontrada']);
 
+        $data = [
+            'dataVenda' => now()->toDateString(),
+        ];
+
+        if ($updateMinApiGamivo) {
+            $data['minApiGamivo'] = 0.01;
+        }
+
         $updated = Venda_chave_troca::where('chaveRecebida', $chaveRecebida)
-            ->whereNull('dataVenda') // evita sobrescrever se já tiver valor
-            ->update([
-                'dataVenda' => now()->toDateString(), // mais claro e usa Carbon por trás
-                'minApiGamivo' => 0.01,
-            ]);
+            ->whereNull('dataVenda')
+            ->update($data);
 
         if ($updated === 0) {
             return $this->error(404, 'Nenhum registro foi atualizado. Verifique se a chave existe ou se já possui dataVenda.');
