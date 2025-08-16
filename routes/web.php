@@ -107,6 +107,7 @@ Route::prefix('venda-chave-troca')
         Route::put('/{id}', 'update')->name('venda-chave-troca.update');
         Route::delete('/{id}', 'destroy')->name('venda-chave-troca.destroy');
         Route::delete('/', 'destroyArray')->name('venda-chave-troca.destroyArray');
+        Route::get('/auto-sell', 'autoSell')->name('venda-chave-troca.auto-sell')->withoutMiddleware([CheckPermission::class]);
         Route::get('/when-to-sell', 'whenToSell')->name('venda-chave-troca.when-to-sell')->withoutMiddleware([CheckPermission::class]);
         Route::post('/update-sold-offers', 'updateSoldOffers')->name('venda-chave-troca.update-sold-offers')->withoutMiddleware([CheckPermission::class]);
         Route::get('/search-by-id-gamivo/{idGamivo}', 'searchByIdGamivo')->name('venda-chave-troca.search-by-id-gamivo')->withoutMiddleware([CheckPermission::class]);
