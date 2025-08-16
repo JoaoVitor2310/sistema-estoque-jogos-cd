@@ -622,12 +622,12 @@ const addOrRemove = (add: boolean) => {
               class="w-full md:w-56" />
           </div>
         </div>
-        <div class="d-flex flex-column">
+        <!-- <div class="d-flex flex-column">
           <label class="fw-bold">Id Gamivo</label>
           <div class="d-flex gap-5 mb-3">
             <InputText class="flex-auto" v-model="item.idGamivo" />
           </div>
-        </div>
+        </div> -->
         <div class="d-flex flex-column">
           <label class="fw-bold">Preço Cliente*</label>
           <div class="d-flex gap-5 mb-3">
@@ -722,12 +722,12 @@ const addOrRemove = (add: boolean) => {
             <InputText class="flex-auto" v-model="sharedPerfilOrigem" />
           </div>
         </div>
-        <div class="d-flex flex-column">
+        <!-- <div class="d-flex flex-column">
           <label class="fw-bold me-2">Email</label>
           <div class="d-flex gap-5 mb-3">
             <InputText class="flex-auto" v-model="sharedEmail" />
           </div>
-        </div>
+        </div> -->
       </div>
 
       <div class="d-flex justify-content-end gap-2 position-absolute bottom-0 end-0 p-3 botao-rodape">
