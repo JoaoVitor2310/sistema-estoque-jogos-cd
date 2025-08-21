@@ -358,7 +358,7 @@ class VendaChaveTrocaController extends Controller
 
     public function autoSell(Request $request)
     {
-        $gamesToList = Venda_chave_troca::select(['idGamivo', 'minimoParaVenda', 'valorPagoIndividual', 'chaveRecebida', 'nomeJogo', 'dataAdquirida', 'dataVenda', 'dataVendida', 'dataExpiracao'])->whereNotNull('idGamivo')->whereNull('dataVenda')->whereNull('dataVendida')->where('plataformaIdentificada', '!=', 'DESCONHECIDO')->get();
+        $gamesToList = Venda_chave_troca::select(['idGamivo', 'minimoParaVenda', 'valorPagoIndividual', 'chaveRecebida', 'nomeJogo', 'dataAdquirida', 'dataVenda', 'dataVendida', 'dataExpiracao'])->whereNotNull('idGamivo')->where('idGamivo', '!=', '')->whereNull('dataVenda')->whereNull('dataVendida')->where('chaveRecebida', 'not like', '%http%')->get();
 
         is_object($gamesToList) ? $gamesToList = $gamesToList->toArray() : $gamesToList; // Garante que sempre será um array, mesmo que tenha só um elemento
 

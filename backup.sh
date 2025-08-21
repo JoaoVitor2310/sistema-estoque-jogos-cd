@@ -5,7 +5,7 @@ POSTGRES_DB="sistema-estoque-cd"
 POSTGRES_USER="postgres"
 
 # Caminho de backup local
-BACKUP_DIR="/home/sistema-estoque-jogos-cd/backups"
+BACKUP_DIR="/var/www/sistema-estoque-jogos-cd/backups"
 FILENAME="db_backup_$(date +%F).sql"
 
 # Garante que a pasta existe
