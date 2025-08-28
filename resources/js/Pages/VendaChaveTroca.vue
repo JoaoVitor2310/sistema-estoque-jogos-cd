@@ -388,6 +388,7 @@ const searchFilter = reactive({
   nomeJogo: '',
   isSteam: [],
   idGamivo: '',
+  observacao: '',
   randomClassificationG2A: '',
   randomClassificationKinguin: '',
   id_plataforma: [],
@@ -892,7 +893,11 @@ const addOrRemove = (add: boolean) => {
             <InputText v-model="searchFilter.randomClassificationKinguin" type="text" placeholder="Pesquisar" />
           </template>
         </Column> -->
-        <Column field="observacao" header="Observação" class="text-center p-0">
+        <Column field="observacao" header="Observação" filterField="searchField" :showFilterMenu="true"
+          :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
+          <template #filter>
+            <InputText v-model="searchFilter.observacao" type="text" placeholder="Pesquisar" />
+          </template>
           <template #editor="{ data, field }">
             <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
           </template>
@@ -1170,7 +1175,7 @@ const addOrRemove = (add: boolean) => {
             <Select v-model="searchFilter.dataExpiracao" :options="[
               { name: 'Sim', value: 'sim' },
               { name: 'Não', value: 'nao' }
-            ]" placeholder="Expirado?" optionLabel="name" optionValue="value" style="min-width: 14rem">
+            ]" placeholder="Expira?" optionLabel="name" optionValue="value" style="min-width: 14rem">
             </Select>
           </template>
           <template #body="slotProps">
@@ -1192,7 +1197,7 @@ const addOrRemove = (add: boolean) => {
         </Column>
         <Column field="fornecedor.quantidade_reclamacoes" header="Reclamações Anteriores">
         </Column>
-        <Column field="email" header="Email" filterField="searchField" :showFilterMenu="true"
+        <!-- <Column field="email" header="Email" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
             <InputText v-model="searchFilter.email" type="text" placeholder="Pesquisar" />
@@ -1200,7 +1205,7 @@ const addOrRemove = (add: boolean) => {
           <template #editor="{ data, field }">
             <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
           </template>
-        </Column>
+        </Column> -->
         <Column header="Ação">
           <template #body="slotProps">
             <div class="d-flex gap-1">
