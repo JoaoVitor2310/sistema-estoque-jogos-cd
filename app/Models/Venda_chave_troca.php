@@ -21,6 +21,7 @@ class Venda_chave_troca extends Model
         "color",
         "id_fornecedor",
         "tipo_reclamacao_id",
+        "dont_sell",
         "steamId",
         "idGamivo",
         "chaveRecebida",

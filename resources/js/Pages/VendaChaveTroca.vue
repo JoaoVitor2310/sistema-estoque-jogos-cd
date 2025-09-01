@@ -97,6 +97,7 @@ const selectedNewObject = {
   id: 0,
   color: '',
   tipo_reclamacao_id: 1,
+  dont_sell: false,
   steamId: '',
   idGamivo: '',
   tipo_formato_id: 1,
@@ -383,6 +384,7 @@ const searchFilter = reactive({
   tipo_reclamacao_id: [],
   steamId: '',
   tipo_formato_id: [],
+  dont_sell: false,
   chaveRecebida: '',
   plataformaIdentificada: '',
   nomeJogo: '',
@@ -791,6 +793,20 @@ const addOrRemove = (add: boolean) => {
             <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
           </template>
         </Column> -->
+        <Column field="dont_sell" header="Não vender" filterField="searchField" :showFilterMenu="true"
+          :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
+          <template #filter>
+            <Select v-model="searchFilter.dont_sell" :options="[
+              { name: 'Sim', value: 'sim' },
+              { name: 'Não', value: 'nao' }
+            ]" placeholder="Não vender?" optionLabel="name" optionValue="value" style="min-width: 14rem">
+            </Select>
+          </template>
+          <template #editor="{ data, field }">
+            <Select v-model="data.tipo_formato.id" :options="props.tiposFormato" @change="onEdit(data)"
+              optionLabel="name" optionValue="id" />
+          </template>
+        </Column>
         <Column field="tipo_formato.name" header="Formato" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
