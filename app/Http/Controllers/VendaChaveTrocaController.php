@@ -358,9 +358,40 @@ class VendaChaveTrocaController extends Controller
 
     public function autoSell(Request $request)
     {
-        $gamesToList = Venda_chave_troca::select(['idGamivo', 'precoCliente', 'lucroPercentual', 'minimoParaVenda', 'valorPagoIndividual', 'chaveRecebida', 'nomeJogo', 'dataAdquirida', 'dataVenda', 'dataVendida', 'dataExpiracao'])->whereNotNull('idGamivo')->where('idGamivo', '!=', '')->whereNull('dataVenda')->whereNull('dataVendida')->where('chaveRecebida', 'not like', '%http%')->get();
+        try {
+            $gamesToList = Venda_chave_troca::select(['idGamivo', 'precoCliente', 'lucroPercentual', 'minimoParaVenda', 'valorPagoIndividual', 'chaveRecebida', 'nomeJogo', 'dataAdquirida', 'dataVenda', 'dataVendida', 'dataExpiracao'])
+                ->whereNotNull('idGamivo')
+                ->where('idGamivo', '!=', '')
+                // IMPROVISO
+                ->where('chaveRecebida', '!=', '58MEY-3NQ3F-ZBPXR')
+                ->where('chaveRecebida', '!=', '5FX3N-PYLIC-YXER7')
+                ->where('chaveRecebida', '!=', '4X7NF-XID53-DW9M3')
+                ->where('chaveRecebida', '!=', '4V08R-DY2J2-XZP2N')
+                ->where('chaveRecebida', '!=', 'JHWAA-N4QE6-PA6CK')
+                ->where('chaveRecebida', '!=', '9D205-4BQA9-906WP')
+                ->where('chaveRecebida', '!=', 'Z63FJ-D7Q28-JXGF8')
+                ->where('chaveRecebida', '!=', 'TQ9H4-688K0-WG3YX')
+                ->where('chaveRecebida', '!=', 'P0HAI-NL7DK-YTD9G')
+                ->where('chaveRecebida', '!=', '7IXYH-C5CVP-2F0A3')
+                ->where('chaveRecebida', '!=', '5WAG7-4XVBB-RXCEI')
+                ->where('chaveRecebida', '!=', 'ZPQ04-EEMCW-B47BK')
+                ->where('chaveRecebida', '!=', 'FVIIB-0CTV2-RP3P4')
+                ->where('chaveRecebida', '!=', 'Q4TP4-XPV26-4DLZ2')
+                ->where('chaveRecebida', '!=', 'HJGP4-LFGR8-PF56G')
+                ->where('chaveRecebida', '!=', 'MBXJJ-FD3M3-XL48N')
+                ->where('chaveRecebida', '!=', '38AP6-6MZ3W-9CVYC')
+                ->where('chaveRecebida', '!=', '0A4J9-53J8B-FKYLT')
+                ->where('chaveRecebida', '!=', '9LXV6-5034C-6MMIL')
+                ->where('chaveRecebida', '!=', '0949Y-CI34K-6X7ID')
+                ->whereNull('dataVenda')
+                ->whereNull('dataVendida')
+                ->where('chaveRecebida', 'not like', '%http%')
+                ->get();
 
-        is_object($gamesToList) ? $gamesToList = $gamesToList->toArray() : $gamesToList; // Garante que sempre será um array, mesmo que tenha só um elemento
+            $gamesToList = is_object($gamesToList) ? $gamesToList->toArray() : $gamesToList; // Garante que sempre será um array, mesmo que tenha só um elemento
+        } catch (\Exception $e) {
+            return $this->error(500, 'Erro interno ao listar jogos para venda automaticamente', [$e->getMessage()]);
+        }
 
         return $this->response(200, 'Jogos para listar a venda automaticamente encontrados com sucesso', $gamesToList);
     }
