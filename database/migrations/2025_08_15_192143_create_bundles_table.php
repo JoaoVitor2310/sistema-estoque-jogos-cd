@@ -16,7 +16,8 @@ return new class extends Migration
             $table->string('name')->nullable();
             $table->string('description')->nullable();
             $table->decimal('price_tf2', 10, 2)->nullable();
-            $table->dateTime('release_date')->nullable();
+            $table->decimal('price_euro', 10, 2)->nullable();
+            $table->date('release_date')->nullable();
             $table->timestamps();
         });
     }
