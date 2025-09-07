@@ -1,16 +1,15 @@
 <script setup lang="ts">
+// Vue
 import { reactive, ref } from 'vue';
 import type { PropType } from 'vue';
 import axiosInstance from '../axios';
 
-// PrimeVue
+// PrimeVue Components
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import { FilterMatchMode } from '@primevue/core/api';
 import InputText from 'primevue/inputtext';
 import 'primeicons/primeicons.css'
-import InputGroup from 'primevue/inputgroup';
-import InputGroupAddon from 'primevue/inputgroupaddon';
 import Button from 'primevue/button';
 import Dialog from 'primevue/dialog';
 import Toast from 'primevue/toast';
@@ -18,81 +17,201 @@ import { useToast } from "primevue/usetoast";
 import ConfirmPopup from 'primevue/confirmpopup';
 import { useConfirm } from "primevue/useconfirm";
 import InputNumber from 'primevue/inputnumber';
+import Paginator, { PageState } from 'primevue/paginator';
 
-// Inertia
+// Utilitários
 import { showResponse } from '../helpers/showResponse';
-import { Resource } from '../types/Resource';
+import { Game } from '../types/Game';
+import { formatDateToBR, identifyAndFormatDate } from '@/helpers/formatHelpers';
 
-// onMouted {
-let rowData: Resource[] = reactive([]);
-const props = defineProps({ bundles: Array as PropType<Resource[]> });
-console.log(props.bundles)
-Object.assign(rowData, props.bundles);
-// }
+// ====================================
+// PROPS E DADOS INICIAIS
+// ====================================
 
-const filters = ref({
-  global: { value: null, matchMode: FilterMatchMode.CONTAINS },
-  name: { value: null, matchMode: FilterMatchMode.CONTAINS },
-  preco: { value: null, matchMode: FilterMatchMode.CONTAINS },
-  action: { value: null, matchMode: FilterMatchMode.CONTAINS },
+// Props recebidas do controller
+const props = defineProps({
+  games: Array as PropType<Game[]>,
+  totalGames: Number,
+  pagination: Object
 });
 
+// Dados reativos dos jogos
+let rowData: Game[] = reactive([]);
+// console.log('Jogos recebidos:', props.games);
+Object.assign(rowData, props.games);
+
+// ====================================
+// ESTADOS E REFERENCIAS REATIVAS
+// ====================================
+
+// Filtros da DataTable
+const filters = ref({
+  searchField: { value: null, matchMode: FilterMatchMode.IN },
+});
+
+
+const pagination = ref(props.pagination!); // Informações da paginação
+const currentFirst = ref((pagination.value.current_page - 1) * pagination.value.per_page);
+
+// Composables do PrimeVue
 const toast = useToast();
 const confirm = useConfirm();
 
-const selectedProduct = ref();
-const DialogVisible = ref(false); // Visibilidade do Dialog(modal)
-const isEdit = ref(false); // Variável que define se é para criar ou editar no Dialog
 
-const selected = reactive({
+// Estados da UI
+const selectedProduct = ref(); // Produtos selecionados na tabela
+const DialogVisible = ref(false); // Controla visibilidade do modal
+const isEdit = ref(false); // Define se é modo edição ou criação
+const localTotalGames = ref(props.totalGames); // Total de jogos para paginação
+
+// Objeto template para novos jogos
+const selectedNewObject: Game = {
   id: 0,
   name: '',
-  preco_euro: 0,
-  preco_dolar: 0,
-  preco_real: 0,
-})
+  id_gamivo: '',
+  popularity: null,
+  price_tf2: null,
+  price_euro: null,
+  release_date: '',
+};
 
-const onEdit = async (product: Resource) => {
-  isEdit.value = true;
-  const res = await axiosInstance.put(`/resources/${product.id}`, {
-    preco_euro: product.preco_euro,
-    preco_dolar: product.preco_dolar,
-    preco_real: product.preco_real
-  });
-  showResponse(res, toast.add);
+// Jogos selecionados para edição/criação (array para permitir múltiplos)
+const selected = reactive([selectedNewObject]);
 
-  if (res.status === 200) {
-    const itemToUpdate = rowData.find(item => item.id === product.id);
-    if (itemToUpdate) {
-      Object.assign(itemToUpdate, res.data.data);
-    }
+// Estados de pesquisa
+const searchFilter = reactive({
+  name: '',
+  id_gamivo: '',
+});
+const isSearching = ref(false);
+
+// ====================================
+// FUNÇÕES DE PAGINAÇÃO E PESQUISA
+// ====================================
+
+/**
+ * Wrapper para mudança de página
+ * Necessário para passar o evento corretamente
+ */
+const handlePageChange = (event: PageState) => {
+  onPageChange(false, event);
+};
+
+/**
+ * Função principal para mudança de página e pesquisa
+ * @param search - Se é uma pesquisa ou mudança de página normal
+ * @param event - Evento de paginação (null para primeira página)
+ */
+const onPageChange = async (search: boolean, event: PageState | null = null) => {
+  // Ativa estado de pesquisa se necessário
+  if (search) isSearching.value = true;
+
+  // Configuração da paginação
+  const limit = event ? event.rows : 100;
+  const page = event ? event.page + 1 : 1; // Paginator começa em 0, API em 1
+
+  // Configuração da URL e método baseado no tipo de operação
+  let url = `/games/paginated?limit=${limit}&page=${page}`;
+  let method = 'GET';
+
+  // Se está em modo pesquisa, usa endpoint diferente
+  if (isSearching.value) {
+    url = `/games/search?page=${page}`;
+    method = 'POST';
   }
-  DialogVisible.value = false;
+
+  try {
+    const res = await axiosInstance(url, {
+      method,
+      data: method === 'POST' ? searchFilter : null
+    });
+
+    // Atualiza dados se requisição bem-sucedida
+    if (res.status === 200 || res.status === 201) {
+      localTotalGames.value = res.data.data.totalGames;
+      rowData.splice(0, rowData.length, ...res.data.data.games.data);
+    }
+  } catch (error) {
+    // Exibe toast de erro
+    toast.add({
+      severity: 'error',
+      summary: 'Erro Interno, tente novamente.',
+      detail: error,
+      life: 7000
+    });
+    console.error('Erro na paginação:', error);
+  }
+};
+
+// ====================================
+// FUNÇÕES DE CRUD (CRIAR, EDITAR)
+// ====================================
+
+/**
+ * Edita um jogo existente
+ * @param selected - Dados do jogo selecionado para edição
+ */
+async function onEdit(selected: any) {
+  isEdit.value = true;
+
+  try {
+    const res = await axiosInstance.put(`/games/${selected.id}`, {
+      name: selected.name,
+      id_gamivo: selected.id_gamivo,
+      release_date: selected.release_date,
+      price_tf2: selected.price_tf2,
+      price_euro: selected.price_euro,
+      popularity: selected.popularity
+    });
+
+    // Mostra resultado da operação
+    showResponse(res, toast.add);
+
+    // Atualiza item na tabela se edição bem-sucedida
+    if (res.status === 200) {
+      const itemToUpdate = rowData.find(item => item.id === selected.id);
+      if (itemToUpdate) {
+        Object.assign(itemToUpdate, res.data.data);
+      }
+    }
+
+    DialogVisible.value = false;
+  } catch (error) {
+    console.error('Erro na edição:', error);
+  }
 }
 
-const handleAddButton = async (): Promise<void> => { // Mostra o dialog com o elemento clicado
+/**
+ * Prepara o modal para criação de novo jogo
+ */
+async function handleAddButton(): Promise<void> {
   isEdit.value = false;
-  Object.assign(selected, { // Zera o valor de selected para criar um novo
-    id: 0,
-    name: '',
-    preco_euro: null,
-    preco_dolar: null,
-    preco_real: null,
-  });
+  Object.assign(selected, selectedNewObject);
   DialogVisible.value = true;
 }
 
-const onAdd = async (newResource: Resource): Promise<void> => { // Faz a req pra api add o elemento
+/**
+ * Cria novos jogos
+ * Suporta criação múltipla
+ */
+async function onAdd(): Promise<void> {
+  // Formata as datas de lançamento antes de enviar
+  selected.forEach(item => {
+    if (item.release_date) {
+      item.release_date = identifyAndFormatDate(item.release_date);
+    }
+  });
+
   try {
-    const res = await axiosInstance.post(`/resources`, {
-      name: newResource.name,
-      preco_euro: newResource.preco_euro,
-      preco_dolar: newResource.preco_dolar,
-      preco_real: newResource.preco_real,
-    });
+    const res = await axiosInstance.post(`/games`, { games: selected });
+
     showResponse(res, toast.add);
-    DialogVisible.value = false;
-    rowData.push(res.data.data);
+
+    if (res.status === 200 || res.status === 201) {
+      DialogVisible.value = false;
+      // Adiciona novos jogos no início da tabela (mantém ordem DESC por ID)
+      rowData.unshift(...res.data.data.reverse());
+    }
   } catch (error) {
     toast.add({
       severity: 'error',
@@ -100,15 +219,23 @@ const onAdd = async (newResource: Resource): Promise<void> => { // Faz a req pra
       detail: error,
       life: 7000
     });
-    console.log(error);
+    console.error('Erro na criação:', error);
   }
 }
 
-const handleDeleteButton = (event: any, qtd: number) => {
+// ====================================
+// FUNÇÕES DE EXCLUSÃO
+// ====================================
+
+/**
+ * Manipula o botão de exclusão com confirmação
+ * @param event - Evento do botão (para posicionar popup)
+ * @param qtd - Quantidade de itens (1 = único, >1 = múltiplos)
+ */
+function handleDeleteButton(event: any, qtd: number) {
   confirm.require({
     target: event.currentTarget,
     message: qtd === 1 ? 'Tem certeza que deseja excluir este item?' : 'Tem certeza que deseja excluir esses itens?',
-    // icon: 'pi pi-info-circle',
     rejectProps: {
       label: 'Cancelar',
       severity: 'secondary',
@@ -119,69 +246,260 @@ const handleDeleteButton = (event: any, qtd: number) => {
       severity: 'danger'
     },
     accept: async () => {
-      if (qtd === 1) {
-        const res = await axiosInstance.delete(`/resources/${selected.id}`);
-        showResponse(res, toast.add);
-        const itemToDelete = rowData.findIndex(item => item.id === selected.id);
-        console.log(itemToDelete);
-        rowData.splice(itemToDelete, 1);
-        DialogVisible.value = false;
-      } else {
-        const res = await axiosInstance.delete(`/resources`, {
-          params: {
-            resources: selectedProduct.value
-          }
-        });
-        showResponse(res, toast.add);
-        const selectedProductIds = selectedProduct.value.map(item => item.id);
-        const filteredRowData = rowData.filter(item => !selectedProductIds.includes(item.id));
-        rowData.splice(0, rowData.length, ...filteredRowData);
-        selectedProduct.value = null;
-      }
+      await performDelete(qtd);
     }
   });
-};
+}
+
+/**
+ * Executa a exclusão baseada na quantidade
+ * @param qtd - Quantidade de itens a excluir
+ */
+async function performDelete(qtd: number) {
+  try {
+    if (qtd === 1) {
+      // Exclusão de item único (do modal)
+      const res = await axiosInstance.delete(`/games/${selected[0].id}`);
+      showResponse(res, toast.add);
+
+      // Remove da tabela
+      const itemToDelete = rowData.findIndex(item => item.id === selected[0].id);
+      if (itemToDelete !== -1) {
+        rowData.splice(itemToDelete, 1);
+      }
+      DialogVisible.value = false;
+    } else {
+      // Exclusão múltipla (da tabela)
+      const res = await axiosInstance.delete(`/games`, {
+        params: {
+          games: selectedProduct.value
+        }
+      });
+      showResponse(res, toast.add);
+
+      // Remove itens da tabela
+      const selectedProductIds = selectedProduct.value.map(item => item.id);
+      const filteredRowData = rowData.filter(item => !selectedProductIds.includes(item.id));
+      rowData.splice(0, rowData.length, ...filteredRowData);
+      selectedProduct.value = null;
+    }
+  } catch (error) {
+    console.error('Erro na exclusão:', error);
+  }
+}
+
+// ====================================
+// FUNÇÕES AUXILIARES DO MODAL
+// ====================================
+
+/**
+ * Adiciona ou remove jogos do formulário de criação múltipla
+ * @param add - true para adicionar, false para remover
+ */
+function addOrRemove(add: boolean) {
+  if (add) {
+    // Adiciona novo jogo ao formulário
+    selected.push({
+      id: 0,
+      name: '',
+      id_gamivo: '',
+      popularity: null,
+      price_tf2: null,
+      price_euro: null,
+      release_date: '',
+    });
+  } else {
+    // Remove último jogo (mínimo de 1)
+    if (selected.length > 1) {
+      selected.pop();
+    }
+  }
+}
 
 </script>
 
 <template>
-  <!-- {{ selected }} -->
+  <!-- ====================================
+       COMPONENTES GLOBAIS (TOAST, POPUP)
+       ==================================== -->
   <Toast position="bottom-right" />
   <ConfirmPopup />
-  <Dialog v-model:visible="DialogVisible" modal :header="isEdit ? 'Editar' : 'Criar'" :style="{ width: '90%' }">
-    <span class=" d-block mb-3" v-if="!isEdit">Insira os dados para criar.</span>
-    <span class=" d-block mb-3" v-if="isEdit">Edite os dados.</span>
-    <div class="d-flex items-center gap-5 mb-2">
-      <label for="nome" class="font-semibold w-24">Nome</label>
-      <InputText id="name" class="flex-auto" :disabled="isEdit ? true : false" v-model="selected.name" />
+
+  <!-- ====================================
+       MODAL DE CRIAÇÃO/EDIÇÃO
+       ==================================== -->
+  <Dialog v-model:visible="DialogVisible" modal :header="isEdit ? 'Editar Jogo' : 'Criar Jogo'"
+    :style="{ width: '90%' }">
+
+    <!-- Instruções do modal -->
+    <span class="d-block mb-3" v-if="!isEdit">Insira os dados para criar um novo jogo.</span>
+    <span class="d-block mb-3" v-if="isEdit">Edite os dados do jogo.</span>
+
+    <!-- Controles para criação múltipla (apenas em modo criação) -->
+    <div v-if="!isEdit" class="mb-3">
+      <Button class="flex-auto me-2" @click="addOrRemove(true)" label="Adicionar jogo" icon="pi pi-plus" />
+      <Button class="flex-auto" @click="addOrRemove(false)" label="Remover jogo" icon="pi pi-minus" severity="danger" />
     </div>
-    <div class="d-flex items-center gap-2 mb-8">
-      <label class="font-semibold w-24">Preço(euro)</label>
-      <InputNumber id="preco" class="flex-auto" v-model="selected.preco_euro" mode="decimal" :minFractionDigits="3"
-        :maxFractionDigits="3" useGrouping />
+
+    <!-- Formulários dos jogos (um para cada jogo sendo criado/editado) -->
+    <div v-for="(item, index) in selected" :key="index" class="d-flex flex-row gap-2">
+
+      <!-- Campo Nome (obrigatório) -->
+      <div class="d-flex flex-column items-center gap-3 mb-3">
+        <label :for="`name_${index}`" class="font-semibold w-32">Nome*</label>
+        <InputText :id="`name_${index}`" class="flex-auto" v-model="item.name" />
+      </div>
+
+      <!-- Campo ID Gamivo -->
+      <div class="d-flex flex-column items-center gap-3 mb-3">
+        <label :for="`id_gamivo_${index}`" class="font-semibold w-32">ID Gamivo</label>
+        <InputText :id="`id_gamivo_${index}`" class="flex-auto" v-model="item.id_gamivo" />
+      </div>
+
+      <!-- Campo Preço TF2 -->
+      <div class="d-flex flex-column items-center gap-3 mb-3">
+        <label :for="`price_tf2_${index}`" class="font-semibold w-32">Preço TF2</label>
+        <InputNumber :id="`price_tf2_${index}`" class="flex-auto" v-model="item.price_tf2" mode="decimal"
+          :minFractionDigits="2" :maxFractionDigits="2" useGrouping />
+      </div>
+
+      <!-- Campo Preço Euro -->
+      <div class="d-flex flex-column items-center gap-3 mb-3">
+        <label :for="`price_euro_${index}`" class="font-semibold w-32">Preço (Euro)</label>
+        <InputNumber :id="`price_euro_${index}`" class="flex-auto" v-model="item.price_euro" mode="decimal"
+          :minFractionDigits="2" :maxFractionDigits="2" useGrouping />
+      </div>
+
+      <!-- Campo Popularidade -->
+      <div class="d-flex flex-column items-center gap-3 mb-5">
+        <label :for="`popularity_${index}`" class="font-semibold w-32">Popularidade</label>
+        <InputNumber :id="`popularity_${index}`" class="flex-auto" v-model="item.popularity" mode="decimal"
+          :minFractionDigits="0" :maxFractionDigits="2" useGrouping />
+      </div>
+
+      <!-- Campo Data de Lançamento -->
+      <div class="d-flex flex-column items-center gap-3 mb-3">
+        <label :for="`release_date_${index}`" class="font-semibold w-32">Data de Lançamento</label>
+        <InputText :id="`release_date_${index}`" class="flex-auto" v-model="item.release_date" />
+      </div>
+
     </div>
-    <div class="d-flex items-center gap-1 mb-8">
-      <label class="font-semibold w-24">Preço(dólar)</label>
-      <InputNumber id="preco" class="flex-auto" v-model="selected.preco_dolar" mode="decimal" :minFractionDigits="3"
-        :maxFractionDigits="3" useGrouping />
-    </div>
-    <div class="d-flex items-center gap-3 mb-8">
-      <label class="font-semibold w-24">Preço(real)</label>
-      <InputNumber id="preco" class="flex-auto" v-model="selected.preco_real" mode="decimal" :minFractionDigits="3"
-        :maxFractionDigits="3" useGrouping />
-    </div>
+
+    <!-- Botões de ação do modal -->
     <div class="d-flex justify-content-end gap-2">
       <Button type="button" label="Cancelar" severity="secondary" @click="DialogVisible = false"></Button>
-      <Button type="button" label="Salvar" @click="isEdit ? onEdit(selected) : onAdd(selected)"></Button>
+      <Button type="button" label="Salvar" @click="isEdit ? onEdit(selected) : onAdd()"></Button>
     </div>
   </Dialog>
 
+  <!-- ====================================
+       PÁGINA PRINCIPAL
+       ==================================== -->
   <div class="container text-center">
 
+    <!-- Cabeçalho da página -->
     <h1>Jogos</h1>
     <div class="w-50 m-auto">
       <p>Dados dos jogos.</p>
     </div>
-   
+
+    <!-- ====================================
+         TABELA DE DADOS
+         ==================================== -->
+    <DataTable :value="rowData" showGridlines resizableColumns reorderableColumns sortMode="multiple" removableSort
+      v-model:filters="filters" filterDisplay="menu" v-model:selection="selectedProduct" selectionMode="multiple"
+      scrollable scrollHeight="95vh" editMode="cell" dataKey="id" size="small" tableStyle="min-width: 50rem" ref="dt">
+      <!-- Cabeçalho da tabela com botões de ação -->
+      <template #header>
+        <div class="d-flex justify-content-between">
+          <!-- Botões do lado esquerdo -->
+          <div class="d-flex gap-2 flex-column flex-md-row">
+            <Button label="Novo" aria-label="Novo" icon="pi pi-plus" @click="handleAddButton()" raised />
+            <Button label="Deletar" :disabled="!selectedProduct || selectedProduct.length === 0" aria-label="Deletar"
+              severity="danger" icon="pi pi-trash" @click="handleDeleteButton($event, 2)" raised />
+          </div>
+          <!-- Botões do lado direito -->
+          <div class="d-flex gap-2 flex-column flex-md-row">
+            <Button label="Pesquisar" aria-label="Pesquisar" severity="info" icon="pi pi-search"
+              @click="onPageChange(true)" raised />
+          </div>
+        </div>
+      </template>
+
+      <!-- Mensagem quando não há dados -->
+      <template #empty>
+        <h4>Nenhum item encontrado.</h4>
+      </template>
+      <!-- ====================================
+           COLUNAS DA TABELA
+           ==================================== -->
+
+      <!-- Coluna ID (somente leitura) -->
+      <Column field="id" header="ID" sortable></Column>
+
+      <!-- <Column field="nomeJogo" header="Nome do Jogo" filterField="searchField" :showFilterMenu="true"
+      :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0"> -->
+
+      <!-- Coluna Nome (editável, com filtro) -->
+      <Column field="name" header="Nome" filterField="searchField" :showFilterMenu="true" :showFilterMatchModes="false"
+        :showApplyButton="false" :showClearButton="false">
+        <template #filter>
+          <InputText v-model="searchFilter.name" type="text" placeholder="Pesquisar" />
+        </template>
+        <template #editor="{ data, field }">
+          <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
+        </template>
+      </Column>
+
+      <!-- Coluna ID Gamivo (editável) -->
+      <Column field="id_gamivo" header="ID Gamivo" filterField="searchField" :showFilterMenu="true" :showFilterMatchModes="false"
+      :showApplyButton="false" :showClearButton="false">
+        <template #editor="{ data, field }">
+          <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
+        </template>
+        <template #filter>
+          <InputText v-model="searchFilter.id_gamivo" type="text" placeholder="Pesquisar" />
+        </template>
+      </Column>
+
+      <!-- Coluna Popularidade (editável, numérico) -->
+      <Column field="popularity" header="Popularidade" sortable>
+        <template #editor="{ data, field }">
+          <InputNumber v-model="data[field]" @update:modelValue="onEdit(data)" mode="decimal" useGrouping autofocus
+            fluid />
+        </template>
+      </Column>
+
+      <!-- Coluna Preço TF2 (editável, numérico com decimais) -->
+      <Column field="price_tf2" header="Preço(TF2)" sortable>
+        <template #editor="{ data, field }">
+          <InputNumber v-model="data[field]" @update:modelValue="onEdit(data)" mode="decimal" :minFractionDigits="2"
+            :maxFractionDigits="2" useGrouping autofocus fluid />
+        </template>
+      </Column>
+
+      <!-- Coluna Preço Euro (editável, numérico com decimais) -->
+      <Column field="price_euro" header="Preço(euro)" sortable>
+        <template #editor="{ data, field }">
+          <InputNumber v-model="data[field]" @update:modelValue="onEdit(data)" mode="decimal" :minFractionDigits="2"
+            :maxFractionDigits="2" useGrouping autofocus fluid />
+        </template>
+      </Column>
+
+      <!-- Coluna Data de Lançamento (editável, com formatação BR) -->
+      <Column field="release_date" header="Data de Lançamento" sortable>
+        <template #editor="{ data, field }">
+          <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
+        </template>
+        <template #body="slotProps">
+          {{ formatDateToBR(slotProps.data.release_date) }}
+        </template>
+      </Column>
+
+    </DataTable>
+    <Paginator :totalRecords="localTotalGames" :first="currentFirst" :rowsPerPageOptions="[100, 200, 300]"
+      template="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink JumpToPageDropdown"
+      :rows="pagination!.per_page" @page="handlePageChange"></Paginator>
+    <p>Total: {{ localTotalGames }}</p>
   </div>
 </template>

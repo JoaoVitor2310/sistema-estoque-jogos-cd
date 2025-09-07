@@ -16,8 +16,10 @@ class Game extends Model
         'id',
         'name',
         'id_gamivo',
-        'release_date',
+        'popularity',
         'price_tf2',
+        'price_euro',
+        'release_date',
     ];
 
     public function bundles(): BelongsToMany

@@ -63,6 +63,8 @@ Route::prefix('fees')
 Route::prefix('games')
     ->middleware(CheckAdmin::class)
     ->controller(GameController::class)->group(function () {
+        Route::get('/paginated', 'paginated')->name('games.paginated')->withoutMiddleware([CheckPermission::class]);
+        Route::post('/search', 'search')->name('games.search')->withoutMiddleware([CheckPermission::class]);
         Route::post('/', 'store')->name('games.store');
         Route::put('/{id}', 'update')->name('games.update');
         Route::delete('/{id}', 'destroy')->name('games.destroy');

@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('venda_chave_trocas', function (Blueprint $table) {
-            $table->boolean('dont_sell')->default(false);
+            $table->enum('dont_sell', ['yes', 'no'])->default('no')->after('tipo_reclamacao_id');
         });
     }
 

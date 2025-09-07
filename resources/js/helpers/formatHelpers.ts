@@ -1,6 +1,6 @@
 import dayjs from "dayjs";
 
-export const formatDateToBR = (dateString: string): string => {
+export function formatDateToBR(dateString: string): string {
     if (!dateString) return '';
 
     if (dateString.includes('-')) {

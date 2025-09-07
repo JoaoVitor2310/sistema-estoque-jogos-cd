@@ -590,6 +590,8 @@ class VendaChaveTrocaController extends Controller
     {
         $minApiGamivo = 0;
         $maxApiGamivo = 100;
+
+        // Minimo
         if ($game['valorPagoIndividual'] < 4) {
             $minApiGamivo = $game['valorPagoIndividual'] * 1.6;
         } elseif ($game['valorPagoIndividual'] > 10) {
@@ -600,7 +602,12 @@ class VendaChaveTrocaController extends Controller
             $minApiGamivo = $game['valorPagoIndividual']; // Caso não se encaixe em nenhuma regra
         }
 
-        $maxApiGamivo = $game['valorPagoIndividual'] * 8;
+        // Maximo
+        if ($game['valorPagoIndividual'] < 1) {
+            $maxApiGamivo = $game['valorPagoIndividual'] * 30;
+        } else {
+            $maxApiGamivo = $game['valorPagoIndividual'] * 8;
+        }
 
         $game['minApiGamivo'] = $minApiGamivo;
 

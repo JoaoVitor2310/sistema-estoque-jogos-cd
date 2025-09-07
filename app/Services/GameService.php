@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Game;
 use App\Models\Venda_chave_troca;
 
 class GameService
@@ -16,19 +17,14 @@ class GameService
 
     public function fillIdGamivo(string $nomeJogo)
     {
-        $game = Venda_chave_troca::select('idGamivo')->where('nomeJogo', $nomeJogo)->get();
+        // Procura nas keys da tabela venda-chave-troca
+        $game = Venda_chave_troca::select('idGamivo')->where('nomeJogo', $nomeJogo)->whereNotNull('idGamivo')->first();
+        if ($game) return $game->idGamivo;
 
-        // Filtra os resultados para remover os idGamivo que são null
-        $filteredGame = $game->filter(function ($item) {
-            return !is_null($item->idGamivo);
-        });
+        // Procura nos dados de jogos gerais
+        $game = Game::select('id_gamivo')->where('name', $nomeJogo)->whereNotNull('id_gamivo')->first();
+        if ($game) return $game->id_gamivo;
 
-        // Verifica se há resultados após o filtro
-        if ($filteredGame->isEmpty()) {
-            return false;  // Nenhum idGamivo válido encontrado
-        } else {
-            // Retorna o primeiro idGamivo que não é null
-            return $filteredGame->first()->idGamivo;
-        }
+        return false;
     }
 }
