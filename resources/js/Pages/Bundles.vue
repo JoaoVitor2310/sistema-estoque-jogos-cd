@@ -182,6 +182,25 @@ const handleDeleteButton = (event: any, qtd: number) => {
     <div class="w-50 m-auto">
       <p>Bundles/Choices de jogos.</p>
     </div>
-   
+
+    <DataTable :value="rowData" showGridlines resizableColumns reorderableColumns sortMode="multiple" removableSort
+      v-model:filters="filters" filterDisplay="menu" v-model:selection="selectedProduct" selectionMode="multiple"
+      scrollable scrollHeight="95vh" editMode="cell" dataKey="id" size="small" tableStyle="min-width: 50rem" ref="dt">
+      <template #header>
+
+      </template>
+      <template #empty>
+        <h4>
+          Nenhum item encontrado.
+        </h4>
+      </template>
+      <Column field="id" header="ID" sortable></Column>
+      <Column field="name" header="Nome" sortable></Column>
+      <Column field="id_gamivo" header="Descrição" sortable></Column>
+      <Column field="price_tf2" header="Preço(TF2)" sortable></Column>
+      <Column field="preco_euro" header="Preço(euro)" sortable></Column>
+      <Column field="release_date" header="Data de Lançamento" sortable></Column>
+    </DataTable>
+
   </div>
 </template>

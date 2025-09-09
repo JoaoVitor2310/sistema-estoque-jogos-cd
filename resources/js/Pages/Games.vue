@@ -64,6 +64,16 @@ const DialogVisible = ref(false); // Controla visibilidade do modal
 const isEdit = ref(false); // Define se é modo edição ou criação
 const localTotalGames = ref(props.totalGames); // Total de jogos para paginação
 
+// Estados para o modal de bundle
+const BundleDialogVisible = ref(false); // Controla visibilidade do modal de bundle
+const bundleData = reactive({
+  name: '',
+  description: '',
+  price_tf2: null,
+  price_euro: null,
+  release_date: '',
+});
+
 // Objeto template para novos jogos
 const selectedNewObject: Game = {
   id: 0,
@@ -316,6 +326,74 @@ function addOrRemove(add: boolean) {
   }
 }
 
+// ====================================
+// FUNÇÕES DO BUNDLE
+// ====================================
+
+/**
+ * Abre o modal para criar bundle com os jogos selecionados
+ */
+function handleCreateBundle() {
+  if (!selectedProduct.value || selectedProduct.value.length === 0) {
+    toast.add({
+      severity: 'warn',
+      summary: 'Atenção',
+      detail: 'Selecione pelo menos um jogo para criar um bundle.',
+      life: 5000
+    });
+    return;
+  }
+  
+  // Limpa os dados do bundle
+  Object.assign(bundleData, {
+    name: '',
+    description: '',
+    price_tf2: null,
+    price_euro: null,
+    release_date: '',
+  });
+  
+  BundleDialogVisible.value = true;
+}
+
+/**
+ * Cria o bundle com os jogos selecionados
+ */
+async function onCreateBundle() {
+  try {
+    
+    // identifyAndFormatDate(bundleData.release_date);
+    const bundlePayload = {
+      ...bundleData,
+      games: selectedProduct.value.map(game => game.id)
+    };
+
+    const res = await axiosInstance.post('/bundles', bundlePayload);
+    
+    showResponse(res, toast.add);
+    
+    if (res.status === 200 || res.status === 201) {
+      BundleDialogVisible.value = false;
+      selectedProduct.value = null; // Limpa a seleção
+      
+      toast.add({
+        severity: 'success',
+        summary: 'Sucesso',
+        detail: 'Bundle criado com sucesso!',
+        life: 5000
+      });
+    }
+  } catch (error) {
+    toast.add({
+      severity: 'error',
+      summary: 'Erro Interno, tente novamente.',
+      detail: error,
+      life: 7000
+    });
+    console.error('Erro na criação do bundle:', error);
+  }
+}
+
 </script>
 
 <template>
@@ -393,6 +471,73 @@ function addOrRemove(add: boolean) {
   </Dialog>
 
   <!-- ====================================
+       MODAL DE CRIAÇÃO DE BUNDLE
+       ==================================== -->
+  <Dialog v-model:visible="BundleDialogVisible" modal header="Criar Bundle" :style="{ width: '70%' }">
+    
+    <!-- Instruções do modal -->
+    <span class="d-block mb-3">Criar um novo bundle com os jogos selecionados.</span>
+    
+    <!-- Lista de jogos selecionados -->
+    <div class="mb-4">
+      <h5>Jogos Selecionados ({{ selectedProduct?.length || 0 }}):</h5>
+      <div v-if="selectedProduct && selectedProduct.length > 0" class="border rounded p-3 bg-light">
+        <div v-for="game in selectedProduct" :key="game.id" class="d-flex justify-content-between align-items-center mb-2">
+          <span><strong>{{ game.name }}</strong> (ID: {{ game.id }})</span>
+          <small class="text-muted">{{ game.id_gamivo ? `Gamivo: ${game.id_gamivo}` : 'Sem ID Gamivo' }}</small>
+        </div>
+      </div>
+    </div>
+
+    <!-- Formulário dos dados do bundle -->
+    <div class="d-flex flex-column gap-3">
+      
+      <!-- Campo Nome (obrigatório) -->
+      <div class="d-flex flex-column gap-2">
+        <label for="bundle_name" class="font-semibold">Nome do Bundle*</label>
+        <InputText id="bundle_name" v-model="bundleData.name" placeholder="Digite o nome do bundle" />
+      </div>
+
+      <!-- Campo Descrição -->
+      <div class="d-flex flex-column gap-2">
+        <label for="bundle_description" class="font-semibold">Descrição</label>
+        <InputText id="bundle_description" v-model="bundleData.description" placeholder="Digite uma descrição para o bundle" />
+      </div>
+
+      <div class="d-flex gap-3">
+        <!-- Campo Preço TF2 -->
+        <div class="d-flex flex-column gap-2 flex-1">
+          <label for="bundle_price_tf2" class="font-semibold">Preço TF2</label>
+          <InputNumber id="bundle_price_tf2" v-model="bundleData.price_tf2" mode="decimal"
+            :minFractionDigits="2" :maxFractionDigits="2" useGrouping placeholder="0.00" />
+        </div>
+
+        <!-- Campo Preço Euro -->
+        <div class="d-flex flex-column gap-2 flex-1">
+          <label for="bundle_price_euro" class="font-semibold">Preço (Euro)</label>
+          <InputNumber id="bundle_price_euro" v-model="bundleData.price_euro" mode="decimal"
+            :minFractionDigits="2" :maxFractionDigits="2" useGrouping placeholder="0.00" />
+        </div>
+      </div>
+
+      <!-- Campo Data de Lançamento -->
+      <div class="d-flex flex-column gap-2">
+        <label for="bundle_release_date" class="font-semibold">Data de Lançamento</label>
+        <InputText id="bundle_release_date" v-model="bundleData.release_date" 
+          placeholder="AAAA-MM-DD" />
+      </div>
+
+    </div>
+
+    <!-- Botões de ação do modal -->
+    <div class="d-flex justify-content-end gap-2 mt-4">
+      <Button type="button" label="Cancelar" severity="secondary" @click="BundleDialogVisible = false"></Button>
+      <Button type="button" label="Criar Bundle" @click="onCreateBundle()" 
+        :disabled="!bundleData.name || bundleData.name.trim() === ''"></Button>
+    </div>
+  </Dialog>
+
+  <!-- ====================================
        PÁGINA PRINCIPAL
        ==================================== -->
   <div class="container text-center">
@@ -417,6 +562,8 @@ function addOrRemove(add: boolean) {
             <Button label="Novo" aria-label="Novo" icon="pi pi-plus" @click="handleAddButton()" raised />
             <Button label="Deletar" :disabled="!selectedProduct || selectedProduct.length === 0" aria-label="Deletar"
               severity="danger" icon="pi pi-trash" @click="handleDeleteButton($event, 2)" raised />
+            <Button label="Criar Bundle" :disabled="!selectedProduct || selectedProduct.length === 0" 
+              aria-label="Criar Bundle" severity="success" icon="pi pi-sitemap" @click="handleCreateBundle()" raised />
           </div>
           <!-- Botões do lado direito -->
           <div class="d-flex gap-2 flex-column flex-md-row">

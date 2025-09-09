@@ -3,10 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreBundleRequest;
 use App\Models\Bundle;
 use App\Models\Recursos;
 use App\Traits\HttpResponses;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class BundleController extends Controller
@@ -27,24 +30,39 @@ class BundleController extends Controller
         ]);
     }
 
-    // public function store(StoreResourceRequest $request)
-    // {
-    //     $data = $request->validated();
+    public function store(StoreBundleRequest $request)
+    {
+        $data = $request->validated();
+        $games = $data['games'] ?? [];
 
-    //     try {
-    //         $created = Recursos::create($data);
-    //         if ($created) {
-    //             return $this->response(201, 'Recurso cadastrado com sucesso', $created);
-    //         }
+        try {
+            return DB::transaction(function () use ($data, $games) {
+                // Remove games do array principal pois não é campo da tabela bundles
+                unset($data['games']);
 
-    //         return $this->error(400, 'Something went wrong!');
-    //     } catch (\Exception $e) {
-    //         \Log::error($e);
+                // Cria o bundle
+                $created = Bundle::create($data);
 
-    //         // Return a JSON response with the error message
-    //         return $this->error(500, 'Erro interno ao cadastrar recurso novo.', [$e->getMessage()]);
-    //     }
-    // }
+                if ($created && !empty($games)) {
+                    // Associa os jogos ao bundle na tabela pivot
+                    $created->games()->attach($games);
+
+                    // Recarrega o bundle com os jogos para retornar completo
+                    $created->load('games');
+                }
+
+                return $this->response(201, 'Bundle cadastrado com sucesso', $created);
+            });
+        } catch (\Exception $e) {
+            Log::error('Erro ao criar bundle: ' . $e->getMessage(), [
+                'data' => $data,
+                'games' => $games,
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return $this->error(500, 'Erro interno ao cadastrar bundle novo.', [$e->getMessage()]);
+        }
+    }
 
     // public function destroy(string $id)
     // {

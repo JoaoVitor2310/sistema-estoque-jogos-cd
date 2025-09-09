@@ -362,6 +362,9 @@ class VendaChaveTrocaController extends Controller
             $gamesToList = Venda_chave_troca::select(['idGamivo', 'precoCliente', 'lucroPercentual', 'minimoParaVenda', 'valorPagoIndividual', 'chaveRecebida', 'nomeJogo', 'dataAdquirida', 'dataVenda', 'dataVendida', 'dataExpiracao'])
                 ->whereNotNull('idGamivo')
                 ->where('idGamivo', '!=', '')
+                ->whereNull('dataVenda')
+                ->whereNull('dataVendida')
+                ->where('chaveRecebida', 'not like', '%http%')
                 // IMPROVISO
                 ->where('chaveRecebida', '!=', '58MEY-3NQ3F-ZBPXR')
                 ->where('chaveRecebida', '!=', '5FX3N-PYLIC-YXER7')
@@ -383,9 +386,19 @@ class VendaChaveTrocaController extends Controller
                 ->where('chaveRecebida', '!=', '0A4J9-53J8B-FKYLT')
                 ->where('chaveRecebida', '!=', '9LXV6-5034C-6MMIL')
                 ->where('chaveRecebida', '!=', '0949Y-CI34K-6X7ID')
-                ->whereNull('dataVenda')
-                ->whereNull('dataVendida')
-                ->where('chaveRecebida', 'not like', '%http%')
+                ->where('idGamivo', '!=', '129019') // Nightingale 
+                ->where('idGamivo', '!=', '175208') // Nobody Wants to Die EU
+                ->where('idGamivo', '!=', '181352') // Legacy of Kain: Soul Reaver 1 & 2 - Remastered EU
+                ->where('idGamivo', '!=', '163232') // Mortal Kombat XL
+                ->where('idGamivo', '!=', '119996') // Mortal Kombat 11 Ultimate Edition EU
+                ->where('idGamivo', '!=', '83905') // Middle-earth: Shadow of War Definitive Edition EN EU
+                ->where('idGamivo', '!=', '846') // Mad Max
+                ->where('idGamivo', '!=', '48471') // Batman: Arkham Origins EN EU
+                ->where('idGamivo', '!=', '60360') // Batman: Arkham Knight Premium Edition EN EU
+                ->where('idGamivo', '!=', '101') // Batman: Arkham City GOTY Edition
+                ->where('idGamivo', '!=', '100') // Batman: Arkham Asylum GOTY
+                ->where('idGamivo', '!=', '66764') // Middle-Earth: Shadow of Mordor GOTY Edition EU
+                ->where('idGamivo', '!=', '143316') // Sker Ritual EN Global
                 ->get();
 
             $gamesToList = is_object($gamesToList) ? $gamesToList->toArray() : $gamesToList; // Garante que sempre será um array, mesmo que tenha só um elemento
