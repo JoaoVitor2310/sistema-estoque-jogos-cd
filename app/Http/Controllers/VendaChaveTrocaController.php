@@ -387,7 +387,7 @@ class VendaChaveTrocaController extends Controller
                 ->where('chaveRecebida', '!=', '9LXV6-5034C-6MMIL')
                 ->where('chaveRecebida', '!=', '0949Y-CI34K-6X7ID')
                 ->where('idGamivo', '!=', '129019') // Nightingale 
-                ->where('idGamivo', '!=', '175208') // Nobody Wants to Die EU
+                ->where('idGamivo', '!=', '175208') // Nobody Wants to Die EU 
                 ->where('idGamivo', '!=', '181352') // Legacy of Kain: Soul Reaver 1 & 2 - Remastered EU
                 ->where('idGamivo', '!=', '163232') // Mortal Kombat XL
                 ->where('idGamivo', '!=', '119996') // Mortal Kombat 11 Ultimate Edition EU
@@ -399,6 +399,12 @@ class VendaChaveTrocaController extends Controller
                 ->where('idGamivo', '!=', '100') // Batman: Arkham Asylum GOTY
                 ->where('idGamivo', '!=', '66764') // Middle-Earth: Shadow of Mordor GOTY Edition EU
                 ->where('idGamivo', '!=', '143316') // Sker Ritual EN Global
+                ->where('idGamivo', '!=', '119157') // Black Book
+                ->where('idGamivo', '!=', '166690') // Gotham Knights EU/NA
+                ->where('idGamivo', '!=', '149722') // SpellForce: Conquest of Eo 
+                ->where('idGamivo', '!=', '2126') // LEGO: Batman 3 - Beyond Gotham Premium Edition
+                ->where('idGamivo', '!=', '146276') // The Game Of Life
+                ->where('idGamivo', '!=', '149127') // Hasbro's Battleship
                 ->get();
 
             $gamesToList = is_object($gamesToList) ? $gamesToList->toArray() : $gamesToList; // Garante que sempre será um array, mesmo que tenha só um elemento
