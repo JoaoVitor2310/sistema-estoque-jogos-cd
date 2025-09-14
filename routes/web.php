@@ -61,7 +61,7 @@ Route::prefix('fees')
     });
 
 Route::prefix('games')
-    ->middleware(CheckAdmin::class)
+    ->middleware(CheckPermission::class)
     ->controller(GameController::class)->group(function () {
         Route::get('/paginated', 'paginated')->name('games.paginated')->withoutMiddleware([CheckPermission::class]);
         Route::post('/search', 'search')->name('games.search')->withoutMiddleware([CheckPermission::class]);
@@ -72,12 +72,13 @@ Route::prefix('games')
     });
 
 Route::prefix('bundles')
-    ->middleware(CheckAdmin::class)
+    ->middleware(CheckPermission::class)
     ->controller(BundleController::class)->group(function () {
         Route::post('/', 'store')->name('bundles.store');
         Route::put('/{id}', 'update')->name('bundles.update');
         Route::delete('/{id}', 'destroy')->name('bundles.destroy');
-        Route::delete('/', 'destroyArray')->name('bundles.destroyArray');
+        Route::post('/{id}/games', 'addGames')->name('bundles.addGames');
+        Route::delete('/{id}/games', 'removeGames')->name('bundles.removeGames');
     });
 
 Route::prefix('ranges-g2a')

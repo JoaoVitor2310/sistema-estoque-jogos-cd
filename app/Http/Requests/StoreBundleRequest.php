@@ -25,12 +25,13 @@ class StoreBundleRequest extends FormRequest
     {
         return [
             "name" => "required|string|max:255",
+            "type" => "required|string|in:bundle,choice",
             "description" => "nullable|string|max:500",
             "price_tf2" => "nullable|decimal:0,2|min:0",
             "price_euro" => "nullable|decimal:0,2|min:0",
-            "release_date" => "nullable|date",
-            "games" => "required|array|min:1",
-            "games.*" => "required|integer|exists:games,id",
+            "release_date" => "required|date",
+            "games" => "nullable|array",
+            "games.*" => "nullable|integer|exists:games,id",
         ];
     }
 
@@ -42,5 +43,13 @@ class StoreBundleRequest extends FormRequest
             'errors' => $validator->errors(),
             'data' => []
         ], 422));
+    }
+
+    public function messages(): array
+    {
+        return [
+            'release_date.required' => 'A data de lançamento é obrigatória.',
+            'release_date.date' => 'A data de lançamento deve ser uma data válida.',
+        ];
     }
 }

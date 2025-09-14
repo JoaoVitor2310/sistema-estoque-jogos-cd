@@ -22,11 +22,11 @@ export function formatDateToBR(dateString: string): string {
     return '';
 };
 
-export const formatDateToDB = (date: string): string => {
+export function formatDateToDB(date: string): string {
     return dayjs(date).isValid() ? dayjs(date).format('YYYY-MM-DD') : '';
 };
 
-export const convertToDbDate = (brDate) => {
+export function convertToDbDate(brDate) {
     if (!brDate || typeof brDate !== 'string') return null;
 
     const [day, month, year] = brDate.split('/').map(Number);
@@ -38,7 +38,7 @@ export const convertToDbDate = (brDate) => {
     return `${year.toString().padStart(4, '0')}/${month.toString().padStart(2, '0')}/${day.toString().padStart(2, '0')}`;
 };
 
-export const identifyAndFormatDate = (date: string): string => {
+export function identifyAndFormatDate(date: string): string {
     const brazilianDatePattern = /^\d{2}[-/]\d{2}[-/]\d{4}$/; // DD/MM/YYYY ou DD-MM-YYYY
     const americanDatePattern = /^\d{4}[-/]\d{2}[-/]\d{2}$/; // YYYY/MM/DD ou YYYY-MM-DD
 

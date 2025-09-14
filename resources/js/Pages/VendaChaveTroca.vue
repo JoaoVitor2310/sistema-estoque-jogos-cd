@@ -104,6 +104,7 @@ const selectedNewObject = {
   chaveRecebida: '',
   repetido: false,
   nomeJogo: '',
+  region: '',
   precoJogo: null,
   notaMetacritic: 0,
   isSteam: false,
@@ -400,6 +401,7 @@ const searchFilter = reactive({
   devolucoes: [],
   dataAdquirida: '',
   dataVenda: '',
+  dataVendaRange: null,
   dataVendida: '',
   dataExpiracao: '',
   perfilOrigem: '',
@@ -563,12 +565,18 @@ const addOrRemove = (add: boolean) => {
             <InputText class="flex-auto" v-model="item.chaveRecebida" />
           </div>
         </div>
-        <div class="d-flex flex-column">
-          <label class="fw-bold">Nome do jogo*</label>
-          <div class="d-flex gap-5 mb-3">
-            <InputText class="flex-auto" v-model="item.nomeJogo" />
+          <div class="d-flex flex-column">
+            <label class="fw-bold">Nome do jogo*</label>
+            <div class="d-flex gap-5 mb-3">
+              <InputText class="flex-auto" v-model="item.nomeJogo" />
+            </div>
           </div>
-        </div>
+          <div class="d-flex flex-column">
+            <label class="fw-bold">Região</label>
+            <div class="d-flex gap-5 mb-3">
+              <InputText class="flex-auto" v-model="item.region" />
+            </div>
+          </div>
         <!-- <div class="d-flex flex-column">
             <label class="fw-bold">Preço Steam*</label>
             <div class="d-flex gap-5 mb-3">
@@ -793,10 +801,10 @@ const addOrRemove = (add: boolean) => {
             <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
           </template>
         </Column> -->
-        <Column field="dont_sell" header="Não vender" filterField="searchField" :showFilterMenu="true"
+        <!-- <Column field="is_bundle" header="Não vender" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
-            <Select v-model="searchFilter.dont_sell" :options="[
+            <Select v-model="searchFilter.is_bundle" :options="[
               { name: 'Sim', value: 'sim' },
               { name: 'Não', value: 'nao' }
             ]" placeholder="Não vender?" optionLabel="name" optionValue="value" style="min-width: 14rem">
@@ -806,7 +814,7 @@ const addOrRemove = (add: boolean) => {
             <Select v-model="data.tipo_formato.id" :options="props.tiposFormato" @change="onEdit(data)"
               optionLabel="name" optionValue="id" />
           </template>
-        </Column>
+        </Column> -->
         <Column field="tipo_formato.name" header="Formato" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
@@ -845,6 +853,15 @@ const addOrRemove = (add: boolean) => {
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
             <InputText v-model="searchFilter.nomeJogo" type="text" placeholder="Pesquisar" />
+          </template>
+          <template #editor="{ data, field }">
+            <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
+          </template>
+        </Column>
+        <Column field="region" header="Região" filterField="searchField" :showFilterMenu="true"
+          :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
+          <template #filter>
+            <InputText v-model="searchFilter.region" type="text" placeholder="Pesquisar" />
           </template>
           <template #editor="{ data, field }">
             <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
@@ -1234,7 +1251,7 @@ const addOrRemove = (add: boolean) => {
           </template>
         </Column>
       </DataTable>
-      <Paginator :totalRecords="localTotalGames" :first="currentFirst" :rowsPerPageOptions="[100, 200, 300]"
+      <Paginator :totalRecords="localTotalGames" :first="currentFirst"
         template="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink JumpToPageDropdown"
         :rows="pagination!.per_page" @page="handlePageChange"></Paginator>
       <p>Total: {{ localTotalGames }}</p>

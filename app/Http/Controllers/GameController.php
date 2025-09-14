@@ -87,15 +87,16 @@ class GameController extends Controller
             $fullGames = [];
             foreach ($data['games'] as $game) {
 
-                $repeatedGame = Game::select('*')->where('name', $game['name'])->first();
+                $repeatedGame = Game::where('name', $game['name'])->where('region', $game['region'])->first();
 
                 if ($repeatedGame) {
                     $repeatedGames[] = $game['name'];
+                    continue;
                 }
 
                 if (empty($game['id_gamivo'])) {
                     $gameService = new GameService();
-                    $id_gamivo = $gameService->fillIdGamivo($game['name']);
+                    $id_gamivo = $gameService->fillIdGamivo($game['name'], $game['region']);
                     if ($id_gamivo) $game['id_gamivo'] = $id_gamivo;
                 }
 
@@ -206,17 +207,10 @@ class GameController extends Controller
 
             $updatedGame = $request->validated();
 
-            // Lógica para checar se o jogo é repetido
-            $repeatedGame = Game::select('*')->where('name', $updatedGame['name'])->whereNot('id', $game['id'])->first();
-
-            // if($repeatedGame) {
-            //     return $this->error(400, 'Jogo já existe no banco de dados.');
-            // }
-
             if ($updatedGame['id_gamivo'] == '') {
                 $gameService = new GameService();
-                $id_gamivo = $gameService->fillIdGamivo($updatedGame['name']);
-                if ($id_gamivo) $data['id_gamivo'] = $id_gamivo;
+                $id_gamivo = $gameService->fillIdGamivo($updatedGame['name'], $updatedGame['region']);
+                if ($id_gamivo) $updatedGame['id_gamivo'] = $id_gamivo;
             }
 
             $result = Game::where('id', $id)->update($updatedGame); // Atualiza

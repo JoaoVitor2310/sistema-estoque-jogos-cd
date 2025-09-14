@@ -206,9 +206,9 @@ class VendaChaveTrocaController extends Controller
             $game = $this->calculateMinMaxApi($game);
             $game['nomeJogo'] = trim($game['nomeJogo']);
 
+            $gameService = new GameService();
             if ($game['idGamivo'] == '') {
-                $gameService = new GameService();
-                $idGamivo = $gameService->fillIdGamivo($game['nomeJogo']);
+                $idGamivo = $gameService->fillIdGamivo($game['nomeJogo'], $game['region']);
                 if ($idGamivo) $game['idGamivo'] = $idGamivo;
             }
 
@@ -293,7 +293,7 @@ class VendaChaveTrocaController extends Controller
 
         if ($data['idGamivo'] == '') {
             $gameService = new GameService();
-            $idGamivo = $gameService->fillIdGamivo($data['nomeJogo']);
+            $idGamivo = $gameService->fillIdGamivo($data['nomeJogo'], $data['region']);
             if ($idGamivo) $data['idGamivo'] = $idGamivo;
         }
 
@@ -359,7 +359,7 @@ class VendaChaveTrocaController extends Controller
     public function autoSell(Request $request)
     {
         try {
-            $gamesToList = Venda_chave_troca::select(['idGamivo', 'precoCliente', 'lucroPercentual', 'minimoParaVenda', 'valorPagoIndividual', 'chaveRecebida', 'nomeJogo', 'dataAdquirida', 'dataVenda', 'dataVendida', 'dataExpiracao'])
+            $gamesToList = Venda_chave_troca::select(['idGamivo', 'precoCliente', 'lucroPercentual', 'minimoParaVenda', 'valorPagoIndividual', 'chaveRecebida', 'nomeJogo', 'region', 'dataAdquirida', 'dataVenda', 'dataVendida', 'dataExpiracao'])
                 ->whereNotNull('idGamivo')
                 ->where('idGamivo', '!=', '')
                 ->whereNull('dataVenda')

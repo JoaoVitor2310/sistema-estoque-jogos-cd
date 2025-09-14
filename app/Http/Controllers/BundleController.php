@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreBundleRequest;
 use App\Models\Bundle;
+use App\Models\Game;
 use App\Models\Recursos;
 use App\Traits\HttpResponses;
 use Illuminate\Http\Request;
@@ -18,17 +19,76 @@ class BundleController extends Controller
 
     public function index(Request $request)
     {
-        $bundles = Bundle::with('games')->orderBy('id', 'asc')->get();
-        // dd($bundles);
 
-        // is_object($resources) ? $resources = $resources->toArray() : $resources; // Garante que sempre será um array, mesmo que tenha só um elemento
+        $filters = $request->except('page'); // Filtra todos os campos, exceto 'page'
 
-        //  return $this->response(200, 'resources encontrados com sucesso.', $resources);
+        // Iniciando a consulta
+        $query = Bundle::with([
+            'games'
+        ]);
+
+        // return $this->response(200, 'DEBUG.', $filters);
+        foreach ($filters as $key => $value) {
+            if ($value) {
+                if (is_array($value)) {
+                    $query->whereIn($key, $value);
+                } else if (is_string($value)) {
+                    // Tratamento especial para filtros de range
+                    if ($key === 'release_date_start' || $key === 'price_tf2_min' || $key === 'price_euro_min') {
+                        $actualKey = str_replace(['_start', '_min'], '', $key);
+                        $query->where($actualKey, '>=', $value);
+                    } else if ($key === 'release_date_end' || $key === 'price_tf2_max' || $key === 'price_euro_max') {
+                        $actualKey = str_replace(['_end', '_max'], '', $key);
+                        $query->where($actualKey, '<=', $value);
+                    } else if ($key === 'game_name') {
+                        $query->whereHas('games', function ($query) use ($value) {
+                            $query->where('name', 'ILIKE', "%" . $value . "%");
+                        });
+                    } else {
+                        $query->where($key, 'ILIKE', "%" . $value . "%");
+                    }
+                } else if (is_bool($value) && str_starts_with($key, 'search_')) {
+                    $query->whereNull($key);
+                } else {
+                    $query->where($key, $value);
+                }
+            }
+        }
+
+        // Define limite padrão
+        $limit = $filters['limit'] ?? 20;
+        $bundles = $query->orderBy('id', 'desc')->paginate($limit);
+
+        // Se for uma requisição AJAX, retorna JSON
+        if ($request->expectsJson() || $request->wantsJson()) {
+            return $this->response(200, 'Pesquisa realizada com sucesso.', [
+                'bundles' => $bundles->items(),
+                'totalBundles' => $bundles->total(),
+                'pagination' => [
+                    'current_page' => $bundles->currentPage(),
+                    'last_page' => $bundles->lastPage(),
+                    'per_page' => $bundles->perPage(),
+                    'total' => $bundles->total(),
+                    'from' => $bundles->firstItem(),
+                    'to' => $bundles->lastItem(),
+                ],
+            ]);
+        }
 
         return Inertia::render('Bundles', [
-            'bundles' => $bundles,
+            'bundles' => $bundles->items(),
+            'pagination' => [
+                'current_page' => $bundles->currentPage(),
+                'last_page' => $bundles->lastPage(),
+                'per_page' => $bundles->perPage(),
+                'total' => $bundles->total(),
+                'from' => $bundles->firstItem(),
+                'to' => $bundles->lastItem(),
+            ],
         ]);
     }
+
+
 
     public function store(StoreBundleRequest $request)
     {
@@ -64,58 +124,85 @@ class BundleController extends Controller
         }
     }
 
-    // public function destroy(string $id)
-    // {
-    //     $resource = Recursos::select('*')->where('id', $id)->first();
-    //     if (!$resource)
-    //         return $this->error(404, 'Recurso não encontrado');
+    public function addGames(Request $request, $bundleId)
+    {
+        try {
+            $request->validate([
+                'games' => 'required|array',
+                'games.*' => 'exists:games,id'
+            ]);
 
+            $bundle = Bundle::findOrFail($bundleId);
+            $gameIds = $request->input('games');
 
-    //     $result = Recursos::where('id', $id)->delete();
-    //     if (!$result)
-    //         return $this->error(500, 'Erro interno ao deletar recurso');
+            $existingGameIds = $bundle->games()->whereIn('games.id', $gameIds)->pluck('games.id')->toArray();
+            $newGameIds = array_diff($gameIds, $existingGameIds);
 
-    //     return $this->response(200, 'Recurso deletado com sucesso', $resource);
-    // }
+            // Se todos os jogos já estão no bundle
+            if (empty($newGameIds)) {
+                // Busca o nome do jogo para a mensagem
+                return $this->error(400, 'O jogo selecionado já está no bundle');
+            }
 
-    // public function destroyArray(Request $request)
-    // {
-    //     $resources = $request->input('resources');
-    //     if (!$resources)
-    //         return $this->error(404, 'Recursos não enviadas', ['resources' => 'Recursos não enviadas']);
+            // Adiciona os jogos ao bundle (sem duplicar)
+            $bundle->games()->syncWithoutDetaching($gameIds);
 
-    //     foreach ($resources as $resource) {
+            // Recarrega o bundle com os jogos atualizados
+            $bundle->load('games');
+        } catch (\Exception $e) {
+            Log::error('Erro ao adicionar jogos ao bundle', [$e->getMessage()]);
+            return $this->error(500, 'Erro interno ao adicionar jogos ao bundle', [$e->getMessage()]);
+        }
 
-    //         $item = Recursos::select('*')->where('id', $resource['id'])->first();
-    //         if (!$item)
-    //             return $this->error(404, 'Taxa não encontrada');
+        return $this->response(200, 'Jogos adicionados ao bundle com sucesso', $bundle);
+    }
 
-    //         $result = Recursos::where('id', $resource['id'])->delete();
-    //         if (!$result)
-    //             return $this->error(500, 'Erro interno ao deletar taxa');
-    //     }
+    public function removeGames(Request $request, $bundleId)
+    {
+        try {
+            $bundle = Bundle::findOrFail($bundleId);
+            $gameIds = $request->input('games');
+            // dd($gameIds, $bundle);
+            $bundle->games()->detach($gameIds);
+        } catch (\Exception $e) {
+            Log::error('Erro ao remover jogos do bundle', [$e->getMessage()]);
+            return $this->error(500, 'Erro interno ao remover jogos do bundle', [$e->getMessage()]);
+        }
 
-    //     return $this->response(200, 'Recursos deletadas com sucesso', $resources);
-    // }
+        return $this->response(200, 'Jogos removidos do bundle com sucesso', $bundle);
+    }
 
-    // public function update(StoreResourceRequest $request, string $id)
-    // {
-    //     $resource = Recursos::select('*')->where('id', $id)->first();
-    //     if (!$resource)
-    //         return $this->error(404, 'Recurso não encontrado');
+    public function destroy(string $id)
+    {
+        try {
+            $bundle = Bundle::findOrFail($id);
 
-    //     $data = $request->validated();
+            $result = $bundle->delete();
+            if (!$result) return $this->error(500, 'Erro interno ao deletar bundle');
+        } catch (\Exception $e) {
+            Log::error('Erro ao deletar bundle', [$e->getMessage()]);
+            return $this->error(500, 'Erro interno ao deletar bundle', [$e->getMessage()]);
+        }
 
-    //     $result = Recursos::where('id', $id)->update($data);
+        return $this->response(200, 'Bundle deletado com sucesso', $bundle);
+    }
 
-    //     // $resource['nome'] = $data['nome']; // Não será editável para não quebrar as fórmulas
-    //     $resource['preco_euro'] = $data['preco_euro'];
-    //     $resource['preco_dolar'] = $data['preco_dolar'];
-    //     $resource['preco_real'] = $data['preco_real'];
+    public function update(StoreBundleRequest $request, string $id)
+    {
+        try {
+            $data = $request->validated();
+            $bundle = Bundle::findOrFail($id);
+            // dd($data, $id, $bundle);
 
-    //     if (!$result)
-    //         return $this->error(500, 'Erro interno ao atualizar taxa');
+            $result = $bundle->update($data);
 
-    //     return $this->response(200, 'Taxa atualizada com sucesso', $resource);
-    // }
+            if (!$result)
+                return $this->error(500, 'Erro interno ao atualizar bundle');
+        } catch (\Exception $e) {
+            Log::error('Erro ao atualizar bundle', [$e->getMessage()]);
+            return $this->error(500, 'Erro interno ao atualizar bundle', [$e->getMessage()]);
+        }
+
+        return $this->response(200, 'Bundle atualizado com sucesso', $bundle);
+    }
 }

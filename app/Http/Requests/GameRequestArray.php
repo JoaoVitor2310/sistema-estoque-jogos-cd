@@ -26,7 +26,9 @@ class GameRequestArray extends FormRequest
         return [
             "games" => "required|array", // Garante que 'games' é um array
             "games.*.name" => "required",
+            "games.*.region" => ["string", "nullable"],
             "games.*.id_gamivo" => ["string", "nullable"],
+            "games.*.id_steamcharts" => ["string", "nullable"],
             "games.*.popularity" => ["integer", "nullable"],
             "games.*.price_tf2" => ["decimal:0,2", "nullable"],
             "games.*.price_euro" => ["decimal:0,2", "nullable"],

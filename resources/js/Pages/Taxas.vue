@@ -149,11 +149,11 @@ const handleDeleteButton = (event: any, qtd: number) => {
     <span class=" d-block mb-3" v-if="!isEdit">Insira os dados para criar.</span>
     <span class=" d-block mb-3" v-if="!isEdit">Edite os dados.</span>
     <div class="d-flex items-center gap-4 mb-2">
-      <label for="nome" class="font-semibold w-24">Nome</label>
+      <label for="nome" class="fw-semibold w-24">Nome</label>
       <InputText id="name" class="flex-auto" :disabled="isEdit ? true : false" v-model="selected.name" />
     </div>
     <div class="d-flex items-center gap-4 mb-8">
-      <label for="preco" class="font-semibold w-24">Preço</label>
+      <label for="preco" class="fw-semibold w-24">Preço</label>
       <InputNumber id="preco" class="flex-auto" v-model="selected.preco" mode="decimal" :minFractionDigits="3"
         :maxFractionDigits="3" useGrouping />
     </div>

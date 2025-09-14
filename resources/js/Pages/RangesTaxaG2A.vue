@@ -152,7 +152,7 @@ const handleDeleteButton = (event: any, qtd: number) => {
     <div class="d-flex flex-column gap-2">
 
       <div class="d-flex  align-items-center gap-4 mb-auto">
-        <label class="font-semibold w-24">Mínimo</label>
+        <label class="fw-semibold w-24">Mínimo</label>
         <InputNumber v-model="selected.minimo" mode="decimal" :minFractionDigits="3" :maxFractionDigits="3"
           useGrouping />
       </div>

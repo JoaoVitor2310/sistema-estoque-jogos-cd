@@ -24,6 +24,9 @@ import { showResponse } from '../helpers/showResponse';
 import { Game } from '../types/Game';
 import { formatDateToBR, identifyAndFormatDate } from '@/helpers/formatHelpers';
 
+// Components
+import BundleModal from '../components/BundleModal.vue';
+
 // ====================================
 // PROPS E DADOS INICIAIS
 // ====================================
@@ -66,19 +69,14 @@ const localTotalGames = ref(props.totalGames); // Total de jogos para paginaçã
 
 // Estados para o modal de bundle
 const BundleDialogVisible = ref(false); // Controla visibilidade do modal de bundle
-const bundleData = reactive({
-  name: '',
-  description: '',
-  price_tf2: null,
-  price_euro: null,
-  release_date: '',
-});
 
 // Objeto template para novos jogos
 const selectedNewObject: Game = {
   id: 0,
   name: '',
+  region: '',
   id_gamivo: '',
+  id_steamcharts: '',
   popularity: null,
   price_tf2: null,
   price_euro: null,
@@ -91,7 +89,9 @@ const selected = reactive([selectedNewObject]);
 // Estados de pesquisa
 const searchFilter = reactive({
   name: '',
+  region: '',
   id_gamivo: '',
+  id_steamcharts: '',
 });
 const isSearching = ref(false);
 
@@ -167,7 +167,9 @@ async function onEdit(selected: any) {
   try {
     const res = await axiosInstance.put(`/games/${selected.id}`, {
       name: selected.name,
+      region: selected.region,
       id_gamivo: selected.id_gamivo,
+      id_steamcharts: selected.id_steamcharts,
       release_date: selected.release_date,
       price_tf2: selected.price_tf2,
       price_euro: selected.price_euro,
@@ -196,7 +198,7 @@ async function onEdit(selected: any) {
  */
 async function handleAddButton(): Promise<void> {
   isEdit.value = false;
-  Object.assign(selected, selectedNewObject);
+  selected.splice(0, selected.length, { ...selectedNewObject }); // Zera o valor para criar um novo
   DialogVisible.value = true;
 }
 
@@ -312,7 +314,9 @@ function addOrRemove(add: boolean) {
     selected.push({
       id: 0,
       name: '',
+      region: '',
       id_gamivo: '',
+      id_steamcharts: '',
       popularity: null,
       price_tf2: null,
       price_euro: null,
@@ -343,45 +347,28 @@ function handleCreateBundle() {
     });
     return;
   }
-  
-  // Limpa os dados do bundle
-  Object.assign(bundleData, {
-    name: '',
-    description: '',
-    price_tf2: null,
-    price_euro: null,
-    release_date: '',
-  });
-  
+
   BundleDialogVisible.value = true;
 }
 
 /**
- * Cria o bundle com os jogos selecionados
+ * Cria o bundle com os jogos selecionados usando o novo componente
  */
-async function onCreateBundle() {
+async function onCreateBundle(bundleFormData: any) {
   try {
-    
-    // identifyAndFormatDate(bundleData.release_date);
+    bundleFormData.release_date = identifyAndFormatDate(bundleFormData.release_date);
     const bundlePayload = {
-      ...bundleData,
-      games: selectedProduct.value.map(game => game.id)
+      ...bundleFormData,
+      games: bundleFormData.games?.map(game => game.id) || []
     };
 
     const res = await axiosInstance.post('/bundles', bundlePayload);
-    
+
     showResponse(res, toast.add);
-    
+
     if (res.status === 200 || res.status === 201) {
       BundleDialogVisible.value = false;
       selectedProduct.value = null; // Limpa a seleção
-      
-      toast.add({
-        severity: 'success',
-        summary: 'Sucesso',
-        detail: 'Bundle criado com sucesso!',
-        life: 5000
-      });
     }
   } catch (error) {
     toast.add({
@@ -424,40 +411,50 @@ async function onCreateBundle() {
 
       <!-- Campo Nome (obrigatório) -->
       <div class="d-flex flex-column items-center gap-3 mb-3">
-        <label :for="`name_${index}`" class="font-semibold w-32">Nome*</label>
+        <label :for="`name_${index}`" class="fw-semibold w-32">Nome*</label>
         <InputText :id="`name_${index}`" class="flex-auto" v-model="item.name" />
       </div>
 
-      <!-- Campo ID Gamivo -->
       <div class="d-flex flex-column items-center gap-3 mb-3">
-        <label :for="`id_gamivo_${index}`" class="font-semibold w-32">ID Gamivo</label>
-        <InputText :id="`id_gamivo_${index}`" class="flex-auto" v-model="item.id_gamivo" />
+        <label :for="`region_${index}`" class="fw-semibold w-32">Região</label>
+        <InputText :id="`region_${index}`" class="flex-auto" v-model="item.region" />
       </div>
+
+      <!-- Campo ID Gamivo -->
+        <div class="d-flex flex-column items-center gap-3 mb-3">
+          <label :for="`id_gamivo_${index}`" class="fw-semibold w-32">ID Gamivo</label>
+          <InputText :id="`id_gamivo_${index}`" class="flex-auto" v-model="item.id_gamivo" />
+        </div>
+      
+        <div class="d-flex flex-column items-center gap-3 mb-3">
+          <label :for="`id_steamchart_${index}`" class="fw-semibold w-32">ID SteamCharts</label>
+          <InputText :id="`id_steamcharts_${index}`" class="flex-auto" v-model="item.id_steamcharts" />
+        </div>
 
       <!-- Campo Preço TF2 -->
       <div class="d-flex flex-column items-center gap-3 mb-3">
-        <label :for="`price_tf2_${index}`" class="font-semibold w-32">Preço TF2</label>
+        <label :for="`price_tf2_${index}`" class="fw-semibold w-32">Preço TF2</label>
         <InputNumber :id="`price_tf2_${index}`" class="flex-auto" v-model="item.price_tf2" mode="decimal"
           :minFractionDigits="2" :maxFractionDigits="2" useGrouping />
       </div>
 
       <!-- Campo Preço Euro -->
       <div class="d-flex flex-column items-center gap-3 mb-3">
-        <label :for="`price_euro_${index}`" class="font-semibold w-32">Preço (Euro)</label>
+        <label :for="`price_euro_${index}`" class="fw-semibold w-32">Preço (Euro)</label>
         <InputNumber :id="`price_euro_${index}`" class="flex-auto" v-model="item.price_euro" mode="decimal"
           :minFractionDigits="2" :maxFractionDigits="2" useGrouping />
       </div>
 
       <!-- Campo Popularidade -->
       <div class="d-flex flex-column items-center gap-3 mb-5">
-        <label :for="`popularity_${index}`" class="font-semibold w-32">Popularidade</label>
+        <label :for="`popularity_${index}`" class="fw-semibold w-32">Popularidade</label>
         <InputNumber :id="`popularity_${index}`" class="flex-auto" v-model="item.popularity" mode="decimal"
           :minFractionDigits="0" :maxFractionDigits="2" useGrouping />
       </div>
 
       <!-- Campo Data de Lançamento -->
       <div class="d-flex flex-column items-center gap-3 mb-3">
-        <label :for="`release_date_${index}`" class="font-semibold w-32">Data de Lançamento</label>
+        <label :for="`release_date_${index}`" class="fw-semibold w-32">Data de Lançamento</label>
         <InputText :id="`release_date_${index}`" class="flex-auto" v-model="item.release_date" />
       </div>
 
@@ -473,69 +470,13 @@ async function onCreateBundle() {
   <!-- ====================================
        MODAL DE CRIAÇÃO DE BUNDLE
        ==================================== -->
-  <Dialog v-model:visible="BundleDialogVisible" modal header="Criar Bundle" :style="{ width: '70%' }">
-    
-    <!-- Instruções do modal -->
-    <span class="d-block mb-3">Criar um novo bundle com os jogos selecionados.</span>
-    
-    <!-- Lista de jogos selecionados -->
-    <div class="mb-4">
-      <h5>Jogos Selecionados ({{ selectedProduct?.length || 0 }}):</h5>
-      <div v-if="selectedProduct && selectedProduct.length > 0" class="border rounded p-3 bg-light">
-        <div v-for="game in selectedProduct" :key="game.id" class="d-flex justify-content-between align-items-center mb-2">
-          <span><strong>{{ game.name }}</strong> (ID: {{ game.id }})</span>
-          <small class="text-muted">{{ game.id_gamivo ? `Gamivo: ${game.id_gamivo}` : 'Sem ID Gamivo' }}</small>
-        </div>
-      </div>
-    </div>
-
-    <!-- Formulário dos dados do bundle -->
-    <div class="d-flex flex-column gap-3">
-      
-      <!-- Campo Nome (obrigatório) -->
-      <div class="d-flex flex-column gap-2">
-        <label for="bundle_name" class="font-semibold">Nome do Bundle*</label>
-        <InputText id="bundle_name" v-model="bundleData.name" placeholder="Digite o nome do bundle" />
-      </div>
-
-      <!-- Campo Descrição -->
-      <div class="d-flex flex-column gap-2">
-        <label for="bundle_description" class="font-semibold">Descrição</label>
-        <InputText id="bundle_description" v-model="bundleData.description" placeholder="Digite uma descrição para o bundle" />
-      </div>
-
-      <div class="d-flex gap-3">
-        <!-- Campo Preço TF2 -->
-        <div class="d-flex flex-column gap-2 flex-1">
-          <label for="bundle_price_tf2" class="font-semibold">Preço TF2</label>
-          <InputNumber id="bundle_price_tf2" v-model="bundleData.price_tf2" mode="decimal"
-            :minFractionDigits="2" :maxFractionDigits="2" useGrouping placeholder="0.00" />
-        </div>
-
-        <!-- Campo Preço Euro -->
-        <div class="d-flex flex-column gap-2 flex-1">
-          <label for="bundle_price_euro" class="font-semibold">Preço (Euro)</label>
-          <InputNumber id="bundle_price_euro" v-model="bundleData.price_euro" mode="decimal"
-            :minFractionDigits="2" :maxFractionDigits="2" useGrouping placeholder="0.00" />
-        </div>
-      </div>
-
-      <!-- Campo Data de Lançamento -->
-      <div class="d-flex flex-column gap-2">
-        <label for="bundle_release_date" class="font-semibold">Data de Lançamento</label>
-        <InputText id="bundle_release_date" v-model="bundleData.release_date" 
-          placeholder="AAAA-MM-DD" />
-      </div>
-
-    </div>
-
-    <!-- Botões de ação do modal -->
-    <div class="d-flex justify-content-end gap-2 mt-4">
-      <Button type="button" label="Cancelar" severity="secondary" @click="BundleDialogVisible = false"></Button>
-      <Button type="button" label="Criar Bundle" @click="onCreateBundle()" 
-        :disabled="!bundleData.name || bundleData.name.trim() === ''"></Button>
-    </div>
-  </Dialog>
+  <BundleModal
+    v-model:visible="BundleDialogVisible"
+    :is-edit="false"
+    :selected-games="selectedProduct"
+    @save="onCreateBundle"
+    @cancel="BundleDialogVisible = false"
+  />
 
   <!-- ====================================
        PÁGINA PRINCIPAL
@@ -562,13 +503,13 @@ async function onCreateBundle() {
             <Button label="Novo" aria-label="Novo" icon="pi pi-plus" @click="handleAddButton()" raised />
             <Button label="Deletar" :disabled="!selectedProduct || selectedProduct.length === 0" aria-label="Deletar"
               severity="danger" icon="pi pi-trash" @click="handleDeleteButton($event, 2)" raised />
-            <Button label="Criar Bundle" :disabled="!selectedProduct || selectedProduct.length === 0" 
-              aria-label="Criar Bundle" severity="success" icon="pi pi-sitemap" @click="handleCreateBundle()" raised />
-          </div>
-          <!-- Botões do lado direito -->
-          <div class="d-flex gap-2 flex-column flex-md-row">
+            </div>
+            <!-- Botões do lado direito -->
+            <div class="d-flex gap-2 flex-column flex-md-row">
             <Button label="Pesquisar" aria-label="Pesquisar" severity="info" icon="pi pi-search"
-              @click="onPageChange(true)" raised />
+                @click="onPageChange(true)" raised />
+            <Button label="Criar Bundle" :disabled="!selectedProduct || selectedProduct.length === 0"
+              aria-label="Criar Bundle" severity="success" icon="pi pi-sitemap" @click="handleCreateBundle()" raised />
           </div>
         </div>
       </template>
@@ -597,15 +538,14 @@ async function onCreateBundle() {
           <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
         </template>
       </Column>
-
-      <!-- Coluna ID Gamivo (editável) -->
-      <Column field="id_gamivo" header="ID Gamivo" filterField="searchField" :showFilterMenu="true" :showFilterMatchModes="false"
-      :showApplyButton="false" :showClearButton="false">
+      
+      <Column field="region" header="Região" filterField="searchField" :showFilterMenu="true"
+      :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false">
+      <template #filter>
+        <InputText v-model="searchFilter.region" type="text" placeholder="Pesquisar" />
+        </template>
         <template #editor="{ data, field }">
           <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
-        </template>
-        <template #filter>
-          <InputText v-model="searchFilter.id_gamivo" type="text" placeholder="Pesquisar" />
         </template>
       </Column>
 
@@ -616,6 +556,29 @@ async function onCreateBundle() {
             fluid />
         </template>
       </Column>
+
+      <!-- Coluna ID Gamivo (editável) -->
+      <Column field="id_gamivo" header="ID Gamivo" filterField="searchField" :showFilterMenu="true"
+        :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false">
+        <template #editor="{ data, field }">
+          <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
+        </template>
+        <template #filter>
+          <InputText v-model="searchFilter.id_gamivo" type="text" placeholder="Pesquisar" />
+        </template>
+      </Column>
+      
+      <!-- Coluna ID SteamCharts (editável) -->
+      <Column field="id_steamcharts" header="ID SteamCharts" filterField="searchField" :showFilterMenu="true"
+        :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false">
+        <template #editor="{ data, field }">
+          <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
+        </template>
+        <template #filter>
+          <InputText v-model="searchFilter.id_steamcharts" type="text" placeholder="Pesquisar" />
+        </template>
+      </Column>
+
 
       <!-- Coluna Preço TF2 (editável, numérico com decimais) -->
       <Column field="price_tf2" header="Preço(TF2)" sortable>

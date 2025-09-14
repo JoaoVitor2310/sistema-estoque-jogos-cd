@@ -15,7 +15,9 @@ class Game extends Model
     protected $fillable = [
         'id',
         'name',
+        'region',
         'id_gamivo',
+        'id_steamcharts',
         'popularity',
         'price_tf2',
         'price_euro',
