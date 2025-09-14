@@ -15,7 +15,7 @@ class GameService
         //
     }
 
-    public function fillIdGamivo(string $nomeJogo, string $region)
+    public function fillIdGamivo(string $nomeJogo, string | null $region)
     {
         // Procura nas keys da tabela venda-chave-troca
         $game = Venda_chave_troca::select('idGamivo')->where('nomeJogo', $nomeJogo)->where('region', $region)->whereNotNull('idGamivo')->first();
