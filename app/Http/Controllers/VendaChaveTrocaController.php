@@ -212,6 +212,9 @@ class VendaChaveTrocaController extends Controller
                 if ($idGamivo) $game['idGamivo'] = $idGamivo;
             }
 
+            // Cadastra o jogo na tabela Games se ainda não estiver
+            $gameService->createGameIfDontExists($game);
+
             if ($game['minimoParaVenda'] == '') {
                 $game['minimoParaVenda'] = $game['precoCliente'] * 1.05;
             }
@@ -417,7 +420,7 @@ class VendaChaveTrocaController extends Controller
 
     public function whenToSell(Request $request)
     {
-        $gamesToList = Venda_chave_troca::select(['idGamivo', 'minimoParaVenda', 'valorPagoIndividual', 'chaveRecebida', 'nomeJogo', 'dataAdquirida', 'dataVenda', 'dataVendida', 'dataExpiracao'])->whereNotNull('idGamivo')->whereNotNull('minimoParaVenda')->whereNull('dataVenda')->whereNull('dataVendida')->get();
+        $gamesToList = Venda_chave_troca::select(['idGamivo', 'minimoParaVenda', 'valorPagoIndividual', 'chaveRecebida', 'nomeJogo', 'region', 'dataAdquirida', 'dataVenda', 'dataVendida', 'dataExpiracao'])->whereNotNull('idGamivo')->whereNotNull('minimoParaVenda')->whereNull('dataVenda')->whereNull('dataVendida')->get();
 
         is_object($gamesToList) ? $gamesToList = $gamesToList->toArray() : $gamesToList; // Garante que sempre será um array, mesmo que tenha só um elemento
 
