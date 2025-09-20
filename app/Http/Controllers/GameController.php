@@ -65,6 +65,23 @@ class GameController extends Controller
         ]);
     }
 
+    public function searchPopularity(Request $request)
+    {
+        $games = Game::select('*')->whereNotNull('id_steamcharts')->get()->toArray();
+        return $this->response(200, 'Jogos encontrados com sucesso', $games);
+    }
+
+    public function updatePopularity(Request $request)
+    {
+        $games = $request->input('games');
+
+        foreach ($games as $game) {
+            $game = Game::where('id', $game['id'])->update(['popularity' => $game['popularity']]);
+        }
+
+        return $this->response(200, 'Jogos atualizados com sucesso', $games);
+    }
+
     /**
      * Show the form for creating a new resource.
      */
@@ -78,7 +95,6 @@ class GameController extends Controller
      */
     public function store(GameRequestArray $request)
     {
-
         try {
             DB::beginTransaction();
             $data = $request->validated();

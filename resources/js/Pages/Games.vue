@@ -421,15 +421,15 @@ async function onCreateBundle(bundleFormData: any) {
       </div>
 
       <!-- Campo ID Gamivo -->
-        <div class="d-flex flex-column items-center gap-3 mb-3">
-          <label :for="`id_gamivo_${index}`" class="fw-semibold w-32">ID Gamivo</label>
-          <InputText :id="`id_gamivo_${index}`" class="flex-auto" v-model="item.id_gamivo" />
-        </div>
-      
-        <div class="d-flex flex-column items-center gap-3 mb-3">
-          <label :for="`id_steamchart_${index}`" class="fw-semibold w-32">ID SteamCharts</label>
-          <InputText :id="`id_steamcharts_${index}`" class="flex-auto" v-model="item.id_steamcharts" />
-        </div>
+      <div class="d-flex flex-column items-center gap-3 mb-3">
+        <label :for="`id_gamivo_${index}`" class="fw-semibold w-32">ID Gamivo</label>
+        <InputText :id="`id_gamivo_${index}`" class="flex-auto" v-model="item.id_gamivo" />
+      </div>
+
+      <div class="d-flex flex-column items-center gap-3 mb-3">
+        <label :for="`id_steamchart_${index}`" class="fw-semibold w-32">ID SteamCharts</label>
+        <InputText :id="`id_steamcharts_${index}`" class="flex-auto" v-model="item.id_steamcharts" />
+      </div>
 
       <!-- Campo Preço TF2 -->
       <div class="d-flex flex-column items-center gap-3 mb-3">
@@ -470,13 +470,8 @@ async function onCreateBundle(bundleFormData: any) {
   <!-- ====================================
        MODAL DE CRIAÇÃO DE BUNDLE
        ==================================== -->
-  <BundleModal
-    v-model:visible="BundleDialogVisible"
-    :is-edit="false"
-    :selected-games="selectedProduct"
-    @save="onCreateBundle"
-    @cancel="BundleDialogVisible = false"
-  />
+  <BundleModal v-model:visible="BundleDialogVisible" :is-edit="false" :selected-games="selectedProduct"
+    @save="onCreateBundle" @cancel="BundleDialogVisible = false" />
 
   <!-- ====================================
        PÁGINA PRINCIPAL
@@ -503,11 +498,11 @@ async function onCreateBundle(bundleFormData: any) {
             <Button label="Novo" aria-label="Novo" icon="pi pi-plus" @click="handleAddButton()" raised />
             <Button label="Deletar" :disabled="!selectedProduct || selectedProduct.length === 0" aria-label="Deletar"
               severity="danger" icon="pi pi-trash" @click="handleDeleteButton($event, 2)" raised />
-            </div>
-            <!-- Botões do lado direito -->
-            <div class="d-flex gap-2 flex-column flex-md-row">
+          </div>
+          <!-- Botões do lado direito -->
+          <div class="d-flex gap-2 flex-column flex-md-row">
             <Button label="Pesquisar" aria-label="Pesquisar" severity="info" icon="pi pi-search"
-                @click="onPageChange(true)" raised />
+              @click="onPageChange(true)" raised />
             <Button label="Criar Bundle" :disabled="!selectedProduct || selectedProduct.length === 0"
               aria-label="Criar Bundle" severity="success" icon="pi pi-sitemap" @click="handleCreateBundle()" raised />
           </div>
@@ -538,11 +533,11 @@ async function onCreateBundle(bundleFormData: any) {
           <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
         </template>
       </Column>
-      
+
       <Column field="region" header="Região" filterField="searchField" :showFilterMenu="true"
-      :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false">
-      <template #filter>
-        <InputText v-model="searchFilter.region" type="text" placeholder="Pesquisar" />
+        :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false">
+        <template #filter>
+          <InputText v-model="searchFilter.region" type="text" placeholder="Pesquisar" />
         </template>
         <template #editor="{ data, field }">
           <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
@@ -567,7 +562,7 @@ async function onCreateBundle(bundleFormData: any) {
           <InputText v-model="searchFilter.id_gamivo" type="text" placeholder="Pesquisar" />
         </template>
       </Column>
-      
+
       <!-- Coluna ID SteamCharts (editável) -->
       <Column field="id_steamcharts" header="ID SteamCharts" filterField="searchField" :showFilterMenu="true"
         :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false">

@@ -389,6 +389,7 @@ const searchFilter = reactive({
   chaveRecebida: '',
   plataformaIdentificada: '',
   nomeJogo: '',
+  region: '',
   isSteam: [],
   idGamivo: '',
   observacao: '',
@@ -565,18 +566,18 @@ const addOrRemove = (add: boolean) => {
             <InputText class="flex-auto" v-model="item.chaveRecebida" />
           </div>
         </div>
-          <div class="d-flex flex-column">
-            <label class="fw-bold">Nome do jogo*</label>
-            <div class="d-flex gap-5 mb-3">
-              <InputText class="flex-auto" v-model="item.nomeJogo" />
-            </div>
+        <div class="d-flex flex-column">
+          <label class="fw-bold">Nome do jogo*</label>
+          <div class="d-flex gap-5 mb-3">
+            <InputText class="flex-auto" v-model="item.nomeJogo" />
           </div>
-          <div class="d-flex flex-column">
-            <label class="fw-bold">Região</label>
-            <div class="d-flex gap-5 mb-3">
-              <InputText class="flex-auto" v-model="item.region" />
-            </div>
+        </div>
+        <div class="d-flex flex-column">
+          <label class="fw-bold">Região</label>
+          <div class="d-flex gap-5 mb-3">
+            <InputText class="flex-auto" v-model="item.region" />
           </div>
+        </div>
         <!-- <div class="d-flex flex-column">
             <label class="fw-bold">Preço Steam*</label>
             <div class="d-flex gap-5 mb-3">
@@ -671,7 +672,7 @@ const addOrRemove = (add: boolean) => {
           <div class="d-flex gap-5 mb-3">
             <InputText class="flex-auto" v-model="sharedValorPagoTotal" />
           </div>
-        </div> 
+        </div>
         <!-- <div class="d-flex flex-column">
           <label class="fw-bold">Vendido</label>
           <div class="d-flex gap-2 mb-3">
