@@ -30,7 +30,7 @@ import BundleModal from '../components/BundleModal.vue';
 import BundleSearchModal from '../components/BundleSearchModal.vue';
 
 // Props e dados iniciais
-const props = defineProps({ 
+const props = defineProps({
   bundles: Array as PropType<Bundle[]>,
   pagination: Object as PropType<{
     current_page: number;
@@ -93,8 +93,8 @@ const selected = reactive({
   name: '',
   type: '',
   description: '',
-  price_tf2: null,
-  price_euro: null,
+  minimum_price_tf2: null,
+  price_dolar: null,
   release_date: '',
   games: []
 })
@@ -105,8 +105,8 @@ const bundleEditData = reactive({
   name: '',
   type: '',
   description: '',
-  price_tf2: null,
-  price_euro: null,
+  minimum_price_tf2: null,
+  price_dolar: null,
   release_date: ''
 })
 
@@ -119,8 +119,8 @@ const handleEditBundle = (bundle: Bundle) => {
     name: '',
     type: '',
     description: '',
-    price_tf2: null,
-    price_euro: null,
+    minimum_price_tf2: null,
+    price_dolar: null,
     release_date: ''
   });
 
@@ -130,8 +130,8 @@ const handleEditBundle = (bundle: Bundle) => {
     name: bundle.name,
     type: bundle.type,
     description: bundle.description,
-    price_tf2: bundle.price_tf2,
-    price_euro: bundle.price_euro,
+    minimum_price_tf2: bundle.minimum_price_tf2,
+    price_dolar: bundle.price_dolar,
     release_date: bundle.release_date
   });
 
@@ -187,8 +187,8 @@ const handleAddBundle = (): void => {
     name: '',
     type: 'bundle',
     description: '',
-    price_tf2: null,
-    price_euro: null,
+    minimum_price_tf2: null,
+    price_dolar: null,
     release_date: ''
   });
   BundleModalVisible.value = true;
@@ -250,8 +250,6 @@ const searchGames = async () => {
       name: searchTerm.value,
     });
 
-    console.log(res.data);
-
     if (res.status === 200) {
       searchResults.value = res.data.data.games.data || [];
     }
@@ -266,6 +264,14 @@ const searchGames = async () => {
   } finally {
     isSearching.value = false;
   }
+};
+
+// Função para verificar se um jogo já está no bundle atual
+const isGameInCurrentBundle = (game) => {
+  if (!currentBundle.value || !currentBundle.value.games) {
+    return false;
+  }
+  return currentBundle.value.games.some(bundleGame => bundleGame.id === game.id);
 };
 
 // Função para adicionar jogo ao bundle
@@ -311,7 +317,7 @@ const onSearchBundle = async (searchData: any, page: number = 1): Promise<void> 
   try {
     // Armazena os parâmetros de pesquisa para reutilizar na paginação
     currentSearchParams.value = searchData;
-    
+
     // Faz a requisição para o backend com os filtros e página
     const res = await axiosInstance.get('/bundles', {
       params: {
@@ -325,7 +331,7 @@ const onSearchBundle = async (searchData: any, page: number = 1): Promise<void> 
     if (res.status === 200) {
       // Atualiza os dados na tela
       rowData.splice(0, rowData.length, ...res.data.data.bundles);
-      
+
       // Atualiza dados de paginação
       Object.assign(paginationData, {
         currentPage: res.data.data.pagination.current_page,
@@ -348,7 +354,7 @@ const onSearchBundle = async (searchData: any, page: number = 1): Promise<void> 
 // Função para navegar entre páginas
 const onPageChange = async (event: any): Promise<void> => {
   const page = event.page + 1; // PrimeVue usa índice 0, Laravel usa 1
-  
+
   // Se há filtros ativos, mantém eles na navegação
   if (Object.keys(currentSearchParams.value).length > 0) {
     await onSearchBundle(currentSearchParams.value, page);
@@ -367,7 +373,7 @@ const loadBundles = async (page: number = 1): Promise<void> => {
 
     if (res.status === 200) {
       rowData.splice(0, rowData.length, ...res.data.data.bundles);
-      
+
       Object.assign(paginationData, {
         currentPage: res.data.data.pagination.current_page,
         totalRecords: res.data.data.pagination.total,
@@ -458,6 +464,12 @@ const toggleMenu = (event, bundleId) => {
   }
 };
 
+// Função para capitalizar a primeira letra
+const capitalize = (str: string): string => {
+  if (!str) return '';
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+};
+
 </script>
 
 <template>
@@ -490,11 +502,13 @@ const toggleMenu = (event, bundleId) => {
             <div class="flex-1">
               <h6 class="mb-1 fw-semibold">{{ game.name }} ({{ game.region || 'Global' }})</h6>
               <div class="text-sm d-flex gap-2">
-                <span><strong>Preço TF2:</strong> {{ game.price_tf2 }}</span>
-                <span><strong>Preço Euro:</strong> €{{ game.price_euro }}</span>
+                <span><strong>Preço TF2:</strong> {{ game.minimum_price_tf2 }}</span>
+                <span><strong>Preço Euro:</strong> €{{ game.price_dolar }}</span>
               </div>
             </div>
-            <Button label="Adicionar" icon="pi pi-plus" size="small" @click="addGameToBundle(game)" class="ml-3" />
+            <Button :label="isGameInCurrentBundle(game) ? 'Já adicionado' : 'Adicionar'"
+              :icon="isGameInCurrentBundle(game) ? 'pi pi-check' : 'pi pi-plus'" :disabled="isGameInCurrentBundle(game)"
+              size="small" @click="addGameToBundle(game)" class="ml-3" />
           </div>
         </div>
       </div>
@@ -520,8 +534,7 @@ const toggleMenu = (event, bundleId) => {
   <BundleModal v-model:visible="BundleModalVisible" :is-edit="isEdit" :bundle-data="bundleEditData" @save="onSaveBundle"
     @cancel="BundleModalVisible = false" />
 
-  <BundleSearchModal v-model:visible="BundleSearchModalVisible" @search="onSearchBundle"
-     />
+  <BundleSearchModal v-model:visible="BundleSearchModalVisible" @search="onSearchBundle" />
 
   <div class="container">
 
@@ -543,7 +556,7 @@ const toggleMenu = (event, bundleId) => {
     <div v-for="bundle in rowData" :key="bundle.id" class="card mb-4">
       <div class="card-header">
         <div class="card-title d-flex justify-content-between">
-          <h3>{{ bundle.name }}</h3>
+          <h3>{{ capitalize(bundle.type) + ' - ' + bundle.name }}</h3>
           <div class="d-flex gap-2">
             <Button type="button" severity="contrast" icon="pi pi-ellipsis-v" @click="toggleMenu($event, bundle.id)"
               aria-haspopup="true" :aria-controls="`overlay_menu_${bundle.id}`" raised />
@@ -551,11 +564,20 @@ const toggleMenu = (event, bundleId) => {
               :model="getBundleOptions(bundle)" :popup="true" />
           </div>
         </div>
-        <strong>Tipo:</strong> {{ bundle.type ?? 'Não informado' }}
-        <strong>Descrição:</strong> {{ bundle.description ?? 'Nenhuma' }}
-        <strong>Preço TF2:</strong> {{ bundle.price_tf2 ?? 'Não informado' }}
-        <strong>Preço Euro:</strong> {{ bundle.price_euro ?? 'Não informado' }}
-        <strong>Data de Lançamento:</strong> {{ formatDateToBR(bundle.release_date) ?? 'Não informado' }}
+        <div class="row">
+          <div class="col-12 col-md-3">
+            <strong>Data de Lançamento:</strong> {{ formatDateToBR(bundle.release_date) ?? 'Não informado' }}
+          </div>
+          <div class="col-12 col-md-3">
+            <strong>Descrição:</strong> {{ bundle.description ?? 'Nenhuma' }}
+          </div>
+          <div class="col-12 col-md-3">
+            <strong>Preço Mínimo TF2:</strong> {{ bundle.minimum_price_tf2 ?? 'Não informado' }}
+          </div>
+          <div class="col-12 col-md-3">
+            <strong>Preço Dólar:</strong> {{ bundle.price_dolar ?? 'Não informado' }}
+          </div>
+        </div>
       </div>
 
       <div class="card-body">
@@ -589,8 +611,8 @@ const toggleMenu = (event, bundleId) => {
           <Column field="name" header="Nome" sortable></Column>
           <Column field="region" header="Região" sortable></Column>
           <Column field="popularity" header="Popularidade" sortable></Column>
-          <Column field="price_tf2" header="Preço(TF2)" sortable></Column>
-          <Column field="price_euro" header="Preço(euro)" sortable></Column>
+          <Column field="minimum_price_tf2" header="Preço Mín.(TF2)" sortable></Column>
+          <Column field="price_dolar" header="Preço(dólar)" sortable></Column>
           <Column field="release_date" header="Data de Lançamento" sortable>
             <template #body="slotProps">
               {{ formatDateToBR(slotProps.data.release_date) }}
@@ -603,13 +625,9 @@ const toggleMenu = (event, bundleId) => {
 
     <!-- Paginação -->
     <div class="mt-4 d-flex justify-content-center" v-if="paginationData.totalRecords > 0">
-      <Paginator
-        v-model:first="paginationData.first"
-        :rows="paginationData.rows"
-        :totalRecords="paginationData.totalRecords"
-        @page="onPageChange"
-        template="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown JumpToPageDropdown"
-      />
+      <Paginator v-model:first="paginationData.first" :rows="paginationData.rows"
+        :totalRecords="paginationData.totalRecords" @page="onPageChange"
+        template="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown JumpToPageDropdown" />
     </div>
     <p class="text-center">Total: {{ paginationData.totalRecords }}</p>
   </div>

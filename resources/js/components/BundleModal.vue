@@ -46,8 +46,8 @@ const localBundleData = reactive({
   name: '',
   type: 'bundle' as string,
   description: '',
-  price_tf2: null,
-  price_euro: null,
+  minimum_price_tf2: null,
+  price_dolar: null,
   release_date: '',
   games: [] as Game[]
 });
@@ -60,8 +60,8 @@ watch(() => props.bundleData, (newData) => {
       name: newData.name || '',
       type: newData.type || 'bundle',
       description: newData.description || '',
-      price_tf2: newData.price_tf2 || null,
-      price_euro: newData.price_euro || null,
+      minimum_price_tf2: newData.minimum_price_tf2 || null,
+      price_dolar: newData.price_dolar || null,
       release_date: newData.release_date || '',
       games: []
     });
@@ -76,8 +76,8 @@ watch(() => props.visible, (isVisible) => {
       name: props.bundleData.name || '',
       type: props.bundleData.type || 'bundle',
       description: props.bundleData.description || '',
-      price_tf2: props.bundleData.price_tf2 || null,
-      price_euro: props.bundleData.price_euro || null,
+      minimum_price_tf2: props.bundleData.minimum_price_tf2 || null,
+      price_dolar: props.bundleData.price_dolar || null,
       release_date: props.bundleData.release_date || '',
       games: []
     });
@@ -109,8 +109,8 @@ const resetForm = () => {
     name: '',
     type: 'bundle',
     description: '',
-    price_tf2: null,
-    price_euro: null,
+    minimum_price_tf2: null,
+    price_dolar: null,
     release_date: '',
     games: [] as Game[]
   });
@@ -178,16 +178,16 @@ watch(() => props.visible, (isVisible, oldValue) => {
       <div class="d-flex gap-3">
         <!-- Campo Preço TF2 -->
         <div class="d-flex flex-column gap-2 flex-1">
-          <label for="bundle_price_tf2" class="fw-semibold">Preço TF2</label>
-          <InputNumber id="bundle_price_tf2" v-model="localBundleData.price_tf2" mode="decimal" :minFractionDigits="2"
-            :maxFractionDigits="2" useGrouping placeholder="0.00" />
+          <label for="bundle_minimum_price_tf2" class="fw-semibold">Preço Mínimo TF2</label>
+          <InputNumber id="bundle_minimum_price_tf2" v-model="localBundleData.minimum_price_tf2" mode="decimal"
+            :minFractionDigits="2" :maxFractionDigits="2" useGrouping placeholder="0.00" />
         </div>
 
         <!-- Campo Preço Euro -->
         <div class="d-flex flex-column gap-2 flex-1">
-          <label for="bundle_price_euro" class="fw-semibold">Preço (Euro)</label>
-          <InputNumber id="bundle_price_euro" v-model="localBundleData.price_euro" mode="decimal" :minFractionDigits="2"
-            :maxFractionDigits="2" useGrouping placeholder="0.00" />
+          <label for="bundle_price_dolar" class="fw-semibold">Preço (Dólar)</label>
+          <InputNumber id="bundle_price_dolar" v-model="localBundleData.price_dolar" mode="decimal"
+            :minFractionDigits="2" :maxFractionDigits="2" useGrouping placeholder="0.00" />
         </div>
       </div>
 

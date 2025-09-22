@@ -17,8 +17,8 @@ class Bundle extends Model
         'name',
         'type',
         'description',
-        'price_tf2',
-        'price_euro',
+        'minimum_price_tf2',
+        'price_dolar',
         'release_date',
     ];
 

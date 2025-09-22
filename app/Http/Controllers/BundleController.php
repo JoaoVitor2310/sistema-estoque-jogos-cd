@@ -24,7 +24,9 @@ class BundleController extends Controller
 
         // Iniciando a consulta
         $query = Bundle::with([
-            'games'
+            'games' => function ($query) {
+                $query->orderBy('name', 'asc');
+            }
         ]);
 
         // return $this->response(200, 'DEBUG.', $filters);
@@ -34,10 +36,10 @@ class BundleController extends Controller
                     $query->whereIn($key, $value);
                 } else if (is_string($value)) {
                     // Tratamento especial para filtros de range
-                    if ($key === 'release_date_start' || $key === 'price_tf2_min' || $key === 'price_euro_min') {
+                    if ($key === 'release_date_start' || $key === 'minimum_price_tf2_min' || $key === 'price_dolar_min') {
                         $actualKey = str_replace(['_start', '_min'], '', $key);
                         $query->where($actualKey, '>=', $value);
-                    } else if ($key === 'release_date_end' || $key === 'price_tf2_max' || $key === 'price_euro_max') {
+                    } else if ($key === 'release_date_end' || $key === 'minimum_price_tf2_max' || $key === 'price_dolar_max') {
                         $actualKey = str_replace(['_end', '_max'], '', $key);
                         $query->where($actualKey, '<=', $value);
                     } else if ($key === 'game_name') {
@@ -108,7 +110,9 @@ class BundleController extends Controller
                     $created->games()->attach($games);
 
                     // Recarrega o bundle com os jogos para retornar completo
-                    $created->load('games');
+                    $created->load(['games' => function ($query) {
+                        $query->orderBy('name', 'asc');
+                    }]);
                 }
 
                 return $this->response(201, 'Bundle cadastrado com sucesso', $created);
@@ -148,7 +152,9 @@ class BundleController extends Controller
             $bundle->games()->syncWithoutDetaching($gameIds);
 
             // Recarrega o bundle com os jogos atualizados
-            $bundle->load('games');
+            $bundle->load(['games' => function ($query) {
+                $query->orderBy('name', 'asc');
+            }]);
         } catch (\Exception $e) {
             Log::error('Erro ao adicionar jogos ao bundle', [$e->getMessage()]);
             return $this->error(500, 'Erro interno ao adicionar jogos ao bundle', [$e->getMessage()]);

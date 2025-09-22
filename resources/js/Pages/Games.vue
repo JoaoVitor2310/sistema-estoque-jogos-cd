@@ -576,30 +576,30 @@ async function onCreateBundle(bundleFormData: any) {
 
 
       <!-- Coluna Preço TF2 (editável, numérico com decimais) -->
-      <Column field="price_tf2" header="Preço(TF2)" sortable>
+      <!-- <Column field="price_tf2" header="Preço(TF2)" sortable>
         <template #editor="{ data, field }">
           <InputNumber v-model="data[field]" @update:modelValue="onEdit(data)" mode="decimal" :minFractionDigits="2"
             :maxFractionDigits="2" useGrouping autofocus fluid />
         </template>
-      </Column>
+      </Column> -->
 
       <!-- Coluna Preço Euro (editável, numérico com decimais) -->
-      <Column field="price_euro" header="Preço(euro)" sortable>
+      <!-- <Column field="price_euro" header="Preço(euro)" sortable>
         <template #editor="{ data, field }">
           <InputNumber v-model="data[field]" @update:modelValue="onEdit(data)" mode="decimal" :minFractionDigits="2"
             :maxFractionDigits="2" useGrouping autofocus fluid />
         </template>
-      </Column>
+      </Column> -->
 
       <!-- Coluna Data de Lançamento (editável, com formatação BR) -->
-      <Column field="release_date" header="Data de Lançamento" sortable>
+      <!-- <Column field="release_date" header="Data de Lançamento" sortable>
         <template #editor="{ data, field }">
           <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
         </template>
         <template #body="slotProps">
           {{ formatDateToBR(slotProps.data.release_date) }}
         </template>
-      </Column>
+      </Column> -->
 
     </DataTable>
     <Paginator :totalRecords="localTotalGames" :first="currentFirst" :rowsPerPageOptions="[100, 200, 300]"
