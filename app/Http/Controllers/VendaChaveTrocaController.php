@@ -15,6 +15,8 @@ use Illuminate\Http\Request;
 use App\Models\Venda_chave_troca;
 use App\Models\Fornecedor;
 use App\Http\Helpers\Formulas;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class VendaChaveTrocaController extends Controller
@@ -362,12 +364,12 @@ class VendaChaveTrocaController extends Controller
     public function autoSell(Request $request)
     {
         try {
-            $gamesToList = Venda_chave_troca::select(['idGamivo', 'precoCliente', 'lucroPercentual', 'minimoParaVenda', 'valorPagoIndividual', 'chaveRecebida', 'nomeJogo', 'region', 'dataAdquirida', 'dataVenda', 'dataVendida', 'dataExpiracao'])
-                ->whereNotNull('idGamivo')
+            $gamesToList = Venda_chave_troca::whereNotNull('idGamivo')
                 ->where('idGamivo', '!=', '')
                 ->whereNull('dataVenda')
                 ->whereNull('dataVendida')
-                ->where('chaveRecebida', 'not like', '%http%')
+                ->where('chaveRecebida', 'not like', '%http%') // Não mostrar os gift links
+
                 // IMPROVISO
                 ->where('chaveRecebida', '!=', '58MEY-3NQ3F-ZBPXR')
                 ->where('chaveRecebida', '!=', '5FX3N-PYLIC-YXER7')
@@ -408,6 +410,61 @@ class VendaChaveTrocaController extends Controller
                 ->where('idGamivo', '!=', '2126') // LEGO: Batman 3 - Beyond Gotham Premium Edition
                 ->where('idGamivo', '!=', '146276') // The Game Of Life
                 ->where('idGamivo', '!=', '149127') // Hasbro's Battleship
+
+                // Excluir jogos que estão em bundles/choices lançados nos últimos 21 dias
+                ->whereNotExists(function ($query) {
+                    $query->select(DB::raw(1))
+                        ->from('games')
+                        ->join('bundle_games', 'games.id', '=', 'bundle_games.game_id')
+                        ->join('bundles', 'bundle_games.bundle_id', '=', 'bundles.id')
+                        ->whereColumn('games.id_gamivo', 'venda_chave_trocas.idGamivo')
+                        ->where('bundles.release_date', '>', Carbon::now()->subDays(21));
+                })
+                // Se o jogo estiver em CHOICE, só lista se popularidade < 200 OU release_date > 10 meses
+                // ->whereNotExists(function ($query) {
+                //     $query->select(DB::raw(1))
+                //         ->from('games')
+                //         ->join('bundle_games', 'games.id', '=', 'bundle_games.game_id')
+                //         ->join('bundles', 'bundle_games.bundle_id', '=', 'bundles.id')
+                //         ->whereColumn('games.id_gamivo', 'venda_chave_trocas.idGamivo')
+                //         ->where('bundles.type', 'choice')
+                //         ->where('games.popularity', '>', 199)
+                //         ->where('bundles.release_date', '>=', Carbon::now()->subMonths(10));
+                // })
+                // // Se o jogo estiver em BUNDLE: só lista se popularidade < 100 OU release_date > 6 meses
+                // ->whereNotExists(function ($query) {
+                //     $query->select(DB::raw(1))
+                //         ->from('games')
+                //         ->join('bundle_games', 'games.id', '=', 'bundle_games.game_id')
+                //         ->join('bundles', 'bundle_games.bundle_id', '=', 'bundles.id')
+                //         ->whereColumn('games.id_gamivo', 'venda_chave_trocas.idGamivo')
+                //         ->where('bundles.type', 'bundle')
+                //         ->where('games.popularity', '>', 99)
+                //         ->where('bundles.release_date', '>=', Carbon::now()->subMonths(6));
+                // })
+                ->leftJoin('games', 'games.id_gamivo', '=', 'venda_chave_trocas.idGamivo')
+                ->leftJoin('bundle_games', 'games.id', '=', 'bundle_games.game_id')
+                ->leftJoin('bundles', 'bundle_games.bundle_id', '=', 'bundles.id')
+                ->select([
+                    'nomeJogo',
+                    'venda_chave_trocas.region as game_region',
+                    'bundles.type as bundle_type',
+                    'bundles.release_date as bundle_release_date',
+                    'games.popularity as game_popularity',
+                    'idGamivo',
+                    'precoCliente',
+                    'lucroPercentual',
+                    'minimoParaVenda',
+                    'valorPagoIndividual',
+                    'chaveRecebida',
+                    'dataAdquirida',
+                    'dataVenda',
+                    'dataVendida',
+                    'dataExpiracao',
+                    'bundles.release_date as bundle_release_date',
+                    'games.popularity as game_popularity',
+                    'games.release_date as game_release_date                                                                        '
+                ])
                 ->get();
 
             $gamesToList = is_object($gamesToList) ? $gamesToList->toArray() : $gamesToList; // Garante que sempre será um array, mesmo que tenha só um elemento
