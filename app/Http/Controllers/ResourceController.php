@@ -1,16 +1,25 @@
 <?php
 
 namespace App\Http\Controllers;
+
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreResourceRequest;
 use App\Traits\HttpResponses;
 use Illuminate\Http\Request;
 use App\Models\Recursos;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
+use App\Services\ResourceService;
 
 class ResourceController extends Controller
 {
     use HttpResponses;
+    private $ResourceService;
+
+    public function __construct()
+    {
+        $this->ResourceService = new ResourceService();
+    }
 
     public function show(Request $request)
     {
@@ -37,7 +46,7 @@ class ResourceController extends Controller
 
             return $this->error(400, 'Something went wrong!');
         } catch (\Exception $e) {
-            \Log::error($e);
+            Log::error($e);
 
             // Return a JSON response with the error message
             return $this->error(500, 'Erro interno ao cadastrar recurso novo.', [$e->getMessage()]);
@@ -63,7 +72,7 @@ class ResourceController extends Controller
         $resources = $request->input('resources');
         if (!$resources)
             return $this->error(404, 'Recursos não enviadas', ['resources' => 'Recursos não enviadas']);
-        
+
         foreach ($resources as $resource) {
 
             $item = Recursos::select('*')->where('id', $resource['id'])->first();
@@ -86,7 +95,9 @@ class ResourceController extends Controller
 
         $data = $request->validated();
 
-        $result = Recursos::where('id', $id)->update($data);
+        $data = $this->ResourceService->getResourcesCurrency($data);
+
+        $result = $resource->update($data);
 
         // $resource['nome'] = $data['nome']; // Não será editável para não quebrar as fórmulas
         $resource['preco_euro'] = $data['preco_euro'];
