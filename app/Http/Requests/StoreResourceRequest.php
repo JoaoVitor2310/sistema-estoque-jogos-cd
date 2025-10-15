@@ -29,6 +29,7 @@ class StoreResourceRequest extends FormRequest
             "preco_euro" => ["required", "decimal:0,3"],
             "preco_dolar" => ["required", "decimal:0,3"],
             "preco_real" => ["required", "decimal:0,3"],
+            "currentCurrency" => ["required", "string", "in:EUR,USD,BRL"],
         ];
     }
 

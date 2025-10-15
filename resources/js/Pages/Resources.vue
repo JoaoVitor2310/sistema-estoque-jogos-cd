@@ -52,12 +52,13 @@ const selected = reactive({
   preco_real: 0,
 })
 
-const onEdit = async (product: Resource) => {
+const onEdit = async (product: Resource, currentCurrency: string | null = null) => {
   isEdit.value = true;
   const res = await axiosInstance.put(`/resources/${product.id}`, {
     preco_euro: product.preco_euro,
     preco_dolar: product.preco_dolar,
-    preco_real: product.preco_real
+    preco_real: product.preco_real,
+    currentCurrency: currentCurrency
   });
   showResponse(res, toast.add);
 
@@ -208,19 +209,19 @@ const handleDeleteButton = (event: any, qtd: number) => {
       </Column>
       <Column field="preco_euro" header="Preço(euro)" sortable>
         <template #editor="{ data, field }">
-          <InputNumber v-model="data[field]" @blur="onEdit(data)" mode="decimal" :minFractionDigits="3"
+          <InputNumber v-model="data[field]" @blur="onEdit(data, 'EUR')" mode="decimal" :minFractionDigits="3"
             :maxFractionDigits="3" useGrouping autofocus fluid />
         </template>
       </Column>
       <Column field="preco_dolar" header="Preço(dólar)" sortable>
         <template #editor="{ data, field }">
-          <InputNumber v-model="data[field]" @blur="onEdit(data)" mode="decimal" :minFractionDigits="3"
+          <InputNumber v-model="data[field]" @blur="onEdit(data, 'USD')" mode="decimal" :minFractionDigits="3"
             :maxFractionDigits="3" useGrouping autofocus fluid />
         </template>
       </Column>
       <Column field="preco_real" header="Preço(real)" sortable>
         <template #editor="{ data, field }">
-          <InputNumber v-model="data[field]" @blur="onEdit(data)" mode="decimal" :minFractionDigits="3"
+          <InputNumber v-model="data[field]" @blur="onEdit(data, 'BRL')" mode="decimal" :minFractionDigits="3"
             :maxFractionDigits="3" useGrouping autofocus fluid />
         </template>
       </Column>
