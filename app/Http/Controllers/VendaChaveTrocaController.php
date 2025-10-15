@@ -371,45 +371,45 @@ class VendaChaveTrocaController extends Controller
                 ->where('chaveRecebida', 'not like', '%http%') // Não mostrar os gift links
 
                 // IMPROVISO
-                ->where('chaveRecebida', '!=', '58MEY-3NQ3F-ZBPXR')
-                ->where('chaveRecebida', '!=', '5FX3N-PYLIC-YXER7')
-                ->where('chaveRecebida', '!=', '4X7NF-XID53-DW9M3')
-                ->where('chaveRecebida', '!=', '4V08R-DY2J2-XZP2N')
-                ->where('chaveRecebida', '!=', 'JHWAA-N4QE6-PA6CK')
-                ->where('chaveRecebida', '!=', '9D205-4BQA9-906WP')
-                ->where('chaveRecebida', '!=', 'Z63FJ-D7Q28-JXGF8')
-                ->where('chaveRecebida', '!=', 'TQ9H4-688K0-WG3YX')
-                ->where('chaveRecebida', '!=', 'P0HAI-NL7DK-YTD9G')
-                ->where('chaveRecebida', '!=', '7IXYH-C5CVP-2F0A3')
-                ->where('chaveRecebida', '!=', '5WAG7-4XVBB-RXCEI')
-                ->where('chaveRecebida', '!=', 'ZPQ04-EEMCW-B47BK')
-                ->where('chaveRecebida', '!=', 'FVIIB-0CTV2-RP3P4')
-                ->where('chaveRecebida', '!=', 'Q4TP4-XPV26-4DLZ2')
-                ->where('chaveRecebida', '!=', 'HJGP4-LFGR8-PF56G')
-                ->where('chaveRecebida', '!=', 'MBXJJ-FD3M3-XL48N')
-                ->where('chaveRecebida', '!=', '38AP6-6MZ3W-9CVYC')
-                ->where('chaveRecebida', '!=', '0A4J9-53J8B-FKYLT')
-                ->where('chaveRecebida', '!=', '9LXV6-5034C-6MMIL')
-                ->where('chaveRecebida', '!=', '0949Y-CI34K-6X7ID')
-                ->where('idGamivo', '!=', '129019') // Nightingale 
-                ->where('idGamivo', '!=', '175208') // Nobody Wants to Die EU 
-                ->where('idGamivo', '!=', '181352') // Legacy of Kain: Soul Reaver 1 & 2 - Remastered EU
-                ->where('idGamivo', '!=', '163232') // Mortal Kombat XL
-                ->where('idGamivo', '!=', '119996') // Mortal Kombat 11 Ultimate Edition EU
-                ->where('idGamivo', '!=', '83905') // Middle-earth: Shadow of War Definitive Edition EN EU
-                ->where('idGamivo', '!=', '846') // Mad Max
-                ->where('idGamivo', '!=', '48471') // Batman: Arkham Origins EN EU
-                ->where('idGamivo', '!=', '60360') // Batman: Arkham Knight Premium Edition EN EU
-                ->where('idGamivo', '!=', '101') // Batman: Arkham City GOTY Edition
-                ->where('idGamivo', '!=', '100') // Batman: Arkham Asylum GOTY
-                ->where('idGamivo', '!=', '66764') // Middle-Earth: Shadow of Mordor GOTY Edition EU
-                ->where('idGamivo', '!=', '143316') // Sker Ritual EN Global
-                ->where('idGamivo', '!=', '119157') // Black Book
-                ->where('idGamivo', '!=', '166690') // Gotham Knights EU/NA
-                ->where('idGamivo', '!=', '149722') // SpellForce: Conquest of Eo 
-                ->where('idGamivo', '!=', '2126') // LEGO: Batman 3 - Beyond Gotham Premium Edition
-                ->where('idGamivo', '!=', '146276') // The Game Of Life
-                ->where('idGamivo', '!=', '149127') // Hasbro's Battleship
+                // ->where('chaveRecebida', '!=', '58MEY-3NQ3F-ZBPXR')
+                // ->where('chaveRecebida', '!=', '5FX3N-PYLIC-YXER7')
+                // ->where('chaveRecebida', '!=', '4X7NF-XID53-DW9M3')
+                // ->where('chaveRecebida', '!=', '4V08R-DY2J2-XZP2N')
+                // ->where('chaveRecebida', '!=', 'JHWAA-N4QE6-PA6CK')
+                // ->where('chaveRecebida', '!=', '9D205-4BQA9-906WP')
+                // ->where('chaveRecebida', '!=', 'Z63FJ-D7Q28-JXGF8')
+                // ->where('chaveRecebida', '!=', 'TQ9H4-688K0-WG3YX')
+                // ->where('chaveRecebida', '!=', 'P0HAI-NL7DK-YTD9G')
+                // ->where('chaveRecebida', '!=', '7IXYH-C5CVP-2F0A3')
+                // ->where('chaveRecebida', '!=', '5WAG7-4XVBB-RXCEI')
+                // ->where('chaveRecebida', '!=', 'ZPQ04-EEMCW-B47BK')
+                // ->where('chaveRecebida', '!=', 'FVIIB-0CTV2-RP3P4')
+                // ->where('chaveRecebida', '!=', 'Q4TP4-XPV26-4DLZ2')
+                // ->where('chaveRecebida', '!=', 'HJGP4-LFGR8-PF56G')
+                // ->where('chaveRecebida', '!=', 'MBXJJ-FD3M3-XL48N')
+                // ->where('chaveRecebida', '!=', '38AP6-6MZ3W-9CVYC')
+                // ->where('chaveRecebida', '!=', '0A4J9-53J8B-FKYLT')
+                // ->where('chaveRecebida', '!=', '9LXV6-5034C-6MMIL')
+                // ->where('chaveRecebida', '!=', '0949Y-CI34K-6X7ID')
+                // ->where('idGamivo', '!=', '129019') // Nightingale 
+                // ->where('idGamivo', '!=', '175208') // Nobody Wants to Die EU 
+                // ->where('idGamivo', '!=', '181352') // Legacy of Kain: Soul Reaver 1 & 2 - Remastered EU
+                // ->where('idGamivo', '!=', '163232') // Mortal Kombat XL
+                // ->where('idGamivo', '!=', '119996') // Mortal Kombat 11 Ultimate Edition EU
+                // ->where('idGamivo', '!=', '83905') // Middle-earth: Shadow of War Definitive Edition EN EU
+                // ->where('idGamivo', '!=', '846') // Mad Max
+                // ->where('idGamivo', '!=', '48471') // Batman: Arkham Origins EN EU
+                // ->where('idGamivo', '!=', '60360') // Batman: Arkham Knight Premium Edition EN EU
+                // ->where('idGamivo', '!=', '101') // Batman: Arkham City GOTY Edition
+                // ->where('idGamivo', '!=', '100') // Batman: Arkham Asylum GOTY
+                // ->where('idGamivo', '!=', '66764') // Middle-Earth: Shadow of Mordor GOTY Edition EU
+                // ->where('idGamivo', '!=', '143316') // Sker Ritual EN Global
+                // ->where('idGamivo', '!=', '119157') // Black Book
+                // ->where('idGamivo', '!=', '166690') // Gotham Knights EU/NA
+                // ->where('idGamivo', '!=', '149722') // SpellForce: Conquest of Eo 
+                // ->where('idGamivo', '!=', '2126') // LEGO: Batman 3 - Beyond Gotham Premium Edition
+                // ->where('idGamivo', '!=', '146276') // The Game Of Life
+                // ->where('idGamivo', '!=', '149127') // Hasbro's Battleship
 
                 // Excluir jogos que estão em bundles/choices lançados nos últimos 21 dias
                 ->whereNotExists(function ($query) {
@@ -420,28 +420,6 @@ class VendaChaveTrocaController extends Controller
                         ->whereColumn('games.id_gamivo', 'venda_chave_trocas.idGamivo')
                         ->where('bundles.release_date', '>', Carbon::now()->subDays(21));
                 })
-                // Se o jogo estiver em CHOICE, só lista se popularidade < 200 OU release_date > 10 meses
-                // ->whereNotExists(function ($query) {
-                //     $query->select(DB::raw(1))
-                //         ->from('games')
-                //         ->join('bundle_games', 'games.id', '=', 'bundle_games.game_id')
-                //         ->join('bundles', 'bundle_games.bundle_id', '=', 'bundles.id')
-                //         ->whereColumn('games.id_gamivo', 'venda_chave_trocas.idGamivo')
-                //         ->where('bundles.type', 'choice')
-                //         ->where('games.popularity', '>', 199)
-                //         ->where('bundles.release_date', '>=', Carbon::now()->subMonths(10));
-                // })
-                // // Se o jogo estiver em BUNDLE: só lista se popularidade < 100 OU release_date > 6 meses
-                // ->whereNotExists(function ($query) {
-                //     $query->select(DB::raw(1))
-                //         ->from('games')
-                //         ->join('bundle_games', 'games.id', '=', 'bundle_games.game_id')
-                //         ->join('bundles', 'bundle_games.bundle_id', '=', 'bundles.id')
-                //         ->whereColumn('games.id_gamivo', 'venda_chave_trocas.idGamivo')
-                //         ->where('bundles.type', 'bundle')
-                //         ->where('games.popularity', '>', 99)
-                //         ->where('bundles.release_date', '>=', Carbon::now()->subMonths(6));
-                // })
                 ->leftJoin('games', 'games.id_gamivo', '=', 'venda_chave_trocas.idGamivo')
                 ->leftJoin('bundle_games', 'games.id', '=', 'bundle_games.game_id')
                 ->leftJoin('bundles', 'bundle_games.bundle_id', '=', 'bundles.id')
@@ -463,7 +441,7 @@ class VendaChaveTrocaController extends Controller
                     'dataExpiracao',
                     'bundles.release_date as bundle_release_date',
                     'games.popularity as game_popularity',
-                    'games.release_date as game_release_date                                                                        '
+                    'games.release_date as game_release_date'
                 ])
                 ->get();
 
