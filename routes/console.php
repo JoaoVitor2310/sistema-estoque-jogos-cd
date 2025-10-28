@@ -41,12 +41,11 @@ Schedule::call(function () {
 // Artisan::command('teste', function () {
 Schedule::call(function () {
     $tf2 = Recursos::where('name', 'TF2')->first();
-
+    
     // Pegar o preço real de TF2
     $data['currentCurrency'] = 'BRL';
     $data['preco_real'] = $tf2->preco_real;
-    $data['preco_real'] = 25;
-
+   
     $resourceService = new ResourceService();
     $data = $resourceService->getResourcesCurrency($data);
 

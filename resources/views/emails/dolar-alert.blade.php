@@ -8,7 +8,7 @@
 <body>
     <h1>Alerta de Dolar</h1>
     <p>O dolar variou mais que 0.20. Cuidado ao comprar mais chaves. </p>
-    <p>Valor que estamos pagando pela chave TF2: {{ $tf2->preco_dolar }}</p>
-    <p>Valor que pagaria atualmente: {{ $data['preco_dolar'] }}</p>
+    <p>Valor que estamos pagando pela chave TF2: R${{ number_format($tf2->preco_real, 2) }} |  ${{ number_format($tf2->preco_dolar, 2) }}</p>
+    <p>Valor que pagaria atualmente: R${{ number_format($tf2->preco_real, 2) }} | ${{ number_format($data['preco_dolar'], 2) }}</p>
 </body>
 </html>
