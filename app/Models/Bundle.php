@@ -17,6 +17,8 @@ class Bundle extends Model
         'name',
         'type',
         'description',
+        'url',
+        'url_region_locks',
         'minimum_price_tf2',
         'price_dolar',
         'release_date',

@@ -1,10 +1,12 @@
 <?php
 
+use App\Models\Bundle;
 use App\Models\Recursos;
 use App\Models\Venda_chave_troca;
 use App\Services\ResourceService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\Facades\Log;
@@ -41,11 +43,11 @@ Schedule::call(function () {
 // Artisan::command('teste', function () {
 Schedule::call(function () {
     $tf2 = Recursos::where('name', 'TF2')->first();
-    
+
     // Pegar o preço real de TF2
     $data['currentCurrency'] = 'BRL';
     $data['preco_real'] = $tf2->preco_real;
-   
+
     $resourceService = new ResourceService();
     $data = $resourceService->getResourcesCurrency($data);
 
@@ -62,6 +64,27 @@ Schedule::call(function () {
             Log::error('Erro ao enviar email de alerta de dolar: ' . $e->getMessage());
         }
     }
-
 })->cron('0 7 * * *')->timezone('America/Sao_Paulo');
 // });
+
+Artisan::command('teste', function () {
+    $response = Http::withOptions([
+        'verify' => false
+    ])->get('http://api.gg.deals/v1/bundles/active/', [
+        'key' => 'JfAiWhbJts9jgVVo7vC6t6e8HIQfiHSN'
+    ]);
+
+    if ($response->successful()) {
+        $data = $response->json(); // Retorna o JSON decodificado como array
+        
+        $bundles = $response['data']['bundles'];
+
+        foreach($bundles as $bundle){
+            $bundle = Bundle::where('name');
+        }
+        dd($bundles);
+    } else {
+        // Tratar erro
+        dd('Erro na requisição: ' . $response->status());
+    }
+});
