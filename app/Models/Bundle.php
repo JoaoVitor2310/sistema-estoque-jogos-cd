@@ -22,6 +22,7 @@ class Bundle extends Model
         'minimum_price_tf2',
         'price_dolar',
         'release_date',
+        'end_date',
     ];
 
     public function games(): BelongsToMany

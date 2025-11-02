@@ -9,6 +9,14 @@ class APIService
 {
     public function __construct() {}
 
+    /**
+     * Convert currency between BRL, EUR and USD
+     * 
+     * @param string $currentCurrency Source currency (BRL, EUR, USD)
+     * @param string $futureCurrency Target currency (BRL, EUR, USD)
+     * @param float $amount Amount to convert
+     * @return array ['success' => bool, 'message' => string, 'amount' => float]
+     */
     public function convertCurrency(string $currentCurrency, string $futureCurrency, float $amount)
     {
         // Se as moedas são iguais, não precisa converter
@@ -57,6 +65,41 @@ class APIService
 
             // Retorna o valor original em caso de erro
             return ['success' => false, 'message' => 'Erro na conversão. ' . $e->getMessage(), 'amount' => $amount];
+        }
+    }
+
+    /**
+     * Get active game bundles from GGDeals API
+     * 
+     * @return array ['success' => bool, 'message' => string, 'data' => array]
+     */
+    public function getBundles()
+    {
+        try {
+            $response = Http::timeout(180)
+                ->withOptions([
+                    'verify' => false
+                ])
+                ->get('http://api.gg.deals/v1/bundles/active/', [
+                    'key' => env('API_KEY_GG_DEALS')
+                ]);
+
+            if (!$response->successful()) {
+                Log::error('Erro na requisição à API GGDeals: HTTP ' . $response->status());
+                return ['success' => false, 'message' => 'Erro na requisição à API: HTTP ' . $response->status(), 'data' => []];
+            }
+
+            $data = $response->json();
+            if (!isset($data['data']['bundles'])) {
+                Log::error('Resposta da API GGDeals não contém dados de bundles');
+                return ['success' => false, 'message' => 'Resposta da API não contém dados de bundles', 'data' => []];
+            }
+
+            $data = $response->json();
+            return ['success' => true, 'message' => 'Bundles obtidos com sucesso', 'data' => $data['data']['bundles']];
+        } catch (\Exception $e) {
+            Log::error('Erro na requisição à API GGDeals: ' . $e->getMessage());
+            return ['success' => false, 'message' => 'Erro na requisição à API GGDeals: ' . $e->getMessage(), 'data' => []];
         }
     }
 }

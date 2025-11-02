@@ -1,11 +1,15 @@
 <?php
 
 use App\Models\Bundle;
+use App\Models\Game;
 use App\Models\Recursos;
 use App\Models\Venda_chave_troca;
+use App\Services\APIService;
+use App\Services\BundleService;
 use App\Services\ResourceService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schedule;
@@ -68,23 +72,6 @@ Schedule::call(function () {
 // });
 
 Artisan::command('teste', function () {
-    $response = Http::withOptions([
-        'verify' => false
-    ])->get('http://api.gg.deals/v1/bundles/active/', [
-        'key' => 'JfAiWhbJts9jgVVo7vC6t6e8HIQfiHSN'
-    ]);
-
-    if ($response->successful()) {
-        $data = $response->json(); // Retorna o JSON decodificado como array
-        
-        $bundles = $response['data']['bundles'];
-
-        foreach($bundles as $bundle){
-            $bundle = Bundle::where('name');
-        }
-        dd($bundles);
-    } else {
-        // Tratar erro
-        dd('Erro na requisição: ' . $response->status());
-    }
+    $bundleService = new BundleService();
+    $bundleService->getBundlesFromAPI();
 });
