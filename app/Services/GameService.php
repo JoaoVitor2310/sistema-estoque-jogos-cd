@@ -15,7 +15,7 @@ class GameService
         //
     }
 
-    public function fillIdGamivo(string $nomeJogo, string | null $region)
+    public function getIdGamivo(string $nomeJogo, string | null $region)
     {
         // Procura nas keys da tabela venda-chave-troca
         $game = Venda_chave_troca::select('idGamivo')->where('nomeJogo', $nomeJogo)->where('region', $region)->whereNotNull('idGamivo')->first();
@@ -26,6 +26,23 @@ class GameService
         if ($game) return $game->id_gamivo;
 
         return false;
+    }
+    
+    /**
+     * Preenche o idGamivo na tabela Games se ainda não estiver preenchido
+     * @param string $gameName
+     * @param string|null $region
+     * @param string $idGamivo
+     * @return void
+     */
+    public function fillIdGamivo($gameName, $region, $idGamivo)
+    {
+        // Procura nos dados de jogos gerais
+        $game = Game::where('name', $gameName)->where('region', $region)->whereNull('id_gamivo')->first();
+        if ($game) {
+            $game->id_gamivo = $idGamivo;
+            $game->save();
+        }
     }
 
     public function createGameIfDontExists($game)

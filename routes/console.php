@@ -71,7 +71,9 @@ Schedule::call(function () {
 })->cron('0 7 * * *')->timezone('America/Sao_Paulo');
 // });
 
-Artisan::command('teste', function () {
+// Artisan::command('teste', function () {
+Schedule::call(function () {
     $bundleService = new BundleService();
     $bundleService->getBundlesFromAPI();
-});
+})->cron('5 * * * *')->timezone('UTC');
+// });

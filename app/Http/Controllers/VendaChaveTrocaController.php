@@ -210,9 +210,11 @@ class VendaChaveTrocaController extends Controller
 
             $gameService = new GameService();
             if ($game['idGamivo'] == '') {
-                $idGamivo = $gameService->fillIdGamivo($game['nomeJogo'], $game['region']);
+                $idGamivo = $gameService->getIdGamivo($game['nomeJogo'], $game['region']);
                 if ($idGamivo) $game['idGamivo'] = $idGamivo;
             }
+
+            if ($game['idGamivo']) $gameService->fillIdGamivo($game['nomeJogo'], $game['region'], $game['idGamivo']);
 
             // Cadastra o jogo na tabela Games se ainda não estiver
             $gameService->createGameIfDontExists($game);
@@ -296,11 +298,13 @@ class VendaChaveTrocaController extends Controller
 
         $data['repetido'] = $repeatedGame !== null ? true : false;
 
+        $gameService = new GameService();
         if ($data['idGamivo'] == '') {
-            $gameService = new GameService();
-            $idGamivo = $gameService->fillIdGamivo($data['nomeJogo'], $data['region']);
+            $idGamivo = $gameService->getIdGamivo($data['nomeJogo'], $data['region']);
             if ($idGamivo) $data['idGamivo'] = $idGamivo;
         }
+
+        if ($data['idGamivo']) $gameService->fillIdGamivo($data['nomeJogo'], $data['region'], $data['idGamivo']);
 
         $result = Venda_chave_troca::where('id', $id)->update($data); // Atualiza
 

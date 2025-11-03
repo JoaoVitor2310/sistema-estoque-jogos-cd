@@ -7,6 +7,7 @@ use App\Models\Game;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class BundleService
 {
@@ -15,7 +16,7 @@ class BundleService
      * 
      * @return void
      */
-    public function getBundlesFromAPI()
+    public function  getBundlesFromAPI()
     {
         try {
             $APIService = new APIService();
@@ -34,7 +35,6 @@ class BundleService
             Log::info('Bundles atualizados com sucesso! Total: ' . count($bundles));
 
             // TODO: Criar bot pra preencher id steamcharts
-            // TODO: Quando editar key com idgamivo, atualizar no jogo também
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -64,7 +64,13 @@ class BundleService
                 ]
             );
 
-            // Buscar o tier mais top do bundle
+            if ($type == 'choice' && $bundle->wasRecentlyCreated) {
+                Mail::raw('Novo Humble Bundle Choice detectado: ' . $bundle->name . "\n\nURL: " . $bundle->url, function ($message) use ($bundle) {
+                    $message->to('carcadeals@gmail.com')
+                        ->subject('🎮 Novo Humble Bundle Choice: ' . $bundle->name);
+                });
+            }
+            
             $topTier = max($api_bundle['tiers']);
 
             $price_dolar = $topTier['currency'] === 'USD' ? $topTier['price'] : null;
@@ -89,6 +95,13 @@ class BundleService
                 $game = Game::firstOrCreate(
                     ['name' => $api_game['title']]
                 );
+
+                // TODO: Procurar idGamivo através do id steam para preencher o id_gamivo
+                // if($game->id_gamivo == '') {
+                //     $gameService = new GameService();
+                //     $idGamivo = $gameService->getIdGamivo($api_game['title'], $api_game['region']);
+                //     if ($idGamivo) $game->id_gamivo = $idGamivo;
+                // }
 
                 $gameIds[] = $game->id;
             }
