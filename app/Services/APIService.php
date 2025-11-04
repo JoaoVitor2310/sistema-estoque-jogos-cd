@@ -85,7 +85,7 @@ class APIService
                 ]);
 
             if (!$response->successful()) {
-                Log::error('Erro na requisição à API GGDeals: HTTP ' . $response->status());
+                Log::error('Erro na requisição à API GGDeals: HTTP ' . $response->status() . ' - ' . $response->body());
                 return ['success' => false, 'message' => 'Erro na requisição à API: HTTP ' . $response->status(), 'data' => []];
             }
 
@@ -98,7 +98,7 @@ class APIService
             $data = $response->json();
             return ['success' => true, 'message' => 'Bundles obtidos com sucesso', 'data' => $data['data']['bundles']];
         } catch (\Exception $e) {
-            Log::error('Erro na requisição à API GGDeals: ' . $e->getMessage());
+            Log::error('Erro na requisição à API GGDeals: ' . $e->getMessage() . ' - ' . $e->getMessage());
             return ['success' => false, 'message' => 'Erro na requisição à API GGDeals: ' . $e->getMessage(), 'data' => []];
         }
     }
