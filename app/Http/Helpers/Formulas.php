@@ -8,15 +8,15 @@ use App\Models\Recursos;
 class Formulas
 {
 
-    private $taxasModel, $gamivoPercentualMaior4, $gamivoFixoMaior4, $gamivoPercentualMenor4, $gamivoFixoMenor4;
+    private $taxasModel, $gamivoPercentualMaior, $gamivoFixoMaior, $gamivoPercentualMenor, $gamivoFixoMenor;
 
     public function __construct()
     {
         $this->taxasModel = new Taxas();
-        $this->gamivoPercentualMaior4 = $this->taxasModel->where('name', 'gamivoPercentualMaior4')->first()->preco;
-        $this->gamivoFixoMaior4 = $this->taxasModel->where('name', 'gamivoFixoMaior4')->first()->preco;
-        $this->gamivoPercentualMenor4 = $this->taxasModel->where('name', 'gamivoPercentualMenor4')->first()->preco;
-        $this->gamivoFixoMenor4 = $this->taxasModel->where('name', 'gamivoFixoMenor4')->first()->preco;
+        $this->gamivoPercentualMaior = $this->taxasModel->where('name', 'gamivoPercentualMaior')->first()->preco;
+        $this->gamivoFixoMaior = $this->taxasModel->where('name', 'gamivoFixoMaior')->first()->preco;
+        $this->gamivoPercentualMenor = $this->taxasModel->where('name', 'gamivoPercentualMenor')->first()->preco;
+        $this->gamivoFixoMenor = $this->taxasModel->where('name', 'gamivoFixoMenor')->first()->preco;
     }
 
     function calcPrecoVenda($idFormato, $idPlataforma, $precoCliente)
@@ -48,46 +48,56 @@ class Formulas
 
     public function calcIncomeReal($idFormato, $idPlataforma, $precoCliente, $precoVenda, $leiloes, $quantidade) // iGUAL AO SIMULADO, MAS É PARA G2A
     {
-        $resultado = 0;
+        $result = 0;
 
         if ($idFormato == 7) { // Troca
-            $resultado = $precoCliente;
+            $result = $precoCliente;
         } else if ($idPlataforma == 2) { // G2A
-            $resultado = $precoVenda * 0.898 - 0.4 - (0.15 * $leiloes / $quantidade);
+            $result = $precoVenda * 0.898 - 0.4 - (0.15 * $leiloes / $quantidade);
         } else if ($idPlataforma == 3) { // Gamivo
-            if ($precoCliente < 4) {
-                $resultado = ($precoCliente * $this->gamivoPercentualMenor4) - $this->gamivoFixoMenor4;
+            
+            if ($precoCliente < 8) {
+                $feePercentage = $this->gamivoPercentualMenor;
+                $feeFixed = $this->gamivoFixoMenor;
             } else {
-                $resultado = ($precoCliente * $this->gamivoPercentualMaior4) - $this->gamivoFixoMaior4;
+                $feePercentage = $this->gamivoPercentualMaior;
+                $feeFixed = $this->gamivoFixoMaior;
             }
+
+            $result = $precoCliente * (1 - $feePercentage) - $feeFixed;
         } else if ($idPlataforma == 4) { // Kinguin
-            $resultado = ($precoCliente * 0.8771929) - 0.306;
+            $result = ($precoCliente * 0.8771929) - 0.306;
         } else {
-            $resultado = $precoCliente; // Valor padrão caso nenhuma condição seja atendida
+            $result = $precoCliente; // Valor padrão caso nenhuma condição seja atendida
         }
 
-        return number_format($resultado, 2, '.', '');
+        return number_format($result, 2, '.', '');
     }
 
     public function calcIncomeSimulado($idFormato, $idPlataforma, $precoCliente, $precoVenda)
     {
-        $resultado = 0;
+        $result = 0;
 
         if ($idFormato == 7) { // Troca
-            $resultado = $precoCliente;
+            $result = $precoCliente;
         } else if ($idPlataforma == 3) { // Gamivo
-            if ($precoCliente > 4) {
-                $resultado = $precoVenda + (-$this->gamivoPercentualMaior4 * $precoVenda) - $this->gamivoFixoMaior4;
+            
+            if ($precoCliente < 8) {
+                $feePercentage = $this->gamivoPercentualMenor;
+                $feeFixed = $this->gamivoFixoMenor;
             } else {
-                $resultado = $precoVenda - ($this->gamivoPercentualMenor4 * $precoVenda) - $this->gamivoFixoMenor4;
+                $feePercentage = $this->gamivoPercentualMaior;
+                $feeFixed = $this->gamivoFixoMaior;
             }
+
+            $result = $precoCliente * (1 - $feePercentage) - $feeFixed;
         } else if ($idPlataforma == 2) { // G2A
-            $resultado = $precoVenda * 0.898 - 0.55;
+            $result = $precoVenda * 0.898 - 0.55;
         } else { // Kinguin
-            $resultado = $precoVenda + (-0.1228071 * $precoVenda) - 0.306;
+            $result = $precoVenda + (-0.1228071 * $precoVenda) - 0.306;
         }
 
-        return number_format($resultado, 2, '.', '');
+        return number_format($result, 2, '.', '');
     }
 
     public function calcValorPagoIndividual($qtdTF2, $somatorioIncomes, $primeiroIncome)

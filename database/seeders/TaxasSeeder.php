@@ -14,11 +14,11 @@ class TaxasSeeder extends Seeder
     public function run(): void
     {
         DB::table('taxas')->insert([
-            ['name' => 'gamivoPercentualMaior4', 'preco' => 0.099],
-            ['name' => 'gamivoFixoMaior4', 'preco' => 0.45],
+            ['name' => 'gamivoPercentualMaior', 'preco' => 0.08],
+            ['name' => 'gamivoFixoMaior', 'preco' => 0.40],
             
-            ['name' => 'gamivoPercentualMenor4', 'preco' => 0.05],
-            ['name' => 'gamivoFixoMenor4', 'preco' => 0.1],
+            ['name' => 'gamivoPercentualMenor', 'preco' => 0.06],
+            ['name' => 'gamivoFixoMenor', 'preco' => 0.25],
             
         ]);
     }
