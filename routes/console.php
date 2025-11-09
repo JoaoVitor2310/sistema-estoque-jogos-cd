@@ -6,6 +6,7 @@ use App\Models\Recursos;
 use App\Models\Venda_chave_troca;
 use App\Services\APIService;
 use App\Services\BundleService;
+use App\Services\GameService;
 use App\Services\ResourceService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -44,7 +45,6 @@ Schedule::call(function () {
 
 
 
-// Artisan::command('teste', function () {
 Schedule::call(function () {
     $tf2 = Recursos::where('name', 'TF2')->first();
 
@@ -69,11 +69,13 @@ Schedule::call(function () {
         }
     }
 })->cron('0 7 * * *')->timezone('America/Sao_Paulo');
-// });
 
-// Artisan::command('teste', function () {
 Schedule::call(function () {
     $bundleService = new BundleService();
     $bundleService->getBundlesFromAPI();
 })->cron('5 * * * *')->timezone('UTC');
-// });
+
+Schedule::call(function () {
+    $gameService = new GameService();
+    $gameService->searchGamesIdSteam();
+})->cron('0 6 * * *')->timezone('UTC');

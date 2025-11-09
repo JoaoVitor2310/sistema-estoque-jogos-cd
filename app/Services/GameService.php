@@ -4,6 +4,9 @@ namespace App\Services;
 
 use App\Models\Game;
 use App\Models\Venda_chave_troca;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class GameService
 {
@@ -15,6 +18,12 @@ class GameService
         //
     }
 
+    /**
+     * Procura se o id Gamivo já está cadastrado na tabela Games ou na tabela Venda_chave_troca
+     * @param string $nomeJogo
+     * @param string|null $region
+     * @return string|false
+     */
     public function getIdGamivo(string $nomeJogo, string | null $region)
     {
         // Procura nas keys da tabela venda-chave-troca
@@ -57,5 +66,42 @@ class GameService
         }
 
         return;
+    }
+
+    public function searchGamesIdSteam()
+    {
+        $games = Game::whereNull('id_steamcharts')->select('id', 'name')->get();
+
+        $gamesArray = $games->map(function ($game) {
+            return [
+                'id' => $game->id,
+                'name' => $game->name,
+            ];
+        })->toArray();
+
+        $response = Http::timeout(3200)->post(
+            env('API_PRICE_RESEARCHER') . '/api/games/search-id-steam', 
+            [
+                'games' => $gamesArray,
+            ]
+        );
+
+        $data = $response->json();
+        if(!$response->successful() || !$response['success'])
+        {
+            dd('Erro na requisição', $response->status(), $response->body());
+            // Enviar email?
+            Mail::raw('Erro na requisição do Price Researcher: ' . $response->body(), function ($message) use ($response) {
+                $message->to('carcadeals@gmail.com')
+                    ->subject('Erro na requisição do Price Researcher: ' . $response->body());
+            });
+        }
+
+        foreach($data['data']['games'] as $foundGame)
+        {
+            if(!isset($foundGame['id_steam'])) continue;
+            Game::where('id', $foundGame['id'])->update(['id_steamcharts' => $foundGame['id_steam']]);
+        }
+        Log::info('Id Steam dos jogos atualizados com sucesso: ' . count($data['data']['games']));
     }
 }

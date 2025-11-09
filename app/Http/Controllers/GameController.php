@@ -75,8 +75,12 @@ class GameController extends Controller
     {
         $games = $request->input('games');
 
-        foreach ($games as $game) {
-            $game = Game::where('id', $game['id'])->update(['popularity' => $game['popularity']]);
+        foreach ($games as $gameData) {
+            $game = Game::find($gameData['id']);
+            if ($game) {
+                $game->popularity = $gameData['popularity'];
+                $game->save(); // Dispara o observer
+            }
         }
 
         return $this->response(200, 'Jogos atualizados com sucesso', $games);
@@ -112,7 +116,7 @@ class GameController extends Controller
 
                 if (empty($game['id_gamivo'])) {
                     $gameService = new GameService();
-                    $id_gamivo = $gameService->fillIdGamivo($game['name'], $game['region']);
+                    $id_gamivo = $gameService->getIdGamivo($game['name'], $game['region']);
                     if ($id_gamivo) $game['id_gamivo'] = $id_gamivo;
                 }
 
@@ -223,20 +227,15 @@ class GameController extends Controller
 
             $updatedGame = $request->validated();
 
-            if ($updatedGame['id_gamivo'] == '') {
-                $gameService = new GameService();
-                $id_gamivo = $gameService->fillIdGamivo($updatedGame['name'], $updatedGame['region']);
-                if ($id_gamivo) $updatedGame['id_gamivo'] = $id_gamivo;
-            }
-
-            $result = Game::where('id', $id)->update($updatedGame); // Atualiza
+            
+            $game->fill($updatedGame);
+            $result = $game->save();
 
             if (!$result)
                 return $this->error(500, 'Erro interno ao atualizar jogo');
 
-            $game = Game::select('*')->where('id', $id)->with([
-                'bundles'
-            ])->first();
+            $game->refresh();
+            $game->load('bundles');
 
             DB::commit();
         } catch (Exception $e) {

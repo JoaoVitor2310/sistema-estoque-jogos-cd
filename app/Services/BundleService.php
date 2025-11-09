@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Bundle;
 use App\Models\Game;
+use App\Models\Recursos;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -33,9 +34,6 @@ class BundleService
             DB::commit();
 
             Log::info('Bundles atualizados com sucesso! Total: ' . count($bundles));
-
-            // TODO: Criar bot pra preencher id steamcharts
-
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Erro ao processar bundles: ' . $e->getMessage() . ' | Linha: ' . $e->getLine() . ' | Arquivo: ' . $e->getFile());
@@ -54,6 +52,7 @@ class BundleService
         foreach ($bundles as $api_bundle) {
             $type = stripos($api_bundle['title'], 'Choice') !== false ? 'choice' : 'bundle';
 
+
             $bundle = Bundle::firstOrCreate(
                 ['url' => $api_bundle['url']],
                 [
@@ -70,28 +69,15 @@ class BundleService
                         ->subject('🎮 Novo Humble Bundle Choice: ' . $bundle->name);
                 });
             }
-            
-            $topTier = max($api_bundle['tiers']);
 
-            $price_dolar = $topTier['currency'] === 'USD' ? $topTier['price'] : null;
+            $topTierBundle = max($api_bundle['tiers']);
 
-            if (!$price_dolar) {
-                $converted_price = $APIService->convertCurrency($topTier['currency'], 'USD', $topTier['price']);
-                if ($converted_price['success']) {
-                    $price_dolar = $converted_price['amount'];
-                } else {
-                    Log::error('Não foi possível converter preço do bundle: ' . $api_bundle['title']);
-                    // TODO: Enviar email com erro
-                }
-            };
+            if(!$this->getBundlePrices($topTierBundle, $APIService, $api_bundle, $bundle)) continue;
 
-            $bundle->update([
-                'price_dolar' => $price_dolar ?? $topTier['price'],
-            ]);
 
             // Buscar os jogos do bundle
             $gameIds = [];
-            foreach ($topTier['games'] as $api_game) {
+            foreach ($topTierBundle['games'] as $api_game) {
                 $game = Game::firstOrCreate(
                     ['name' => $api_game['title']]
                 );
@@ -109,5 +95,43 @@ class BundleService
             // Inserir jogo no bundle 
             $bundle->games()->syncWithoutDetaching($gameIds);
         }
+    }
+
+    /**
+     * Get price and minimum price of the bundle
+     * 
+     * @param array $topTierBundle Top tier bundle data from API
+     * @param APIService $APIService API service instance
+     * @param array $api_bundle Full bundle data from API
+     * @param Bundle $bundle Bundle model instance
+     * @return bool
+     */
+    private function getBundlePrices(array $topTierBundle, APIService $APIService, array $api_bundle, Bundle $bundle): bool
+    {
+        $price_dolar = $topTierBundle['currency'] === 'USD' ? $topTierBundle['price'] : null;
+
+        if (!$price_dolar) {
+            $converted_price = $APIService->convertCurrency($topTierBundle['currency'], 'USD', $topTierBundle['price']);
+            if ($converted_price['success']) {
+                $price_dolar = $converted_price['amount'];
+            } else {
+                Log::error('Não foi possível converter preço do bundle: ' . $api_bundle['title']);
+                Mail::raw('Não foi possível converter preço do bundle: ' . $api_bundle['title'], function ($message) use ($api_bundle) {
+                    $message->to('carcadeals@gmail.com')
+                        ->subject('🎮 Erro ao converter preço do bundle: ' . $api_bundle['title']);
+                });
+                return false;
+            }
+        }
+
+        $bundle->price_dolar = $price_dolar ?? $topTierBundle['price'];
+
+        $tf2_price_dolar = Recursos::where('name', 'TF2')->first()->preco_dolar;
+
+        $bundle->minimum_price_tf2 = $bundle->price_dolar / $tf2_price_dolar;
+
+        $bundle->save();
+
+        return true;
     }
 }

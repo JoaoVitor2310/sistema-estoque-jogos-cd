@@ -613,11 +613,14 @@ const capitalize = (str: string): string => {
           <Column field="popularity" header="Popularidade" sortable></Column>
           <Column field="minimum_price_tf2" header="Preço Mín.(TF2)" sortable></Column>
           <Column field="price_dolar" header="Preço(dólar)" sortable></Column>
-          <Column field="release_date" header="Data de Lançamento" sortable>
+          <!-- <Column field="release_date" header="Data de Lançamento" sortable>
             <template #body="slotProps">
               {{ formatDateToBR(slotProps.data.release_date) }}
             </template>
-          </Column>
+
+          </Column> -->
+          <Column field="id_gamivo" header="ID Gamivo" sortable></Column>
+          <Column field="id_steamcharts" header="ID SteamCharts" sortable></Column>
         </DataTable>
 
       </div>
