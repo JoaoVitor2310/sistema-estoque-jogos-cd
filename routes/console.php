@@ -78,4 +78,4 @@ Schedule::call(function () {
 Schedule::call(function () {
     $gameService = new GameService();
     $gameService->searchGamesIdSteam();
-})->cron('0 6 * * *')->timezone('UTC');
+})->cron('0 6 * * *')->timezone('America/Sao_Paulo');

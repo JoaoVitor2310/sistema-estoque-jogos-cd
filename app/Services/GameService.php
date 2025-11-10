@@ -36,7 +36,7 @@ class GameService
 
         return false;
     }
-    
+
     /**
      * Preenche o idGamivo na tabela Games se ainda não estiver preenchido
      * @param string $gameName
@@ -71,7 +71,6 @@ class GameService
     public function searchGamesIdSteam()
     {
         $games = Game::whereNull('id_steamcharts')->select('id', 'name')->get();
-
         $gamesArray = $games->map(function ($game) {
             return [
                 'id' => $game->id,
@@ -80,15 +79,14 @@ class GameService
         })->toArray();
 
         $response = Http::timeout(3200)->post(
-            env('API_PRICE_RESEARCHER') . '/api/games/search-id-steam', 
+            env('API_PRICE_RESEARCHER') . '/api/games/search-id-steam',
             [
                 'games' => $gamesArray,
             ]
         );
 
         $data = $response->json();
-        if(!$response->successful() || !$response['success'])
-        {
+        if (!$response->successful() || !$response['success']) {
             dd('Erro na requisição', $response->status(), $response->body());
             // Enviar email?
             Mail::raw('Erro na requisição do Price Researcher: ' . $response->body(), function ($message) use ($response) {
@@ -97,9 +95,8 @@ class GameService
             });
         }
 
-        foreach($data['data']['games'] as $foundGame)
-        {
-            if(!isset($foundGame['id_steam'])) continue;
+        foreach ($data['data']['games'] as $foundGame) {
+            if (!isset($foundGame['id_steam'])) continue;
             Game::where('id', $foundGame['id'])->update(['id_steamcharts' => $foundGame['id_steam']]);
         }
         Log::info('Id Steam dos jogos atualizados com sucesso: ' . count($data['data']['games']));
