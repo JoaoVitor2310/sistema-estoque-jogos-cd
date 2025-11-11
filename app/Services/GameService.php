@@ -87,12 +87,12 @@ class GameService
 
         $data = $response->json();
         if (!$response->successful() || !$response['success']) {
-            dd('Erro na requisição', $response->status(), $response->body());
+            Log::error('Erro na requisição do Price Researcher: ' . $response->status() . ' - ' . $response->body() . ' | Arquivo: ' . $response->getFile() . ' | Linha: ' . $response->getLine());
             // Enviar email?
-            Mail::raw('Erro na requisição do Price Researcher: ' . $response->body(), function ($message) use ($response) {
-                $message->to('carcadeals@gmail.com')
-                    ->subject('Erro na requisição do Price Researcher: ' . $response->body());
-            });
+            // Mail::raw('Erro na requisição do Price Researcher: ' . $response->body(), function ($message) use ($response) {
+            //     $message->to('carcadeals@gmail.com')
+            //         ->subject('Erro na requisição do Price Researcher: ' . $response->body());
+            // });
         }
 
         foreach ($data['data']['games'] as $foundGame) {
