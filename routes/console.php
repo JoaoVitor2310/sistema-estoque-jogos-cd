@@ -78,7 +78,7 @@ Artisan::command('sync-bundles', function () {
     // })->cron('*/5 * * * *')->timezone('UTC');
 });
 
-Artisan::command('sync-bundles', function () {
+Artisan::command('sync-steam', function () {
     // Schedule::call(function () {
     $gameService = new GameService();
     $gameService->searchGamesIdSteam();

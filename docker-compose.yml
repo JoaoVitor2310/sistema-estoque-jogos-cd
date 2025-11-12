@@ -18,6 +18,8 @@ services:
     # - "8000:8000"
     # - "5173:5173"
     entrypoint: /usr/local/bin/entrypoint.sh
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   postgres-cd:
     container_name: db-cd
