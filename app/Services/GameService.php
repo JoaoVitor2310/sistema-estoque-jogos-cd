@@ -70,7 +70,7 @@ class GameService
 
     public function searchGamesIdSteam()
     {
-        $games = Game::whereNull('id_steamcharts')->select('id', 'name')->get();
+        $games = Game::whereNull('id_steamcharts')->select('id', 'name')->take(100)->get();
         $gamesArray = $games->map(function ($game) {
             return [
                 'id' => $game->id,
