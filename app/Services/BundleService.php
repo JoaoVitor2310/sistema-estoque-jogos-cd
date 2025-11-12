@@ -17,7 +17,7 @@ class BundleService
      * 
      * @return void
      */
-    public function  getBundlesFromAPI()
+    public function getBundlesFromAPI()
     {
         try {
             $APIService = new APIService();
@@ -81,13 +81,6 @@ class BundleService
                 $game = Game::firstOrCreate(
                     ['name' => $api_game['title']]
                 );
-
-                // TODO: Procurar idGamivo através do id steam para preencher o id_gamivo
-                // if($game->id_gamivo == '') {
-                //     $gameService = new GameService();
-                //     $idGamivo = $gameService->getIdGamivo($api_game['title'], $api_game['region']);
-                //     if ($idGamivo) $game->id_gamivo = $idGamivo;
-                // }
 
                 $gameIds[] = $game->id;
             }

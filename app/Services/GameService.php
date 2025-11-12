@@ -70,7 +70,7 @@ class GameService
 
     public function searchGamesIdSteam()
     {
-        $games = Game::whereNull('id_steamcharts')->select('id', 'name')->take(500)->get();
+        $games = Game::whereNull('id_steamcharts')->select('id', 'name')->get();
         $gamesArray = $games->map(function ($game) {
             return [
                 'id' => $game->id,
@@ -89,10 +89,10 @@ class GameService
         if (!$response->successful() || !$response['success']) {
             Log::error('Erro na requisição do Price Researcher: ' . $response->status() . ' - ' . $response->body() . ' | Arquivo: ' . $response->getFile() . ' | Linha: ' . $response->getLine());
             // Enviar email?
-            // Mail::raw('Erro na requisição do Price Researcher: ' . $response->body(), function ($message) use ($response) {
-            //     $message->to('carcadeals@gmail.com')
-            //         ->subject('Erro na requisição do Price Researcher: ' . $response->body());
-            // });
+            Mail::raw('Erro na requisição do Price Researcher: ' . $response->body(), function ($message) use ($response) {
+                $message->to('carcadeals@gmail.com')
+                    ->subject('Erro na requisição do Price Researcher: ' . $response->body());
+            });
         }
 
         foreach ($data['data']['games'] as $foundGame) {
