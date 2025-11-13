@@ -70,18 +70,12 @@ Schedule::call(function () {
     }
 })->cron('0 7 * * *')->timezone('America/Sao_Paulo');
 
-Artisan::command('sync-bundles', function () {
-    // Schedule::call(function () {
+Schedule::call(function () {
     $bundleService = new BundleService();
     $bundleService->getBundlesFromAPI();
-    // })->cron('5 * * * *')->timezone('UTC');
-    // })->cron('*/5 * * * *')->timezone('UTC');
-});
+})->cron('5 * * * *')->timezone('UTC');
 
-Artisan::command('sync-steam', function () {
-    // Schedule::call(function () {
+Schedule::call(function () {
     $gameService = new GameService();
     $gameService->searchGamesIdSteam();
-    // })->cron('0 6 * * *')->timezone('America/Sao_Paulo');
-    // })->cron('*/5 * * * *')->timezone('America/Sao_Paulo');
-});
+})->cron('0 6 * * *')->timezone('America/Sao_Paulo');
