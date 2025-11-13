@@ -79,7 +79,7 @@ class GameService
         })->toArray();
 
         $response = Http::timeout(3200)->post(
-            env('API_PRICE_RESEARCHER') . '/api/games/search-id-steam',
+            config('services.price_researcher.base_url') . '/api/games/search-id-steam',
             [
                 'games' => $gamesArray,
             ]

@@ -41,4 +41,11 @@ return [
         'redirect' => 'http://localhost:8000/auth/google/callback',
     ],
 
+    'ggdeals' => [
+        'api_key' => env('API_KEY_GG_DEALS'),
+    ],
+
+    'price_researcher' => [
+        'base_url' => env('API_PRICE_RESEARCHER'),
+    ],
 ];

@@ -81,7 +81,7 @@ class APIService
                     'verify' => false
                 ])
                 ->get('http://api.gg.deals/v1/bundles/active/', [
-                    'key' => env('API_KEY_GG_DEALS')
+                    'key' => config('services.ggdeals.api_key')
                 ]);
 
             if (!$response->successful()) {
