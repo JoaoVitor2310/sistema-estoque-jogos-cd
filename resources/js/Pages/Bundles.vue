@@ -621,7 +621,7 @@ const capitalize = (str: string): string => {
 
           </Column> -->
           <Column field="id_gamivo" header="ID Gamivo" sortable></Column>
-          <Column field="id_steamcharts" header="ID SteamCharts" sortable></Column>
+          <Column field="id_steamcharts" header="ID Steam" sortable></Column>
         </DataTable>
 
       </div>
