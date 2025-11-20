@@ -611,8 +611,9 @@ const capitalize = (str: string): string => {
           <Column field="name" header="Nome" sortable></Column>
           <Column field="region" header="Região" sortable></Column>
           <Column field="popularity" header="Popularidade" sortable></Column>
+          <Column field="pivot.bundle_launch_price" header="Preço lançamento(€)" sortable></Column>
           <Column field="minimum_price_tf2" header="Preço Mín.(TF2)" sortable></Column>
-          <Column field="price_dolar" header="Preço(dólar)" sortable></Column>
+          <!-- <Column field="price_dolar" header="Preço(dólar)" sortable></Column> -->
           <!-- <Column field="release_date" header="Data de Lançamento" sortable>
             <template #body="slotProps">
               {{ formatDateToBR(slotProps.data.release_date) }}

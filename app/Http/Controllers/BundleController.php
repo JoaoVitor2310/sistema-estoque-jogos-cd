@@ -7,6 +7,7 @@ use App\Http\Requests\StoreBundleRequest;
 use App\Models\Bundle;
 use App\Models\Game;
 use App\Models\Recursos;
+use App\Services\BundleService;
 use App\Traits\HttpResponses;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,76 +18,39 @@ class BundleController extends Controller
 {
     use HttpResponses;
 
+    protected $bundleService;
+
+    public function __construct(BundleService $bundleService)
+    {
+        $this->bundleService = $bundleService;
+    }
+
     public function index(Request $request)
     {
+        $filters = $request->except('page');
+        $bundles = $this->bundleService->getBundlesWithFilters($filters);
 
-        $filters = $request->except('page'); // Filtra todos os campos, exceto 'page'
-
-        // Iniciando a consulta
-        $query = Bundle::with([
-            'games' => function ($query) {
-                $query->orderBy('name', 'asc');
-            }
-        ]);
-
-        // return $this->response(200, 'DEBUG.', $filters);
-        foreach ($filters as $key => $value) {
-            if ($value) {
-                if (is_array($value)) {
-                    $query->whereIn($key, $value);
-                } else if (is_string($value)) {
-                    // Tratamento especial para filtros de range
-                    if ($key === 'release_date_start' || $key === 'minimum_price_tf2_min' || $key === 'price_dolar_min') {
-                        $actualKey = str_replace(['_start', '_min'], '', $key);
-                        $query->where($actualKey, '>=', $value);
-                    } else if ($key === 'release_date_end' || $key === 'minimum_price_tf2_max' || $key === 'price_dolar_max') {
-                        $actualKey = str_replace(['_end', '_max'], '', $key);
-                        $query->where($actualKey, '<=', $value);
-                    } else if ($key === 'game_name') {
-                        $query->whereHas('games', function ($query) use ($value) {
-                            $query->where('name', 'ILIKE', "%" . $value . "%");
-                        });
-                    } else {
-                        $query->where($key, 'ILIKE', "%" . $value . "%");
-                    }
-                } else if (is_bool($value) && str_starts_with($key, 'search_')) {
-                    $query->whereNull($key);
-                } else {
-                    $query->where($key, $value);
-                }
-            }
-        }
-
-        // Define limite padrão
-        $limit = $filters['limit'] ?? 20;
-        $bundles = $query->orderBy('id', 'desc')->paginate($limit);
+        $paginationData = [
+            'current_page' => $bundles->currentPage(),
+            'last_page' => $bundles->lastPage(),
+            'per_page' => $bundles->perPage(),
+            'total' => $bundles->total(),
+            'from' => $bundles->firstItem(),
+            'to' => $bundles->lastItem(),
+        ];
 
         // Se for uma requisição AJAX, retorna JSON
         if ($request->expectsJson() || $request->wantsJson()) {
             return $this->response(200, 'Pesquisa realizada com sucesso.', [
                 'bundles' => $bundles->items(),
                 'totalBundles' => $bundles->total(),
-                'pagination' => [
-                    'current_page' => $bundles->currentPage(),
-                    'last_page' => $bundles->lastPage(),
-                    'per_page' => $bundles->perPage(),
-                    'total' => $bundles->total(),
-                    'from' => $bundles->firstItem(),
-                    'to' => $bundles->lastItem(),
-                ],
+                'pagination' => $paginationData,
             ]);
         }
 
         return Inertia::render('Bundles', [
             'bundles' => $bundles->items(),
-            'pagination' => [
-                'current_page' => $bundles->currentPage(),
-                'last_page' => $bundles->lastPage(),
-                'per_page' => $bundles->perPage(),
-                'total' => $bundles->total(),
-                'from' => $bundles->firstItem(),
-                'to' => $bundles->lastItem(),
-            ],
+            'pagination' => $paginationData,
         ]);
     }
 

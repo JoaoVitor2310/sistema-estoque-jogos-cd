@@ -29,6 +29,9 @@ class Game extends Model
 
     public function bundles(): BelongsToMany
     {
-        return $this->belongsToMany(Bundle::class, 'bundle_games', 'game_id', 'bundle_id');
+        return $this->belongsToMany(Bundle::class, 'bundle_games', 'game_id', 'bundle_id')
+            ->using(BundleGame::class)
+            ->withPivot('bundle_launch_price')
+            ->withTimestamps();
     }
 }
