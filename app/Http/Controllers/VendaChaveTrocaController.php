@@ -389,8 +389,9 @@ class VendaChaveTrocaController extends Controller
                     'nomeJogo',
                     'venda_chave_trocas.region as game_region',
                     'bundles.type as bundle_type',
-                    'bundles.release_date as bundle_release_date',
+                    'bundle_games.bundle_launch_price as bundle_launch_price',
                     'games.popularity as game_popularity',
+                    'bundles.release_date as bundle_release_date',
                     'idGamivo',
                     'precoCliente',
                     'lucroPercentual',
@@ -401,10 +402,8 @@ class VendaChaveTrocaController extends Controller
                     'dataVenda',
                     'dataVendida',
                     'dataExpiracao',
-                    'bundles.release_date as bundle_release_date',
                     'games.popularity as game_popularity',
                     'games.release_date as game_release_date',
-                    'bundle_games.bundle_launch_price as bundle_launch_price',
                 ])
                 ->get();
 

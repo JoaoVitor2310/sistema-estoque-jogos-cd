@@ -87,7 +87,7 @@ class BundleService
             $gameIds = collect($games)->pluck('id')->toArray();
             $bundle->games()->syncWithoutDetaching($gameIds);
 
-            if($bundle->wasRecentlyCreated) $this->getBundleLaunchPrices($games, $bundle);
+            if ($bundle->wasRecentlyCreated) $this->getBundleLaunchPrices($games, $bundle);
         }
     }
 
@@ -144,11 +144,12 @@ class BundleService
             $response = Http::timeout(3200)->post(
                 config('services.price_researcher.base_url') . '/api/games/search',
                 [
-                    'minPopularity' => 1,
+                    'minPopularity' => 0,
                     'gameNames' => $gameNames,
+                    'checkGamivoOffer' => false,
                 ]
             );
-
+            
             $responseData = $response->json();
 
             if (isset($responseData['success']) && $responseData['success'] && isset($responseData['data']['games'])) {
@@ -167,10 +168,8 @@ class BundleService
                         $bundle->games()->updateExistingPivot($matchedGame->id, [
                             'bundle_launch_price' => $price
                         ]);
-
                     }
                 }
-
             }
         } catch (\Exception $e) {
             Log::error('Erro ao buscar preços dos jogos: ' . $e->getMessage() . ' | Arquivo: ' . $e->getFile() . ' | Linha: ' . $e->getLine());
