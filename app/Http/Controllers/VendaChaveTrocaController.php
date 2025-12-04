@@ -155,6 +155,12 @@ class VendaChaveTrocaController extends Controller
                         } else {
                             $query->where($key, 'ILIKE', "%" . $value . "%");
                         }
+                    } else if ($key === 'hasIdGamivo') {
+                        if ($value === 'sim') {
+                            $query->whereNotNull('idGamivo');
+                        } else if ($value === 'nao') {
+                            $query->whereNull('idGamivo');
+                        }
                     } else {
                         $query->where($key, 'ILIKE', "%" . $value . "%");
                     }
@@ -564,13 +570,15 @@ class VendaChaveTrocaController extends Controller
 
     private function calculateFormulas($game, $somatorioIncomes, $isEdit = false)
     {
-        if (!$isEdit) { // Não pode alterar quando for editar, se não vai calcular errado o somatório dos incomes
+        if (!$isEdit) {
+            // Não pode alterar quando for editar
+            
+            // se não vai calcular errado o somatório dos incomes
             $game['valorPagoIndividual'] = $this->formulas->calcValorPagoIndividual($game['qtdTF2'], $somatorioIncomes, $game['incomeSimulado']);
+            
+            $game['lucroRS'] = $this->formulas->calcLucroReal($game['incomeSimulado'], $game['valorPagoIndividual']);
+            $game['lucroPercentual'] = $this->formulas->calcLucroPercentual($game['lucroRS'], $game['valorPagoIndividual']);
         }
-
-        $game['lucroRS'] = $this->formulas->calcLucroReal($game['incomeSimulado'], $game['valorPagoIndividual']);
-
-        $game['lucroPercentual'] = $this->formulas->calcLucroPercentual($game['lucroRS'], $game['valorPagoIndividual']);
 
         $game['lucroVendaRS'] = $this->formulas->calcLucroVendaReal($game['valorVendido'], $game['valorPagoIndividual']);
 
@@ -605,20 +613,25 @@ class VendaChaveTrocaController extends Controller
         return 'DESCONHECIDO';
     }
 
+    /**
+     * Calcula o mínimo e o máximo(sem as taxas) que será usado para diminuir/subir o preço do jogo na Gamivo.
+     * 
+     * @param mixed $game
+     */
     private function calculateMinMaxApi($game)
     {
         $minApiGamivo = 0;
         $maxApiGamivo = 100;
 
         // Minimo
-        if ($game['valorPagoIndividual'] < 4) {
-            $minApiGamivo = $game['valorPagoIndividual'] * 1.6;
-        } elseif ($game['valorPagoIndividual'] > 10) {
+        if ($game['valorPagoIndividual'] > 10) {
             $minApiGamivo = $game['valorPagoIndividual'] * 1.4;
         } elseif ($game['valorPagoIndividual'] > 4.6) {
             $minApiGamivo = $game['valorPagoIndividual'] * 1.5;
-        } else {
-            $minApiGamivo = $game['valorPagoIndividual']; // Caso não se encaixe em nenhuma regra
+        } elseif ($game['valorPagoIndividual'] >= 4) {
+            $minApiGamivo = $game['valorPagoIndividual'];
+        } else { // < 4
+            $minApiGamivo = $game['valorPagoIndividual'] * 1.6;
         }
 
         // Maximo
@@ -628,8 +641,10 @@ class VendaChaveTrocaController extends Controller
             $maxApiGamivo = $game['valorPagoIndividual'] * 8;
         }
 
-        $game['minApiGamivo'] = $minApiGamivo;
+        $minApiGamivo = $minApiGamivo <= 0 ? 0.01 : $minApiGamivo;
+        $maxApiGamivo = $maxApiGamivo <= 0 ? 0.01 : $maxApiGamivo;
 
+        $game['minApiGamivo'] = $minApiGamivo;
         $game['maxApiGamivo'] = $maxApiGamivo;
 
         return $game;

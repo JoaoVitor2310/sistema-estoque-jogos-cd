@@ -392,6 +392,7 @@ const searchFilter = reactive({
   region: '',
   isSteam: [],
   idGamivo: '',
+  hasIdGamivo: '',
   observacao: '',
   randomClassificationG2A: '',
   randomClassificationKinguin: '',
@@ -489,7 +490,7 @@ const getStyleByPercentual = (data: GameLine, field: keyof GameLine) => {
   }
 
   const ranges = [
-    { min: -Infinity, max: 0, backgroundColor: '#ff0000', color: '#ffffff' }, // Vermelho para valores abaixo de 0
+    { min: -Infinity, max: 0, backgroundColor: '#ff0000', color: '#ffffff' }, // Vermelho para valores abaixo de 0.01
     { min: 0, max: 50, backgroundColor: '#FFA500', color: '#000000' }, // Laranja entre 0 e 50
     { min: 50, max: 80, backgroundColor: '#FFFF00', color: '#000000' }, // Amarelo entre 50 e 80
     { min: 80, max: Infinity, backgroundColor: '#008000', color: '#ffffff' }, // Verde acima de 80
@@ -907,7 +908,12 @@ const addOrRemove = (add: boolean) => {
         <Column field="idGamivo" header="Id Gamivo" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
-            <InputText v-model="searchFilter.idGamivo" type="text" placeholder="Pesquisar" />
+            <InputText v-model="searchFilter.idGamivo" type="text" placeholder="Pesquisar por ID" />
+            <Select v-model="searchFilter.hasIdGamivo" :options="[
+              { name: 'Sim', value: 'sim' },
+              { name: 'Não', value: 'nao' }
+            ]" placeholder="Possui id Gamivo?" optionLabel="name" optionValue="value" style="min-width: 14rem">
+            </Select>
           </template>
           <template #editor="{ data, field }">
             <InputText v-model="data[field]" @change="onEdit(data)"></InputText>

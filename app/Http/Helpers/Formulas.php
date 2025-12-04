@@ -110,8 +110,11 @@ class Formulas
             return 0;
         }
 
-        return number_format($qtdTF2 * $valorChaveEUR / $somatorioIncomes * $primeiroIncome, 2, '.', '');
-        // return $valorChaveEUR;
+        $result = $qtdTF2 * $valorChaveEUR / $somatorioIncomes * $primeiroIncome;
+
+        $result = $result <= 0 ? 0.01 : $result;
+
+        return number_format($result, 2, '.', '');
     }
 
     function calcLucroReal($incomeSimulado, $valorPagoIndividual)
