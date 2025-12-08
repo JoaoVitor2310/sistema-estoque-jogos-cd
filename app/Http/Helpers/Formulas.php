@@ -56,15 +56,17 @@ class Formulas
             $result = $precoVenda * 0.898 - 0.4 - (0.15 * $leiloes / $quantidade);
         } else if ($idPlataforma == 3) { // Gamivo
             
-            if ($precoCliente < 8) {
+            if ($precoCliente < 0.28) {
+                $result = $precoCliente - 0.11;
+            } else if ($precoCliente < 8) {
                 $feePercentage = $this->gamivoPercentualMenor;
                 $feeFixed = $this->gamivoFixoMenor;
+                $result = $precoCliente * (1 - $feePercentage) - $feeFixed;
             } else {
                 $feePercentage = $this->gamivoPercentualMaior;
                 $feeFixed = $this->gamivoFixoMaior;
+                $result = $precoCliente * (1 - $feePercentage) - $feeFixed;
             }
-
-            $result = $precoCliente * (1 - $feePercentage) - $feeFixed;
         } else if ($idPlataforma == 4) { // Kinguin
             $result = ($precoCliente * 0.8771929) - 0.306;
         } else {
@@ -82,15 +84,17 @@ class Formulas
             $result = $precoCliente;
         } else if ($idPlataforma == 3) { // Gamivo
             
-            if ($precoCliente < 8) {
+            if ($precoCliente < 0.28) {
+                $result = $precoCliente - 0.11;
+            } else if ($precoCliente < 8) {
                 $feePercentage = $this->gamivoPercentualMenor;
                 $feeFixed = $this->gamivoFixoMenor;
+                $result = $precoCliente * (1 - $feePercentage) - $feeFixed;
             } else {
                 $feePercentage = $this->gamivoPercentualMaior;
                 $feeFixed = $this->gamivoFixoMaior;
+                $result = $precoCliente * (1 - $feePercentage) - $feeFixed;
             }
-
-            $result = $precoCliente * (1 - $feePercentage) - $feeFixed;
         } else if ($idPlataforma == 2) { // G2A
             $result = $precoVenda * 0.898 - 0.55;
         } else { // Kinguin
