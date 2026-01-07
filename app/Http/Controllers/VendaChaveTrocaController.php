@@ -15,6 +15,7 @@ use Illuminate\Http\Request;
 use App\Models\Venda_chave_troca;
 use App\Models\Fornecedor;
 use App\Http\Helpers\Formulas;
+use App\Services\CalculateService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -24,15 +25,15 @@ class VendaChaveTrocaController extends Controller
     use HttpResponses;
 
     protected $formulas;
+    protected $calculateService;
     /**
      * Display a listing of the resource.
      */
     public function __construct()
     {
         $this->formulas = new Formulas();
+        $this->calculateService = new CalculateService();
     }
-
-
 
     public function show(Request $request) // Renderiza a tela inicial
     {
@@ -206,12 +207,10 @@ class VendaChaveTrocaController extends Controller
 
             $repeatedGame = Venda_chave_troca::select('*')->where('chaveRecebida', $game['chaveRecebida'])->first();
 
-            if ($repeatedGame) {
-                $game['repetido'] = true;
-            }
+            if ($repeatedGame) $game['repetido'] = true;
 
             $game['plataformaIdentificada'] = $this->identifyPlatform($game['chaveRecebida']);
-            $game = $this->calculateMinMaxApi($game);
+            $game = $this->calculateService->calculateMinMaxApi($game);
             $game['nomeJogo'] = trim($game['nomeJogo']);
 
             $gameService = new GameService();
@@ -447,7 +446,7 @@ class VendaChaveTrocaController extends Controller
                 if (!$itemToUpdate) continue;
 
                 if ($itemToUpdate['valorVendido']) continue;
-
+                    
                 $lucroVendaRS = $this->formulas->calcLucroVendaReal($game['profit'], $itemToUpdate->valorPagoIndividual);
                 $lucroVendaPercentual = $this->formulas->calcLucroVendaPercentual($lucroVendaRS, $itemToUpdate->valorPagoIndividual);
 
@@ -613,40 +612,5 @@ class VendaChaveTrocaController extends Controller
         return 'DESCONHECIDO';
     }
 
-    /**
-     * Calcula o mínimo e o máximo(sem as taxas) que será usado para diminuir/subir o preço do jogo na Gamivo.
-     * 
-     * @param mixed $game
-     */
-    private function calculateMinMaxApi($game)
-    {
-        $minApiGamivo = 0;
-        $maxApiGamivo = 100;
-
-        // Minimo
-        if ($game['valorPagoIndividual'] > 10) {
-            $minApiGamivo = $game['valorPagoIndividual'] * 1.4;
-        } elseif ($game['valorPagoIndividual'] > 4.6) {
-            $minApiGamivo = $game['valorPagoIndividual'] * 1.5;
-        } elseif ($game['valorPagoIndividual'] >= 4) {
-            $minApiGamivo = $game['valorPagoIndividual'];
-        } else { // < 4
-            $minApiGamivo = $game['valorPagoIndividual'] * 1.6;
-        }
-
-        // Maximo
-        if ($game['valorPagoIndividual'] < 1) {
-            $maxApiGamivo = $game['valorPagoIndividual'] * 30;
-        } else {
-            $maxApiGamivo = $game['valorPagoIndividual'] * 8;
-        }
-
-        $minApiGamivo = $minApiGamivo <= 0 ? 0.01 : $minApiGamivo;
-        $maxApiGamivo = $maxApiGamivo <= 0 ? 0.01 : $maxApiGamivo;
-
-        $game['minApiGamivo'] = $minApiGamivo;
-        $game['maxApiGamivo'] = $maxApiGamivo;
-
-        return $game;
-    }
+    
 }
