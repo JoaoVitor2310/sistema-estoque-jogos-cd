@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Game;
 use App\Models\Venda_chave_troca;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -100,5 +101,30 @@ class GameService
             Game::where('id', $foundGame['id'])->update(['id_steamcharts' => $foundGame['id_steam']]);
         }
         Log::info('Id Steam dos jogos atualizados com sucesso: ' . count($data['data']['games']));
+    }
+
+    /**
+     * Update the minimum API Gamivo for old selling games
+     * @return void
+     */
+    public function updateMinPrices(): void
+    {
+        $keys = Venda_chave_troca::select('id', 'nomeJogo', 'region', 'valorPagoIndividual', 'minApiGamivo', 'maxApiGamivo', 'dataVenda', 'dataVendida')->whereNotNull('dataVenda')->whereNull('dataVendida')->limit(10)->get();
+        foreach ($keys as $key) {
+            $today = now();
+
+            $dataVenda = Carbon::parse($key->dataVenda);
+
+            if ($dataVenda->diffInMonths($today) >= 12) {
+                $key->minApiGamivo = 0.02;
+            } else if ($dataVenda->diffInMonths($today) >= 9) {
+                $key->minApiGamivo = $key->valorPagoIndividual * 1.2;
+            } else if ($dataVenda->diffInMonths($today) >= 6) {
+                $key->minApiGamivo = $key->valorPagoIndividual * 1.3;
+            } else if ($dataVenda->diffInMonths($today) >= 3) {
+                $key->minApiGamivo = $key->valorPagoIndividual * 1.4;
+            }
+            $key->save();
+        }
     }
 }

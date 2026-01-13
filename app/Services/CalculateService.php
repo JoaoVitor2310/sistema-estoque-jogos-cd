@@ -19,7 +19,7 @@ class CalculateService
   }
 
   /**
-   * Calcula o mínimo e o máximo(sem as taxas) que será usado para diminuir/subir o preço do jogo na Gamivo.
+   * Calculate minimun and maximum (without fees) that will be used to decrease/increase the price of the game on Gamivo.
    * 
    * @param mixed $game
    */

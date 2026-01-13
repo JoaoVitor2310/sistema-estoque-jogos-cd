@@ -8,6 +8,7 @@ use App\Services\APIService;
 use App\Services\BundleService;
 use App\Services\GameService;
 use App\Services\ResourceService;
+use Carbon\Carbon;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -78,4 +79,9 @@ Schedule::call(function () {
 Schedule::call(function () {
     $gameService = new GameService();
     $gameService->searchGamesIdSteam();
+})->cron('0 6 * * *')->timezone('America/Sao_Paulo');
+
+Schedule::call(function () {
+    $gameService = new GameService();
+    $gameService->updateMinPrices();
 })->cron('0 6 * * *')->timezone('America/Sao_Paulo');
