@@ -28,11 +28,11 @@ class GameService
     public function getIdGamivo(string $nomeJogo, string | null $region)
     {
         // Procura nas keys da tabela venda-chave-troca
-        $game = Venda_chave_troca::select('idGamivo')->where('nomeJogo', $nomeJogo)->where('region', $region)->whereNotNull('idGamivo')->first();
+        $game = Venda_chave_troca::select('idGamivo')->whereRaw('LOWER("nomeJogo") = LOWER(?)', [$nomeJogo])->where('region', $region)->whereNotNull('idGamivo')->first();
         if ($game) return $game->idGamivo;
 
         // Procura nos dados de jogos gerais
-        $game = Game::select('id_gamivo')->where('name', $nomeJogo)->where('region', $region)->whereNotNull('id_gamivo')->first();
+        $game = Game::select('id_gamivo')->whereRaw('LOWER("name") = LOWER(?)', [$nomeJogo])->where('region', $region)->whereNotNull('id_gamivo')->first();
         if ($game) return $game->id_gamivo;
 
         return false;
@@ -48,7 +48,7 @@ class GameService
     public function fillIdGamivo($gameName, $region, $idGamivo)
     {
         // Procura nos dados de jogos gerais
-        $game = Game::where('name', $gameName)->where('region', $region)->whereNull('id_gamivo')->first();
+        $game = Game::whereRaw('LOWER("name") = LOWER(?)', [$gameName])->where('region', $region)->whereNull('id_gamivo')->first();
         if ($game) {
             $game->id_gamivo = $idGamivo;
             $game->save();
@@ -57,7 +57,7 @@ class GameService
 
     public function createGameIfDontExists($game)
     {
-        $exists = Game::where('name', $game['nomeJogo'])->where('region', $game['region'])->first();
+        $exists = Game::whereRaw('LOWER("name") = LOWER(?)', [$game['nomeJogo']])->where('region', $game['region'])->first();
         if (!$exists) {
             Game::create([
                 'name' => $game['nomeJogo'],
