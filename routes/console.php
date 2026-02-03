@@ -23,7 +23,7 @@ Artisan::command('inspire', function () {
 
 Schedule::call(function () {
     // Buscar chaves que expiram em 14 dias ou menos (mas que ainda não expiraram e nem foram vendidas)
-    $dataLimite = now()->addDays(14);
+    $dataLimite = now()->addDays(30);
     $keysAboutToExpire = Venda_chave_troca::where('dataExpiracao', '<=', $dataLimite)
         ->where('dataExpiracao', '>', now()) // Ainda não expiradas
         ->whereNull('dataVendida') // Não vendidas

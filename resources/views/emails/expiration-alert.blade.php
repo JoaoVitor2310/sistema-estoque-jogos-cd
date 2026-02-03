@@ -64,7 +64,7 @@
 <body>
     <div class="header">
         <h2 class="alert-title">⚠️ Alerta de Expiração - Sistema de Estoque</h2>
-        <p>Os seguintes jogos expirarão em até 14 dias:</p>
+        <p>Os seguintes jogos expirarão em até 30 dias:</p>
         <p><strong>Total de jogos:</strong> {{ $jogos->count() }}</p>
     </div>
 
@@ -85,7 +85,7 @@
                     $classeCor = '';
                     if ($diasRestantes <= 7) {
                         $classeCor = 'urgent';
-                    } elseif ($diasRestantes <= 14) {
+                    } elseif ($diasRestantes <= 30) {
                         $classeCor = 'warning';
                     }
                 @endphp
@@ -110,7 +110,7 @@
     <div class="footer">
         <p><strong>Legenda:</strong></p>
         <p>🚨 = Expira em 7 dias ou menos (URGENTE)</p>
-        <p>⚠️ = Expira em 14 dias ou menos (ATENÇÃO)</p>
+        <p>⚠️ = Expira em 30 dias ou menos (ATENÇÃO)</p>
         <br>
         <p>Este email foi enviado automaticamente pelo Sistema Estoque do Carca Deals.</p>
         <p>Data e hora do envio: {{ \Carbon\Carbon::now()->format('d/m/Y H:i:s') }}</p>
