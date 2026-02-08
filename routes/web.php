@@ -117,6 +117,8 @@ Route::prefix('venda-chave-troca')
         Route::post('/update-sold-offers', 'updateSoldOffers')->name('venda-chave-troca.update-sold-offers')->withoutMiddleware([CheckPermission::class]);
         Route::get('/search-by-id-gamivo/{idGamivo}', 'searchByIdGamivo')->name('venda-chave-troca.search-by-id-gamivo')->withoutMiddleware([CheckPermission::class]);
         Route::post('/insert-data-venda', 'insertDataVenda')->name('venda-chave-troca.insert-data-venda')->withoutMiddleware([CheckPermission::class]);
+        Route::post('/import', 'import')->name('venda-chave-troca.import');
+        Route::get('/download-example_keys', 'downloadExample')->name('venda-chave-troca.download-example_keys');
     });
 
 Route::prefix('authorize') // Gerenciar quem tem acesso

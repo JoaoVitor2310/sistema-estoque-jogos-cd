@@ -16,6 +16,7 @@ use App\Models\Venda_chave_troca;
 use App\Models\Fornecedor;
 use App\Http\Helpers\Formulas;
 use App\Services\CalculateService;
+use App\Services\FileService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -446,7 +447,7 @@ class VendaChaveTrocaController extends Controller
                 if (!$itemToUpdate) continue;
 
                 if ($itemToUpdate['valorVendido']) continue;
-                    
+
                 $lucroVendaRS = $this->formulas->calcLucroVendaReal($game['profit'], $itemToUpdate->valorPagoIndividual);
                 $lucroVendaPercentual = $this->formulas->calcLucroVendaPercentual($lucroVendaRS, $itemToUpdate->valorPagoIndividual);
 
@@ -493,6 +494,19 @@ class VendaChaveTrocaController extends Controller
             return $this->error(404, 'Nenhum registro foi atualizado. Verifique se a chave existe ou se já possui dataVenda.');
         }
         return $this->response(200, 'Data posto a venda inserida com sucesso.', []);
+    }
+    /**
+     * Example file download
+     */
+    public function downloadExample()
+    {
+        $filePath = FileService::getExampleFilePath();
+
+        if (!file_exists($filePath)) {
+            return $this->error(404, 'Arquivo de exemplo não encontrado');
+        }
+
+        return response()->download($filePath, 'exemplo-importacao-jogos.xlsx');
     }
 
     // Funções auxiliares
@@ -574,7 +588,7 @@ class VendaChaveTrocaController extends Controller
             
             // se não vai calcular errado o somatório dos incomes
             $game['valorPagoIndividual'] = $this->formulas->calcValorPagoIndividual($game['qtdTF2'], $somatorioIncomes, $game['incomeSimulado']);
-            
+
             $game['lucroRS'] = $this->formulas->calcLucroReal($game['incomeSimulado'], $game['valorPagoIndividual']);
             $game['lucroPercentual'] = $this->formulas->calcLucroPercentual($game['lucroRS'], $game['valorPagoIndividual']);
         }
@@ -611,6 +625,4 @@ class VendaChaveTrocaController extends Controller
 
         return 'DESCONHECIDO';
     }
-
-    
 }

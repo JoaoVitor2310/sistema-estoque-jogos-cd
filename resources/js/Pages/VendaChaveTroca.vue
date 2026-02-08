@@ -37,44 +37,6 @@ Object.assign(rowData, props.games);
 let user = ref(usePage().props.auth.user);
 // }
 
-// const columns = ref([ // Será importante para criar a tabela programaticamente
-//   { field: 'id', header: 'ID' },
-//   { field: 'fornecedor.quantidade_reclamacoes', header: 'Reclamações Anteriores' },
-//   { field: 'tipo_reclamacao.name', header: 'Reclamação?' },
-//   { field: 'steamId', header: 'SteamID?' },
-//   { field: 'tipo_formato.name', header: 'Formato' },
-//   { field: 'chaveRecebida', header: 'Chave Recebida' },
-//   { field: 'nomeJogo', header: 'Nome do Jogo' },
-//   { field: 'precoJogo', header: 'Preço do jogo' },
-//   { field: 'notaMetacritic', header: 'Nota Metacritic' },
-//   { field: 'isSteam', header: 'É Steam?' },
-//   { field: 'randomClassificationG2A', header: 'Classificação G2A' },
-//   { field: 'randomClassificationKinguin', header: 'Classificação Kinguin' },
-//   { field: 'observacao', header: 'Observação' },
-//   { field: 'leilao_g2_a.name', header: 'Leilão G2A' },
-//   { field: 'leilao_gamivo.name', header: 'Leilão Gamivo' },
-//   { field: 'leilao_kinguin.name', header: 'Leilão Kinguin' },
-//   { field: 'plataforma.name', header: 'Plataforma' },
-//   { field: 'precoCliente', header: 'Preço Cliente' },
-//   { field: 'precoVenda', header: 'Preço Venda' },
-//   { field: 'incomeReal', header: 'Income Real' },
-//   { field: 'incomeSimulado', header: 'Income Simulado' },
-//   { field: 'chaveEntregue', header: 'Chave Entregue' },
-//   { field: 'valorPagoTotal', header: 'Valor Pago Total' },
-//   { field: 'valorPagoIndividual', header: 'Valor Pago Individual' },
-//   { field: 'vendido', header: 'Vendido' },
-//   { field: 'leiloes', header: 'Leilões' },
-//   { field: 'quantidade', header: 'Quantidade' },
-//   { field: 'devolucoes', header: 'Devoluções' },
-//   { field: 'lucroRS', header: 'Lucro(€)' },
-//   { field: 'lucroPercentual', header: 'Lucro(%)' },
-//   { field: 'dataAdquirida', header: 'Data Adquirida' },
-//   { field: 'dataVenda', header: 'Data Venda' },
-//   { field: 'dataVendida', header: 'Data Vendida' },
-//   { field: 'perfilOrigem', header: 'Perfil/Origem' },
-//   { field: 'email', header: 'Email' },
-//   { field: 'incomeReal', header: 'Income Real' },
-// ]);
 
 // const selectedColumns = ref(columns.value);
 
@@ -93,6 +55,8 @@ const selectedProduct = ref();
 const DialogVisible = ref(false); // Visibilidade do Dialog(modal)
 const isEdit = ref(false); // Variável que define se é para criar ou editar no Dialog
 const localTotalGames = ref(props.totalGames);
+const ImportDialogVisible = ref(false); // Visibilidade do Dialog de Importação
+const selectedFile = ref<File | null>(null);
 const selectedNewObject = {
   id: 0,
   color: '',
@@ -515,6 +479,74 @@ const addOrRemove = (add: boolean) => {
   }
 };
 
+const handleImportButton = (): void => {
+  ImportDialogVisible.value = true;
+  selectedFile.value = null;
+};
+
+const downloadExampleFile = (): void => {
+  window.location.href = '/venda-chave-troca/download-example_keys';
+};
+
+const handleFileSelect = (event: Event): void => {
+  const target = event.target as HTMLInputElement;
+  if (target.files && target.files.length > 0) {
+    const file = target.files[0];
+    // Verificar se é um arquivo XLSX
+    if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+      selectedFile.value = file;
+    } else {
+      toast.add({
+        severity: 'error',
+        summary: 'Erro',
+        detail: 'Por favor, selecione um arquivo Excel (.xlsx ou .xls)',
+        life: 5000
+      });
+      selectedFile.value = null;
+    }
+  }
+};
+
+const handleImportSubmit = async (): Promise<void> => {
+  if (!selectedFile.value) {
+    toast.add({
+      severity: 'warn',
+      summary: 'Atenção',
+      detail: 'Por favor, selecione um arquivo para importar',
+      life: 5000
+    });
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('file', selectedFile.value);
+
+  try {
+    const res = await axiosInstance.post('/venda-chave-troca/import', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    
+    showResponse(res, toast.add);
+    
+    if (res.status === 200 || res.status === 201) {
+      ImportDialogVisible.value = false;
+      selectedFile.value = null;
+      // Recarregar os dados da tabela
+      await onPageChange(false);
+    }
+  } catch (error: any) {
+    toast.add({
+      severity: 'error',
+      summary: 'Erro Interno, tente novamente.',
+      detail: error.response?.data?.message || error.message,
+      life: 7000
+    });
+    console.log(error);
+  }
+};
+
 </script>
 
 <template>
@@ -749,6 +781,48 @@ const addOrRemove = (add: boolean) => {
       </div>
     </Dialog>
 
+    <Dialog v-model:visible="ImportDialogVisible" modal header="Importar Jogos"
+      :style="{ width: '50%' }">
+      <div class="d-flex flex-column gap-3">
+        <div class="alert alert-info d-flex align-items-center justify-content-between" role="alert">
+          <div>
+            <i class="pi pi-info-circle me-2"></i>
+            <span>Use o arquivo de exemplo como referência para o formato correto.</span>
+          </div>
+          <Button 
+            type="button" 
+            label="Baixar Exemplo" 
+            icon="pi pi-download" 
+            severity="info"
+            size="small"
+            @click="downloadExampleFile"
+          />
+        </div>
+        
+        <span class="d-block mb-2">Selecione um arquivo Excel (.xlsx) para importar os jogos.</span>
+        
+        <div class="d-flex flex-column">
+          <label class="fw-bold mb-2">Arquivo Excel</label>
+          <input 
+            type="file" 
+            accept=".xlsx,.xls" 
+            @change="handleFileSelect"
+            class="form-control"
+          />
+          <small class="text-muted mt-1" v-if="selectedFile">
+            Arquivo selecionado: {{ selectedFile.name }}
+          </small>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="d-flex justify-content-end gap-2">
+          <Button type="button" label="Cancelar" severity="secondary" @click="ImportDialogVisible = false"></Button>
+          <Button type="button" label="Importar" @click="handleImportSubmit" :disabled="!selectedFile"></Button>
+        </div>
+      </template>
+    </Dialog>
+
     <div class="text-center mb-3 mx-5">
       <h1>Venda-Chave-Troca</h1>
       <div class="w-50 m-auto">
@@ -762,6 +836,7 @@ const addOrRemove = (add: boolean) => {
           <div class="d-flex justify-content-between">
             <div class="d-flex gap-2 flex-column flex-md-row">
               <Button label="Novo" aria-label="Novo" icon="pi pi-plus" @click="handleAddButton()" raised />
+              <Button label="Importar" aria-label="Importar" icon="pi pi-file-import" @click="handleImportButton()" raised />
               <Button label="Deletar" :disabled="!selectedProduct || selectedProduct.length === 0" aria-label="Deletar"
                 severity="danger" icon="pi pi-plus" @click="handleDeleteButton($event, 2)" raised />
             </div>

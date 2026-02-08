@@ -34,7 +34,7 @@ Schedule::call(function () {
         try {
             Mail::send('emails.expiration-alert', ['jogos' => $keysAboutToExpire], function ($message) {
                 $message->to('carcadeals@gmail.com')
-                    ->subject('⚠️ Alerta: ' . \Carbon\Carbon::now()->format('d/m/Y') . ' - Jogos expirando em até 14 dias');
+                    ->subject('⚠️ Alerta: ' . \Carbon\Carbon::now()->format('d/m/Y') . ' - Jogos expirando em até 30 dias');
             });
 
             Log::info('Email de expiração enviado com sucesso. Jogos encontrados: ' . $keysAboutToExpire->count());
