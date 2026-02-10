@@ -15,6 +15,7 @@ use Illuminate\Http\Request;
 use App\Models\Venda_chave_troca;
 use App\Models\Fornecedor;
 use App\Http\Helpers\Formulas;
+use App\Http\Requests\ImportKeysRequest;
 use App\Services\CalculateService;
 use App\Services\FileService;
 use Carbon\Carbon;
@@ -495,6 +496,41 @@ class VendaChaveTrocaController extends Controller
         }
         return $this->response(200, 'Data posto a venda inserida com sucesso.', []);
     }
+
+    /**
+     * Importa jogos de um arquivo Excel
+     */
+    public function import(ImportKeysRequest $request)
+    {
+        $file = $request->file('file');
+        $filePath = $file->getRealPath();
+
+        try {
+            $fileService = new FileService();
+            $result = $fileService->validateAndProcess($filePath);
+
+            if (!$result['success']) {
+                return $this->error(422, $result['message'], $result['errors']);
+            }
+
+            // Retorna os jogos importados no mesmo formato do store
+            $fullGames = $result['data'];
+            
+            // Verifica se há jogos com plataforma não identificada (igual ao store)
+            $hasUnidentified = array_filter($fullGames, function ($game) {
+                return isset($game['plataformaIdentificada']) && $game['plataformaIdentificada'] === "DESCONHECIDO";
+            });
+
+            if (!empty($hasUnidentified)) {
+                return $this->response(201, 'Jogos cadastrados com sucesso, mas tem pelo menos um com a plataforma não identificada.', $fullGames);
+            }
+
+            return $this->response(201, 'Jogos cadastrados com sucesso', $fullGames);
+        } catch (\Exception $e) {
+            return $this->error(500, 'Erro ao importar jogos', [$e->getMessage()]);
+        }
+    }
+
     /**
      * Example file download
      */
@@ -585,7 +621,7 @@ class VendaChaveTrocaController extends Controller
     {
         if (!$isEdit) {
             // Não pode alterar quando for editar
-            
+
             // se não vai calcular errado o somatório dos incomes
             $game['valorPagoIndividual'] = $this->formulas->calcValorPagoIndividual($game['qtdTF2'], $somatorioIncomes, $game['incomeSimulado']);
 
