@@ -19,14 +19,19 @@ RUN apt-get -y install --fix-missing \
     locales \
     libicu-dev \
     libonig-dev \
-    libxml2-dev
+    libxml2-dev \
+    libpng-dev \
+    libjpeg-dev \
+    libfreetype6-dev
 
-RUN docker-php-ext-install \
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install \
     pcntl \
     bcmath \
     ctype \
     curl \
-    zip 
+    zip \
+    gd 
 
 RUN apt-get install -y libpq-dev \
     && docker-php-ext-configure pgsql -with-pgsql=/usr/local/pgsql \
