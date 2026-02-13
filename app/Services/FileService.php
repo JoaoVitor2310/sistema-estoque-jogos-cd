@@ -266,11 +266,11 @@ class FileService
                 'chaveRecebida' => trim($worksheet->getCell('J' . $row)->getValue() ?? ''),
                 'nomeJogo' => trim($worksheet->getCell('K' . $row)->getValue() ?? ''),
                 'perfilOrigem' => trim($worksheet->getCell('D' . $row)->getValue() ?? ''),
-                'qtdTF2' => floatval($worksheet->getCell('E' . $row)->getValue() ?? 0),
+                'qtdTF2' => floatval(str_replace(',', '.', $worksheet->getCell('E' . $row)->getValue() ?? '0')),
                 'dataAdquirida' => $this->convertExcelDate($worksheet->getCell('B' . $row)),
 
                 // Região
-                'region' => trim($worksheet->getCell('I' . $row)->getValue() ?? ''),
+                'region' => trim($worksheet->getCell('I' . $row)->getValue() ?? null),
 
                 // IDs e referências
                 'idGamivo' => null,
@@ -302,12 +302,12 @@ class FileService
                 'chaveEntregue' => null,
                 'valorPagoTotal' => null,
                 'vendido' => false,
-                'leiloes' => 0,
+                'leiloes' => 1,
                 'quantidade' => 1,
                 'devolucoes' => false,
                 'valorVendido' => null,
                 'email' => null,
-                'isSteam' => true,
+                'isSteam' => false,
                 'color' => null,
             ];
 
