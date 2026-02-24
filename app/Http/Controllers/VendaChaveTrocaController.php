@@ -26,15 +26,11 @@ class VendaChaveTrocaController extends Controller
 {
     use HttpResponses;
 
-    protected $formulas;
-    protected $calculateService;
     /**
      * Display a listing of the resource.
      */
-    public function __construct()
+    public function __construct(protected CalculateService $calculateService, protected GameService $gameService, protected Formulas $formulas)
     {
-        $this->formulas = new Formulas();
-        $this->calculateService = new CalculateService();
     }
 
     public function show(Request $request) // Renderiza a tela inicial
@@ -196,13 +192,13 @@ class VendaChaveTrocaController extends Controller
     {
         $data = $request->validated();
 
-        $resultFirstFormulas = $this->calculateFirstFormulas($data['games']);
+        $resultFirstFormulas = $this->calculateService->calculateFirstFormulas($data['games']);
 
         $data['games'] = $resultFirstFormulas['games'];
         $somatorioIncomes = $resultFirstFormulas['somatorioIncomes'];
 
         foreach ($data['games'] as $game) {
-            $game['id_fornecedor'] = $this->criarAdicionarFornecedor($game['perfilOrigem'], $game['tipo_reclamacao_id']);
+            $game['id_fornecedor'] = $this->gameService->criarAdicionarFornecedor($game['perfilOrigem'], $game['tipo_reclamacao_id']);
 
             // Calcula as fórmulas
             $game = $this->calculateFormulas($game, $somatorioIncomes, false);
@@ -211,20 +207,19 @@ class VendaChaveTrocaController extends Controller
 
             if ($repeatedGame) $game['repetido'] = true;
 
-            $game['plataformaIdentificada'] = $this->identifyPlatform($game['chaveRecebida']);
+            $game['plataformaIdentificada'] = $this->gameService->identifyPlatform($game['chaveRecebida']);
             $game = $this->calculateService->calculateMinMaxApi($game);
             $game['nomeJogo'] = trim($game['nomeJogo']);
 
-            $gameService = new GameService();
             if ($game['idGamivo'] == '') {
-                $idGamivo = $gameService->getIdGamivo($game['nomeJogo'], $game['region']);
+                $idGamivo = $this->gameService->getIdGamivo($game['nomeJogo'], $game['region']);
                 if ($idGamivo) $game['idGamivo'] = $idGamivo;
             }
 
-            if ($game['idGamivo']) $gameService->fillIdGamivo($game['nomeJogo'], $game['region'], $game['idGamivo']);
+            if ($game['idGamivo']) $this->gameService->fillIdGamivo($game['nomeJogo'], $game['region'], $game['idGamivo']);
 
             // Cadastra o jogo na tabela Games se ainda não estiver
-            $gameService->createGameIfDontExists($game);
+            $this->gameService->createGameIfDontExists($game);
 
             if ($game['minimoParaVenda'] == '') {
                 $game['minimoParaVenda'] = $game['precoCliente'] * 1.05;
@@ -290,11 +285,11 @@ class VendaChaveTrocaController extends Controller
         }
 
         // Calcula as fórmulas
-        $resultFirstFormulas = $this->calculateFirstFormulas([$updatedGame]);
+        $resultFirstFormulas = $this->calculateService->calculateFirstFormulas([$updatedGame]);
         $data = $resultFirstFormulas['games'];
         $somatorioIncomes = $resultFirstFormulas['somatorioIncomes'];
         $data = $this->calculateFormulas($data[0], $somatorioIncomes, true);
-        $data['plataformaIdentificada'] = $this->identifyPlatform($data['chaveRecebida']);
+        $data['plataformaIdentificada'] = $this->gameService->identifyPlatform($data['chaveRecebida']);
 
 
         // Lógica para fornecedores
@@ -305,13 +300,12 @@ class VendaChaveTrocaController extends Controller
 
         $data['repetido'] = $repeatedGame !== null ? true : false;
 
-        $gameService = new GameService();
         if ($data['idGamivo'] == '') {
-            $idGamivo = $gameService->getIdGamivo($data['nomeJogo'], $data['region']);
+            $idGamivo = $this->gameService->getIdGamivo($data['nomeJogo'], $data['region']);
             if ($idGamivo) $data['idGamivo'] = $idGamivo;
         }
 
-        if ($data['idGamivo']) $gameService->fillIdGamivo($data['nomeJogo'], $data['region'], $data['idGamivo']);
+        if ($data['idGamivo']) $this->gameService->fillIdGamivo($data['nomeJogo'], $data['region'], $data['idGamivo']);
 
         $result = Venda_chave_troca::where('id', $id)->update($data); // Atualiza
 
@@ -500,13 +494,12 @@ class VendaChaveTrocaController extends Controller
     /**
      * Importa jogos de um arquivo Excel
      */
-    public function import(ImportKeysRequest $request)
+    public function import(ImportKeysRequest $request, FileService $fileService)
     {
         $file = $request->file('file');
         $filePath = $file->getRealPath();
 
         try {
-            $fileService = new FileService();
             $result = $fileService->validateAndProcess($filePath);
 
             if (!$result['success']) {
@@ -552,7 +545,7 @@ class VendaChaveTrocaController extends Controller
         $fornecedorCadastrado = Fornecedor::select('*')->where('perfilOrigem', $game['perfilOrigem'])->first();
         $fornecedorEnviado = Fornecedor::select('*')->where('perfilOrigem', $data['perfilOrigem'])->first();
         if (!$fornecedorEnviado) { // Se não existe o fornecedor enviado, cria
-            $data['id_fornecedor'] = $this->criarAdicionarFornecedor($data['perfilOrigem'], $data['tipo_reclamacao_id']);
+            $data['id_fornecedor'] = $this->gameService->criarAdicionarFornecedor($data['perfilOrigem'], $data['tipo_reclamacao_id']);
             // Diminui uma reclamação do fornecedor cadastrado
 
             if ($fornecedorCadastrado->quantidade_reclamacoes > 0)
@@ -584,39 +577,6 @@ class VendaChaveTrocaController extends Controller
         return $data;
     }
 
-    private function criarAdicionarFornecedor($perfilOrigem, $reclamacao)
-    {
-        $fornecedor = Fornecedor::select('*')->where('perfilOrigem', $perfilOrigem)->first();
-
-        if (!$fornecedor) { // Se não tiver o fornecedor, cria ele
-            $newFornecedor['perfilOrigem'] = $perfilOrigem;
-            if ($reclamacao != 1)
-                $newFornecedor['quantidade_reclamacoes'] = 1; // Se tiver reclamação, adiciona +1
-            $fornecedor = Fornecedor::create($newFornecedor);
-            // return $this->error(400, $fornecedor);
-        } else {
-            // Existe o fornecedor, irá somar mais uma reclamação só se tiver mandado reclamação
-            if ($reclamacao != 1) {
-                $fornecedor->where('perfilOrigem', $perfilOrigem)->update(['quantidade_reclamacoes' => $fornecedor->quantidade_reclamacoes + 1]);
-                // $fornecedor['quantidade_reclamacoes'] = $fornecedor->quantidade_reclamacoes;
-            }
-        }
-
-        return $fornecedor->id;
-    }
-
-    private function calculateFirstFormulas($games)
-    {
-        $somatorioIncomes = 0;
-        foreach ($games as &$game) {
-            $game['precoVenda'] = $this->formulas->calcPrecoVenda($game['tipo_formato_id'], $game['id_plataforma'], $game['precoCliente']);
-            $game['incomeSimulado'] = $this->formulas->calcIncomeSimulado($game['tipo_formato_id'], $game['id_plataforma'], $game['precoCliente'], $game['precoVenda']);
-            $game['incomeReal'] = $this->formulas->calcIncomeReal($game['tipo_formato_id'], $game['id_plataforma'], $game['precoCliente'], $game['precoVenda'], $game['leiloes'], $game['quantidade']);
-            $somatorioIncomes += $game['incomeSimulado'];
-        }
-        return ['games' => $games, 'somatorioIncomes' => $somatorioIncomes];
-    }
-
     private function calculateFormulas($game, $somatorioIncomes, $isEdit = false)
     {
         if (!$isEdit) {
@@ -638,27 +598,5 @@ class VendaChaveTrocaController extends Controller
         $game['randomClassificationKinguin'] = $this->formulas->classificacaoRandomKinguin($game['precoJogo'], $game['notaMetacritic']);
 
         return $game;
-    }
-
-    private function identifyPlatform($chaveRecebida) // Função para identificar a plataforma do jogo
-    {
-        // Definição de padrões usando expressões regulares para identificar as plataformas
-        $patterns = [
-            'Steam' => '/^\w{5}-\w{5}-\w{5}$|^\w{15}\s\w{2}$/', // 12345-12345-12345
-            'EA' => '/^\w{4}-\w{4}-\w{4}-\w{4}-\w{4}$/', // 1234-1234-1234-1234-1234
-            'EA/Ubisoft' => '/^\w{4}-\w{4}-\w{4}-\w{4}$/', // 1234-1234-1234-1234
-            'EGS' => '/^\w{5}-\w{5}-\w{5}-\w{5}$/', // 12345-12345-12345-12345
-            'GOG' => '/^\w{18}$/', // 123456789012345678
-            'XBOX' => '/^\w{5}-\w{5}-\w{5}-\w{5}-\w{5}$/', // 12345-12345-12345-12345-12345
-            'PSN' => '/^\w{4}-\w{4}-\w{4}$/', // 1234-1234-1234
-        ];
-
-        foreach ($patterns as $platform => $pattern) {
-            if (preg_match($pattern, $chaveRecebida)) {
-                return $platform;
-            }
-        }
-
-        return 'DESCONHECIDO';
     }
 }

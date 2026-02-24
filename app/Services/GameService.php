@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Fornecedor;
 use App\Models\Game;
 use App\Models\Venda_chave_troca;
 use Carbon\Carbon;
@@ -126,5 +127,56 @@ class GameService
             }
             $key->save();
         }
+    }
+
+    /**
+     * Identifica a plataforma do jogo baseado no padrão da chave
+     */
+    public function identifyPlatform($chaveRecebida)
+    {
+        $patterns = [
+            'Steam' => '/^\w{5}-\w{5}-\w{5}$|^\w{15}\s\w{2}$/',
+            'EA' => '/^\w{4}-\w{4}-\w{4}-\w{4}-\w{4}$/',
+            'EA/Ubisoft' => '/^\w{4}-\w{4}-\w{4}-\w{4}$/',
+            'EGS' => '/^\w{5}-\w{5}-\w{5}-\w{5}$/',
+            'GOG' => '/^\w{18}$/',
+            'XBOX' => '/^\w{5}-\w{5}-\w{5}-\w{5}-\w{5}$/',
+            'PSN' => '/^\w{4}-\w{4}-\w{4}$/',
+        ];
+
+        foreach ($patterns as $platform => $pattern) {
+            if (preg_match($pattern, $chaveRecebida)) {
+                return $platform;
+            }
+        }
+
+        return 'DESCONHECIDO';
+    }
+
+    /**
+     * Cria ou adiciona reclamação ao fornecedor
+     */
+    public function criarAdicionarFornecedor($perfilOrigem, $reclamacao)
+    {
+        $fornecedor = Fornecedor::where('perfilOrigem', $perfilOrigem)->first();
+
+        if (!$fornecedor) {
+            // Se não tiver o fornecedor, cria ele
+            $newFornecedor = ['perfilOrigem' => $perfilOrigem];
+
+            if ($reclamacao != 1) {
+                $newFornecedor['quantidade_reclamacoes'] = 1;
+            }
+
+            $fornecedor = Fornecedor::create($newFornecedor);
+        } else {
+            // Existe o fornecedor, soma mais uma reclamação se tiver
+            if ($reclamacao != 1) {
+                $fornecedor->where('perfilOrigem', $perfilOrigem)
+                    ->update(['quantidade_reclamacoes' => $fornecedor->quantidade_reclamacoes + 1]);
+            }
+        }
+
+        return $fornecedor->id;
     }
 }

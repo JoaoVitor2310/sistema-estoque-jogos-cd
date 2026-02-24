@@ -13,16 +13,8 @@ use Illuminate\Support\Facades\Validator;
 
 class FileService
 {
-    protected $formulas;
-    protected $calculateService;
-    protected $gameService;
-
-    public function __construct()
-    {
-        $this->formulas = new Formulas();
-        $this->calculateService = new CalculateService();
-        $this->gameService = new GameService();
-    }
+    public function __construct(protected CalculateService $calculateService, protected GameService $gameService, protected Formulas $formulas)
+    {}
 
     private $requiredColumns = [
         'A' => 'G2A',
@@ -120,24 +112,24 @@ class FileService
 
         try {
             // Calcula as fórmulas iniciais
-            $resultFirstFormulas = $this->calculateFirstFormulas($games);
+            $resultFirstFormulas = $this->calculateService->calculateFirstFormulas($games);
             $games = $resultFirstFormulas['games'];
             $somatorioIncomes = $resultFirstFormulas['somatorioIncomes'];
 
             foreach ($games as $index => $game) {
                 try {
                     // Criar/obter fornecedor
-                    $game['id_fornecedor'] = $this->criarAdicionarFornecedor($game['perfilOrigem'], $game['tipo_reclamacao_id']);
+                    $game['id_fornecedor'] = $this->gameService->criarAdicionarFornecedor($game['perfilOrigem'], $game['tipo_reclamacao_id']);
 
                     // Calcula as fórmulas
-                    $game = $this->calculateFormulas($game, $somatorioIncomes, false);
+                    $game = $this->calculateService->calculateFormulas($game, $somatorioIncomes, false);
 
                     // Verifica se o jogo é repetido
                     $repeatedGame = Venda_chave_troca::where('chaveRecebida', $game['chaveRecebida'])->first();
                     if ($repeatedGame) $game['repetido'] = true;
 
                     // Identifica a plataforma
-                    $game['plataformaIdentificada'] = $this->identifyPlatform($game['chaveRecebida']);
+                    $game['plataformaIdentificada'] = $this->gameService->identifyPlatform($game['chaveRecebida']);
 
                     // Calcula min/max da API
                     $game = $this->calculateService->calculateMinMaxApi($game);
@@ -362,141 +354,6 @@ class FileService
     }
 
     // ==================== MÉTODOS AUXILIARES ====================
-
-    /**
-     * Calcula as fórmulas iniciais (preço venda, income simulado, income real)
-     */
-    private function calculateFirstFormulas($games)
-    {
-        $somatorioIncomes = 0;
-        foreach ($games as &$game) {
-            $game['precoVenda'] = $this->formulas->calcPrecoVenda(
-                $game['tipo_formato_id'],
-                $game['id_plataforma'],
-                $game['precoCliente']
-            );
-
-            $game['incomeSimulado'] = $this->formulas->calcIncomeSimulado(
-                $game['tipo_formato_id'],
-                $game['id_plataforma'],
-                $game['precoCliente'],
-                $game['precoVenda']
-            );
-
-            $game['incomeReal'] = $this->formulas->calcIncomeReal(
-                $game['tipo_formato_id'],
-                $game['id_plataforma'],
-                $game['precoCliente'],
-                $game['precoVenda'],
-                $game['leiloes'],
-                $game['quantidade']
-            );
-
-            $somatorioIncomes += $game['incomeSimulado'];
-        }
-
-        return [
-            'games' => $games,
-            'somatorioIncomes' => $somatorioIncomes
-        ];
-    }
-
-    /**
-     * Calcula fórmulas de lucro e classificações
-     */
-    private function calculateFormulas($game, $somatorioIncomes, $isEdit = false)
-    {
-        if (!$isEdit) {
-            $game['valorPagoIndividual'] = $this->formulas->calcValorPagoIndividual(
-                $game['qtdTF2'],
-                $somatorioIncomes,
-                $game['incomeSimulado']
-            );
-
-            $game['lucroRS'] = $this->formulas->calcLucroReal(
-                $game['incomeSimulado'],
-                $game['valorPagoIndividual']
-            );
-
-            $game['lucroPercentual'] = $this->formulas->calcLucroPercentual(
-                $game['lucroRS'],
-                $game['valorPagoIndividual']
-            );
-        }
-
-        $game['lucroVendaRS'] = $this->formulas->calcLucroVendaReal(
-            $game['valorVendido'],
-            $game['valorPagoIndividual']
-        );
-
-        $game['lucroVendaPercentual'] = $this->formulas->calcLucroVendaPercentual(
-            $game['lucroVendaRS'],
-            $game['valorPagoIndividual']
-        );
-
-        $game['randomClassificationG2A'] = $this->formulas->classificacaoRandomG2A(
-            $game['precoJogo'],
-            $game['notaMetacritic']
-        );
-
-        $game['randomClassificationKinguin'] = $this->formulas->classificacaoRandomKinguin(
-            $game['precoJogo'],
-            $game['notaMetacritic']
-        );
-
-        return $game;
-    }
-
-    /**
-     * Cria ou adiciona reclamação ao fornecedor
-     */
-    private function criarAdicionarFornecedor($perfilOrigem, $reclamacao)
-    {
-        $fornecedor = Fornecedor::where('perfilOrigem', $perfilOrigem)->first();
-
-        if (!$fornecedor) {
-            // Se não tiver o fornecedor, cria ele
-            $newFornecedor = ['perfilOrigem' => $perfilOrigem];
-
-            if ($reclamacao != 1) {
-                $newFornecedor['quantidade_reclamacoes'] = 1;
-            }
-
-            $fornecedor = Fornecedor::create($newFornecedor);
-        } else {
-            // Existe o fornecedor, soma mais uma reclamação se tiver
-            if ($reclamacao != 1) {
-                $fornecedor->where('perfilOrigem', $perfilOrigem)
-                    ->update(['quantidade_reclamacoes' => $fornecedor->quantidade_reclamacoes + 1]);
-            }
-        }
-
-        return $fornecedor->id;
-    }
-
-    /**
-     * Identifica a plataforma do jogo baseado no padrão da chave
-     */
-    private function identifyPlatform($chaveRecebida)
-    {
-        $patterns = [
-            'Steam' => '/^\w{5}-\w{5}-\w{5}$|^\w{15}\s\w{2}$/',
-            'EA' => '/^\w{4}-\w{4}-\w{4}-\w{4}-\w{4}$/',
-            'EA/Ubisoft' => '/^\w{4}-\w{4}-\w{4}-\w{4}$/',
-            'EGS' => '/^\w{5}-\w{5}-\w{5}-\w{5}$/',
-            'GOG' => '/^\w{18}$/',
-            'XBOX' => '/^\w{5}-\w{5}-\w{5}-\w{5}-\w{5}$/',
-            'PSN' => '/^\w{4}-\w{4}-\w{4}$/',
-        ];
-
-        foreach ($patterns as $platform => $pattern) {
-            if (preg_match($pattern, $chaveRecebida)) {
-                return $platform;
-            }
-        }
-
-        return 'DESCONHECIDO';
-    }
 
     /**
      * Converte datas do Excel (serial number) para formato Y-m-d

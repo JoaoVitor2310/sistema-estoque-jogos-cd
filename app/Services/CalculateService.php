@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Http\Helpers\Formulas;
 use App\Models\Game;
 use App\Models\Venda_chave_troca;
 use Illuminate\Support\Facades\Http;
@@ -13,7 +14,7 @@ class CalculateService
   /**
    * Create a new class instance.
    */
-  public function __construct()
+  public function __construct(protected Formulas $formulas)
   {
     //
   }
@@ -57,5 +58,89 @@ class CalculateService
     $game['maxApiGamivo'] = $maxApiGamivo;
 
     return $game;
+  }
+
+  /**
+   * Calcula fórmulas de lucro e classificações
+   */
+  public function calculateFormulas($game, $somatorioIncomes, $isEdit = false)
+  {
+    if (!$isEdit) {
+      $game['valorPagoIndividual'] = $this->formulas->calcValorPagoIndividual(
+        $game['qtdTF2'],
+        $somatorioIncomes,
+        $game['incomeSimulado']
+      );
+
+      $game['lucroRS'] = $this->formulas->calcLucroReal(
+        $game['incomeSimulado'],
+        $game['valorPagoIndividual']
+      );
+
+      $game['lucroPercentual'] = $this->formulas->calcLucroPercentual(
+        $game['lucroRS'],
+        $game['valorPagoIndividual']
+      );
+    }
+
+    $game['lucroVendaRS'] = $this->formulas->calcLucroVendaReal(
+      $game['valorVendido'],
+      $game['valorPagoIndividual']
+    );
+
+    $game['lucroVendaPercentual'] = $this->formulas->calcLucroVendaPercentual(
+      $game['lucroVendaRS'],
+      $game['valorPagoIndividual']
+    );
+
+    $game['randomClassificationG2A'] = $this->formulas->classificacaoRandomG2A(
+      $game['precoJogo'],
+      $game['notaMetacritic']
+    );
+
+    $game['randomClassificationKinguin'] = $this->formulas->classificacaoRandomKinguin(
+      $game['precoJogo'],
+      $game['notaMetacritic']
+    );
+
+    return $game;
+  }
+
+  /**
+   * Calcula as fórmulas iniciais (preço venda, income simulado, income real)
+   */
+  public function calculateFirstFormulas($games)
+  {
+    $somatorioIncomes = 0;
+    foreach ($games as &$game) {
+      $game['precoVenda'] = $this->formulas->calcPrecoVenda(
+        $game['tipo_formato_id'],
+        $game['id_plataforma'],
+        $game['precoCliente']
+      );
+
+      $game['incomeSimulado'] = $this->formulas->calcIncomeSimulado(
+        $game['tipo_formato_id'],
+        $game['id_plataforma'],
+        $game['precoCliente'],
+        $game['precoVenda']
+      );
+
+      $game['incomeReal'] = $this->formulas->calcIncomeReal(
+        $game['tipo_formato_id'],
+        $game['id_plataforma'],
+        $game['precoCliente'],
+        $game['precoVenda'],
+        $game['leiloes'],
+        $game['quantidade']
+      );
+
+      $somatorioIncomes += $game['incomeSimulado'];
+    }
+
+    return [
+      'games' => $games,
+      'somatorioIncomes' => $somatorioIncomes
+    ];
   }
 }
