@@ -101,6 +101,12 @@ class Venda_chave_troca extends Model
         return $this->belongsTo(Plataforma::class, 'id_plataforma');
     }
 
+    /** Sempre grava null quando região for string vazia */
+    public function setRegionAttribute($value): void
+    {
+        $this->attributes['region'] = ($value === '' || $value === null) ? null : $value;
+    }
+
     protected $hidden = [
         'id_fornecedor',
         'tipo_reclamacao_id',

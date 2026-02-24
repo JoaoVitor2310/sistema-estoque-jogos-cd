@@ -261,8 +261,8 @@ class FileService
                 'qtdTF2' => floatval(str_replace(',', '.', $worksheet->getCell('E' . $row)->getValue() ?? '0')),
                 'dataAdquirida' => $this->convertExcelDate($worksheet->getCell('B' . $row)),
 
-                // Região
-                'region' => trim($worksheet->getCell('I' . $row)->getValue() ?? null),
+                // Região (string vazia do Excel vira null)
+                'region' => trim($worksheet->getCell('I' . $row)->getValue() ?? '') ?: null,
 
                 // IDs e referências
                 'idGamivo' => null,

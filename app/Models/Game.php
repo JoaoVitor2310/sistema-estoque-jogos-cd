@@ -34,4 +34,10 @@ class Game extends Model
             ->withPivot('bundle_launch_price')
             ->withTimestamps();
     }
+
+    /** Sempre grava null quando região for string vazia */
+    public function setRegionAttribute($value): void
+    {
+        $this->attributes['region'] = ($value === '' || $value === null) ? null : $value;
+    }
 }
