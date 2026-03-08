@@ -48,4 +48,9 @@ return [
     'price_researcher' => [
         'base_url' => env('API_PRICE_RESEARCHER'),
     ],
+
+    'carca_api_gamivo' => [
+        'base_url' => env('CARCA_API_GAMIVO_URL'),
+        'dev_base_url' => env('DEV_CARCA_API_GAMIVO_URL'),
+    ],
 ];

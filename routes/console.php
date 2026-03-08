@@ -7,6 +7,7 @@ use App\Models\Venda_chave_troca;
 use App\Services\APIService;
 use App\Services\BundleService;
 use App\Services\GameService;
+use App\Services\KeyService;
 use App\Services\ResourceService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Inspiring;
@@ -84,4 +85,9 @@ Schedule::call(function () {
 Schedule::call(function () {
     $gameService = new GameService();
     $gameService->updateMinPrices();
+})->cron('0 6 * * *')->timezone('America/Sao_Paulo');
+
+Schedule::call(function () {
+    $keyService = new KeyService();
+    $keyService->checkLimboKeys();
 })->cron('0 6 * * *')->timezone('America/Sao_Paulo');
