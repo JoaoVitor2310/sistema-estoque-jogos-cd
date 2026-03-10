@@ -50,6 +50,9 @@ const handleLogout = async () => {
             <li>
               <Link class="nav-link" :href="route('games')">Jogos</Link>
             </li>
+            <li>
+              <Link class="nav-link" :href="route('vips.index')">VIP's</Link>
+            </li>
             <li class="nav-item dropdown">
               <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown"
                 aria-expanded="false">

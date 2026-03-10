@@ -9,6 +9,7 @@ use App\Http\Controllers\GameController;
 use App\Http\Controllers\TaxaController;
 use App\Http\Controllers\VendaChaveTrocaController;
 use App\Http\Controllers\ResourceController;
+use App\Http\Controllers\VipController;
 use App\Http\Middleware\CheckAdmin;
 use App\Http\Middleware\CheckPermission;
 use Illuminate\Support\Facades\Route;
@@ -29,6 +30,8 @@ Route::get('/resources', [ResourceController::class, 'show'])->name('resources')
 Route::get('/bundles', [BundleController::class, 'index'])->name('bundles');
 
 Route::get('/games', [GameController::class, 'index'])->name('games');
+
+Route::resource('/vips', VipController::class);
 
 Route::get('/venda-chave-troca', [VendaChaveTrocaController::class, 'show'])->name('venda-chave-troca');
 
