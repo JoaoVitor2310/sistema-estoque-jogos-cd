@@ -6,6 +6,7 @@ import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import { FilterMatchMode } from '@primevue/core/api';
 import InputText from 'primevue/inputtext';
+import Textarea from 'primevue/textarea';
 import 'primeicons/primeicons.css';
 import InputGroup from 'primevue/inputgroup';
 import InputGroupAddon from 'primevue/inputgroupaddon';
@@ -17,8 +18,8 @@ import ConfirmPopup from 'primevue/confirmpopup';
 import { useConfirm } from 'primevue/useconfirm';
 
 // Inertia / Helpers
-import axiosInstance from '../../axios';
-import { showResponse } from '../../helpers/showResponse';
+import axiosInstance from '../axios';
+import { showResponse } from '../helpers/showResponse';
 
 interface Vip {
     id: number;
@@ -27,6 +28,8 @@ interface Vip {
     second_link: string | null;
     third_link: string | null;
     steam_link: string | null;
+    result: string | null;
+    result_at: string | null;
 }
 
 const props = defineProps<{ vips: Vip[] }>();
@@ -43,7 +46,11 @@ const filters = ref({
 const DialogVisible = ref(false);
 const isEdit = ref(false);
 
-const emptyVip: Vip = { id: 0, name: '', first_link: '', second_link: '', third_link: '', steam_link: '' };
+const ResultDialogVisible = ref(false);
+const resultVipName = ref('');
+const resultContent = ref('');
+
+const emptyVip: Vip = { id: 0, name: '', first_link: '', second_link: '', third_link: '', steam_link: '', result: null, result_at: null };
 const selected = reactive<Vip>({ ...emptyVip });
 
 const openCreate = () => {
@@ -57,6 +64,8 @@ const openEdit = (item: Vip) => {
     Object.assign(selected, item);
     DialogVisible.value = true;
 };
+
+
 
 const onSave = async () => {
     if (isEdit.value) {
@@ -97,6 +106,27 @@ const onSave = async () => {
     }
 };
 
+const handleViewResult = (item: Vip) => {
+    resultVipName.value = item.name;
+    resultContent.value = item.result ?? '';
+    ResultDialogVisible.value = true;
+};
+
+const copyResult = async () => {
+    if (!resultContent.value) return;
+    try {
+        await navigator.clipboard.writeText(resultContent.value);
+        toast.add({ severity: 'success', summary: 'Copiado!', detail: 'Resultado copiado para a área de transferência.', life: 3000 });
+    } catch {
+        toast.add({ severity: 'error', summary: 'Erro ao copiar', detail: 'Não foi possível copiar o resultado.', life: 4000 });
+    }
+};
+
+const handleRunVipLists = async (item: Vip) => {
+    // TODO: implementar busca de preços
+    toast.add({ severity: 'info', summary: 'Em breve', detail: 'Funcionalidade ainda não implementada.', life: 3000 });
+};
+
 const handleDelete = (event: any, item: Vip) => {
     confirm.require({
         target: event.currentTarget,
@@ -130,6 +160,17 @@ const handleDelete = (event: any, item: Vip) => {
     <Toast position="bottom-right" />
     <ConfirmPopup />
 
+    <Dialog v-model:visible="ResultDialogVisible" modal :header="`Resultado — ${resultVipName}`"
+        :style="{ width: '600px' }">
+        <div class="d-flex flex-column gap-3">
+            <Textarea :value="resultContent" readonly rows="12" class="w-100" style="font-size: 0.85rem; font-family: monospace;" />
+            <div class="d-flex justify-content-end gap-2">
+                <Button type="button" label="Fechar" severity="secondary" @click="ResultDialogVisible = false" />
+                <Button type="button" label="Copiar" icon="pi pi-copy" @click="copyResult" :disabled="!resultContent" />
+            </div>
+        </div>
+    </Dialog>
+
     <Dialog v-model:visible="DialogVisible" modal :header="isEdit ? 'Editar VIP' : 'Novo VIP'"
         :style="{ width: '500px' }">
         <div class="d-flex flex-column gap-3 mb-3">
@@ -160,7 +201,7 @@ const handleDelete = (event: any, item: Vip) => {
         </div>
     </Dialog>
 
-    <div class="container text-center">
+    <div class="container text-center mb-3">
         <h1>VIP's</h1>
         <div class="w-50 m-auto">
             <p>Gerencie os usuários VIP e seus links de lista de jogos.</p>
@@ -217,9 +258,27 @@ const handleDelete = (event: any, item: Vip) => {
                     <span v-else class="text-muted">—</span>
                 </template>
             </Column>
+            <Column field="result" header="Resultado">
+                <template #body="{ data }">
+                    <span v-if="data.result" class="text-truncate d-inline-block" style="max-width: 180px;" :title="data.result">
+                        {{ data.result.slice(0, 40) }}<span v-if="data.result.length > 40">...</span>
+                    </span>
+                    <span v-else class="text-muted">—</span>
+                </template>
+            </Column>
+            <Column field="result_at" header="Última execução" sortable>
+                <template #body="{ data }">
+                    <span v-if="data.result_at">
+                        {{ new Date(data.result_at).toLocaleString('pt-BR') }}
+                    </span>
+                    <span v-else class="text-muted">—</span>
+                </template>
+            </Column>
             <Column header="Ações">
                 <template #body="{ data }">
                     <div class="d-flex gap-1">
+                        <Button icon="pi pi-eye" aria-label="Rodar lista" severity="info" @click="handleViewResult(data)" outlined />
+                        <Button icon="pi pi-search" aria-label="Rodar lista" severity="contrast" @click="handleRunVipLists(data)" outlined />
                         <Button icon="pi pi-pencil" aria-label="Editar" @click="openEdit(data)" outlined />
                         <Button icon="pi pi-trash" aria-label="Excluir" severity="danger"
                             @click="handleDelete($event, data)" outlined />

@@ -14,5 +14,11 @@ class Vip extends Model
         'second_link',
         'third_link',
         'steam_link',
+        'result',
+        'result_at',
+    ];
+
+    protected $casts = [
+        'result_at' => 'datetime',
     ];
 }

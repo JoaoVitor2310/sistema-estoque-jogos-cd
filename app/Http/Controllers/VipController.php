@@ -12,9 +12,19 @@ class VipController extends Controller
     public function index()
     {
         $vips = Vip::all();
-        return Inertia::render('Vips/Index', [
+        return Inertia::render('Vips', [
             'vips' => $vips,
         ]);
+    }
+
+    public function runVipList(Request $request)
+    {
+        // Buscar listas dos vips
+        // Extrair conteúdo das listas(se o tópico estiver ativo)
+        // Concatenar listas
+        // Enviar para o price com minPopularity = 30
+        // Armazenar o resultado no banco
+        // Exibir o resultado no front
     }
 
     public function store(Request $request)
