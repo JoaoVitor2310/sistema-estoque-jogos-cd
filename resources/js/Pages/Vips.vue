@@ -21,6 +21,15 @@ import { useConfirm } from 'primevue/useconfirm';
 import axiosInstance from '../axios';
 import { showResponse } from '../helpers/showResponse';
 
+interface VipList {
+    id: number;
+    vip_id: number;
+    status: 'queued' | 'completed' | 'failed';
+    result: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
 interface Vip {
     id: number;
     name: string;
@@ -30,6 +39,7 @@ interface Vip {
     steam_link: string | null;
     result: string | null;
     result_at: string | null;
+    list: VipList | null;
 }
 
 const props = defineProps<{ vips: Vip[] }>();
@@ -48,9 +58,9 @@ const isEdit = ref(false);
 
 const ResultDialogVisible = ref(false);
 const resultVipName = ref('');
-const resultContent = ref('');
+const resultVipList = ref<VipList | null>(null);
 
-const emptyVip: Vip = { id: 0, name: '', first_link: '', second_link: '', third_link: '', steam_link: '', result: null, result_at: null };
+const emptyVip: Vip = { id: 0, name: '', first_link: '', second_link: '', third_link: '', steam_link: '', result: null, result_at: null, list: null };
 const selected = reactive<Vip>({ ...emptyVip });
 
 const openCreate = () => {
@@ -106,17 +116,27 @@ const onSave = async () => {
     }
 };
 
+const listStatusLabel = (status: VipList['status']) => {
+    const map: Record<VipList['status'], string> = {
+        queued: 'Na fila',
+        completed: 'Concluída',
+        failed: 'Falhou',
+    };
+    return map[status] ?? status;
+};
+
 const handleViewResult = (item: Vip) => {
     resultVipName.value = item.name;
-    resultContent.value = item.result ?? '';
+    resultVipList.value = item.list ?? null;
     ResultDialogVisible.value = true;
 };
 
 const copyResult = async () => {
-    if (!resultContent.value) return;
+    const text = resultVipList.value?.result;
+    if (!text) return;
     try {
-        await navigator.clipboard.writeText(resultContent.value);
-        toast.add({ severity: 'success', summary: 'Copiado!', detail: 'Resultado copiado para a área de transferência.', life: 3000 });
+        await navigator.clipboard.writeText(text);
+        toast.add({ severity: 'success', summary: 'Copiado!', detail: 'Resultado da lista copiado para a área de transferência.', life: 3000 });
     } catch {
         toast.add({ severity: 'error', summary: 'Erro ao copiar', detail: 'Não foi possível copiar o resultado.', life: 4000 });
     }
@@ -124,7 +144,9 @@ const copyResult = async () => {
 
 const handleRunVipLists = async (item: Vip) => {
     // TODO: implementar busca de preços
-    toast.add({ severity: 'info', summary: 'Em breve', detail: 'Funcionalidade ainda não implementada.', life: 3000 });
+    // toast.add({ severity: 'info', summary: 'Em breve', detail: 'Funcionalidade ainda não implementada.', life: 3000 });
+    await axiosInstance.post(`/vips/run/${item.id}`);
+    
 };
 
 const handleDelete = (event: any, item: Vip) => {
@@ -160,13 +182,24 @@ const handleDelete = (event: any, item: Vip) => {
     <Toast position="bottom-right" />
     <ConfirmPopup />
 
-    <Dialog v-model:visible="ResultDialogVisible" modal :header="`Resultado — ${resultVipName}`"
+    <Dialog v-model:visible="ResultDialogVisible" modal :header="`Lista — ${resultVipName}`"
         :style="{ width: '600px' }">
         <div class="d-flex flex-column gap-3">
-            <Textarea :value="resultContent" readonly rows="12" class="w-100" style="font-size: 0.85rem; font-family: monospace;" />
+            <template v-if="resultVipList">
+                <div class="text-muted small">
+                    Status: <strong>{{ listStatusLabel(resultVipList.status) }}</strong>
+                    <span v-if="resultVipList.updated_at">
+                        · Atualizado em {{ new Date(resultVipList.updated_at).toLocaleString('pt-BR') }}
+                    </span>
+                </div>
+                <Textarea :value="resultVipList.result ?? ''" readonly rows="14" class="w-100"
+                    style="font-size: 0.85rem; font-family: monospace;" placeholder="Aguardando resultado da execução…" />
+            </template>
+            <p v-else class="text-muted small mb-0">Este VIP ainda não possui lista executada. Use a ação de rodar lista.</p>
             <div class="d-flex justify-content-end gap-2">
                 <Button type="button" label="Fechar" severity="secondary" @click="ResultDialogVisible = false" />
-                <Button type="button" label="Copiar" icon="pi pi-copy" @click="copyResult" :disabled="!resultContent" />
+                <Button type="button" label="Copiar" icon="pi pi-copy" @click="copyResult"
+                    :disabled="!resultVipList?.result" />
             </div>
         </div>
     </Dialog>
@@ -206,10 +239,11 @@ const handleDelete = (event: any, item: Vip) => {
         <div class="w-50 m-auto">
             <p>Gerencie os usuários VIP e seus links de lista de jogos.</p>
         </div>
+        <div class="table-responsive vip-datatable-wrap mx-auto text-start" style="max-width: 100%;">
         <DataTable :value="rowData" showGridlines sortMode="multiple" removableSort
             :globalFilterFields="['name', 'first_link', 'second_link', 'third_link', 'steam_link']"
-            v-model:filters="filters" scrollable scrollHeight="100vh" dataKey="id" size="large"
-            tableStyle="min-width: 50rem">
+            v-model:filters="filters" scrollable scrollHeight="min(70vh, 720px)" dataKey="id" size="small"
+            class="vip-datatable" tableStyle="width: 100%; min-width: 0;">
             <template #header>
                 <div class="d-flex justify-content-between">
                     <Button label="Novo" icon="pi pi-plus" @click="openCreate" raised />
@@ -258,10 +292,11 @@ const handleDelete = (event: any, item: Vip) => {
                     <span v-else class="text-muted">—</span>
                 </template>
             </Column>
-            <Column field="result" header="Resultado">
+            <Column header="Resultado (lista)" :style="{ maxWidth: '10rem' }">
                 <template #body="{ data }">
-                    <span v-if="data.result" class="text-truncate d-inline-block" style="max-width: 180px;" :title="data.result">
-                        {{ data.result.slice(0, 40) }}<span v-if="data.result.length > 40">...</span>
+                    <span v-if="data.list?.result" class="text-truncate d-inline-block" style="max-width: 10rem; font-size: 0.8125rem;"
+                        :title="data.list.result">
+                        {{ data.list.result.slice(0, 28) }}<span v-if="data.list.result.length > 28">...</span>
                     </span>
                     <span v-else class="text-muted">—</span>
                 </template>
@@ -274,17 +309,32 @@ const handleDelete = (event: any, item: Vip) => {
                     <span v-else class="text-muted">—</span>
                 </template>
             </Column>
-            <Column header="Ações">
+            <Column header="Ações" :style="{ width: '9rem' }">
                 <template #body="{ data }">
-                    <div class="d-flex gap-1">
-                        <Button icon="pi pi-eye" aria-label="Rodar lista" severity="info" @click="handleViewResult(data)" outlined />
-                        <Button icon="pi pi-search" aria-label="Rodar lista" severity="contrast" @click="handleRunVipLists(data)" outlined />
-                        <Button icon="pi pi-pencil" aria-label="Editar" @click="openEdit(data)" outlined />
+                    <div class="d-flex gap-1 flex-wrap">
+                        <Button icon="pi pi-eye" aria-label="Ver lista" severity="info"
+                            @click="handleViewResult(data)" outlined size="small" />
+                        <Button icon="pi pi-search" aria-label="Rodar lista" severity="contrast"
+                            @click="handleRunVipLists(data)" outlined size="small" />
+                        <Button icon="pi pi-pencil" aria-label="Editar" @click="openEdit(data)" outlined size="small" />
                         <Button icon="pi pi-trash" aria-label="Excluir" severity="danger"
-                            @click="handleDelete($event, data)" outlined />
+                            @click="handleDelete($event, data)" outlined size="small" />
                     </div>
                 </template>
             </Column>
         </DataTable>
+        </div>
     </div>
 </template>
+
+<style scoped>
+.vip-datatable-wrap :deep(.vip-datatable table thead th),
+.vip-datatable-wrap :deep(.vip-datatable table tbody td) {
+    font-size: 0.8125rem;
+    padding-top: 0.4rem;
+    padding-bottom: 0.4rem;
+}
+.vip-datatable-wrap :deep(.vip-datatable table thead th) {
+    white-space: nowrap;
+}
+</style>

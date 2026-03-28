@@ -31,7 +31,16 @@ Route::get('/bundles', [BundleController::class, 'index'])->name('bundles');
 
 Route::get('/games', [GameController::class, 'index'])->name('games');
 
-Route::resource('/vips', VipController::class);
+Route::prefix('vips')
+    ->middleware(CheckPermission::class)->controller(VipController::class)->group(function () {
+        Route::get('/', 'index')->name('vips.index');
+        Route::post('/', 'store')->name('vips.store');
+        Route::put('/{id}', 'update')->name('vips.update');
+        Route::delete('/{id}', 'destroy')->name('vips.destroy');
+        Route::post('/run/{vip}', 'runVipList')->name('vips.runVipList');
+        Route::post('/callback/{vipList}', 'callbackVipList')->name('vips.callbackVipList')->withoutMiddleware([CheckPermission::class]);
+});
+
 
 Route::get('/venda-chave-troca', [VendaChaveTrocaController::class, 'show'])->name('venda-chave-troca');
 

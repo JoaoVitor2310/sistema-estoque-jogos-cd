@@ -45,8 +45,14 @@ return [
         'api_key' => env('API_KEY_GG_DEALS'),
     ],
 
+    'sistema-estoque' => [
+        'base_url' => env('THIS_URL'),
+        'dev_base_url' => env('DEV_THIS_URL'),
+    ],
+    
     'price_researcher' => [
         'base_url' => env('API_PRICE_RESEARCHER'),
+        'dev_base_url' => env('DEV_API_PRICE_RESEARCHER'),
     ],
 
     'carca_api_gamivo' => [

@@ -15,7 +15,7 @@ npm install
 npm run build
 
 # Executa as migrações e seeds
-composer migrate
+# composer migrate
 
 # Cacheia as configurações, rotas e views
 php artisan config:cache

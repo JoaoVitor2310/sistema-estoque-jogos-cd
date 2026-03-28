@@ -4,27 +4,50 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\Vip;
+use App\Models\VipList;
+use App\Services\VipListExecutionService;
+use App\Traits\HttpResponses;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class VipController extends Controller
 {
+    use HttpResponses;
+
+    public function __construct(
+        private readonly VipListExecutionService $vipListExecutionService
+    ) {}
+
     public function index()
     {
-        $vips = Vip::all();
+        $vips = Vip::with('list')->get();
         return Inertia::render('Vips', [
             'vips' => $vips,
         ]);
     }
 
-    public function runVipList(Request $request)
+    public function runVipList(Request $request, Vip $vip)
     {
-        // Buscar listas dos vips
-        // Extrair conteúdo das listas(se o tópico estiver ativo)
-        // Concatenar listas
-        // Enviar para o price com minPopularity = 30
-        // Armazenar o resultado no banco
-        // Exibir o resultado no front
+        $result = $this->vipListExecutionService->queueRunForVip($vip);
+
+        if (! $result['success']) {
+            if (isset($result['data'])) {
+                return $this->error($result['code'], $result['message'], $result['data']);
+            }
+
+            return $this->error($result['code'], $result['message']);
+        }
+
+        return $this->response(200, $result['message'], $result['data']);
+    }
+
+    public function callbackVipList(Request $request, VipList $vipList)
+    {
+        $data = $request->all();
+
+        $this->vipListExecutionService->applyCallback($vipList, $data);
+
+        return $this->response(200, 'Lista executada com sucesso', $data);
     }
 
     public function store(Request $request)
