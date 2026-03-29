@@ -16,13 +16,13 @@ class VipListExecutionService
      */
     public function queueRunForVip(Vip $vip): array
     {
-        $vipListLinks = $vip->getListLinks();
+        $vip_id_steam = $vip->id_steam;
 
-        if (empty($vipListLinks)) {
+        if (!$vip_id_steam) {
             return [
                 'success' => false,
                 'code' => 400,
-                'message' => 'Não há listas para executar',
+                'message' => 'Não há id steam para executar',
             ];
         }
 
@@ -41,7 +41,7 @@ class VipListExecutionService
             $callbackBase = rtrim(config('services.sistema-estoque.base_url'), '/');
 
             $response = Http::post($baseUrl . '/api/lists/run', [
-                'lists' => $vipListLinks,
+                'id_steam' => $vip_id_steam,
                 'callback_url' => $callbackBase . '/vips/callback/' . $vipList->id,
             ]);
 

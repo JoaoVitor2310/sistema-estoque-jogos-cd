@@ -54,18 +54,12 @@ class VipController extends Controller
     {
         $validated = $request->validate([
             'name'        => 'required|string|max:255',
-            'first_link'  => 'nullable|string|max:255',
-            'second_link' => 'nullable|string|max:255',
-            'third_link'  => 'nullable|string|max:255',
-            'steam_link'  => 'nullable|string|max:255',
+            'id_steam'    => 'nullable|string|max:255',
         ]);
 
         $vip = Vip::create($validated);
 
-        return response()->json([
-            'message' => 'VIP criado com sucesso.',
-            'data'    => $vip,
-        ], 201);
+        return $this->response(201, 'VIP criado com sucesso', $vip);
     }
 
     public function update(Request $request, string $id)
@@ -74,18 +68,12 @@ class VipController extends Controller
 
         $validated = $request->validate([
             'name'        => 'required|string|max:255',
-            'first_link'  => 'nullable|string|max:255',
-            'second_link' => 'nullable|string|max:255',
-            'third_link'  => 'nullable|string|max:255',
-            'steam_link'  => 'nullable|string|max:255',
+            'id_steam'    => 'nullable|string|max:255',
         ]);
 
         $vip->update($validated);
 
-        return response()->json([
-            'message' => 'VIP atualizado com sucesso.',
-            'data'    => $vip,
-        ]);
+        return $this->response(200, 'VIP atualizado com sucesso', $vip);
     }
 
     public function destroy(string $id)
