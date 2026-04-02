@@ -134,11 +134,32 @@ const handleViewResult = (item: Vip) => {
     ResultDialogVisible.value = true;
 };
 
+/** Clipboard API exige contexto seguro (HTTPS); em HTTP navigator.clipboard pode ser undefined. */
+const copyTextToClipboard = async (text: string): Promise<void> => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        return;
+    }
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none;';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    ta.setSelectionRange(0, text.length);
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    if (!ok) {
+        throw new Error('Clipboard indisponível (use HTTPS ou copie manualmente).');
+    }
+};
+
 const copyResult = async () => {
     const text = resultVipList.value?.result;
     if (!text) return;
     try {
-        await navigator.clipboard.writeText(text);
+        await copyTextToClipboard(text);
         toast.add({ severity: 'success', summary: 'Copiado!', detail: 'Resultado da lista copiado para a área de transferência.', life: 3000 });
     } catch (error) {
         console.error(error);
@@ -158,7 +179,7 @@ const copyRowListResult = async (item: Vip) => {
         return;
     }
     try {
-        await navigator.clipboard.writeText(text);
+        await copyTextToClipboard(text);
         toast.add({ severity: 'success', summary: 'Copiado!', detail: `Resultado de "${item.name}" copiado.`, life: 3000 });
     } catch (error) {
         console.error(error);
@@ -216,7 +237,7 @@ const copyBatchListResults = async () => {
     }
     const text = parts.join('\n\n');
     try {
-        await navigator.clipboard.writeText(text);
+        await copyTextToClipboard(text);
         const skipped = items.length - parts.length;
         const detail =
             skipped > 0
