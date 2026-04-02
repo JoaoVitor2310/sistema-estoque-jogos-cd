@@ -140,8 +140,9 @@ const copyResult = async () => {
     try {
         await navigator.clipboard.writeText(text);
         toast.add({ severity: 'success', summary: 'Copiado!', detail: 'Resultado da lista copiado para a área de transferência.', life: 3000 });
-    } catch {
-        toast.add({ severity: 'error', summary: 'Erro ao copiar', detail: 'Não foi possível copiar o resultado.', life: 4000 });
+    } catch (error) {
+        console.error(error);
+        toast.add({ severity: 'error', summary: 'Erro ao copiar', detail: 'Não foi possível copiar o resultado', life: 4000 });
     }
 };
 
@@ -159,7 +160,8 @@ const copyRowListResult = async (item: Vip) => {
     try {
         await navigator.clipboard.writeText(text);
         toast.add({ severity: 'success', summary: 'Copiado!', detail: `Resultado de "${item.name}" copiado.`, life: 3000 });
-    } catch {
+    } catch (error) {
+        console.error(error);
         toast.add({ severity: 'error', summary: 'Erro ao copiar', detail: 'Não foi possível copiar o resultado.', life: 4000 });
     }
 };
@@ -388,7 +390,7 @@ const handleDelete = (event: any, item: Vip) => {
 
                 <Column selectionMode="multiple" headerStyle="width: 2.75rem" />
                 <Column field="name" header="Nome" sortable />
-                <Column field="id_steam" header="Link Steam" sortable>
+                <Column field="id_steam" header="ID Steam" sortable>
                     <template #body="{ data }">
                         {{ data.id_steam }}
                     </template>
