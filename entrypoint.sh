@@ -1,26 +1,30 @@
 #!/bin/bash
+set -e
 
-# Comandos que serão executados depois do container iniciado
-# Define permissões para os diretórios de armazenamento e cache
-chmod -R 775 /var/www/html/storage
-chown -R www-data:www-data /var/www/html/storage
-chmod -R 775 /var/www/html/bootstrap/cache
-chown -R www-data:www-data /var/www/html/bootstrap/cache
+# Permissões de storage e cache
+chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 
-# Instala as dependências do Composer
-composer install
-# composer install --optimize-autoloader --no-dev # Para produção
+# Dependências PHP
+composer install --no-interaction
 
+# Dependências Node
 npm install
-npm run build
 
-# Executa as migrações e seeds
-# composer migrate
+APP_ENV="${APP_ENV:-local}"
 
-# Cacheia as configurações, rotas e views
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
+if [ "$APP_ENV" = "production" ]; then
+    echo "[entrypoint] Ambiente: production"
+    npm run build
 
-# Inicia o PHP-FPM
+    php artisan config:cache
+    php artisan route:cache
+    php artisan view:cache
+else
+    echo "[entrypoint] Ambiente: local (Vite HMR ativo na porta 5173)"
+    # Inicia o Vite dev server em background (HMR)
+    npm run dev &
+fi
+
+# Inicia o PHP-FPM em foreground
 exec php-fpm
