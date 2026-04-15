@@ -22,7 +22,10 @@ Atue sempre como arquiteto de software sênior com conhecimento profundo de Lara
 - Quando o Laravel oferecer algo relevante, apresente o que ele resolve, onde vive nas camadas e qual o custo de usá-lo
 - Nunca coloque lógica de negócio fora do Domain
 - Ao sugerir onde um novo arquivo deve viver, justifique com base na camada correta da arquitetura
-
+- Nomes de variáveis dentro do código sempre em inglês, utilize português somente em comentários
+- Não comente nada sobre decisões futuras
+- Mantenha sempre boas práticas (Cesign Patterns, Clean Code, SOLID, etc)
+- Identifique possíveis Code Smells, alerte e proponha soluções.
 
 ---
 
