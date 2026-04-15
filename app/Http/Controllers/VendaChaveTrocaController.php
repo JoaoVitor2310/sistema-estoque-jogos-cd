@@ -14,10 +14,9 @@ use App\Traits\HttpResponses;
 use Illuminate\Http\Request;
 use App\Models\Venda_chave_troca;
 use App\Models\Fornecedor;
-use App\Http\Helpers\Formulas;
 use App\Http\Requests\ImportKeysRequest;
-use App\Services\CalculateService;
 use App\Services\FileService;
+use App\Services\Keys\KeyCalculationService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -29,7 +28,7 @@ class VendaChaveTrocaController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function __construct(protected CalculateService $calculateService, protected GameService $gameService, protected Formulas $formulas)
+    public function __construct(protected KeyCalculationService $calculateService, protected GameService $gameService)
     {
     }
 
@@ -201,7 +200,7 @@ class VendaChaveTrocaController extends Controller
             $game['id_fornecedor'] = $this->gameService->criarAdicionarFornecedor($game['perfilOrigem'], $game['tipo_reclamacao_id']);
 
             // Calcula as fórmulas
-            $game = $this->calculateFormulas($game, $somatorioIncomes, false);
+            $game = $this->calculateService->calculateFormulas($game, $somatorioIncomes, false);
 
             $repeatedGame = Venda_chave_troca::select('*')->where('chaveRecebida', $game['chaveRecebida'])->first();
 
@@ -288,7 +287,7 @@ class VendaChaveTrocaController extends Controller
         $resultFirstFormulas = $this->calculateService->calculateFirstFormulas([$updatedGame]);
         $data = $resultFirstFormulas['games'];
         $somatorioIncomes = $resultFirstFormulas['somatorioIncomes'];
-        $data = $this->calculateFormulas($data[0], $somatorioIncomes, true);
+        $data = $this->calculateService->calculateFormulas($data[0], $somatorioIncomes, true);
         $data['plataformaIdentificada'] = $this->gameService->identifyPlatform($data['chaveRecebida']);
 
 
@@ -443,14 +442,16 @@ class VendaChaveTrocaController extends Controller
 
                 if ($itemToUpdate['valorVendido']) continue;
 
-                $lucroVendaRS = $this->formulas->calcLucroVendaReal($game['profit'], $itemToUpdate->valorPagoIndividual);
-                $lucroVendaPercentual = $this->formulas->calcLucroVendaPercentual($lucroVendaRS, $itemToUpdate->valorPagoIndividual);
+                $saleFormulas = $this->calculateService->calculateSaleFormulas(
+                    (float) $game['profit'],
+                    (float) $itemToUpdate->valorPagoIndividual
+                );
 
                 $updated = $itemToUpdate->update([
-                    'dataVendida' => $game['saleDate'],
-                    'valorVendido' => $game['profit'],
-                    'lucroVendaRS' => $lucroVendaRS,
-                    'lucroVendaPercentual' => $lucroVendaPercentual,
+                    'dataVendida'         => $game['saleDate'],
+                    'valorVendido'        => $game['profit'],
+                    'lucroVendaRS'        => $saleFormulas['lucroVendaRS'],
+                    'lucroVendaPercentual' => $saleFormulas['lucroVendaPercentual'],
                 ]);
 
                 if (!$updated) $notUpdated[] = $itemToUpdate;
@@ -577,26 +578,4 @@ class VendaChaveTrocaController extends Controller
         return $data;
     }
 
-    private function calculateFormulas($game, $somatorioIncomes, $isEdit = false)
-    {
-        if (!$isEdit) {
-            // Não pode alterar quando for editar
-
-            // se não vai calcular errado o somatório dos incomes
-            $game['valorPagoIndividual'] = $this->formulas->calcValorPagoIndividual($game['qtdTF2'], $somatorioIncomes, $game['incomeSimulado']);
-
-            $game['lucroRS'] = $this->formulas->calcLucroReal($game['incomeSimulado'], $game['valorPagoIndividual']);
-            $game['lucroPercentual'] = $this->formulas->calcLucroPercentual($game['lucroRS'], $game['valorPagoIndividual']);
-        }
-
-        $game['lucroVendaRS'] = $this->formulas->calcLucroVendaReal($game['valorVendido'], $game['valorPagoIndividual']);
-
-        $game['lucroVendaPercentual'] = $this->formulas->calcLucroVendaPercentual($game['lucroVendaRS'], $game['valorPagoIndividual']);
-
-        $game['randomClassificationG2A'] = $this->formulas->classificacaoRandomG2A($game['precoJogo'], $game['notaMetacritic']);
-
-        $game['randomClassificationKinguin'] = $this->formulas->classificacaoRandomKinguin($game['precoJogo'], $game['notaMetacritic']);
-
-        return $game;
-    }
 }

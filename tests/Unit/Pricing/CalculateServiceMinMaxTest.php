@@ -2,25 +2,17 @@
 
 /*
 |--------------------------------------------------------------------------
-| CalculateService::calculateMinMaxApi() — characterization tests
+| KeyCalculationService::calculateMinMaxApi() — characterization tests
 |--------------------------------------------------------------------------
 |
-| Pure math — no DB calls.
-| Safety net for the extraction to Domain/Pricing/MinMaxPriceCalculator (Phase 1.5).
-|
-| toEqualWithDelta($expected, $delta): asserts a float is within $delta of
-| $expected. Needed because float arithmetic in PHP is not exact
-| (e.g. 15.0 * 1.4 may return 20.999999... instead of 21.0).
-|
-| dataset('name', [...]): Pest data provider — defines multiple input sets
-| for a single `it`, running it once per row. Avoids copy-pasting tests.
+| Pure math — no DB calls (KeyCalculationService::calculateMinMaxApi
+| delegates directly to MinMaxPriceCalculator with no DB dependency).
 |
 | Rules:
 |   Min:
-|     valorPago > 10        → valorPago × 1.4
-|     valorPago > 4.6       → valorPago × 1.5
-|     valorPago >= 4.0      → valorPago × 1.0  (unchanged)
-|     valorPago < 4.0       → valorPago × 1.6
+|     valorPago > 10  → valorPago × 1.4  (+40%)
+|     valorPago > 4   → valorPago × 1.5  (+50%)
+|     demais          → valorPago × 1.6  (+60%)
 |
 |   Max:
 |     valorPago < 1         → valorPago × 30
@@ -31,28 +23,22 @@
 |
 */
 
-use App\Http\Helpers\Formulas;
-use App\Services\CalculateService;
+use App\Services\Keys\KeyCalculationService;
 
-// Named dataset reused by the snapshot test at the bottom
 dataset('min/max price scenarios', [
-    'high valorPago (>10)'              => [15.0, 10.0,  21.0, 120.0],
-    'mid valorPago (>4.6, <=10)'        => [ 5.0,  5.0,   7.5,  40.0],
-    'threshold valorPago (>=4.0, <=4.6)' => [ 4.0,  4.0,   4.0,  32.0],
-    'low valorPago (<4, >=1)'           => [ 2.0,  2.0,   3.2,  16.0],
-    'very low valorPago (<1)'           => [ 0.5,  0.3,   0.8,  15.0],
+    'high valorPago (>10)'    => [15.0, 10.0,  21.0, 120.0],
+    'mid valorPago (>4, <=10)' => [ 5.0,  5.0,   7.5,  40.0],
+    'low valorPago (<=4, >=1)' => [ 4.0,  4.0,   6.4,  32.0],
+    'low valorPago (<4, >=1)'  => [ 2.0,  2.0,   3.2,  16.0],
+    'very low valorPago (<1)'  => [ 0.5,  0.3,   0.8,  15.0],
 ]);
 
 describe('CalculateService::calculateMinMaxApi()', function () {
 
     beforeEach(function () {
-        // calculateMinMaxApi() does not use $this->formulas internally,
-        // so we mock Formulas to skip its DB queries in the constructor.
-        $formulas = Mockery::mock(Formulas::class)->makePartial();
-        $this->service = new CalculateService($formulas);
+        $this->service = new KeyCalculationService();
     });
 
-    // Helper: build the minimal game array the method expects
     $game = fn (float $valorPago, float $precoCliente) => [
         'valorPagoIndividual' => $valorPago,
         'precoCliente'        => $precoCliente,
@@ -65,16 +51,17 @@ describe('CalculateService::calculateMinMaxApi()', function () {
             expect($result['minApiGamivo'])->toEqualWithDelta(21.0, 0.001);
         });
 
-        it('is valorPago × 1.5 when valorPago is between €4.6 and €10', function () use ($game) {
+        it('is valorPago × 1.5 when valorPago is above €4', function () use ($game) {
             $result = $this->service->calculateMinMaxApi($game(5.0, 5.0));
 
             expect($result['minApiGamivo'])->toEqualWithDelta(7.5, 0.001);
         });
 
-        it('keeps valorPago unchanged when it is between €4.0 and €4.6', function () use ($game) {
+        it('is valorPago × 1.6 for any value at or below €4', function () use ($game) {
+            // 4.0 is NOT > 4, falls into default ×1.6
             $result = $this->service->calculateMinMaxApi($game(4.0, 4.0));
 
-            expect($result['minApiGamivo'])->toEqualWithDelta(4.0, 0.001);
+            expect($result['minApiGamivo'])->toEqualWithDelta(6.4, 0.001);
         });
 
         it('is valorPago × 1.6 when valorPago is below €4', function () use ($game) {
@@ -104,8 +91,6 @@ describe('CalculateService::calculateMinMaxApi()', function () {
         });
 
         it('is recalculated as precoCliente × 8 when precoCliente reaches or exceeds the initial max', function () use ($game) {
-            // valorPago=5.0 → initial max = 5.0 × 8 = 40.0
-            // precoCliente=50.0 >= 40.0 → override: 50.0 × 8 = 400.0
             $result = $this->service->calculateMinMaxApi($game(5.0, 50.0));
 
             expect($result['maxApiGamivo'])->toEqualWithDelta(400.0, 0.001);

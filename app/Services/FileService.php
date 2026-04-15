@@ -2,9 +2,9 @@
 
 namespace App\Services;
 
-use App\Http\Helpers\Formulas;
 use App\Models\Fornecedor;
 use App\Models\Venda_chave_troca;
+use App\Services\Keys\KeyCalculationService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Validator;
 
 class FileService
 {
-    public function __construct(protected CalculateService $calculateService, protected GameService $gameService, protected Formulas $formulas)
+    public function __construct(protected KeyCalculationService $calculateService, protected GameService $gameService)
     {}
 
     private $requiredColumns = [
