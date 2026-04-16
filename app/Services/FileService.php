@@ -2,13 +2,14 @@
 
 namespace App\Services;
 
-use App\Models\Fornecedor;
+use App\Domain\Import\ExcelDateConverter;
+use App\Domain\Import\ImportHeaderValidator;
+use App\Domain\Import\ImportRowValidator;
 use App\Models\Venda_chave_troca;
 use App\Services\Keys\KeyCalculationService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use PhpOffice\PhpSpreadsheet\IOFactory;
-use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 use Illuminate\Support\Facades\Validator;
 
 class FileService
@@ -16,19 +17,6 @@ class FileService
     public function __construct(protected KeyCalculationService $calculateService, protected GameService $gameService)
     {}
 
-    private $requiredColumns = [
-        'A' => 'G2A',
-        'B' => 'Data',
-        'C' => 'Gamivo',
-        'D' => 'URL perfil',
-        'E' => 'Qtd. TF2',
-        'F' => 'Bundle',
-        'G' => 'Data expiração',
-        'H' => 'Popularidade',
-        'I' => 'Region Lock',
-        'J' => 'Chave',
-        'K' => 'Nome do Jogo',
-    ];
 
     /**
      * Valida e processa o arquivo XLSX
@@ -81,19 +69,17 @@ class FileService
     }
 
     /**
-     * Valida se os cabeçalhos estão corretos
+     * Valida se os cabeçalhos estão corretos.
+     * Extrai os valores do worksheet e delega a validação ao Domain.
      */
-    private function validateHeaders($worksheet)
+    private function validateHeaders($worksheet): array
     {
-        $errors = [];
-
-        foreach ($this->requiredColumns as $column => $expectedName) {
-            $cellValue = $worksheet->getCell($column . '1')->getValue();
-
-            if (trim($cellValue) !== $expectedName) {
-                $errors[] = "Coluna {$column} deveria ser '{$expectedName}', mas encontrou '{$cellValue}'";
-            }
+        $actual = [];
+        foreach (array_keys(ImportHeaderValidator::EXPECTED_COLUMNS) as $column) {
+            $actual[$column] = $worksheet->getCell($column . '1')->getValue();
         }
+
+        $errors = ImportHeaderValidator::validate($actual);
 
         if (!empty($errors)) {
             return ['success' => false, 'message' => 'Cabeçalhos inválidos: ' . implode(', ', $errors)];
@@ -259,7 +245,7 @@ class FileService
                 'nomeJogo' => trim($worksheet->getCell('K' . $row)->getValue() ?? ''),
                 'perfilOrigem' => trim($worksheet->getCell('D' . $row)->getValue() ?? ''),
                 'qtdTF2' => floatval(str_replace(',', '.', $worksheet->getCell('E' . $row)->getValue() ?? '0')),
-                'dataAdquirida' => $this->convertExcelDate($worksheet->getCell('B' . $row)),
+                'dataAdquirida' => ExcelDateConverter::convert($worksheet->getCell('B' . $row)->getValue()) ?? now()->toDateString(),
 
                 // Região (string vazia do Excel vira null)
                 'region' => trim($worksheet->getCell('I' . $row)->getValue() ?? '') ?: null,
@@ -285,7 +271,7 @@ class FileService
                 'id_plataforma' => 3, // Gamivo por padrão
 
                 // Datas opcionais
-                'dataExpiracao' => $this->convertExcelDate($worksheet->getCell('G' . $row)),
+                'dataExpiracao' => ExcelDateConverter::convert($worksheet->getCell('G' . $row)->getValue()),
                 'dataVenda' => null,
                 'dataVendida' => null,
 
@@ -304,7 +290,7 @@ class FileService
             ];
 
             // Valida cada linha
-            $validator = $this->validateRow($rowData, $row);
+            $validator = Validator::make($rowData, ImportRowValidator::RULES, ImportRowValidator::messages($row));
 
             if ($validator->fails()) {
                 $errors[] = [
@@ -325,27 +311,6 @@ class FileService
     }
 
     /**
-     * Valida uma linha específica
-     */
-    private function validateRow($rowData, $rowNumber)
-    {
-        return Validator::make($rowData, [
-            'nomeJogo' => 'required|string|max:255',
-            'chaveRecebida' => 'required|string',
-            'region' => 'nullable|string|max:50',
-            'perfilOrigem' => 'required|string|max:255',
-            'qtdTF2' => 'required|numeric|min:0',
-            'dataAdquirida' => 'nullable|string',
-        ], [
-            'nomeJogo.required' => "Linha {$rowNumber}: Nome do jogo é obrigatório",
-            'chaveRecebida.required' => "Linha {$rowNumber}: Chave recebida é obrigatória",
-            'perfilOrigem.required' => "Linha {$rowNumber}: URL do perfil (coluna D) é obrigatória",
-            'qtdTF2.required' => "Linha {$rowNumber}: Quantidade de TF2 Keys (coluna E) é obrigatória",
-            'qtdTF2.numeric' => "Linha {$rowNumber}: Quantidade de TF2 Keys deve ser numérica",
-        ]);
-    }
-
-    /**
      * Retorna o caminho do arquivo de exemplo
      */
     public static function getExampleFilePath()
@@ -353,55 +318,4 @@ class FileService
         return public_path('assets/example/import_keys.xlsx');
     }
 
-    // ==================== MÉTODOS AUXILIARES ====================
-
-    /**
-     * Converte datas do Excel (serial number) para formato Y-m-d
-     * Excel armazena datas como números (dias desde 01/01/1900)
-     * Exemplo: 45955 = 25/10/2025
-     */
-    private function convertExcelDate($cell)
-    {
-        $value = $cell->getValue();
-
-        // Se estiver vazio, retorna null
-        if (empty($value)) return null;
-
-        // Se for um número (serial date do Excel)
-        if (is_numeric($value)) {
-            try {
-                // Converte o serial number do Excel para DateTime
-                $dateTime = ExcelDate::excelToDateTimeObject($value);
-                return $dateTime->format('Y-m-d');
-            } catch (\Exception $e) {
-                Log::warning('Erro ao converter data do Excel', [
-                    'value' => $value,
-                    'error' => $e->getMessage()
-                ]);
-                return now()->toDateString();
-            }
-        }
-
-        // Se já for uma string de data, tenta converter
-        if (is_string($value)) {
-            try {
-                // Tenta parsear a data (suporta vários formatos)
-                $dateTime = \DateTime::createFromFormat('d/m/Y', $value)
-                    ?: \DateTime::createFromFormat('Y-m-d', $value)
-                    ?: \DateTime::createFromFormat('d-m-Y', $value);
-
-                if ($dateTime) {
-                    return $dateTime->format('Y-m-d');
-                }
-            } catch (\Exception $e) {
-                Log::warning('Erro ao parsear data string', [
-                    'value' => $value,
-                    'error' => $e->getMessage()
-                ]);
-            }
-        }
-
-        // Se nada funcionou, retorna a data de hoje
-        return now()->toDateString();
-    }
 }

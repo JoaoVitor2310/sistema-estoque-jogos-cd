@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Domain\Bundles\BundleTypeResolver;
 use App\Models\Bundle;
 use App\Models\Game;
 use App\Models\Recursos;
@@ -50,7 +51,7 @@ class BundleService
     public function createBundlesFromAPI($bundles, $APIService)
     {
         foreach ($bundles as $api_bundle) {
-            $type = stripos($api_bundle['title'], 'Choice') !== false ? 'choice' : 'bundle';
+            $type = BundleTypeResolver::resolve($api_bundle['title']);
 
             $bundle = Bundle::firstOrCreate(
                 ['url' => $api_bundle['url']],
