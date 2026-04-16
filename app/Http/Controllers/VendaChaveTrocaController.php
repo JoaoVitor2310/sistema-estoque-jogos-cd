@@ -9,15 +9,16 @@ use App\Models\Plataforma;
 use App\Models\Tipo_formato;
 use App\Models\Tipo_leilao;
 use App\Models\Tipo_reclamacao;
-use App\Services\GameService;
-use App\Services\Suppliers\SupplierService;
 use App\Traits\HttpResponses;
+use App\UseCases\Keys\RegisterKeyUseCase;
+use App\UseCases\Keys\UpdateKeyUseCase;
 use Illuminate\Http\Request;
 use App\Models\Venda_chave_troca;
 use App\Http\Requests\ImportKeysRequest;
 use App\Services\FileService;
 use App\Services\Keys\KeyCalculationService;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
@@ -25,16 +26,12 @@ class VendaChaveTrocaController extends Controller
 {
     use HttpResponses;
 
-    /**
-     * Display a listing of the resource.
-     */
     public function __construct(
         protected KeyCalculationService $calculateService,
-        protected GameService $gameService,
-        protected SupplierService $supplierService,
-    )
-    {
-    }
+        protected RegisterKeyUseCase $registerKeyUseCase,
+        protected UpdateKeyUseCase $updateKeyUseCase,
+    ) {}
+
 
     public function show(Request $request) // Renderiza a tela inicial
     {
@@ -193,81 +190,9 @@ class VendaChaveTrocaController extends Controller
      */
     public function store(StoreGameRequestArray $request)
     {
-        $data = $request->validated();
+        $result = $this->registerKeyUseCase->execute($request->validated()['games']);
 
-        $resultFirstFormulas = $this->calculateService->calculateFirstFormulas($data['games']);
-
-        $data['games'] = $resultFirstFormulas['games'];
-        $somatorioIncomes = $resultFirstFormulas['somatorioIncomes'];
-
-        foreach ($data['games'] as $game) {
-            $game['id_fornecedor'] = $this->supplierService->findOrCreate($game['perfilOrigem']);
-
-            // Calcula as fórmulas
-            $game = $this->calculateService->calculateFormulas($game, $somatorioIncomes, false);
-
-            $repeatedGame = Venda_chave_troca::select('*')->where('chaveRecebida', $game['chaveRecebida'])->first();
-
-            if ($repeatedGame) $game['repetido'] = true;
-
-            $game['plataformaIdentificada'] = $this->gameService->identifyPlatform($game['chaveRecebida']);
-            $game = $this->calculateService->calculateMinMaxApi($game);
-            $game['nomeJogo'] = trim($game['nomeJogo']);
-
-            if ($game['idGamivo'] == '') {
-                $idGamivo = $this->gameService->getIdGamivo($game['nomeJogo'], $game['region']);
-                if ($idGamivo) $game['idGamivo'] = $idGamivo;
-            }
-
-            if ($game['idGamivo']) $this->gameService->fillIdGamivo($game['nomeJogo'], $game['region'], $game['idGamivo']);
-
-            // Cadastra o jogo na tabela Games se ainda não estiver
-            $this->gameService->createGameIfDontExists($game);
-
-            if ($game['minimoParaVenda'] == '') {
-                $game['minimoParaVenda'] = $game['precoCliente'] * 1.05;
-            }
-
-            // Inserir o valor pago total no padrão
-            if ($game['valorPagoTotal'] == '') {
-                $game['valorPagoTotal'] = $game['qtdTF2'] . "x TF2 Keys / " . count($data['games']);
-            }
-
-            // return $this->response(200, 'DEBUG.', [$idGamivo]);
-            try {
-                $created = Venda_chave_troca::create($game);
-                if ($created) {
-                    $fullGame = Venda_chave_troca::select('*')->where('id', $created->id)->with([
-                        'fornecedor',
-                        'tipoReclamacao',
-                        'tipoFormato',
-                        'leilaoG2A',
-                        'leilaoGamivo',
-                        'leilaoKinguin',
-                        'plataforma'
-                    ])->first();
-
-                    $fullGames[] = $fullGame;
-                } else {
-                    return $this->error(400, 'Algo deu errado!');
-                }
-            } catch (\Exception $e) {
-                // Log the error
-                // \Log::error($e);
-
-                return $this->error(500, 'Erro interno ao cadastrar novo jogo', [$e->getMessage()]);
-            }
-        }
-
-        $hasUnidentified = array_filter($fullGames, function ($game) {
-            return isset($game['plataformaIdentificada']) && $game['plataformaIdentificada'] === "DESCONHECIDO";
-        });
-
-        if (!empty($hasUnidentified)) {
-            return $this->response(201, 'Jogos cadastrados com sucesso, mas tem pelo menos um com a plataforma não identificada.', $fullGames);
-        }
-
-        return $this->response(201, 'Jogos cadastrados com sucesso', $fullGames);
+        return $this->response(201, $result['message'], $result['games']);
     }
 
     /**
@@ -275,59 +200,15 @@ class VendaChaveTrocaController extends Controller
      */
     public function update(StoreGameRequest $request, string $id)
     {
-        $game = Venda_chave_troca::with('tipoReclamacao')->find($id);
-
-        if (!$game)
-            return $this->error(404, 'Jogo não encontrado');
-
-        $updatedGame = $request->validated();
-        $updatedGame['valorPagoIndividual'] = $game['valorPagoIndividual']; // O valor pago individual vem do banco, e nao do request
-
-        if (!isset($updatedGame['qtdTF2'])) {
-            $updatedGame['qtdTF2'] = $game['qtdTF2'];
+        try {
+            $game = $this->updateKeyUseCase->execute($id, $request->validated());
+        } catch (ModelNotFoundException) {
+            return $this->error(404, 'Jogo não encontrado');
         }
 
-        // Calcula as fórmulas
-        $resultFirstFormulas = $this->calculateService->calculateFirstFormulas([$updatedGame]);
-        $data = $resultFirstFormulas['games'];
-        $somatorioIncomes = $resultFirstFormulas['somatorioIncomes'];
-        $data = $this->calculateService->calculateFormulas($data[0], $somatorioIncomes, true);
-        $data['plataformaIdentificada'] = $this->gameService->identifyPlatform($data['chaveRecebida']);
-
-
-        // Lógica para fornecedores
-        $data['id_fornecedor'] = $this->supplierService->findOrCreate($data['perfilOrigem']);
-
-        // Lógica para checar se o jogo é repetido
-        $repeatedGame = Venda_chave_troca::select('*')->where('chaveRecebida', $data['chaveRecebida'])->whereNot('id', $game['id'])->first();
-
-        $data['repetido'] = $repeatedGame !== null ? true : false;
-
-        if ($data['idGamivo'] == '') {
-            $idGamivo = $this->gameService->getIdGamivo($data['nomeJogo'], $data['region']);
-            if ($idGamivo) $data['idGamivo'] = $idGamivo;
-        }
-
-        if ($data['idGamivo']) $this->gameService->fillIdGamivo($data['nomeJogo'], $data['region'], $data['idGamivo']);
-
-        $result = Venda_chave_troca::where('id', $id)->update($data); // Atualiza
-
-        if (!$result)
-            return $this->error(500, 'Erro interno ao atualizar jogo');
-
-        $game = Venda_chave_troca::select('*')->where('id', $id)->with([
-            'fornecedor',
-            'tipoReclamacao',
-            'tipoFormato',
-            'leilaoG2A',
-            'leilaoGamivo',
-            'leilaoKinguin',
-            'plataforma'
-        ])->first();
-
-        if ($game['plataformaIdentificada'] === 'DESCONHECIDO') {
+        if ($game->plataformaIdentificada === 'DESCONHECIDO') {
             return $this->response(200, 'Jogo atualizado, mas a plataforma não foi identificada.', $game);
-        };
+        }
 
         return $this->response(200, 'Jogo atualizado com sucesso', $game);
     }
