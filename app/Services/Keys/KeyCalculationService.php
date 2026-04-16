@@ -2,6 +2,7 @@
 
 namespace App\Services\Keys;
 
+use App\Domain\Pricing\IncomeCalculator;
 use App\Domain\Pricing\MinMaxPriceCalculator;
 use App\Domain\Pricing\ProfitCalculator;
 use App\Domain\Pricing\ValueObjects\MarketplaceFee;
@@ -25,10 +26,6 @@ class KeyCalculationService
     private const FEES_CACHE_KEY = 'marketplace_fees';
     private const TF2_CACHE_KEY  = 'tf2_euro_price';
     private const CACHE_TTL      = 3600; // 1 hora
-
-    private const GAMIVO_MICRO_THRESHOLD = 0.28;
-    private const GAMIVO_MICRO_FIXED_FEE = 0.11;
-    private const GAMIVO_TIER_THRESHOLD  = 8.0;
 
     /**
      * Retorna as taxas do Gamivo encapsuladas num VO, com cache de 1 hora.
@@ -159,27 +156,11 @@ class KeyCalculationService
     }
 
     /**
-     * Calcula o income líquido do Gamivo após as taxas do marketplace.
-     *
-     * Tiers:
-     *  precoCliente < 0.28 → precoCliente − 0.11 (taxa micro, fixa)
-     *  precoCliente < 8    → precoCliente × (1 − %menorFee) − fixoMenor
-     *  precoCliente >= 8   → precoCliente × (1 − %maiorFee) − fixoMaior
-     *
-     * Depende de MarketplaceFee (infra), por isso vive aqui e não no Domain.
+     * Calcula o income líquido do Gamivo delegando ao Domain.
+     * Responsabilidade deste Service: carregar o VO do banco (com cache).
      */
     private function calculateIncome(float $clientPrice): float
     {
-        if ($clientPrice < self::GAMIVO_MICRO_THRESHOLD) {
-            return $clientPrice - self::GAMIVO_MICRO_FIXED_FEE;
-        }
-
-        $fee = $this->getMarketplaceFee();
-
-        if ($clientPrice < self::GAMIVO_TIER_THRESHOLD) {
-            return $clientPrice * (1 - $fee->percentualMenor) - $fee->fixoMenor;
-        }
-
-        return $clientPrice * (1 - $fee->percentualMaior) - $fee->fixoMaior;
+        return IncomeCalculator::forGamivo($clientPrice, $this->getMarketplaceFee());
     }
 }

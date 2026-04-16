@@ -68,7 +68,12 @@ Tempo(meses) - Lucro % para colocar a venda
 7 - 70%
 10 - 60%
 
-Essa lógica também está presente na API Gamivo, 
+Essa lógica também está presente na API Gamivo.
+
+## Taxas com problemas em key
+Quando uma key tem problema, a Gamivo nos dá a opção de reembolsar o cliente ou fornecer outra chave. Se tivermos outra key, enviaremos para o cliente. Se não tivermos a key, a chave é reembolsada e o dinheiro que ganhamos com essa venda é devolvido para o cliente. Atualmente a Gamivo tem 2 taxas de punição para quando tem problemas com as keys:
+1 euro - Aplicada quando uma chave tem problema de region_lock, ou chave duplicada e etc. Mais comum de acontecer por conta de algum descuido dos nossos fornecedores, normalmente os fornecedores reembolsam o preço que pagamos da key e esse 1 euro de taxa.
+10 euros - Aplicada quando uma chave foi revogada, ou seja, vendemos para um cliente na Gamivo mas os desenvolvedores revogaram essa chave. Menos comum de acontecer, normalmente acontece quando caímos em golpe e não somos reembolsados da key nem dessa taxa, é muito prejuízo e esse cenário deve ser evitado ao máximo.
 
 
 ## Financeiro
