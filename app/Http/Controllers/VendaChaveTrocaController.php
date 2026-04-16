@@ -10,10 +10,10 @@ use App\Models\Tipo_formato;
 use App\Models\Tipo_leilao;
 use App\Models\Tipo_reclamacao;
 use App\Services\GameService;
+use App\Services\Suppliers\SupplierService;
 use App\Traits\HttpResponses;
 use Illuminate\Http\Request;
 use App\Models\Venda_chave_troca;
-use App\Models\Fornecedor;
 use App\Http\Requests\ImportKeysRequest;
 use App\Services\FileService;
 use App\Services\Keys\KeyCalculationService;
@@ -28,7 +28,11 @@ class VendaChaveTrocaController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function __construct(protected KeyCalculationService $calculateService, protected GameService $gameService)
+    public function __construct(
+        protected KeyCalculationService $calculateService,
+        protected GameService $gameService,
+        protected SupplierService $supplierService,
+    )
     {
     }
 
@@ -197,7 +201,7 @@ class VendaChaveTrocaController extends Controller
         $somatorioIncomes = $resultFirstFormulas['somatorioIncomes'];
 
         foreach ($data['games'] as $game) {
-            $game['id_fornecedor'] = $this->gameService->criarAdicionarFornecedor($game['perfilOrigem'], $game['tipo_reclamacao_id']);
+            $game['id_fornecedor'] = $this->supplierService->findOrCreate($game['perfilOrigem']);
 
             // Calcula as fórmulas
             $game = $this->calculateService->calculateFormulas($game, $somatorioIncomes, false);
@@ -292,7 +296,7 @@ class VendaChaveTrocaController extends Controller
 
 
         // Lógica para fornecedores
-        $data = $this->editarFornecedor($data, $game);
+        $data['id_fornecedor'] = $this->supplierService->findOrCreate($data['perfilOrigem']);
 
         // Lógica para checar se o jogo é repetido
         $repeatedGame = Venda_chave_troca::select('*')->where('chaveRecebida', $data['chaveRecebida'])->whereNot('id', $game['id'])->first();
@@ -539,43 +543,5 @@ class VendaChaveTrocaController extends Controller
         return response()->download($filePath, 'exemplo-importacao-jogos.xlsx');
     }
 
-    // Funções auxiliares
-
-    private function editarFornecedor($data, $game): mixed
-    { // data = jogo enviado; game = jogo cadastrado
-        $fornecedorCadastrado = Fornecedor::select('*')->where('perfilOrigem', $game['perfilOrigem'])->first();
-        $fornecedorEnviado = Fornecedor::select('*')->where('perfilOrigem', $data['perfilOrigem'])->first();
-        if (!$fornecedorEnviado) { // Se não existe o fornecedor enviado, cria
-            $data['id_fornecedor'] = $this->gameService->criarAdicionarFornecedor($data['perfilOrigem'], $data['tipo_reclamacao_id']);
-            // Diminui uma reclamação do fornecedor cadastrado
-
-            if ($fornecedorCadastrado->quantidade_reclamacoes > 0)
-                $fornecedorCadastrado->where('perfilOrigem', $game['perfilOrigem'])->update(['quantidade_reclamacoes' => $fornecedorCadastrado->quantidade_reclamacoes - 1]);
-        } else {
-
-            if ($fornecedorEnviado['id'] != $fornecedorCadastrado['id']) { // Não é o mesmo fornecedor
-                // Checar se tem reclamação no fornecedor enviado
-                if ($data['tipo_reclamacao_id'] != 1) {
-                    // Diminuir uma reclamação do fornedor cadastrado e adicionar para o enviado
-                    if ($fornecedorCadastrado->quantidade_reclamacoes > 0)
-                        $fornecedorCadastrado->where('id', $fornecedorCadastrado['id'])->update(['quantidade_reclamacoes' => $fornecedorCadastrado->quantidade_reclamacoes - 1]);
-                    $fornecedorEnviado->where('id', $fornecedorEnviado['id'])->update(['quantidade_reclamacoes' => $fornecedorEnviado->quantidade_reclamacoes + 1]);
-                }
-            } else { // Se for o mesmo, verifica se mudou de true para false e retira um
-                if ($data['tipo_reclamacao_id'] != 1 && $game->tipoReclamacao->id != 1) { // Tinha reclamação e continua tendo reclamação
-                    return $data;
-                } else if ($data['tipo_reclamacao_id'] != 1 && $game->tipoReclamacao->id == 1) { // NÃO tinha reclamação e agora tem
-                    // return $fornecedorEnviado['quantidade_reclamacoes'];
-                    $fornecedorEnviado->where('id', $fornecedorEnviado['id'])->update(['quantidade_reclamacoes' => $fornecedorEnviado->quantidade_reclamacoes + 1]);
-                } else { // Tinha reclamação e agora não tem
-                    if ($fornecedorEnviado->quantidade_reclamacoes > 0)
-                        $fornecedorEnviado->where('id', $fornecedorEnviado['id'])->update(['quantidade_reclamacoes' => $fornecedorEnviado->quantidade_reclamacoes - 1]);
-                }
-            }
-
-            $data['id_fornecedor'] = $fornecedorEnviado['id'];
-        }
-        return $data;
-    }
-
 }
+

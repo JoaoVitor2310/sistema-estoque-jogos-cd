@@ -1,7 +1,6 @@
 export type Fornecedor = {
     id: number;
     perfilOrigem: string;
-    quantidade_reclamacoes: number;
     created_at: string | null;
     updated_at: string | null;
 }

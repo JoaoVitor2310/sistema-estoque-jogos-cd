@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Domain\Keys\KeyPriceAging;
 use App\Domain\Platform\PlatformIdentifier;
-use App\Models\Fornecedor;
 use App\Models\Game;
 use App\Models\Venda_chave_troca;
 use Carbon\Carbon;
@@ -141,30 +140,4 @@ class GameService
         return PlatformIdentifier::identify($chaveRecebida);
     }
 
-    /**
-     * Cria ou adiciona reclamação ao fornecedor
-     */
-    public function criarAdicionarFornecedor($perfilOrigem, $reclamacao)
-    {
-        $fornecedor = Fornecedor::where('perfilOrigem', $perfilOrigem)->first();
-
-        if (!$fornecedor) {
-            // Se não tiver o fornecedor, cria ele
-            $newFornecedor = ['perfilOrigem' => $perfilOrigem];
-
-            if ($reclamacao != 1) {
-                $newFornecedor['quantidade_reclamacoes'] = 1;
-            }
-
-            $fornecedor = Fornecedor::create($newFornecedor);
-        } else {
-            // Existe o fornecedor, soma mais uma reclamação se tiver
-            if ($reclamacao != 1) {
-                $fornecedor->where('perfilOrigem', $perfilOrigem)
-                    ->update(['quantidade_reclamacoes' => $fornecedor->quantidade_reclamacoes + 1]);
-            }
-        }
-
-        return $fornecedor->id;
-    }
 }

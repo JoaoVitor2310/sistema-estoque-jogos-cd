@@ -11,9 +11,8 @@ class Fornecedor extends Model
 
     protected $table = 'fornecedor';
 
-    protected $fillable= [
+    protected $fillable = [
         'id',
         'perfilOrigem',
-        'quantidade_reclamacoes',
-      ];
+    ];
 }

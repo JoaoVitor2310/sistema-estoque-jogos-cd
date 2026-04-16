@@ -1310,8 +1310,6 @@ const handleImportSubmit = async (): Promise<void> => {
             <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
           </template>
         </Column>
-        <Column field="fornecedor.quantidade_reclamacoes" header="Reclamações Anteriores">
-        </Column>
         <!-- <Column field="email" header="Email" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
