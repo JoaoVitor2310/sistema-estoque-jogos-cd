@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Domain\Platform\PlatformIdentifier;
 use App\Models\Fornecedor;
 use App\Models\Game;
 use App\Models\Venda_chave_troca;
@@ -130,27 +131,12 @@ class GameService
     }
 
     /**
-     * Identifica a plataforma do jogo baseado no padrão da chave
+     * Identifica a plataforma do jogo baseado no padrão da chave.
+     * Delega ao Domain — lógica de identificação vive em PlatformIdentifier.
      */
-    public function identifyPlatform($chaveRecebida)
+    public function identifyPlatform(string $chaveRecebida): string
     {
-        $patterns = [
-            'Steam' => '/^\w{5}-\w{5}-\w{5}$|^\w{15}\s\w{2}$/',
-            'EA' => '/^\w{4}-\w{4}-\w{4}-\w{4}-\w{4}$/',
-            'EA/Ubisoft' => '/^\w{4}-\w{4}-\w{4}-\w{4}$/',
-            'EGS' => '/^\w{5}-\w{5}-\w{5}-\w{5}$/',
-            'GOG' => '/^\w{18}$/',
-            'XBOX' => '/^\w{5}-\w{5}-\w{5}-\w{5}-\w{5}$/',
-            'PSN' => '/^\w{4}-\w{4}-\w{4}$/',
-        ];
-
-        foreach ($patterns as $platform => $pattern) {
-            if (preg_match($pattern, $chaveRecebida)) {
-                return $platform;
-            }
-        }
-
-        return 'DESCONHECIDO';
+        return PlatformIdentifier::identify($chaveRecebida);
     }
 
     /**
