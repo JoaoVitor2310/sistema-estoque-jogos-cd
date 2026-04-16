@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Domain\Keys\KeyPriceAging;
 use App\Domain\Platform\PlatformIdentifier;
 use App\Models\Fornecedor;
 use App\Models\Game;
@@ -106,26 +107,27 @@ class GameService
     }
 
     /**
-     * Update the minimum API Gamivo for old selling games
-     * @return void
+     * Atualiza o preço mínimo da API Gamivo para keys antigas ainda listadas.
+     * Processa até 10 keys por chamada para evitar sobrecarga.
+     * A regra de degradação por tempo vive em Domain/Keys/KeyPriceAging.
      */
     public function updateMinPrices(): void
     {
-        $keys = Venda_chave_troca::select('id', 'nomeJogo', 'region', 'valorPagoIndividual', 'minApiGamivo', 'maxApiGamivo', 'dataVenda', 'dataVendida')->whereNotNull('dataVenda')->whereNull('dataVendida')->limit(10)->get();
+        $keys = Venda_chave_troca::select('id', 'nomeJogo', 'region', 'valorPagoIndividual', 'minApiGamivo', 'maxApiGamivo', 'dataVenda', 'dataVendida')
+            ->whereNotNull('dataVenda')
+            ->whereNull('dataVendida')
+            ->limit(10)
+            ->get();
+
         foreach ($keys as $key) {
-            $today = now();
+            $monthsListed = Carbon::parse($key->dataVenda)->diffInMonths(now());
+            $newMinPrice  = KeyPriceAging::calculateAgedPrice((float) $key->valorPagoIndividual, $monthsListed);
 
-            $dataVenda = Carbon::parse($key->dataVenda);
-
-            if ($dataVenda->diffInMonths($today) >= 12) {
-                $key->minApiGamivo = 0.02;
-            } else if ($dataVenda->diffInMonths($today) >= 9) {
-                $key->minApiGamivo = $key->valorPagoIndividual * 1.2;
-            } else if ($dataVenda->diffInMonths($today) >= 6) {
-                $key->minApiGamivo = $key->valorPagoIndividual * 1.3;
-            } else if ($dataVenda->diffInMonths($today) >= 3) {
-                $key->minApiGamivo = $key->valorPagoIndividual * 1.4;
+            if ($newMinPrice === null) {
+                continue; // ainda não atingiu nenhum tier — sem alteração
             }
+
+            $key->minApiGamivo = $newMinPrice;
             $key->save();
         }
     }

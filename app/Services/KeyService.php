@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Domain\Keys\KeyPriceAging;
 use App\Models\Venda_chave_troca;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
@@ -17,6 +18,10 @@ class KeyService
         //
     }
 
+    /**
+     * Ajusta o preço mínimo de keys em limbo (listadas há 12+ meses sem venda).
+     * Consulta o preço atual no mercado Gamivo e delega o cálculo ao Domain.
+     */
     public function checkLimboKeys(): void
     {
         $games = Venda_chave_troca::select([
@@ -26,7 +31,7 @@ class KeyService
             'valorPagoIndividual',
             'minApiGamivo',
             'maxApiGamivo',
-            'dataVenda'
+            'dataVenda',
         ])
             ->whereNull('dataVendida')
             ->whereNotNull('idGamivo')
@@ -34,22 +39,17 @@ class KeyService
             ->get();
 
         foreach ($games as $game) {
-            if ($game->id !== 675) continue;
-            // Checar preço atual
             $actualPrice = $this->getActualPrice($game->idGamivo);
 
-            if (!$actualPrice['success']) continue;
-
-            $actualPrice['price'] = 2;
-            
-            if ($actualPrice['price'] < $game->valorPagoIndividual) {
-                // Se o preco atual < valorPagoIndividual, minApi = 0,02
-                $game->minApiGamivo = 0.02;
-            } else {
-                // Se não, minApi = preco atual * 0,10
-                $game->minApiGamivo = $actualPrice['price'] * 0.10;
+            if (!$actualPrice['success']) {
+                continue;
             }
-            
+
+            $game->minApiGamivo = KeyPriceAging::calculateLimboPrice(
+                individualCost:    (float) $game->valorPagoIndividual,
+                actualMarketPrice: (float) $actualPrice['price'],
+            );
+
             $game->save();
         }
     }
