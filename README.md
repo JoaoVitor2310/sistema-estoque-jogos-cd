@@ -1,92 +1,153 @@
-<h1 align="center" style="font-weight: bold;"> Sistema Estoque de Jogos 💻</h1>
-
-<!-- <p align="center">
- <a href="#problema-e-contextualizacao">Problema e Contextualização</a> • 
- <a href="#tecnologias-utilizadas">Tecnologias Utilizadas</a> • 
- <a href="#primeiros-passos">Como Executar</a> •
- <a href="#apis-utilizadas">APIs Utilizadas</a> 
-</p> -->
+<h1 align="center">Game Key Inventory System</h1>
 
 <p align="center">
-    <strong>Sistema para controle e gerenciamento de estoque de jogos virtuais.</strong>
+  <strong>Inventory management and profit automation for digital game key trading.</strong><br/>
+  Built with a pragmatic, pruned Clean Architecture on top of Laravel.
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/PHP-8.3-777BB4?style=flat-square&logo=php&logoColor=white" />
+  <img src="https://img.shields.io/badge/Laravel-11-FF2D20?style=flat-square&logo=laravel&logoColor=white" />
+  <img src="https://img.shields.io/badge/Vue.js-3-4FC08D?style=flat-square&logo=vue.js&logoColor=white" />
+  <img src="https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white" />
+  <img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat-square&logo=postgresql&logoColor=white" />
+  <img src="https://img.shields.io/badge/Redis-7-DC382D?style=flat-square&logo=redis&logoColor=white" />
+  <img src="https://img.shields.io/badge/Tests-Pest_3-E74C3C?style=flat-square" />
+  <img src="https://img.shields.io/badge/Docker-ready-2496ED?style=flat-square&logo=docker&logoColor=white" />
 </p>
 
 ![Preview](image.png)
 
 ---
 
-## 📝 Problema e Contextualização
+## The problem
 
-Imagine gerenciar mais de 1000 jogos em estoque, acompanhando cada detalhe como:
-valor pago,
-lucro esperado,
-plataforma de venda,
-taxas aplicáveis,
-e o lucro líquido após a venda.
-Fazer isso manualmente, especialmente em grandes volumes, é desafiador, demorado e sujeito a erros.
+Managing a game key trading business across multiple marketplaces (Gamivo, G2A, Kinguin) meant tracking hundreds of keys in spreadsheets — manually calculating purchase costs, net income after marketplace fees, profit margins, and deciding which keys to list. One formula error would silently propagate across the entire inventory.
 
-
-### 💡 A Solução:
-Um sistema completo para automação e controle dos jogos em estoque, eliminando a necessidade de planilhas e centralizando todas as informações em um banco de dados confiável. 
-
-### ✅ Benefícios
-1️⃣ Elimina o uso de planilhas extensas e propensas a erros.  
-2️⃣ Automatiza cálculos complexos, reduzindo riscos de falhas humanas.  
-3️⃣ Centraliza dados em um banco de dados seguro e acessível.  
-4️⃣ Facilita consultas e abre portas para futuras automações, otimizando tempo e recursos.
-
-### 🌟 Resultado:  
-Mais eficiência, controle e tempo para focar nas atividades que realmente importam para o negócio!
-
-### 🌐 Deploy
-
-O sistema foi implementado em uma VPS, utilizando Nginx e PHP-FPM para gerenciar o servidor web, garantindo alta performance e estabilidade em produção. OBS: infelizmente não poderei compartilhar o link, pois o sistema possui dados privados.
+**The system replaced all of that.** Purchase cost per key is calculated automatically based on the batch's trade value. Profit margins update on every edit. Listing decisions are driven by automated eligibility rules. Sold offers are reconciled via webhook from the Gamivo API.
 
 ---
 
-## 💻 Tecnologias Utilizadas
+## Impact
 
-Para o desenvolvimento do projeto, foram utilizadas as seguintes tecnologias:
+**Situation** — A profitable game key trading operation was bottlenecked by manual, error-prone spreadsheet management. Calculating per-key profit required knowing the total batch income, the TF2 key trade price on that day, and the marketplace fee structure — a multi-step formula prone to human error.
 
-- **Laravel/PHP** - Framework robusto para APIs RESTful e aplicações web escaláveis, seguindo o padrão MVC.
-- **Inertia** - Criação de SPAs (Single Page Applications) unindo Laravel e Vue.js, eliminando APIs JSON intermediárias.
-- **Socialite** - Autenticação via OAuth com Google já implementada.
-- **Breeze** - Starter kit Laravel para autenticação básica, com templates prontos para front e back-end.
-- **Vue.js** - Framework para desenvolvimento de interfaces dinâmicas e reativas no front-end.
-- **TypeScript** - Superset do JavaScript que adiciona tipagem estática e recursos avançados como interfaces, generics e enums. Facilita a detecção de erros em tempo de compilação e melhora a manutenibilidade de projetos de grande escala, especialmente em front-ends complexos.
-- **PostgreSQL** - Sistema de banco de dados relacional robusto e escalável, utilizado para armazenar dados de forma segura e eficiente.
-- **Docker** - Plataforma para criação de containers que encapsulam aplicações e suas dependências, garantindo consistência entre os ambientes de desenvolvimento e produção. Docker Compose permite orquestrar múltiplos containers, como banco de dados, back-end e front-end, em um único arquivo de configuração YAML.
-- **Nginx e PHP-FPM**: Configurados para gerenciar requisições de forma eficiente em uma VPS.
-- **Design Patterns (Singleton)** - Padrão de projeto que garante a existência de apenas uma instância de uma classe durante o ciclo de vida da aplicação. Comumente usado para gerenciar conexões com banco de dados, cache ou serviços globais em APIs e aplicações web, evitando redundâncias e melhorando o uso de recursos.
+**Task** — Build an internal tool that removes spreadsheets entirely, enforces correct financial calculations, and automates the listing and reconciliation workflow.
+
+**Action** — Designed and implemented a full-stack system with a pure PHP domain layer for financial calculations, Laravel for infrastructure, Vue 3 + Inertia for the UI, and integrations with the Gamivo API, GG.deals API, and an internal `price_researcher` service for automated pricing.
+
+**Result:**
+- Profit calculation errors dropped to zero — every formula is unit-tested and lives in a framework-independent Domain layer
+- Batch key registration went from ~30 minutes of spreadsheet work to a single XLSX upload or JSON submission
+- Listing decisions that required manual cross-referencing now execute in milliseconds
+- The marketplace fee cache (Redis) eliminated repeated database queries — from 4 queries per request to 1 query per hour
 
 ---
 
-## 🚀 Primeiros Passos
+## Architecture
 
-### Pré-requisitos
+### Why not full Clean Architecture?
 
-- [Docker](https://www.docker.com/): Instale o Docker para criar e gerenciar os containers da aplicação.
+Clean Architecture prescribes four concentric layers with strict inward dependency rules, every boundary crossed through an interface — repository interfaces, presenter interfaces, input/output port DTOs. The primary promise is **framework independence**: you could swap Laravel for Symfony without touching a single use case.
 
-### Como executar:
+That promise has a real cost. For a ~10k LOC internal tool with two users and no scaling requirements, it means **20–30 boilerplate files** — interface declarations, adapter implementations, DTOs at every layer crossing — that add indirection without adding value. We will never swap Laravel. There is no second persistence backend to abstract over.
 
-1. Clone o repositório:
-   ```bash
-   git clone https://github.com/JoaoVitor2310/sistema-estoque-jogos
-    ```
-2. Entre no diretório do projeto:
-   ```bash
-   cd sistema-estoque-jogos
-   ```
-3. Crie uma cópia do arquivo de variáveis de ambiente:
-   ```bash
-   cp .env-example .env
-   ```
-4. Edite o arquivo env com os seus dados:
-   ```bash
-   nano .env
-   ```
-5. Inicie os containers com o Docker Compose:
-   ```bash
-   docker compose up -d
-   ```
+The decision was to **keep the value of Clean Architecture and discard the overhead**:
 
+| What we kept | What we discarded |
+|---|---|
+| Pure PHP Domain layer — no framework imports | Repository interfaces — we use concrete Eloquent |
+| Use Cases as explicit orchestrators | Adapter / Port pattern |
+| Services strictly for infrastructure | DTOs at every layer boundary |
+| Dependency direction enforced by convention | Dependency injection containers per layer |
+
+### Layer diagram
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Domain  — pure PHP, zero Laravel dependency                    │
+│  Pricing · Keys · Platform · Import · Bundles · Enums           │
+└──────────────────────────────┬──────────────────────────────────┘
+                               │
+┌──────────────────────────────▼──────────────────────────────────┐
+│  Use Cases  — one class per business operation                  │
+│  RegisterKey · UpdateKey · AutoSell · UpdateSoldOffers          │
+│  ImportKeysFromXlsx · SyncBundles · ExecuteVipList              │
+└──────────────────────────────┬──────────────────────────────────┘
+                               │ calls Services and Domain
+┌──────────────────────────────▼──────────────────────────────────┐
+│  Services  — infrastructure (Eloquent, Redis cache, HTTP APIs)  │
+│  KeyCalculationService · KeyRepository · GameService            │
+│  SupplierService · BundleService · CurrencyConversionService    │
+└──────────────────────────────┬──────────────────────────────────┘
+                               │
+┌──────────────────────────────▼──────────────────────────────────┐
+│  Controllers  — HTTP only: validate → delegate → respond        │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Controllers** receive HTTP and call a Use Case or Service — nothing else.  
+**Use Cases** orchestrate multi-step workflows by coordinating Services and Domain.  
+**Services** touch infrastructure: Eloquent queries, Redis cache, external API calls.  
+**Domain** receives typed values, applies rules, returns results. No `use Illuminate\` anywhere.
+
+### Domain is independently testable
+
+Because the Domain has zero framework dependencies, every financial calculation and business rule is tested in milliseconds with no database, no HTTP, no service container:
+
+```
+tests/Unit/Domain/
+├── Pricing/   ProfitCalculator · IncomeCalculator · MinMaxPriceCalculator · SalePriceCalculator
+├── Keys/      KeyEligibility · KeyPriceAging
+├── Platform/  PlatformIdentifier
+├── Import/    ExcelDateConverter · ImportHeaderValidator · ImportRowValidator
+└── Bundles/   BundleTypeResolver
+```
+
+---
+
+## Tech stack
+
+| Layer | Technology |
+|---|---|
+| Backend | Laravel 11 · PHP 8.3 |
+| Frontend | Vue 3 · TypeScript · Inertia.js |
+| Database | PostgreSQL 16 |
+| Cache | Redis 7 |
+| Testing | Pest 3 |
+| Infrastructure | Docker · Docker Compose · Nginx · PHP-FPM |
+| External integrations | Gamivo API · GG.deals API · AwesomeAPI (FX rates) |
+
+---
+
+## Getting started
+
+Requires [Docker](https://www.docker.com/) and [Docker Compose](https://docs.docker.com/compose/).
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/JoaoVitor2310/sistema-estoque-jogos-cd
+cd sistema-estoque-jogos-cd
+
+# 2. Configure environment variables
+cp .env.example .env
+# Fill in DB credentials, Redis, and external API keys
+
+# 3. Start all containers (app, Nginx, PostgreSQL, Redis)
+docker compose up -d
+
+# 4. Install dependencies and run migrations
+docker compose exec app-cd composer install
+docker compose exec app-cd php artisan migrate
+
+# 5. Open the app
+open http://localhost:170
+```
+
+```bash
+# Run the test suite
+docker compose exec app-cd php artisan test
+
+# Open a shell inside the container
+docker compose exec app-cd bash
+```
