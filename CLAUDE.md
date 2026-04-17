@@ -175,6 +175,26 @@ private function convertExcelDate($cell): ?string {
 ExcelDateConverter::convert($cell->getValue()) ?? now()->toDateString()
 ```
 
+### Wrappers desnecessários
+
+Antes de criar um método privado que apenas repassa chamadas, pergunte: **ele adiciona nome semântico, lógica própria ou abstrai múltiplos callers?** Se não, faça inline.
+
+Um wrapper só se justifica quando:
+- É chamado em 3+ lugares com lógica não trivial
+- O nome revela uma intenção que a implementação não deixa clara
+- Encapsula uma variação que pode mudar independentemente
+
+Exemplos do que **não** fazer:
+```php
+// ❌ Wrapper sem valor — apenas repassa, sem semântica nova
+private function convertExcelDate($cell): ?string {
+    return ExcelDateConverter::convert($cell->getValue()) ?? now()->toDateString();
+}
+
+// ✅ Inline — explícito, legível, sem indireção desnecessária
+ExcelDateConverter::convert($cell->getValue()) ?? now()->toDateString()
+```
+
 ### Quando usar UseCase vs Service direto
 
 | Situação | Caminho | Exemplo |
