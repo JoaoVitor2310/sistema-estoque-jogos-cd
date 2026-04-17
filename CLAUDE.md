@@ -229,6 +229,26 @@ Este sistema é uma ferramenta **operacional interna** com:
 > **Services** acessam infraestrutura (Eloquent, APIs externas, cache). Não contêm regras de negócio.
 > **Domain** é PHP puro — recebe valores primitivos e Value Objects, retorna resultados. Zero dependência do Laravel.
 
+### Wrappers desnecessários
+
+Antes de criar um método privado que apenas repassa chamadas, pergunte: **ele adiciona nome semântico, lógica própria ou abstrai múltiplos callers?** Se não, faça inline.
+
+Um wrapper só se justifica quando:
+- É chamado em 3+ lugares com lógica não trivial
+- O nome revela uma intenção que a implementação não deixa clara
+- Encapsula uma variação que pode mudar independentemente
+
+Exemplos do que **não** fazer:
+```php
+// ❌ Wrapper sem valor — apenas repassa, sem semântica nova
+private function convertExcelDate($cell): ?string {
+    return ExcelDateConverter::convert($cell->getValue()) ?? now()->toDateString();
+}
+
+// ✅ Inline — explícito, legível, sem indireção desnecessária
+ExcelDateConverter::convert($cell->getValue()) ?? now()->toDateString()
+```
+
 ### Quando usar UseCase vs Service direto
 
 | Situação | Caminho | Exemplo |
@@ -244,7 +264,7 @@ app/
 ├── Domain/                                    # PHP PURO — zero dependência do Laravel
 │   ├── Pricing/                               # Cálculos financeiros
 │   │   ├── ProfitCalculator.php               # Lucro real, percentual, venda
-│   │   ├── IncomeCalculator.php               # Income simulado e real por marketplace
+│   │   ├── IncomeCalculator.php               # Income simulado por marketplace
 │   │   ├── SalePriceCalculator.php            # Preço de venda (calcPrecoVenda)
 │   │   ├── MinMaxPriceCalculator.php          # Min/max API Gamivo
 │   │   └── ValueObjects/
@@ -456,84 +476,35 @@ Quando o código estiver refatorado e testado, migrar o schema usando **Expand-C
 
 Cada step é uma migration separada e reversível. Se der errado em qualquer ponto, a coluna/tabela antiga ainda existe com dados intactos.
 
-### Fase 0 — Fundação (antes de qualquer refatoração)
-> Objetivo: criar a rede de segurança para refatorar sem medo.
-
-- [ ] **0.1** Criar Enums `Marketplace` e `KeyPlatform` em `app/Domain/Enums/`
-- [ ] **0.2** Escrever testes para o comportamento ATUAL do `Formulas.php` e `CalculateService` (testes de caracterização)
-  - Testar marketplace: Gamivo (<8 e ≥8) os outros serão deletados
-  - Testar `calculateMinMaxApi` com diferentes faixas de preço
-  - Esses testes vão garantir que a refatoração não muda o resultado
-- [ ] **0.3** Escrever testes para `autoSell()` — especialmente a regra dos 21 dias
-
-### Fase 1 — Extrair Domain/Pricing (maior risco financeiro)
-> Objetivo: centralizar TODOS os cálculos financeiros em PHP puro.
-
-- [ ] **1.1** Criar Value Objects em `Domain/Pricing/ValueObjects/`:
-  - `MarketplaceFee` — encapsula taxas vindas do banco (Gamivo tiers, G2A, Kinguin)
-  - `KeyPricing` — agrupa precoCliente, precoVenda, valorPagoIndividual
-  - `G2ATaxRange` — faixa de preço + taxa associada
-- [ ] **1.2** Criar `Domain/Pricing/IncomeCalculator` — extrair `calcIncomeSimulado()` e `calcIncomeReal()` do `Formulas.php`
-- [ ] **1.3** Criar `Domain/Pricing/SalePriceCalculator` — extrair `calcPrecoVenda()` REMOVER
-- [ ] **1.4** Criar `Domain/Pricing/ProfitCalculator` — extrair `calcValorPagoIndividual()`, `calcLucroReal()`, `calcLucroPercentual()`, `calcLucroVendaReal()`, `calcLucroVendaPercentual()`
-- [ ] **1.5** Criar `Domain/Pricing/MinMaxPriceCalculator` — extrair `calculateMinMaxApi()`
-- [ ] **1.6** Refatorar `KeyCalculationService` — buscar taxas com cache, converter para Value Objects, delegar para classes Domain
-- [ ] **1.7** Eliminar `calculateFormulas()` duplicado do controller
-- [ ] **1.8** Deletar `Formulas.php` — toda lógica já migrada
-- [ ] **1.9** Rodar testes da Fase 0 — todos devem passar com resultados idênticos
-
-### Fase 2 — Extrair Domain/Keys e Domain/Platform
-> Objetivo: centralizar regras de elegibilidade e identificação de plataforma.
-
-- [ ] **2.1** Criar `Domain/Keys/KeyEligibility` — regra dos 21 dias, gift link, idGamivo obrigatório
-- [ ] **2.2** Criar `Domain/Keys/KeyPriceAging` — degradação de preço por idade + limbo
-- [ ] **2.3** Criar `Domain/Keys/DuplicateKeyChecker`
-- [ ] **2.4** Criar `Domain/Platform/PlatformIdentifier` — extrair `identifyPlatform()` do `GameService`
-- [ ] **2.5** Rodar testes
-
-### Fase 3 — Remover código morto (Classification e Supplier Complaints)
-> Objetivo: eliminar funcionalidades descontinuadas antes de reorganizar.
-
-- [ ] **3.1** Remover `classificacaoRandomG2A()` e `classificacaoRandomKinguin()` do `Formulas.php` e qualquer referência nos controllers/views
-- [ ] **3.2** Remover lógica de contagem de reclamações de `editarFornecedor()` e `criarAdicionarFornecedor()`
-- [ ] **3.3** Remover campos/colunas de reclamação se não forem usados por outras funcionalidades
-- [ ] **3.4** Rodar testes
-
-### Fase 4 — Extrair Domain/Import e Domain/Bundles
-> Objetivo: isolar regras de importação e bundles.
-
-- [ ] **4.1** Criar `Domain/Import/ExcelDateConverter`, `ImportHeaderValidator`, `ImportRowValidator`
-- [ ] **4.2** Criar `Domain/Bundles/BundleTypeResolver`
-- [ ] **4.3** Rodar testes
-
 ### Fase 5 — Criar UseCases e reorganizar Services
 > Objetivo: separar orquestração (UseCases) de infraestrutura (Services). Controllers magros.
 
-- [ ] **5.1** Criar `UseCases/Keys/RegisterKeyUseCase` — extrair `store()` do controller
-  - Orquestra: KeyCalculationService + SupplierService + GameService + Domain (DuplicateKeyChecker, PlatformIdentifier, MinMaxPriceCalculator)
-- [ ] **5.2** Criar `UseCases/Keys/UpdateKeyUseCase` — extrair `update()` do controller
+- [x] **5.1** Criar `KeyRepository` com método `findByKeyCode(string $keyCode, ?int $excludeId = null): ?Venda_chave_troca` — substitui a verificação de duplicata inline nos controllers
+- [x] **5.2** Criar `UseCases/Keys/RegisterKeyUseCase` — extrair `store()` do controller e `storeKeys()` do FileService
+  - Orquestra: KeyCalculationService + SupplierService + GameService + KeyRepository (duplicata) + Domain (PlatformIdentifier, MinMaxPriceCalculator)
+- [x] **5.3** Criar `UseCases/Keys/UpdateKeyUseCase` — extrair `update()` do controller
   - Orquestra: KeyCalculationService + SupplierService + GameService
-- [ ] **5.3** Criar `UseCases/Keys/AutoSellUseCase` — extrair `autoSell()` do controller
+- [ ] **5.4** Criar `UseCases/Keys/AutoSellUseCase` — extrair `autoSell()` do controller
   - Orquestra: KeyRepository (query) + Domain/Keys/KeyEligibility (regras)
-- [ ] **5.4** Criar `UseCases/Keys/UpdateSoldOffersUseCase` — extrair `updateSoldOffers()` do controller
+- [ ] **5.5** Criar `UseCases/Keys/UpdateSoldOffersUseCase` — extrair `updateSoldOffers()` do controller
   - Orquestra: KeyRepository (busca) + Domain/Pricing/ProfitCalculator (cálculos de venda)
-- [ ] **5.5** Criar `UseCases/Keys/ImportKeysFromXlsxUseCase` — extrair de `FileService`
+- [ ] **5.6** Criar `UseCases/Keys/ImportKeysFromXlsxUseCase` — extrair de `FileService`
   - Orquestra: Domain/Import (validação) + RegisterKeyUseCase (registro por linha)
-- [ ] **5.6** Criar `UseCases/Bundles/SyncBundlesFromApiUseCase` — extrair de `BundleService`
+- [ ] **5.7** Criar `UseCases/Bundles/SyncBundlesFromApiUseCase` — extrair de `BundleService`
   - Orquestra: BundleService (API/DB) + Domain/Bundles/BundleTypeResolver + CurrencyConversionService
-- [ ] **5.7** Criar `UseCases/Vips/ExecuteVipListUseCase` — extrair de `VipListExecutionService`
-- [ ] **5.8** Refatorar Services para serem infraestrutura pura:
+- [ ] **5.8** Criar `UseCases/Vips/ExecuteVipListUseCase` — extrair de `VipListExecutionService`
+- [ ] **5.9** Refatorar Services para serem infraestrutura pura:
   - `KeyCalculationService` → carrega taxas com cache, converte para VOs
   - `KeyRepository` → queries complexas (autoSell, limbo, sold)
-  - `SupplierService` → CRUD fornecedor
+  - `SupplierService` ✅ criado na Fase 3 — `findOrCreate(string $perfilOrigem): int`
   - `GameService` → lookup Gamivo, Steam ID, CRUD
   - `BundleService` → CRUD bundles, API GGDeals
   - `CurrencyConversionService` → mover de `APIService`
-- [ ] **5.9** Dividir `VendaChaveTrocaController` em `KeyController`, `KeyImportController`, `KeySaleController`
+- [ ] **5.10** Dividir `VendaChaveTrocaController` em `KeyController`, `KeyImportController`, `KeySaleController`
   - Cada método do controller: valida request → chama UseCase ou Service → retorna response
-- [ ] **5.10** Atualizar `routes/web.php` para apontar para novos controllers
-- [ ] **5.11** Deletar `FileService.php`, `CalculateService.php`, `Formulas.php` — toda lógica já migrada
-- [ ] **5.12** Rodar testes completos
+- [ ] **5.11** Atualizar `routes/web.php` para apontar para novos controllers
+- [ ] **5.12** Deletar `FileService.php` — toda lógica já migrada
+- [ ] **5.13** Rodar testes completos
 
 ### Fase 6 — Segurança e infraestrutura
 > Objetivo: corrigir vulnerabilidades identificadas.
@@ -545,38 +516,90 @@ Cada step é uma migration separada e reversível. Se der errado em qualquer pon
 - [ ] **6.5** Fortalecer validações de preço nos Form Requests
 - [ ] **6.6** Substituir `min:1 max:4` por `exists:tipo_reclamacoes,id`
 
-### Fase 7 — CI/CD com GitHub Actions
-> Objetivo: pipeline automatizado que garante qualidade a cada push.
+### Fase 7 — Docker Compose para desenvolvimento ✅
+> Objetivo: ambiente reproduzível com um comando.
 
-- [ ] **8.1** Criar `.github/workflows/ci.yml` com:
-  - PHP setup (matrix: 8.2, 8.3)
-  - `composer install`
-  - PHPStan level 6+ (`  analyse app/`)
-  - Laravel Pint (`./vendor/bin/pint --test`)
-  - PHPUnit (`php artisan test`)
-  - Coverage report (opcional: upload para Codecov)
-- [ ] **8.2** Instalar e configurar PHPStan (com `larastan`) — análise estática de tipos
-- [ ] **8.3** Instalar e configurar Laravel Pint — formatação automática de código
-- [ ] **8.4** Adicionar badge de CI/CD no README
-- [ ] **8.5** (Opcional) Pipeline de deploy automático para staging/produção
+- [x] **7.1** `Dockerfile` (PHP 8.3-FPM + extensões: pgsql, redis, node)
+- [x] **7.2** `docker-compose.yml` com `app-cd`, `web-cd` (Nginx), `postgres-cd`, `redis-cd`
+- [x] **7.3** `docker/nginx/default.conf` — proxy PHP-FPM, upload 50 MB, timeout 300 s
+- [x] **7.4** `entrypoint.sh` — split dev (`npm run dev &`) / prod (`npm run build` + cache)
+- [x] **7.5** `Makefile` — `make up/down/build/shell/test/lint/format/fresh/migrate`
+- [x] **7.6** `.env.example` documentado com todas as variáveis do projeto
 
-### Fase 8 — Docker Compose para desenvolvimento
-> Objetivo: ambiente reproduzível com um comando — demonstra DevOps awareness.
+### Fase 8 — CI/CD com GitHub Actions
+> Objetivo: pipeline automatizado que valida qualidade a cada push.
 
-- [ ] **9.1** Criar `Dockerfile` para a aplicação Laravel (PHP-FPM + extensões necessárias)
-- [ ] **9.2** Criar `docker-compose.yml` com:
-  - `app` (PHP-FPM)
-  - `web` (Nginx)
-  - `db` (MySQL/PostgreSQL)
-  - `redis` (para cache e filas)
-  - `node` (para build do frontend Vue)
-- [ ] **9.3** Criar `Makefile` ou scripts em `/scripts` para comandos comuns:
-  - `make up` / `make down` — subir/descer ambiente
-  - `make test` — rodar testes
-  - `make lint` — rodar PHPStan + Pint
-  - `make fresh` — migrate:fresh + seed
-- [ ] **9.4** Documentar setup no README: `git clone` → `make up` → sistema rodando
+- [ ] **8.1** Criar `.github/workflows/ci.yml`:
+  - PHP 8.3 setup + `composer install`
+  - Laravel Pint (`./vendor/bin/pint --test`) — formatação
+  - PHPStan level 6 com `larastan` — análise estática de tipos
+  - Pest (`php artisan test`) — suite completa
+  - Coverage report (upload para Codecov)
+- [ ] **8.2** Instalar PHPStan + `larastan` (`composer require --dev nunomaduro/larastan`)
+- [ ] **8.3** Adicionar `phpstan.neon` configurado para `app/Domain/` nível 8, resto nível 5
+- [ ] **8.4** Adicionar badge de CI no README
 - [ ] **9.5** Migrar queue driver de `database` para `redis` (já disponível via Docker)
+
+### Fase Futura 0 — Rename de colunas para inglês
+> Objetivo: eliminar nomes em português do banco e do código, completando a padronização iniciada na Fase 1.
+> **Pré-requisito**: todas as fases anteriores concluídas (código já refatorado facilita o rename).
+> **Estratégia**: `RENAME COLUMN` no PostgreSQL é atômico (operação de metadados, sem rewrite). Uma migration por grupo lógico para facilitar reversão individual.
+
+#### Mapa de renomes — tabela `venda_chave_trocas`
+
+**Campos financeiros**
+| Coluna atual | Nova coluna | Descrição |
+|---|---|---|
+| `lucroRS` | `purchaseProfit` | lucro absoluto esperado na compra |
+| `lucroPercentual` | `purchaseProfitPercent` | lucro percentual esperado na compra |
+| `lucroVendaRS` | `saleProfit` | lucro absoluto realizado na venda |
+| `lucroVendaPercentual` | `saleProfitPercent` | lucro percentual realizado na venda |
+| `valorVendido` | `soldPrice` | preço pelo qual a key foi vendida |
+| `valorPagoIndividual` | `individualCost` | custo individual da key no lote |
+| `valorPagoTotal` | `totalPaid` | descrição do lote ex: `"2x TF2 Keys / 5"` |
+| `precoCliente` | `marketPrice` | preço no marketplace na data de compra |
+| `minimoParaVenda` | `minimumSalePrice` | preço mínimo aceitável para listar |
+| `incomeSimulado` | `simulatedIncome` | receita líquida estimada após taxas Gamivo |
+
+**Campos de identidade da key**
+| Coluna atual | Nova coluna | Descrição |
+|---|---|---|
+| `nomeJogo` | `gameName` | |
+| `chaveRecebida` | `keyCode` | código de ativação entregue ao cliente |
+| `idGamivo` | `gamivoId` | ID externo no marketplace Gamivo |
+| `plataformaIdentificada` | `identifiedPlatform` | plataforma detectada pelo formato da key |
+| `repetido` | `isDuplicate` | boolean — key duplicada detectada na importação |
+| `perfilOrigem` | `supplierProfile` | URL do perfil Steam do fornecedor |
+| `qtdTF2` | `tf2Quantity` | quantidade de keys TF2 do lote de compra |
+
+**Campos de data**
+| Coluna atual | Nova coluna | Descrição |
+|---|---|---|
+| `dataVenda` | `listedAt` | data em que a key foi listada para venda |
+| `dataVendida` | `soldAt` | data em que a key foi vendida |
+| `dataAdquirida` | `acquiredAt` | data de compra da key |
+| `dataExpiracao` | `expiresAt` | data de expiração da key |
+
+**Tabela `fornecedor`**
+| Coluna atual | Nova coluna |
+|---|---|
+| `perfilOrigem` | `supplierProfile` |
+
+#### Sequência de execução
+- [ ] Migration grupo 1: renomear campos financeiros (`purchaseProfit`, `saleProfit`, etc.)
+- [ ] Migration grupo 2: renomear campos de identidade (`gameName`, `keyCode`, `gamivoId`, etc.)
+- [ ] Migration grupo 3: renomear campos de data (`listedAt`, `soldAt`, `acquiredAt`, `expiresAt`)
+- [ ] Migration grupo 4: renomear coluna em `fornecedor` (`supplierProfile`)
+- [ ] Atualizar `app/Models/Venda_chave_troca.php` e `Fornecedor.php` — fillable + casts
+- [ ] Atualizar `app/Http/Requests/` — 2 Form Requests
+- [ ] Atualizar `app/Http/Controllers/VendaChaveTrocaController.php`
+- [ ] Atualizar `app/Services/Keys/KeyCalculationService.php`, `FileService.php`, `GameService.php`
+- [ ] Atualizar `app/Domain/Pricing/ProfitCalculator.php` — nomes de parâmetros
+- [ ] Atualizar `resources/js/types/GameLine.ts` e `VendaChaveTroca.vue`
+- [ ] Atualizar todos os testes
+- [ ] Variável calculada (sem coluna): `somatorioIncomes` → `incomeSum`
+
+---
 
 ### Fase Futura 1 — API REST + Documentação (ignorar por enquanto)
 > Objetivo: expor o sistema via API versionada e documentada — demonstra domínio de APIs para portfólio.
