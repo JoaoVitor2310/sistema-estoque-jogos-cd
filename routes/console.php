@@ -1,19 +1,13 @@
 <?php
 
-use App\Models\Bundle;
-use App\Models\Game;
 use App\Models\Recursos;
 use App\Models\Venda_chave_troca;
-use App\Services\APIService;
-use App\Services\BundleService;
 use App\Services\GameService;
 use App\Services\KeyService;
 use App\Services\ResourceService;
-use Carbon\Carbon;
+use App\UseCases\Bundles\SyncBundlesFromApiUseCase;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\Facades\Log;
@@ -73,8 +67,7 @@ Schedule::call(function () {
 })->cron('0 7 * * *')->timezone('America/Sao_Paulo');
 
 Schedule::call(function () {
-    $bundleService = new BundleService();
-    $bundleService->getBundlesFromAPI();
+    app(SyncBundlesFromApiUseCase::class)->execute();
 })->cron('5 * * * *')->timezone('UTC');
 
 Schedule::call(function () {
