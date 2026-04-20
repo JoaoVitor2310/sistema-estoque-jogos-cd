@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Database\Factories\VendaChaveTrocaFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Fornecedor;
@@ -99,6 +101,34 @@ class Venda_chave_troca extends Model
     public function plataforma()
     {
         return $this->belongsTo(Plataforma::class, 'id_plataforma');
+    }
+
+    public function game()
+    {
+        return $this->belongsTo(Game::class, 'idGamivo', 'id_gamivo');
+    }
+
+    public function scopeRegisteredOnGamivo(Builder $query): void
+    {
+        $query->whereNotNull('idGamivo')->where('idGamivo', '!=', '');
+    }
+
+    public function scopeNotYetListed(Builder $query): void
+    {
+        $query->whereNull('dataVenda')->whereNull('dataVendida');
+    }
+
+    public function scopeNotGiftLink(Builder $query): void
+    {
+        $query->where('chaveRecebida', 'not like', '%http%');
+    }
+
+    public function scopeWithoutRecentBundle(Builder $query, int $days): void
+    {
+        $query->whereDoesntHave(
+            'game.bundles',
+            fn(Builder $b) => $b->where('bundles.release_date', '>', Carbon::now()->subDays($days))
+        );
     }
 
     /** Sempre grava null quando região for string vazia */

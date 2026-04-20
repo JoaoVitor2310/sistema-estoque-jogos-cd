@@ -9,17 +9,17 @@ use App\Models\Plataforma;
 use App\Models\Tipo_formato;
 use App\Models\Tipo_leilao;
 use App\Models\Tipo_reclamacao;
+use App\Http\Resources\KeyAutoSellResource;
 use App\Traits\HttpResponses;
+use App\UseCases\Keys\AutoSellUseCase;
 use App\UseCases\Keys\RegisterKeyUseCase;
 use App\UseCases\Keys\UpdateKeyUseCase;
+use App\UseCases\Keys\UpdateSoldOffersUseCase;
 use Illuminate\Http\Request;
 use App\Models\Venda_chave_troca;
 use App\Http\Requests\ImportKeysRequest;
 use App\Services\FileService;
-use App\Services\Keys\KeyCalculationService;
-use Carbon\Carbon;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class VendaChaveTrocaController extends Controller
@@ -27,9 +27,10 @@ class VendaChaveTrocaController extends Controller
     use HttpResponses;
 
     public function __construct(
-        protected KeyCalculationService $calculateService,
         protected RegisterKeyUseCase $registerKeyUseCase,
         protected UpdateKeyUseCase $updateKeyUseCase,
+        protected AutoSellUseCase $autoSellUseCase,
+        protected UpdateSoldOffersUseCase $updateSoldOffersUseCase,
     ) {}
 
 
@@ -253,51 +254,12 @@ class VendaChaveTrocaController extends Controller
     public function autoSell(Request $request)
     {
         try {
-            $gamesToList = Venda_chave_troca::whereNotNull('idGamivo')
-                ->where('idGamivo', '!=', '')
-                ->whereNull('dataVenda')
-                ->whereNull('dataVendida')
-                ->where('chaveRecebida', 'not like', '%http%') // Não mostrar os gift links
-                // Excluir jogos que estão em bundles/choices lançados nos últimos 21 dias
-                ->whereNotExists(function ($query) {
-                    $query->select(DB::raw(1))
-                        ->from('games')
-                        ->join('bundle_games', 'games.id', '=', 'bundle_games.game_id')
-                        ->join('bundles', 'bundle_games.bundle_id', '=', 'bundles.id')
-                        ->whereColumn('games.id_gamivo', 'venda_chave_trocas.idGamivo')
-                        ->where('bundles.release_date', '>', Carbon::now()->subDays(21));
-                })
-                ->leftJoin('games', 'games.id_gamivo', '=', 'venda_chave_trocas.idGamivo')
-                ->leftJoin('bundle_games', 'games.id', '=', 'bundle_games.game_id')
-                ->leftJoin('bundles', 'bundle_games.bundle_id', '=', 'bundles.id')
-                ->select([
-                    'nomeJogo',
-                    'venda_chave_trocas.region as game_region',
-                    'bundles.type as bundle_type',
-                    'bundle_games.bundle_launch_price as bundle_launch_price',
-                    'games.popularity as game_popularity',
-                    'bundles.release_date as bundle_release_date',
-                    'idGamivo',
-                    'precoCliente',
-                    'lucroPercentual',
-                    'minimoParaVenda',
-                    'valorPagoIndividual',
-                    'chaveRecebida',
-                    'dataAdquirida',
-                    'dataVenda',
-                    'dataVendida',
-                    'dataExpiracao',
-                    'games.popularity as game_popularity',
-                    'games.release_date as game_release_date',
-                ])
-                ->get();
-
-            $gamesToList = is_object($gamesToList) ? $gamesToList->toArray() : $gamesToList; // Garante que sempre será um array, mesmo que tenha só um elemento
+            $keys = $this->autoSellUseCase->execute();
         } catch (\Exception $e) {
             return $this->error(500, 'Erro interno ao listar jogos para venda automaticamente', [$e->getMessage()]);
         }
 
-        return $this->response(200, 'Jogos para listar a venda automaticamente encontrados com sucesso', $gamesToList);
+        return $this->response(200, 'Jogos para listar a venda automaticamente encontrados com sucesso', KeyAutoSellResource::collection($keys));
     }
 
     public function whenToSell(Request $request)
@@ -311,37 +273,7 @@ class VendaChaveTrocaController extends Controller
 
     public function updateSoldOffers(Request $request)
     {
-        $soldGames = $request->all();
-        // return $this->response(200, 'Jogos para listar encontrados com sucesso', $soldGames);
-
-        $notUpdated = [];
-
-        foreach ($soldGames as $game) {
-            // return $this->response(200, 'Jogos para listar encontrados com sucesso', $game);
-
-            foreach ($game['keys'] as $key) {
-
-                $itemToUpdate = Venda_chave_troca::select('*')->where('chaveRecebida', $key)->first();
-
-                if (!$itemToUpdate) continue;
-
-                if ($itemToUpdate['valorVendido']) continue;
-
-                $saleFormulas = $this->calculateService->calculateSaleFormulas(
-                    (float) $game['profit'],
-                    (float) $itemToUpdate->valorPagoIndividual
-                );
-
-                $updated = $itemToUpdate->update([
-                    'dataVendida'         => $game['saleDate'],
-                    'valorVendido'        => $game['profit'],
-                    'lucroVendaRS'        => $saleFormulas['lucroVendaRS'],
-                    'lucroVendaPercentual' => $saleFormulas['lucroVendaPercentual'],
-                ]);
-
-                if (!$updated) $notUpdated[] = $itemToUpdate;
-            }
-        }
+        $notUpdated = $this->updateSoldOffersUseCase->execute($request->all());
 
         return $this->response(200, 'Jogos atualizados com sucesso', $notUpdated);
     }

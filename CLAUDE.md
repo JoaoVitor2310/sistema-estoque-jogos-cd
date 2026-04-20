@@ -484,10 +484,11 @@ Cada step é uma migration separada e reversível. Se der errado em qualquer pon
   - Orquestra: KeyCalculationService + SupplierService + GameService + KeyRepository (duplicata) + Domain (PlatformIdentifier, MinMaxPriceCalculator)
 - [x] **5.3** Criar `UseCases/Keys/UpdateKeyUseCase` — extrair `update()` do controller
   - Orquestra: KeyCalculationService + SupplierService + GameService
-- [ ] **5.4** Criar `UseCases/Keys/AutoSellUseCase` — extrair `autoSell()` do controller
-  - Orquestra: KeyRepository (query) + Domain/Keys/KeyEligibility (regras)
-- [ ] **5.5** Criar `UseCases/Keys/UpdateSoldOffersUseCase` — extrair `updateSoldOffers()` do controller
-  - Orquestra: KeyRepository (busca) + Domain/Pricing/ProfitCalculator (cálculos de venda)
+- [x] **5.4** Criar `UseCases/Keys/AutoSellUseCase` — extrair `autoSell()` do controller
+  - Orquestra: KeyRepository (query com local scopes no model) + `KeyEligibility::BUNDLE_EXCLUSION_DAYS`
+  - Formatação para o frontend movida para o controller (não pertence ao UseCase)
+- [x] **5.5** Criar `UseCases/Keys/UpdateSoldOffersUseCase` — extrair `updateSoldOffers()` do controller
+  - Orquestra: KeyRepository (busca) + KeyCalculationService (cálculos de venda)
 - [ ] **5.6** Criar `UseCases/Keys/ImportKeysFromXlsxUseCase` — extrair de `FileService`
   - Orquestra: Domain/Import (validação) + RegisterKeyUseCase (registro por linha)
 - [ ] **5.7** Criar `UseCases/Bundles/SyncBundlesFromApiUseCase` — extrair de `BundleService`
@@ -502,6 +503,7 @@ Cada step é uma migration separada e reversível. Se der errado em qualquer pon
   - `CurrencyConversionService` → mover de `APIService`
 - [ ] **5.10** Dividir `VendaChaveTrocaController` em `KeyController`, `KeyImportController`, `KeySaleController`
   - Cada método do controller: valida request → chama UseCase ou Service → retorna response
+  - Criar `Http/Resources/` para cada endpoint que retorna dados de keys — transformação de model para array é responsabilidade do Resource, não do controller (`KeyAutoSellResource` já criado como referência)
 - [ ] **5.11** Atualizar `routes/web.php` para apontar para novos controllers
 - [ ] **5.12** Deletar `FileService.php` — toda lógica já migrada
 - [ ] **5.13** Rodar testes completos
@@ -616,6 +618,51 @@ Cada step é uma migration separada e reversível. Se der errado em qualquer pon
 - [ ] **7.5** Instalar e configurar Scramble (ou L5-Swagger) para documentação OpenAPI automática
 - [ ] **7.6** Padronizar respostas de erro da API (RFC 7807 Problem Details ou formato consistente)
 - [ ] **7.7** Rodar testes de API (Feature Tests com `actingAs` + Sanctum)
+
+### Fase Futura 2 — Normalizar FK entre keys e games
+> Objetivo: substituir o link por string `idGamivo` (ID externo do marketplace) por uma FK integer adequada (`game_id`) entre `venda_chave_trocas` e `games`.
+> **Pré-requisito**: Fase 5 concluída — `RegisterKeyUseCase` já garante criação do `Game` correspondente.
+
+#### Contexto do problema
+
+Hoje `venda_chave_trocas` se liga a `games` indiretamente, via string:
+
+```
+venda_chave_trocas.idGamivo (varchar) ←→ games.id_gamivo (varchar)
+```
+
+Isso é um acoplamento ao ID externo do Gamivo, não uma FK real. Consequências:
+
+1. **Sem integridade referencial** — uma key pode ter `idGamivo` apontando para um game que não existe na tabela `games`
+2. **JOINs em varchar indexado** — mais lentos que em integer (FK)
+3. **Dados duplicados** — `nomeJogo` e `region` vivem em `venda_chave_trocas` E em `games`, podendo divergir
+4. **Frágil a mudanças externas** — se o Gamivo mudar o formato do ID, ou se o jogo for re-registrado no marketplace com outro ID, o link quebra silenciosamente
+5. **Relationship `game()` depende da string** — `belongsTo(Game, 'idGamivo', 'id_gamivo')` funciona mas não é o padrão Laravel
+
+#### Estratégia (Expand-Contract)
+
+- [ ] **F2.1** Migration **EXPAND** — adicionar `game_id` (bigint nullable) em `venda_chave_trocas` com FK para `games.id`
+- [ ] **F2.2** Migration **MIGRATE** — backfill: para cada key, localizar `games.id` via `idGamivo → id_gamivo` e popular `game_id`
+- [ ] **F2.3** Ajustar `RegisterKeyUseCase` para persistir `game_id` após criar/localizar o game (já tem referência ao objeto)
+- [ ] **F2.4** Migration: tornar `game_id` NOT NULL após validação em produção (garante invariante — toda key tem jogo)
+- [ ] **F2.5** Reescrever relationship `game()` em `Venda_chave_troca` para FK padrão: `belongsTo(Game::class)`
+- [ ] **F2.6** Reescrever `scopeWithoutRecentBundle` — `whereDoesntHave` continua funcionando, agora com FK integer (mais rápido)
+- [ ] **F2.7** Avaliar remoção de `nomeJogo` e `region` de `venda_chave_trocas` — se forem sempre iguais aos do `Game`, viram dados denormalizados desnecessários; acessar via `$key->game->name`
+- [ ] **F2.8** Migration **CONTRACT** — remover coluna `idGamivo` de `venda_chave_trocas` (mantém apenas em `games.id_gamivo`, que é o local correto para o ID externo)
+
+#### Pontos de atenção
+
+- **Keys órfãs**: antes de aplicar NOT NULL (F2.4), rodar auditoria para identificar keys cujo `idGamivo` não corresponde a nenhum `Game`. Decisão: criar o `Game` faltante ou marcar a key como inválida
+- **`region` em duas tabelas**: hoje existem em ambas. Se o jogo tem region global mas uma key específica é regional, a coluna em `venda_chave_trocas` tem valor diferente. Verificar na auditoria antes de remover (F2.7)
+- **Quebra do contrato externo**: se há integrações externas (ex: API Gamivo, webhooks) que dependem de `idGamivo` em respostas JSON, API Resources devem continuar expondo via `$key->game->id_gamivo`
+- **Tempo entre EXPAND e CONTRACT**: manter as duas colunas (`idGamivo` e `game_id`) conviventes por pelo menos um ciclo de validação em produção antes de aplicar F2.8
+
+#### Benefícios esperados
+
+- Integridade referencial garantida pelo banco (impossível ter key com game inexistente)
+- Queries autoSell, whenToSell etc. mais rápidas — FK integer indexada
+- Fim da possibilidade de divergência entre `nomeJogo`/`region` da key vs. do game
+- Código mais idiomático Laravel — relationships seguem o padrão `foreign_key` → `primary_key`
 
 ### Notas sobre o roadmap
 
