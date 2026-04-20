@@ -15,7 +15,7 @@ Antes de implementar, consulte os documentos abaixo quando o contexto for releva
 
 ## Papel do Claude neste projeto
 
-Atue sempre como arquiteto de software sênior com conhecimento profundo de Laravel e clean architecture.
+Atue sempre como arquiteto de software sênior com conhecimento profundo de Laravel e Clean Architecture.
 - Questione decisões quando houver práticas consolidadas no mercado que apontem em outra direção
 - Proponha soluções que o Laravel oferece, sempre respeitando as camadas de arquitetura a ser seguida
 - Explique o raciocínio antes de implementar — nunca apenas execute sem contextualizar
@@ -24,8 +24,9 @@ Atue sempre como arquiteto de software sênior com conhecimento profundo de Lara
 - Ao sugerir onde um novo arquivo deve viver, justifique com base na camada correta da arquitetura
 - Nomes de variáveis dentro do código sempre em inglês, utilize português somente em comentários
 - Não comente nada sobre decisões futuras
-- Mantenha sempre boas práticas (Cesign Patterns, Clean Code, SOLID, etc)
+- Mantenha sempre boas práticas (Design Patterns, Clean Code, SOLID, etc)
 - Identifique possíveis Code Smells, alerte e proponha soluções.
+- Sempre escreva testes automatizados para cada parte do sistema
 
 ---
 
@@ -489,8 +490,8 @@ Cada step é uma migration separada e reversível. Se der errado em qualquer pon
   - Formatação para o frontend movida para o controller (não pertence ao UseCase)
 - [x] **5.5** Criar `UseCases/Keys/UpdateSoldOffersUseCase` — extrair `updateSoldOffers()` do controller
   - Orquestra: KeyRepository (busca) + KeyCalculationService (cálculos de venda)
-- [ ] **5.6** Criar `UseCases/Keys/ImportKeysFromXlsxUseCase` — extrair de `FileService`
-  - Orquestra: Domain/Import (validação) + RegisterKeyUseCase (registro por linha)
+- [x] **5.6** Criar `UseCases/Keys/ImportKeysFromXlsxUseCase` — extrair de `FileService`
+  - Orquestra: Domain/Import (validação de cabeçalhos e linhas) + RegisterKeyUseCase (registro do lote)
 - [ ] **5.7** Criar `UseCases/Bundles/SyncBundlesFromApiUseCase` — extrair de `BundleService`
   - Orquestra: BundleService (API/DB) + Domain/Bundles/BundleTypeResolver + CurrencyConversionService
 - [ ] **5.8** Criar `UseCases/Vips/ExecuteVipListUseCase` — extrair de `VipListExecutionService`
@@ -505,7 +506,7 @@ Cada step é uma migration separada e reversível. Se der errado em qualquer pon
   - Cada método do controller: valida request → chama UseCase ou Service → retorna response
   - Criar `Http/Resources/` para cada endpoint que retorna dados de keys — transformação de model para array é responsabilidade do Resource, não do controller (`KeyAutoSellResource` já criado como referência)
 - [ ] **5.11** Atualizar `routes/web.php` para apontar para novos controllers
-- [ ] **5.12** Deletar `FileService.php` — toda lógica já migrada
+- [x] **5.12** Deletar `FileService.php` — toda lógica migrada em 5.6
 - [ ] **5.13** Rodar testes completos
 
 ### Fase 6 — Segurança e infraestrutura

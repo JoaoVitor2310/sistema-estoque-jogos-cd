@@ -12,13 +12,13 @@ use App\Models\Tipo_reclamacao;
 use App\Http\Resources\KeyAutoSellResource;
 use App\Traits\HttpResponses;
 use App\UseCases\Keys\AutoSellUseCase;
+use App\UseCases\Keys\ImportKeysFromXlsxUseCase;
 use App\UseCases\Keys\RegisterKeyUseCase;
 use App\UseCases\Keys\UpdateKeyUseCase;
 use App\UseCases\Keys\UpdateSoldOffersUseCase;
 use Illuminate\Http\Request;
 use App\Models\Venda_chave_troca;
 use App\Http\Requests\ImportKeysRequest;
-use App\Services\FileService;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Inertia\Inertia;
 
@@ -31,6 +31,7 @@ class VendaChaveTrocaController extends Controller
         protected UpdateKeyUseCase $updateKeyUseCase,
         protected AutoSellUseCase $autoSellUseCase,
         protected UpdateSoldOffersUseCase $updateSoldOffersUseCase,
+        protected ImportKeysFromXlsxUseCase $importKeysUseCase,
     ) {}
 
 
@@ -312,42 +313,23 @@ class VendaChaveTrocaController extends Controller
     /**
      * Importa jogos de um arquivo Excel
      */
-    public function import(ImportKeysRequest $request, FileService $fileService)
+    public function import(ImportKeysRequest $request)
     {
-        $file = $request->file('file');
-        $filePath = $file->getRealPath();
+        $result = $this->importKeysUseCase->execute($request->file('file')->getRealPath());
 
-        try {
-            $result = $fileService->validateAndProcess($filePath);
-
-            if (!$result['success']) {
-                return $this->error(422, $result['message'], $result['errors']);
-            }
-
-            // Retorna os jogos importados no mesmo formato do store
-            $fullGames = $result['data'];
-            
-            // Verifica se há jogos com plataforma não identificada (igual ao store)
-            $hasUnidentified = array_filter($fullGames, function ($game) {
-                return isset($game['plataformaIdentificada']) && $game['plataformaIdentificada'] === "DESCONHECIDO";
-            });
-
-            if (!empty($hasUnidentified)) {
-                return $this->response(201, 'Jogos cadastrados com sucesso, mas tem pelo menos um com a plataforma não identificada.', $fullGames);
-            }
-
-            return $this->response(201, 'Jogos cadastrados com sucesso', $fullGames);
-        } catch (\Exception $e) {
-            return $this->error(500, 'Erro ao importar jogos', [$e->getMessage()]);
+        if (!$result['success']) {
+            return $this->error(422, $result['message'], $result['errors']);
         }
+
+        return $this->response(201, $result['message'], $result['data']);
     }
 
     /**
-     * Example file download
+     * Download do arquivo de exemplo para importação
      */
     public function downloadExample()
     {
-        $filePath = FileService::getExampleFilePath();
+        $filePath = public_path('assets/example/import_keys.xlsx');
 
         if (!file_exists($filePath)) {
             return $this->error(404, 'Arquivo de exemplo não encontrado');
