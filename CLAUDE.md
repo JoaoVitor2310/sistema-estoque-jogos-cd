@@ -492,9 +492,13 @@ Cada step é uma migration separada e reversível. Se der errado em qualquer pon
   - Orquestra: KeyRepository (busca) + KeyCalculationService (cálculos de venda)
 - [x] **5.6** Criar `UseCases/Keys/ImportKeysFromXlsxUseCase` — extrair de `FileService`
   - Orquestra: Domain/Import (validação de cabeçalhos e linhas) + RegisterKeyUseCase (registro do lote)
-- [ ] **5.7** Criar `UseCases/Bundles/SyncBundlesFromApiUseCase` — extrair de `BundleService`
-  - Orquestra: BundleService (API/DB) + Domain/Bundles/BundleTypeResolver + CurrencyConversionService
-- [ ] **5.8** Criar `UseCases/Vips/ExecuteVipListUseCase` — extrair de `VipListExecutionService`
+- [x] **5.7** Criar `UseCases/Bundles/SyncBundlesFromApiUseCase` — extrair de `BundleService`
+  - Orquestra: APIService (GGDeals + conversão de moeda) + BundleTypeResolver (Domain) + Bundle/Game (Eloquent) + price_researcher (HTTP)
+  - `BundleService` mantém apenas `getBundlesWithFilters()` (consulta/filtros)
+  - `routes/console.php` usa `app(SyncBundlesFromApiUseCase::class)->execute()` em vez de `new BundleService()`
+- [x] **5.8** Criar `UseCases/Vips/ExecuteVipListUseCase` — extrair de `VipListExecutionService`
+  - `VipListExecutionService` mantém apenas `applyCallback()` (infraestrutura simples)
+  - `VipController::runVipList()` injeta e usa `ExecuteVipListUseCase`
 - [ ] **5.9** Refatorar Services para serem infraestrutura pura:
   - `KeyCalculationService` → carrega taxas com cache, converte para VOs
   - `KeyRepository` → queries complexas (autoSell, limbo, sold)

@@ -7,6 +7,7 @@ use App\Models\Vip;
 use App\Models\VipList;
 use App\Services\VipListExecutionService;
 use App\Traits\HttpResponses;
+use App\UseCases\Vips\ExecuteVipListUseCase;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -15,7 +16,8 @@ class VipController extends Controller
     use HttpResponses;
 
     public function __construct(
-        private readonly VipListExecutionService $vipListExecutionService
+        private readonly ExecuteVipListUseCase $executeVipListUseCase,
+        private readonly VipListExecutionService $vipListExecutionService,
     ) {}
 
     public function index()
@@ -28,7 +30,7 @@ class VipController extends Controller
 
     public function runVipList(Request $request, Vip $vip)
     {
-        $result = $this->vipListExecutionService->queueRunForVip($vip);
+        $result = $this->executeVipListUseCase->execute($vip);
 
         if (! $result['success']) {
             if (isset($result['data'])) {
