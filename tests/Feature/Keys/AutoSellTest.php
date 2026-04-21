@@ -5,7 +5,7 @@
 | AutoSell — characterization tests
 |--------------------------------------------------------------------------
 |
-| Covers VendaChaveTrocaController::autoSell()
+| Covers KeySaleController::autoSell()
 | Route: GET /venda-chave-troca/auto-sell  (no auth — withoutMiddleware)
 | Response shape: { "statusCode": 200, "message": "...", "data": [...] }
 |

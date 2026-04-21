@@ -67,6 +67,11 @@ Tempo(meses) - Lucro % para colocar a venda
 - - 80%
 7 - 70%
 10 - 60%
+12 - vende independente do lucro/prejuízo obtido.
+
+## Valor mínimo que a key pode ficar a venda
+O valor adotado para esses casos é de 0.02, o que faz o jogo sair a praticamente sem lucro nenhum. Futuramente a ideia é que nem isso seja considerado para jogos mais velhos que 1 ano, pois a intenção é vender independente do preço e utilizar o dinheiro para comprar mais jogos. O problema é que a API Gamivo sempre vai buscar o min e máx, mesmo para jogos mais velhos que 1 ano.
+
 
 Essa lógica também está presente na API Gamivo.
 

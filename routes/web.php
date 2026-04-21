@@ -6,8 +6,10 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AuthorizedUsersController;
 use App\Http\Controllers\BundleController;
 use App\Http\Controllers\GameController;
+use App\Http\Controllers\Keys\KeyController;
+use App\Http\Controllers\Keys\KeyImportController;
+use App\Http\Controllers\Keys\KeySaleController;
 use App\Http\Controllers\TaxaController;
-use App\Http\Controllers\VendaChaveTrocaController;
 use App\Http\Controllers\ResourceController;
 use App\Http\Controllers\VipController;
 use App\Http\Middleware\CheckAdmin;
@@ -42,7 +44,7 @@ Route::prefix('vips')
 });
 
 
-Route::get('/venda-chave-troca', [VendaChaveTrocaController::class, 'show'])->name('venda-chave-troca');
+Route::get('/venda-chave-troca', [KeyController::class, 'show'])->name('venda-chave-troca');
 
 Route::get('/acesso', [AuthorizedUsersController::class, 'index'])->name('acesso');
 
@@ -116,21 +118,25 @@ Route::prefix('resources')
 
 Route::prefix('venda-chave-troca')
     ->middleware(CheckPermission::class)
-    ->controller(VendaChaveTrocaController::class)
     ->group(function () {
-        Route::get('/paginated', 'paginated')->name('venda-chave-troca.paginated')->withoutMiddleware([CheckPermission::class]);
-        Route::post('/search', 'search')->name('venda-chave-troca.search')->withoutMiddleware([CheckPermission::class]);
-        Route::post('/', 'store')->name('venda-chave-troca.store');
-        Route::put('/{id}', 'update')->name('venda-chave-troca.update');
-        Route::delete('/{id}', 'destroy')->name('venda-chave-troca.destroy');
-        Route::delete('/', 'destroyArray')->name('venda-chave-troca.destroyArray');
-        Route::get('/auto-sell', 'autoSell')->name('venda-chave-troca.auto-sell')->withoutMiddleware([CheckPermission::class]);
-        Route::get('/when-to-sell', 'whenToSell')->name('venda-chave-troca.when-to-sell')->withoutMiddleware([CheckPermission::class]);
-        Route::post('/update-sold-offers', 'updateSoldOffers')->name('venda-chave-troca.update-sold-offers')->withoutMiddleware([CheckPermission::class]);
-        Route::get('/search-by-id-gamivo/{idGamivo}', 'searchByIdGamivo')->name('venda-chave-troca.search-by-id-gamivo')->withoutMiddleware([CheckPermission::class]);
-        Route::post('/insert-data-venda', 'insertDataVenda')->name('venda-chave-troca.insert-data-venda')->withoutMiddleware([CheckPermission::class]);
-        Route::post('/import', 'import')->name('venda-chave-troca.import');
-        Route::get('/download-example_keys', 'downloadExample')->name('venda-chave-troca.download-example_keys');
+        // KeyController — CRUD
+        Route::get('/paginated', [KeyController::class, 'paginated'])->name('venda-chave-troca.paginated')->withoutMiddleware([CheckPermission::class]);
+        Route::post('/search', [KeyController::class, 'search'])->name('venda-chave-troca.search')->withoutMiddleware([CheckPermission::class]);
+        Route::post('/', [KeyController::class, 'store'])->name('venda-chave-troca.store');
+        Route::put('/{id}', [KeyController::class, 'update'])->name('venda-chave-troca.update');
+        Route::delete('/{id}', [KeyController::class, 'destroy'])->name('venda-chave-troca.destroy');
+        Route::delete('/', [KeyController::class, 'destroyArray'])->name('venda-chave-troca.destroyArray');
+
+        // KeySaleController — operações de venda
+        Route::get('/auto-sell', [KeySaleController::class, 'autoSell'])->name('venda-chave-troca.auto-sell')->withoutMiddleware([CheckPermission::class]);
+        Route::get('/when-to-sell', [KeySaleController::class, 'whenToSell'])->name('venda-chave-troca.when-to-sell')->withoutMiddleware([CheckPermission::class]);
+        Route::post('/update-sold-offers', [KeySaleController::class, 'updateSoldOffers'])->name('venda-chave-troca.update-sold-offers')->withoutMiddleware([CheckPermission::class]);
+        Route::get('/search-by-id-gamivo/{idGamivo}', [KeySaleController::class, 'searchByIdGamivo'])->name('venda-chave-troca.search-by-id-gamivo')->withoutMiddleware([CheckPermission::class]);
+        Route::post('/insert-data-venda', [KeySaleController::class, 'insertDataVenda'])->name('venda-chave-troca.insert-data-venda')->withoutMiddleware([CheckPermission::class]);
+
+        // KeyImportController — importação XLSX
+        Route::post('/import', [KeyImportController::class, 'import'])->name('venda-chave-troca.import');
+        Route::get('/download-example_keys', [KeyImportController::class, 'downloadExample'])->name('venda-chave-troca.download-example_keys');
     });
 
 Route::prefix('authorize') // Gerenciar quem tem acesso

@@ -507,12 +507,16 @@ Cada step é uma migration separada e reversível. Se der errado em qualquer pon
   - `GameService` → movido para `Services/Games/`, removido wrapper `identifyPlatform()` (callers chamam `PlatformIdentifier::identify()` direto), corrigido bug em `searchGamesIdSteam()`, removido construtor vazio
   - `BundleService` ✅ limpo na Fase 5.7 (só consulta/filtros)
   - `CurrencyConversionService` → extraído de `APIService` para `Services/External/`; `APIService` ficou apenas com `getBundles()` (GGDeals); `ResourceService` atualizado para usar `CurrencyConversionService`
-- [ ] **5.10** Dividir `VendaChaveTrocaController` em `KeyController`, `KeyImportController`, `KeySaleController`
-  - Cada método do controller: valida request → chama UseCase ou Service → retorna response
-  - Criar `Http/Resources/` para cada endpoint que retorna dados de keys — transformação de model para array é responsabilidade do Resource, não do controller (`KeyAutoSellResource` já criado como referência)
-- [ ] **5.11** Atualizar `routes/web.php` para apontar para novos controllers
+- [x] **5.10** Dividir `VendaChaveTrocaController` em `KeyController`, `KeyImportController`, `KeySaleController`
+  - `KeyController` — CRUD (show/Inertia, paginated, search, store, update, destroy, destroyArray)
+  - `KeyImportController` — import XLSX, downloadExample
+  - `KeySaleController` — autoSell, whenToSell, updateSoldOffers, searchByIdGamivo, insertDataVenda
+  - Resources criados: `KeyResource` (CRUD), `KeyWhenToSellResource`, `KeyGamivoMinMaxResource` (além do `KeyAutoSellResource` já existente)
+  - `VendaChaveTrocaController.php` deletado
+- [x] **5.11** Atualizar `routes/web.php` para apontar para novos controllers
+  - URLs e nomes de rotas idênticos — nenhum frontend quebrado
 - [x] **5.12** Deletar `FileService.php` — toda lógica migrada em 5.6
-- [ ] **5.13** Rodar testes completos
+- [x] **5.13** Rodar testes completos — 189 passed, 0 failures
 
 ### Fase 6 — Segurança e infraestrutura
 > Objetivo: corrigir vulnerabilidades identificadas.

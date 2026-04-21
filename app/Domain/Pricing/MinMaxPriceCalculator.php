@@ -22,7 +22,7 @@ namespace App\Domain\Pricing;
  */
 final class MinMaxPriceCalculator
 {
-    private const FLOOR = 0.02;
+    public const FLOOR = 0.02;
 
     /**
      * @return array{min: float, max: float}
