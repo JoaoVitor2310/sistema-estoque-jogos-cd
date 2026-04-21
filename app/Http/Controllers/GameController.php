@@ -6,8 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\GameRequest;
 use App\Http\Requests\GameRequestArray;
 use App\Models\Game;
-use App\Models\Venda_chave_troca;
-use App\Services\GameService;
+use App\Services\Games\GameService;
 use App\Traits\HttpResponses;
 use Exception;
 use Illuminate\Http\Request;
@@ -18,6 +17,10 @@ use Inertia\Inertia;
 class GameController extends Controller
 {
     use HttpResponses;
+
+    public function __construct(
+        private readonly GameService $gameService,
+    ) {}
 
     /**
      * Display a listing of the resource.
@@ -79,7 +82,7 @@ class GameController extends Controller
             $game = Game::find($gameData['id']);
             if ($game) {
                 $game->popularity = $gameData['popularity'];
-                $game->save(); // Dispara o observer
+                $game->save();
             }
         }
 
@@ -104,9 +107,9 @@ class GameController extends Controller
             $data = $request->validated();
 
             $repeatedGames = [];
-            $fullGames = [];
-            foreach ($data['games'] as $game) {
+            $fullGames     = [];
 
+            foreach ($data['games'] as $game) {
                 $repeatedGame = Game::where('name', $game['name'])->where('region', $game['region'])->first();
 
                 if ($repeatedGame) {
@@ -114,22 +117,15 @@ class GameController extends Controller
                     continue;
                 }
 
+                // Busca idGamivo nas keys existentes quando não veio na request
                 if (empty($game['id_gamivo'])) {
-                    $gameService = new GameService();
-                    $id_gamivo = $gameService->getIdGamivo($game['name'], $game['region']);
-                    if ($id_gamivo) $game['id_gamivo'] = $id_gamivo;
+                    $idGamivo = $this->gameService->getIdGamivo($game['name'], $game['region']);
+                    if ($idGamivo) $game['id_gamivo'] = $idGamivo;
                 }
 
-                $created = Game::create($game);
-                if ($created) {
-                    $fullGame = Game::select('*')->where('id', $created->id)->with([
-                        'bundles'
-                    ])->first();
-
-                    $fullGames[] = $fullGame;
-                } else {
-                    return $this->error(400, 'Algo deu errado!');
-                }
+                // create() lança exceção em falha — o if ($created) era código morto
+                $created     = Game::create($game);
+                $fullGames[] = $created->load('bundles');
             }
 
 
@@ -227,14 +223,16 @@ class GameController extends Controller
 
             $updatedGame = $request->validated();
 
-            
+            if (empty($updatedGame['id_gamivo'])) {
+                $idGamivo = $this->gameService->getIdGamivo(
+                    $updatedGame['name'] ?? $game->name,
+                    $updatedGame['region'] ?? $game->region,
+                );
+                if ($idGamivo) $updatedGame['id_gamivo'] = $idGamivo;
+            }
+
             $game->fill($updatedGame);
-            $result = $game->save();
-
-            if (!$result)
-                return $this->error(500, 'Erro interno ao atualizar jogo');
-
-            $game->refresh();
+            $game->save();
             $game->load('bundles');
 
             DB::commit();

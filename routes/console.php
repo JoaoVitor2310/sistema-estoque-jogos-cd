@@ -2,7 +2,7 @@
 
 use App\Models\Recursos;
 use App\Models\Venda_chave_troca;
-use App\Services\GameService;
+use App\Services\Games\GameService;
 use App\Services\KeyService;
 use App\Services\ResourceService;
 use App\UseCases\Bundles\SyncBundlesFromApiUseCase;

@@ -194,17 +194,18 @@ Se novos tipos forem cadastrados, a validação quebra sem alterar o código.
 
 ### Menores (débito técnico)
 
-**13. Sem testes automatizados**
-Nenhum test file encontrado. Cálculos de lucro, importação e queries complexas não têm cobertura.
-
-**14. Queue driver: database**
+**13. Queue driver: database**
 Jobs usam a tabela do banco como fila. Sob carga, pode gerar lock contention. Redis seria mais robusto.
 
-**15. Campos depreciados no modelo Vip**
+**14. Campos depreciados no modelo Vip**
 `first_link`, `second_link`, `third_link`, `steam_link` — marcados como deprecated na migration mas ainda no modelo. Remover esses campos.
 
-**16. Sem paginação em `searchPopularity()`**
+**15. Sem paginação em `searchPopularity()`**
 Carrega todos os jogos com `id_steamcharts` não nulo de uma vez.
+
+**16. `searchGamesIdSteam()` não distingue "não buscado" de "não encontrado"**
+`id_steamcharts IS NULL` significa tanto "nunca foi buscado" quanto "foi buscado mas o jogo não existe no Steamcharts". Resultado: o cron re-processa indefinidamente os jogos que já se sabe que não existem, fazendo a lista crescer e gerando requisições desnecessárias ao price_researcher.
+Solução: adicionar coluna `steamcharts_searched_at TIMESTAMP NULL` na tabela `games`. Após cada tentativa de busca (com ou sem resultado), preencher com `now()`. O query do cron passa a filtrar `whereNull('id_steamcharts')->whereNull('steamcharts_searched_at')`, zerando as buscas repetidas.
 
 ---
 
@@ -499,13 +500,13 @@ Cada step é uma migration separada e reversível. Se der errado em qualquer pon
 - [x] **5.8** Criar `UseCases/Vips/ExecuteVipListUseCase` — extrair de `VipListExecutionService`
   - `VipListExecutionService` mantém apenas `applyCallback()` (infraestrutura simples)
   - `VipController::runVipList()` injeta e usa `ExecuteVipListUseCase`
-- [ ] **5.9** Refatorar Services para serem infraestrutura pura:
-  - `KeyCalculationService` → carrega taxas com cache, converte para VOs
-  - `KeyRepository` → queries complexas (autoSell, limbo, sold)
+- [x] **5.9** Refatorar Services para serem infraestrutura pura:
+  - `KeyCalculationService` ✅ já era infra pura (cache + VOs)
+  - `KeyRepository` ✅ já era infra pura (queries complexas)
   - `SupplierService` ✅ criado na Fase 3 — `findOrCreate(string $perfilOrigem): int`
-  - `GameService` → lookup Gamivo, Steam ID, CRUD
-  - `BundleService` → CRUD bundles, API GGDeals
-  - `CurrencyConversionService` → mover de `APIService`
+  - `GameService` → movido para `Services/Games/`, removido wrapper `identifyPlatform()` (callers chamam `PlatformIdentifier::identify()` direto), corrigido bug em `searchGamesIdSteam()`, removido construtor vazio
+  - `BundleService` ✅ limpo na Fase 5.7 (só consulta/filtros)
+  - `CurrencyConversionService` → extraído de `APIService` para `Services/External/`; `APIService` ficou apenas com `getBundles()` (GGDeals); `ResourceService` atualizado para usar `CurrencyConversionService`
 - [ ] **5.10** Dividir `VendaChaveTrocaController` em `KeyController`, `KeyImportController`, `KeySaleController`
   - Cada método do controller: valida request → chama UseCase ou Service → retorna response
   - Criar `Http/Resources/` para cada endpoint que retorna dados de keys — transformação de model para array é responsabilidade do Resource, não do controller (`KeyAutoSellResource` já criado como referência)

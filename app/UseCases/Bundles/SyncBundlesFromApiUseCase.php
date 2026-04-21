@@ -7,6 +7,7 @@ use App\Models\Bundle;
 use App\Models\Game;
 use App\Models\Recursos;
 use App\Services\APIService;
+use App\Services\External\CurrencyConversionService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -16,9 +17,9 @@ use Illuminate\Support\Facades\Mail;
  * Orquestra a sincronização de bundles com a API GGDeals.
  *
  * Responsabilidades:
- *  - Buscar bundles na API externa (APIService)
+ *  - Buscar bundles na API GGDeals (APIService)
  *  - Criar/atualizar Bundle e Games no banco (Eloquent)
- *  - Converter moedas para USD quando necessário (APIService)
+ *  - Converter moedas para USD quando necessário (CurrencyConversionService)
  *  - Buscar preços de lançamento de jogos novos (price_researcher)
  *  - Enviar alertas de e-mail para novos Choices
  *  - Gerenciar a transação que envolve todo o fluxo
@@ -27,6 +28,7 @@ class SyncBundlesFromApiUseCase
 {
     public function __construct(
         private readonly APIService $apiService,
+        private readonly CurrencyConversionService $currencyService,
     ) {}
 
     public function execute(): void
@@ -119,7 +121,7 @@ class SyncBundlesFromApiUseCase
             : null;
 
         if ($priceDolar === null) {
-            $converted = $this->apiService->convertCurrency(
+            $converted = $this->currencyService->convertCurrency(
                 $topTierBundle['currency'],
                 'USD',
                 $topTierBundle['price']

@@ -2,9 +2,10 @@
 
 namespace App\UseCases\Keys;
 
+use App\Domain\Platform\PlatformIdentifier;
 use App\Domain\Pricing\SalePriceCalculator;
 use App\Models\Venda_chave_troca;
-use App\Services\GameService;
+use App\Services\Games\GameService;
 use App\Services\Keys\KeyCalculationService;
 use App\Services\Keys\KeyRepository;
 use App\Services\Suppliers\SupplierService;
@@ -62,8 +63,8 @@ class RegisterKeyUseCase
                     $game['repetido'] = true;
                 }
 
-                // Identifica plataforma pelo padrão da chave
-                $game['plataformaIdentificada'] = $this->gameService->identifyPlatform($game['chaveRecebida']);
+                // Identifica plataforma pelo padrão da chave (Domain — sem dependência de infra)
+                $game['plataformaIdentificada'] = PlatformIdentifier::identify($game['chaveRecebida']);
 
                 // Calcula min/max da API Gamivo
                 $game = $this->calculationService->calculateMinMaxApi($game);

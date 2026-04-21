@@ -2,8 +2,9 @@
 
 namespace App\UseCases\Keys;
 
+use App\Domain\Platform\PlatformIdentifier;
 use App\Models\Venda_chave_troca;
-use App\Services\GameService;
+use App\Services\Games\GameService;
 use App\Services\Keys\KeyCalculationService;
 use App\Services\Keys\KeyRepository;
 use App\Services\Suppliers\SupplierService;
@@ -56,7 +57,7 @@ class UpdateKeyUseCase
         $data = $this->calculationService->calculateFormulas($data, $somatorioIncomes, true);
 
         // Plataforma e fornecedor
-        $data['plataformaIdentificada'] = $this->gameService->identifyPlatform($data['chaveRecebida']);
+        $data['plataformaIdentificada'] = PlatformIdentifier::identify($data['chaveRecebida']);
         $data['id_fornecedor']          = $this->supplierService->findOrCreate($data['perfilOrigem']);
 
         // Verifica duplicidade excluindo o próprio registro
