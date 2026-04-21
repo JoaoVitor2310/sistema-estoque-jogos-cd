@@ -75,6 +75,15 @@ class UpdateKeyUseCase
             $this->gameService->fillIdGamivo($data['nomeJogo'], $data['region'], $data['idGamivo']);
         }
 
+        // Remove campos de lucro de venda nulos antes de persistir.
+        // O banco tem DEFAULT 0 — a semântica "não vendida" já é capturada por dataVendida IS NULL.
+        if (($data['lucroVendaRS'] ?? null) === null) {
+            unset($data['lucroVendaRS']);
+        }
+        if (($data['lucroVendaPercentual'] ?? null) === null) {
+            unset($data['lucroVendaPercentual']);
+        }
+
         $existing->update($data);
 
         return $existing->load([

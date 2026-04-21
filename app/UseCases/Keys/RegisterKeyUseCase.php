@@ -88,13 +88,18 @@ class RegisterKeyUseCase
                 // Cadastra o jogo na tabela games se ainda não existir
                 $this->gameService->createGameIfDontExists($game);
 
-                // Aplica defaults de preço mínimo e rótulo do lote via Domain
-                if (empty($game['minimoParaVenda'])) {
-                    $game['minimoParaVenda'] = SalePriceCalculator::minimumSalePrice((float) $game['precoCliente']);
-                }
+                $game['minimoParaVenda'] = SalePriceCalculator::minimumSalePrice((float) $game['precoCliente']);
 
-                if (empty($game['valorPagoTotal'])) {
-                    $game['valorPagoTotal'] = SalePriceCalculator::tradeCostLabel((float) $game['qtdTF2'], $totalGames);
+                $game['valorPagoTotal'] = SalePriceCalculator::tradeCostLabel((float) $game['qtdTF2'], $totalGames);
+
+                // Remove campos de lucro de venda nulos antes de persistir.
+                // O banco tem DEFAULT 0 para esses campos — a semântica "não vendida"
+                // já é capturada por dataVendida IS NULL.
+                if (($game['lucroVendaRS'] ?? null) === null) {
+                    unset($game['lucroVendaRS']);
+                }
+                if (($game['lucroVendaPercentual'] ?? null) === null) {
+                    unset($game['lucroVendaPercentual']);
                 }
 
                 // Persiste e carrega com relacionamentos
@@ -146,7 +151,7 @@ class RegisterKeyUseCase
     {
         $hasUnidentified = array_filter(
             $fullGames,
-            fn ($g) => ($g->plataformaIdentificada ?? null) === 'DESCONHECIDO',
+            fn($g) => ($g->plataformaIdentificada ?? null) === 'DESCONHECIDO',
         );
 
         $message = 'Jogos cadastrados com sucesso';
