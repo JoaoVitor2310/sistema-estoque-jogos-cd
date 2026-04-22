@@ -1,7 +1,5 @@
 <?php
 
-use App\Http\Controllers\ProfileController;
-use Illuminate\Foundation\Application;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AuthorizedUsersController;
 use App\Http\Controllers\BundleController;
@@ -9,12 +7,13 @@ use App\Http\Controllers\GameController;
 use App\Http\Controllers\Keys\KeyController;
 use App\Http\Controllers\Keys\KeyImportController;
 use App\Http\Controllers\Keys\KeySaleController;
-use App\Http\Controllers\TaxaController;
 use App\Http\Controllers\ResourceController;
+use App\Http\Controllers\TaxaController;
 use App\Http\Controllers\VipController;
 use App\Http\Middleware\CheckAdmin;
 use App\Http\Middleware\CheckPermission;
-use App\Http\Middleware\VerifyVipWebhookSecret;
+use App\Http\Middleware\VerifySecret;
+use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -44,9 +43,8 @@ Route::prefix('vips')
         Route::post('/callback/{vipList}', 'callbackVipList')
             ->name('vips.callbackVipList')
             ->withoutMiddleware([CheckPermission::class])
-            ->middleware(VerifyVipWebhookSecret::class);
-});
-
+            ->middleware(VerifySecret::class);
+    });
 
 Route::get('/venda-chave-troca', [KeyController::class, 'show'])->name('venda-chave-troca');
 
@@ -87,8 +85,8 @@ Route::prefix('games')
         Route::put('/{id}', 'update')->name('games.update');
         Route::delete('/{id}', 'destroy')->name('games.destroy');
         Route::delete('/', 'destroyArray')->name('games.destroyArray');
-        Route::get('/search-popularity', 'searchPopularity')->name('games.searchPopularity')->middleware(VerifyVipWebhookSecret::class);
-        Route::post('/update-popularity', 'updatePopularity')->name('games.updatePopularity')->middleware(VerifyVipWebhookSecret::class);
+        Route::get('/search-popularity', 'searchPopularity')->name('games.searchPopularity');
+        Route::post('/update-popularity', 'updatePopularity')->name('games.updatePopularity')->middleware(VerifySecret::class);
     });
 
 Route::prefix('bundles')
@@ -181,4 +179,4 @@ Route::middleware('auth')->group(function () {
     })->name('profile.destroy');
 });
 
-require __DIR__ . '/auth.php';
+require __DIR__.'/auth.php';

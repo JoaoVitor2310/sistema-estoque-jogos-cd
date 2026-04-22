@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 class VendaChaveTrocaFactory extends Factory
 {
     protected $model = Venda_chave_troca::class;
+
     /**
      * Define the model's default state.
      *

@@ -2,9 +2,9 @@
 
 namespace App\Http\Requests;
 
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
-use Illuminate\Contracts\Validation\Validator;
 
 class AuthorizedUserRequest extends FormRequest
 {
@@ -24,9 +24,9 @@ class AuthorizedUserRequest extends FormRequest
     public function rules(): array
     {
         return [
-            "name" => ["required", "string"],
-            "email" => ["required", "string"],
-            "status" => ["required", "boolean"],
+            'name' => ['required', 'string'],
+            'email' => ['required', 'string'],
+            'status' => ['required', 'boolean'],
         ];
     }
 
@@ -36,7 +36,7 @@ class AuthorizedUserRequest extends FormRequest
             'statusCode' => 422,
             'message' => 'Dados inválidos',
             'errors' => $validator->errors(),
-            'data' => []
+            'data' => [],
         ], 422));
     }
 }

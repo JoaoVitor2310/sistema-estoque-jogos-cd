@@ -2,10 +2,9 @@
 
 namespace App\Http\Requests;
 
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
-use Illuminate\Contracts\Validation\Validator;
-
 
 class StoreFeeRequest extends FormRequest
 {
@@ -25,8 +24,8 @@ class StoreFeeRequest extends FormRequest
     public function rules(): array
     {
         return [
-            "name" => "required",
-            "preco" => ["required", "decimal:0,3"],
+            'name' => 'required',
+            'preco' => ['required', 'decimal:0,3'],
         ];
     }
 
@@ -36,7 +35,7 @@ class StoreFeeRequest extends FormRequest
             'statusCode' => 422,
             'message' => 'Dados inválidos',
             'errors' => $validator->errors(),
-            'data' => []
+            'data' => [],
         ], 422));
     }
 }

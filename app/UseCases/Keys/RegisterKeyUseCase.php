@@ -35,17 +35,17 @@ class RegisterKeyUseCase
      * Erros por key são coletados e retornados sem interromper o lote.
      * Erros catastróficos (ex: banco indisponível) propagam exceções.
      *
-     * @param  array<int, array<string, mixed>> $games
+     * @param  array<int, array<string, mixed>>  $games
      * @return array{games: list<Venda_chave_troca>, message: string, errors: list<array>}
      */
     public function execute(array $games): array
     {
         $fullGames = [];
-        $errors    = [];
+        $errors = [];
 
         // Passo 1 — calcula incomeSimulado por key e acumula o somatório do lote
-        $firstFormulas    = $this->calculationService->calculateFirstFormulas($games);
-        $games            = $firstFormulas['games'];
+        $firstFormulas = $this->calculationService->calculateFirstFormulas($games);
+        $games = $firstFormulas['games'];
         $somatorioIncomes = $firstFormulas['somatorioIncomes'];
 
         $totalGames = count($games);
@@ -81,7 +81,7 @@ class RegisterKeyUseCase
                 }
 
                 // Propaga idGamivo para a tabela games
-                if (!empty($game['idGamivo'])) {
+                if (! empty($game['idGamivo'])) {
                     $this->gameService->fillIdGamivo($game['nomeJogo'], $game['region'], $game['idGamivo']);
                 }
 
@@ -103,7 +103,7 @@ class RegisterKeyUseCase
                 }
 
                 // Persiste e carrega com relacionamentos
-                $created     = Venda_chave_troca::create($game);
+                $created = Venda_chave_troca::create($game);
                 $fullGames[] = $created->load([
                     'fornecedor',
                     'tipoReclamacao',
@@ -115,53 +115,53 @@ class RegisterKeyUseCase
                 ]);
 
                 Log::info('Key registrada com sucesso', [
-                    'id'   => $created->id,
+                    'id' => $created->id,
                     'nome' => $game['nomeJogo'],
                 ]);
             } catch (\Throwable $e) {
                 Log::error('Erro ao registrar key', [
                     'indice' => $index + 1,
-                    'nome'   => $game['nomeJogo'] ?? 'Desconhecido',
-                    'erro'   => $e->getMessage(),
-                    'trace'  => $e->getTraceAsString(),
+                    'nome' => $game['nomeJogo'] ?? 'Desconhecido',
+                    'erro' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
                 ]);
 
                 $errors[] = [
                     'linha' => $index + 1,
-                    'jogo'  => $game['nomeJogo'] ?? 'Desconhecido',
-                    'erro'  => $e->getMessage(),
+                    'jogo' => $game['nomeJogo'] ?? 'Desconhecido',
+                    'erro' => $e->getMessage(),
                 ];
             }
         }
 
         return [
-            'games'   => $fullGames,
+            'games' => $fullGames,
             'message' => $this->buildMessage($fullGames, $errors),
-            'errors'  => $errors,
+            'errors' => $errors,
         ];
     }
 
     /**
      * Constrói a mensagem de retorno com base nos resultados do lote.
      *
-     * @param list<Venda_chave_troca> $fullGames
-     * @param list<array>             $errors
+     * @param  list<Venda_chave_troca>  $fullGames
+     * @param  list<array>  $errors
      */
     private function buildMessage(array $fullGames, array $errors): string
     {
         $hasUnidentified = array_filter(
             $fullGames,
-            fn($g) => ($g->plataformaIdentificada ?? null) === 'DESCONHECIDO',
+            fn ($g) => ($g->plataformaIdentificada ?? null) === 'DESCONHECIDO',
         );
 
         $message = 'Jogos cadastrados com sucesso';
 
-        if (!empty($hasUnidentified)) {
-            $message .= ', mas ' . count($hasUnidentified) . ' jogo(s) com plataforma não identificada';
+        if (! empty($hasUnidentified)) {
+            $message .= ', mas '.count($hasUnidentified).' jogo(s) com plataforma não identificada';
         }
 
-        if (!empty($errors)) {
-            $message .= '. Com ' . count($errors) . ' erro(s)';
+        if (! empty($errors)) {
+            $message .= '. Com '.count($errors).' erro(s)';
         }
 
         return $message;

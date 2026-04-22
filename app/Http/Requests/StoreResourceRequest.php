@@ -2,10 +2,9 @@
 
 namespace App\Http\Requests;
 
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
-use Illuminate\Contracts\Validation\Validator;
-
 
 class StoreResourceRequest extends FormRequest
 {
@@ -25,11 +24,11 @@ class StoreResourceRequest extends FormRequest
     public function rules(): array
     {
         return [
-            "name" => "string",
-            "preco_euro" => ["required", "decimal:0,3"],
-            "preco_dolar" => ["required", "decimal:0,3"],
-            "preco_real" => ["required", "decimal:0,3"],
-            "currentCurrency" => ["required", "string", "in:EUR,USD,BRL"],
+            'name' => 'string',
+            'preco_euro' => ['required', 'decimal:0,3'],
+            'preco_dolar' => ['required', 'decimal:0,3'],
+            'preco_real' => ['required', 'decimal:0,3'],
+            'currentCurrency' => ['required', 'string', 'in:EUR,USD,BRL'],
         ];
     }
 
@@ -39,7 +38,7 @@ class StoreResourceRequest extends FormRequest
             'statusCode' => 422,
             'message' => 'Dados inválidos',
             'errors' => $validator->errors(),
-            'data' => []
+            'data' => [],
         ], 422));
     }
 }

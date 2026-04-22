@@ -98,16 +98,16 @@ class KeySaleController extends Controller
      */
     public function insertDataVenda(Request $request)
     {
-        $keyCode            = $request->input('chaveRecebida');
-        $resetMinApiGamivo  = $request->input('updateMinApiGamivo', true);
+        $keyCode = $request->input('chaveRecebida');
+        $resetMinApiGamivo = $request->input('updateMinApiGamivo', true);
 
-        if (!$keyCode) {
+        if (! $keyCode) {
             return $this->error(404, 'Chave não encontrada', ['chaveRecebida' => 'Chave não encontrada']);
         }
 
         $result = $this->listKeyForSaleUseCase->execute($keyCode, $resetMinApiGamivo);
 
-        if (!$result['success']) {
+        if (! $result['success']) {
             return $this->error(404, $result['message']);
         }
 

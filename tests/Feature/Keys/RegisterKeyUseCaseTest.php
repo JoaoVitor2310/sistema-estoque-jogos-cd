@@ -54,39 +54,39 @@ function seedRegisterFks(): void
 function makeGameInput(array $overrides = []): array
 {
     return array_merge([
-        'nomeJogo'            => 'Test Game',
-        'chaveRecebida'       => 'AAAAA-11111-BBBBB',
-        'perfilOrigem'        => 'https://steamcommunity.com/id/seller',
-        'qtdTF2'              => 2.0,
-        'precoCliente'        => 5.00,
-        'region'              => null,
-        'dataAdquirida'       => now()->toDateString(),
-        'idGamivo'            => null,
-        'steamId'             => null,
-        'precoJogo'           => null,
-        'notaMetacritic'      => 0,
-        'minimoParaVenda'     => null,
-        'minApiGamivo'        => null,
-        'maxApiGamivo'        => null,
-        'tipo_reclamacao_id'  => 1,
-        'tipo_formato_id'     => 1,
-        'id_leilao_g2a'       => 1,
-        'id_leilao_gamivo'    => 1,
-        'id_leilao_kinguin'   => 1,
-        'id_plataforma'       => 1,
-        'dataVenda'           => null,
-        'dataVendida'         => null,
-        'observacao'          => null,
-        'chaveEntregue'       => null,
-        'valorPagoTotal'      => null,
-        'vendido'             => false,
-        'leiloes'             => 1,
-        'quantidade'          => 1,
-        'devolucoes'          => false,
-        'valorVendido'        => null,
-        'email'               => null,
-        'isSteam'             => false,
-        'color'               => null,
+        'nomeJogo' => 'Test Game',
+        'chaveRecebida' => 'AAAAA-11111-BBBBB',
+        'perfilOrigem' => 'https://steamcommunity.com/id/seller',
+        'qtdTF2' => 2.0,
+        'precoCliente' => 5.00,
+        'region' => null,
+        'dataAdquirida' => now()->toDateString(),
+        'idGamivo' => null,
+        'steamId' => null,
+        'precoJogo' => null,
+        'notaMetacritic' => 0,
+        'minimoParaVenda' => null,
+        'minApiGamivo' => null,
+        'maxApiGamivo' => null,
+        'tipo_reclamacao_id' => 1,
+        'tipo_formato_id' => 1,
+        'id_leilao_g2a' => 1,
+        'id_leilao_gamivo' => 1,
+        'id_leilao_kinguin' => 1,
+        'id_plataforma' => 1,
+        'dataVenda' => null,
+        'dataVendida' => null,
+        'observacao' => null,
+        'chaveEntregue' => null,
+        'valorPagoTotal' => null,
+        'vendido' => false,
+        'leiloes' => 1,
+        'quantidade' => 1,
+        'devolucoes' => false,
+        'valorVendido' => null,
+        'email' => null,
+        'isSteam' => false,
+        'color' => null,
     ], $overrides);
 }
 
@@ -155,8 +155,8 @@ describe('RegisterKeyUseCase', function () {
         // Insere uma key com a mesma chave no banco antes do execute
         DB::table('venda_chave_trocas')->insert(array_merge(makeGameInput(), [
             'id_fornecedor' => DB::table('fornecedor')->insertGetId(['perfilOrigem' => 'https://steamcommunity.com/id/seed']),
-            'created_at'    => now(),
-            'updated_at'    => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
         ]));
 
         $result = app(RegisterKeyUseCase::class)->execute([makeGameInput()]);
@@ -268,9 +268,9 @@ describe('RegisterKeyUseCase', function () {
     // ── Error isolation ───────────────────────────────────────────────────────
 
     it('collects errors per key without interrupting the remaining batch', function () {
-        $validGame   = makeGameInput(['chaveRecebida' => 'VALID-KEY-001']);
+        $validGame = makeGameInput(['chaveRecebida' => 'VALID-KEY-001']);
         $invalidGame = makeGameInput([
-            'chaveRecebida'      => 'VALID-KEY-002',
+            'chaveRecebida' => 'VALID-KEY-002',
             'tipo_reclamacao_id' => 9999, // FK inválido → viola constraint no banco
         ]);
 

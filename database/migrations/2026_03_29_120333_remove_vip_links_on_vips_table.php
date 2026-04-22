@@ -35,6 +35,6 @@ return new class extends Migration
             $table->text('result')->nullable();
             $table->datetime('result_at')->nullable();
             $table->dropColumn('id_steam');
-            });
+        });
     }
 };

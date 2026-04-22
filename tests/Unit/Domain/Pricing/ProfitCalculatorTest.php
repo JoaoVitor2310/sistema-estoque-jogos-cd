@@ -20,10 +20,10 @@ describe('ProfitCalculator', function () {
         it('is proportional to the simulated income', function () {
             // 2 × 1.50 / 5.00 × 2.67 = 1.602
             $result = ProfitCalculator::individualCost(
-                qtdTF2:           2.0,
-                tf2EuroPrice:     1.50,
+                qtdTF2: 2.0,
+                tf2EuroPrice: 1.50,
                 somatorioIncomes: 5.00,
-                gameIncome:       2.67,
+                gameIncome: 2.67,
             );
 
             expect($result)->toEqualWithDelta(1.602, 0.001);

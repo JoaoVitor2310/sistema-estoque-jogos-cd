@@ -33,7 +33,7 @@ class ImportKeysFromXlsxUseCase
     ) {}
 
     /**
-     * @param  string $filePath Caminho absoluto do arquivo XLSX
+     * @param  string  $filePath  Caminho absoluto do arquivo XLSX
      * @return array{success: bool, data: array, message: string, errors: array}
      */
     public function execute(string $filePath): array
@@ -45,13 +45,14 @@ class ImportKeysFromXlsxUseCase
 
             // Valida cabeçalhos via Domain — falha rápida antes de qualquer leitura de dados
             $headerErrors = ImportHeaderValidator::validate($this->readHeaders($worksheet));
-            if (!empty($headerErrors)) {
+            if (! empty($headerErrors)) {
                 DB::rollBack();
+
                 return [
                     'success' => false,
-                    'message' => 'Cabeçalhos inválidos: ' . implode(', ', $headerErrors),
-                    'data'    => [],
-                    'errors'  => $headerErrors,
+                    'message' => 'Cabeçalhos inválidos: '.implode(', ', $headerErrors),
+                    'data' => [],
+                    'errors' => $headerErrors,
                 ];
             }
 
@@ -65,24 +66,24 @@ class ImportKeysFromXlsxUseCase
 
             return [
                 'success' => true,
-                'data'    => $result['games'],
+                'data' => $result['games'],
                 'message' => $result['message'],
-                'errors'  => $result['errors'],
+                'errors' => $result['errors'],
             ];
         } catch (\Exception $e) {
             DB::rollBack();
 
             Log::error('Erro ao importar arquivo XLSX', [
                 'file_path' => $filePath,
-                'error'     => $e->getMessage(),
-                'trace'     => $e->getTraceAsString(),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return [
                 'success' => false,
-                'data'    => [],
+                'data' => [],
                 'message' => '',
-                'errors'  => [$e->getMessage()],
+                'errors' => [$e->getMessage()],
             ];
         }
     }
@@ -96,7 +97,7 @@ class ImportKeysFromXlsxUseCase
     {
         $headers = [];
         foreach (array_keys(ImportHeaderValidator::EXPECTED_COLUMNS) as $column) {
-            $headers[$column] = $worksheet->getCell($column . '1')->getValue();
+            $headers[$column] = $worksheet->getCell($column.'1')->getValue();
         }
 
         return $headers;
@@ -114,54 +115,54 @@ class ImportKeysFromXlsxUseCase
      */
     private function extractRows(Worksheet $worksheet): array
     {
-        $games  = [];
+        $games = [];
         $errors = [];
 
         for ($row = 2; $row <= $worksheet->getHighestRow(); $row++) {
             // Pula linhas sem chave (coluna J)
-            if (empty($worksheet->getCell('J' . $row)->getValue())) {
+            if (empty($worksheet->getCell('J'.$row)->getValue())) {
                 continue;
             }
 
             $data = [
-                'chaveRecebida'     => trim($worksheet->getCell('J' . $row)->getValue() ?? ''),
-                'nomeJogo'          => trim($worksheet->getCell('K' . $row)->getValue() ?? ''),
-                'perfilOrigem'      => trim($worksheet->getCell('D' . $row)->getValue() ?? ''),
-                'qtdTF2'            => floatval(str_replace(',', '.', $worksheet->getCell('E' . $row)->getValue() ?? '0')),
-                'dataAdquirida'     => ExcelDateConverter::convert($worksheet->getCell('B' . $row)->getValue()) ?? now()->toDateString(),
-                'region'            => trim($worksheet->getCell('I' . $row)->getValue() ?? '') ?: null,
-                'precoCliente'      => $worksheet->getCell('C' . $row)->getValue()
-                    ? trim($worksheet->getCell('C' . $row)->getValue())
+                'chaveRecebida' => trim($worksheet->getCell('J'.$row)->getValue() ?? ''),
+                'nomeJogo' => trim($worksheet->getCell('K'.$row)->getValue() ?? ''),
+                'perfilOrigem' => trim($worksheet->getCell('D'.$row)->getValue() ?? ''),
+                'qtdTF2' => floatval(str_replace(',', '.', $worksheet->getCell('E'.$row)->getValue() ?? '0')),
+                'dataAdquirida' => ExcelDateConverter::convert($worksheet->getCell('B'.$row)->getValue()) ?? now()->toDateString(),
+                'region' => trim($worksheet->getCell('I'.$row)->getValue() ?? '') ?: null,
+                'precoCliente' => $worksheet->getCell('C'.$row)->getValue()
+                    ? trim($worksheet->getCell('C'.$row)->getValue())
                     : null,
-                'dataExpiracao'     => ExcelDateConverter::convert($worksheet->getCell('G' . $row)->getValue()),
-                'id_leilao_g2a'     => intval($worksheet->getCell('A' . $row)->getValue() ?? 1),
+                'dataExpiracao' => ExcelDateConverter::convert($worksheet->getCell('G'.$row)->getValue()),
+                'id_leilao_g2a' => intval($worksheet->getCell('A'.$row)->getValue() ?? 1),
 
                 // Defaults — campos não presentes no XLSX recebem valores padrão
-                'idGamivo'          => null,
-                'steamId'           => null,
-                'precoJogo'         => null,
-                'notaMetacritic'    => 0,
-                'minimoParaVenda'   => null,
-                'minApiGamivo'      => null,
-                'maxApiGamivo'      => null,
+                'idGamivo' => null,
+                'steamId' => null,
+                'precoJogo' => null,
+                'notaMetacritic' => 0,
+                'minimoParaVenda' => null,
+                'minApiGamivo' => null,
+                'maxApiGamivo' => null,
                 'tipo_reclamacao_id' => 1,  // Sem reclamação
-                'tipo_formato_id'   => 1,   // Padrão
-                'id_leilao_gamivo'  => 1,
+                'tipo_formato_id' => 1,   // Padrão
+                'id_leilao_gamivo' => 1,
                 'id_leilao_kinguin' => 1,
-                'id_plataforma'     => 3,   // Gamivo por padrão
-                'dataVenda'         => null,
-                'dataVendida'       => null,
-                'observacao'        => null,
-                'chaveEntregue'     => null,
-                'valorPagoTotal'    => null,
-                'vendido'           => false,
-                'leiloes'           => 1,
-                'quantidade'        => 1,
-                'devolucoes'        => false,
-                'valorVendido'      => null,
-                'email'             => null,
-                'isSteam'           => false,
-                'color'             => null,
+                'id_plataforma' => 3,   // Gamivo por padrão
+                'dataVenda' => null,
+                'dataVendida' => null,
+                'observacao' => null,
+                'chaveEntregue' => null,
+                'valorPagoTotal' => null,
+                'vendido' => false,
+                'leiloes' => 1,
+                'quantidade' => 1,
+                'devolucoes' => false,
+                'valorVendido' => null,
+                'email' => null,
+                'isSteam' => false,
+                'color' => null,
             ];
 
             $validator = Validator::make($data, ImportRowValidator::RULES, ImportRowValidator::messages($row));
@@ -173,9 +174,9 @@ class ImportKeysFromXlsxUseCase
             }
         }
 
-        if (!empty($errors)) {
+        if (! empty($errors)) {
             Log::warning('Erros de validação nas linhas do XLSX', ['errors' => $errors]);
-            throw new \Exception('Erros de validação: ' . json_encode($errors, JSON_UNESCAPED_UNICODE));
+            throw new \Exception('Erros de validação: '.json_encode($errors, JSON_UNESCAPED_UNICODE));
         }
 
         return $games;

@@ -2,23 +2,23 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreResourceRequest;
+use App\Models\Recursos;
+use App\Services\ResourceService;
 use App\Traits\HttpResponses;
 use Illuminate\Http\Request;
-use App\Models\Recursos;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
-use App\Services\ResourceService;
 
 class ResourceController extends Controller
 {
     use HttpResponses;
+
     private $ResourceService;
 
     public function __construct()
     {
-        $this->ResourceService = new ResourceService();
+        $this->ResourceService = new ResourceService;
     }
 
     public function show(Request $request)
@@ -56,13 +56,14 @@ class ResourceController extends Controller
     public function destroy(string $id)
     {
         $resource = Recursos::select('*')->where('id', $id)->first();
-        if (!$resource)
+        if (! $resource) {
             return $this->error(404, 'Recurso não encontrado');
-
+        }
 
         $result = Recursos::where('id', $id)->delete();
-        if (!$result)
+        if (! $result) {
             return $this->error(500, 'Erro interno ao deletar recurso');
+        }
 
         return $this->response(200, 'Recurso deletado com sucesso', $resource);
     }
@@ -70,18 +71,21 @@ class ResourceController extends Controller
     public function destroyArray(Request $request)
     {
         $resources = $request->input('resources');
-        if (!$resources)
+        if (! $resources) {
             return $this->error(404, 'Recursos não enviadas', ['resources' => 'Recursos não enviadas']);
+        }
 
         foreach ($resources as $resource) {
 
             $item = Recursos::select('*')->where('id', $resource['id'])->first();
-            if (!$item)
+            if (! $item) {
                 return $this->error(404, 'Taxa não encontrada');
+            }
 
             $result = Recursos::where('id', $resource['id'])->delete();
-            if (!$result)
+            if (! $result) {
                 return $this->error(500, 'Erro interno ao deletar taxa');
+            }
         }
 
         return $this->response(200, 'Recursos deletadas com sucesso', $resources);
@@ -90,8 +94,9 @@ class ResourceController extends Controller
     public function update(StoreResourceRequest $request, string $id)
     {
         $resource = Recursos::select('*')->where('id', $id)->first();
-        if (!$resource)
+        if (! $resource) {
             return $this->error(404, 'Recurso não encontrado');
+        }
 
         $data = $request->validated();
 
@@ -104,8 +109,9 @@ class ResourceController extends Controller
         $resource['preco_dolar'] = $data['preco_dolar'];
         $resource['preco_real'] = $data['preco_real'];
 
-        if (!$result)
+        if (! $result) {
             return $this->error(500, 'Erro interno ao atualizar taxa');
+        }
 
         return $this->response(200, 'Taxa atualizada com sucesso', $resource);
     }

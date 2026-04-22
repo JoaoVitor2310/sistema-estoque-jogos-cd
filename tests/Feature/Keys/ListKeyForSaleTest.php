@@ -28,26 +28,26 @@ function seedFks(): void
 function insertKey(string $keyCode, array $overrides = []): void
 {
     DB::table('venda_chave_trocas')->insert(array_merge([
-        'nomeJogo'            => 'Test Game',
-        'idGamivo'            => 'gam-' . uniqid(),
-        'chaveRecebida'       => $keyCode,
-        'precoCliente'        => 5.00,
+        'nomeJogo' => 'Test Game',
+        'idGamivo' => 'gam-'.uniqid(),
+        'chaveRecebida' => $keyCode,
+        'precoCliente' => 5.00,
         'valorPagoIndividual' => 2.00,
-        'lucroPercentual'     => 25.00,
-        'perfilOrigem'        => 'https://steamcommunity.com/id/test',
-        'id_fornecedor'       => 1,
-        'tipo_reclamacao_id'  => 1,
-        'tipo_formato_id'     => 1,
-        'id_leilao_g2a'       => 1,
-        'id_leilao_gamivo'    => 1,
-        'id_leilao_kinguin'   => 1,
-        'id_plataforma'       => 1,
-        'dataVenda'           => null,
-        'dataVendida'         => null,
-        'minApiGamivo'        => 1.50,
-        'maxApiGamivo'        => 10.00,
-        'created_at'          => now(),
-        'updated_at'          => now(),
+        'lucroPercentual' => 25.00,
+        'perfilOrigem' => 'https://steamcommunity.com/id/test',
+        'id_fornecedor' => 1,
+        'tipo_reclamacao_id' => 1,
+        'tipo_formato_id' => 1,
+        'id_leilao_g2a' => 1,
+        'id_leilao_gamivo' => 1,
+        'id_leilao_kinguin' => 1,
+        'id_plataforma' => 1,
+        'dataVenda' => null,
+        'dataVendida' => null,
+        'minApiGamivo' => 1.50,
+        'maxApiGamivo' => 10.00,
+        'created_at' => now(),
+        'updated_at' => now(),
     ], $overrides));
 }
 
@@ -99,7 +99,7 @@ describe('POST /venda-chave-troca/insert-data-venda', function () {
         insertKey('CCCCC-33333-DDDDD', ['minApiGamivo' => 1.50]);
 
         $this->postJson('/venda-chave-troca/insert-data-venda', [
-            'chaveRecebida'      => 'CCCCC-33333-DDDDD',
+            'chaveRecebida' => 'CCCCC-33333-DDDDD',
             'updateMinApiGamivo' => false,
         ])->assertOk();
 
@@ -138,7 +138,7 @@ describe('POST /venda-chave-troca/insert-data-venda', function () {
 
         // Um registro tinha dataVenda antes — deve permanecer inalterado (mesma data anterior)
         $alreadyListed = $rows->firstWhere('dataVenda', now()->subDays(5)->toDateString());
-        $newlyListed   = $rows->firstWhere('dataVenda', now()->toDateString());
+        $newlyListed = $rows->firstWhere('dataVenda', now()->toDateString());
 
         expect($alreadyListed)->not->toBeNull()
             ->and($newlyListed)->not->toBeNull();

@@ -25,11 +25,11 @@
 use App\Domain\Pricing\MinMaxPriceCalculator;
 
 dataset('min/max domain scenarios', [
-    'high individualCost (>10)'    => [15.0, 10.0,  21.0, 120.0],
-    'mid individualCost (>4, <=10)' => [ 5.0,  5.0,   7.5,  40.0],
-    'low individualCost (<=4, >=1)' => [ 4.0,  4.0,   6.4,  32.0],
-    'low individualCost (<4, >=1)'  => [ 2.0,  2.0,   3.2,  16.0],
-    'very low individualCost (<1)'  => [ 0.5,  0.3,   0.8,  15.0],
+    'high individualCost (>10)' => [15.0, 10.0,  21.0, 120.0],
+    'mid individualCost (>4, <=10)' => [5.0,  5.0,   7.5,  40.0],
+    'low individualCost (<=4, >=1)' => [4.0,  4.0,   6.4,  32.0],
+    'low individualCost (<4, >=1)' => [2.0,  2.0,   3.2,  16.0],
+    'very low individualCost (<1)' => [0.5,  0.3,   0.8,  15.0],
 ]);
 
 describe('MinMaxPriceCalculator::calculate()', function () {

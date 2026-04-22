@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Domain\Keys\KeyPriceAging;
 use App\Models\Venda_chave_troca;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -41,12 +40,12 @@ class KeyService
         foreach ($games as $game) {
             $actualPrice = $this->getActualPrice($game->idGamivo);
 
-            if (!$actualPrice['success']) {
+            if (! $actualPrice['success']) {
                 continue;
             }
 
             $game->minApiGamivo = KeyPriceAging::calculateLimboPrice(
-                individualCost:    (float) $game->valorPagoIndividual,
+                individualCost: (float) $game->valorPagoIndividual,
                 actualMarketPrice: (float) $actualPrice['price'],
             );
 
@@ -56,22 +55,24 @@ class KeyService
 
     /**
      * Get the actual price of the game on Gamivo
-     * @param string $idGamivo
-     * @return array
+     *
+     * @param  string  $idGamivo
      */
     private function getActualPrice($idGamivo): array
     {
         try {
-            $response = Http::get(config('services.carca_api_gamivo.base_url') . '/api/products/' . $idGamivo);
+            $response = Http::get(config('services.carca_api_gamivo.base_url').'/api/products/'.$idGamivo);
             if ($response->successful()) {
                 $response = $response->json();
+
                 return ['success' => true, 'price' => $response['actualPrice']['price']];
             } else {
                 return ['success' => false, 'price' => null];
             }
         } catch (\Throwable $e) {
             //error log
-            Log::error('Error getting actual price of game on Gamivo: ' . $e->getMessage() . ' - ' . $e->getLine() . ' - ' . $e->getFile());
+            Log::error('Error getting actual price of game on Gamivo: '.$e->getMessage().' - '.$e->getLine().' - '.$e->getFile());
+
             return ['success' => false, 'price' => null];
         }
     }

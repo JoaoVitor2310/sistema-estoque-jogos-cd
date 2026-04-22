@@ -11,10 +11,10 @@ namespace App\Domain\Pricing\ValueObjects;
 final class MarketplaceFee
 {
     /**
-     * @param float $percentualMenor Taxa percentual para preços abaixo de €8 (ex: 0.06 = 6%)
-     * @param float $fixoMenor       Taxa fixa para preços abaixo de €8 (ex: 0.25 = €0.25)
-     * @param float $percentualMaior Taxa percentual para preços a partir de €8 (ex: 0.08 = 8%)
-     * @param float $fixoMaior       Taxa fixa para preços a partir de €8 (ex: 0.40 = €0.40)
+     * @param  float  $percentualMenor  Taxa percentual para preços abaixo de €8 (ex: 0.06 = 6%)
+     * @param  float  $fixoMenor  Taxa fixa para preços abaixo de €8 (ex: 0.25 = €0.25)
+     * @param  float  $percentualMaior  Taxa percentual para preços a partir de €8 (ex: 0.08 = 8%)
+     * @param  float  $fixoMaior  Taxa fixa para preços a partir de €8 (ex: 0.40 = €0.40)
      */
     public function __construct(
         public readonly float $percentualMenor,
@@ -53,9 +53,9 @@ final class MarketplaceFee
     {
         return new self(
             percentualMenor: (float) $rates['gamivoPercentualMenor'],
-            fixoMenor:       (float) $rates['gamivoFixoMenor'],
+            fixoMenor: (float) $rates['gamivoFixoMenor'],
             percentualMaior: (float) $rates['gamivoPercentualMaior'],
-            fixoMaior:       (float) $rates['gamivoFixoMaior'],
+            fixoMaior: (float) $rates['gamivoFixoMaior'],
         );
     }
 }

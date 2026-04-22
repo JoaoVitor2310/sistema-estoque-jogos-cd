@@ -16,15 +16,15 @@ return new class extends Migration
             $table->string('color')->nullable();
             $table->unsignedBigInteger('id_fornecedor')->default(1);
             $table->foreign('id_fornecedor')->references('id')->on('fornecedor');
-            
+
             $table->unsignedBigInteger('tipo_reclamacao_id')->default(1);
             $table->foreign('tipo_reclamacao_id')->references('id')->on('tipo_reclamacao');
-            
+
             $table->string('steamId')->nullable();
             $table->string('idGamivo')->nullable();
             $table->integer('tipo_formato_id')->default(1);
             $table->foreign('tipo_formato_id')->references('id')->on('tipo_formato');
-            
+
             $table->string('chaveRecebida');
             $table->boolean('repetido')->default(false);
             $table->string('plataformaIdentificada')->default('Nenhuma');
@@ -41,15 +41,15 @@ return new class extends Migration
 
             $table->integer('id_leilao_gamivo')->default(1);
             $table->foreign('id_leilao_gamivo')->references('id')->on('tipo_leilao');
-            
+
             $table->integer('id_leilao_kinguin')->default(1);
             $table->foreign('id_leilao_kinguin')->references('id')->on('tipo_leilao');
-            
+
             // $table->string('plataforma')->nullable();
 
             $table->integer('id_plataforma')->default(1);
             $table->foreign('id_plataforma')->references('id')->on('plataforma');
-            
+
             $table->decimal('precoCliente', total: 8, places: 2)->nullable();
             $table->decimal('minimoParaVenda', total: 8, places: 2)->nullable();
             $table->decimal('precoVenda', total: 8, places: 2)->nullable();

@@ -25,8 +25,6 @@ class GameService
     /**
      * Procura o idGamivo pelo nome do jogo e região.
      * Busca primeiro nas keys existentes, depois na tabela games.
-     *
-     * @return string|false
      */
     public function getIdGamivo(string $gameName, ?string $region): string|false
     {
@@ -36,7 +34,9 @@ class GameService
             ->whereNotNull('idGamivo')
             ->first();
 
-        if ($key) return $key->idGamivo;
+        if ($key) {
+            return $key->idGamivo;
+        }
 
         $game = Game::select('id_gamivo')
             ->whereRaw('LOWER("name") = LOWER(?)', [$gameName])
@@ -70,15 +70,15 @@ class GameService
      * já que não há garantia de normalização na entrada.
      * firstOrCreate() puro usaria match exato — incorreto aqui.
      *
-     * @param array{nomeJogo: string, region: string|null, idGamivo: string|null} $game
+     * @param  array{nomeJogo: string, region: string|null, idGamivo: string|null}  $game
      */
     public function createGameIfDontExists(array $game): void
     {
         Game::whereRaw('LOWER("name") = LOWER(?)', [$game['nomeJogo']])
             ->where('region', $game['region'])
-            ->firstOr(fn() => Game::create([
-                'name'      => $game['nomeJogo'],
-                'region'    => $game['region'],
+            ->firstOr(fn () => Game::create([
+                'name' => $game['nomeJogo'],
+                'region' => $game['region'],
                 'id_gamivo' => $game['idGamivo'],
             ]));
     }
@@ -92,31 +92,34 @@ class GameService
         $games = Game::whereNull('id_steamcharts')
             ->select('id', 'name')
             ->get()
-            ->map(fn($game) => ['id' => $game->id, 'name' => $game->name])
+            ->map(fn ($game) => ['id' => $game->id, 'name' => $game->name])
             ->all();
 
         $response = Http::timeout(3200)->post(
-            config('services.price_researcher.base_url') . '/api/games/search-id-steam',
+            config('services.price_researcher.base_url').'/api/games/search-id-steam',
             ['games' => $games]
         );
 
-        if (!$response->successful() || !($response->json()['success'] ?? false)) {
-            Log::error('Erro na requisição do Price Researcher: ' . $response->status() . ' - ' . $response->body());
-            Mail::raw('Erro na requisição do Price Researcher: ' . $response->body(), function ($message) use ($response) {
+        if (! $response->successful() || ! ($response->json()['success'] ?? false)) {
+            Log::error('Erro na requisição do Price Researcher: '.$response->status().' - '.$response->body());
+            Mail::raw('Erro na requisição do Price Researcher: '.$response->body(), function ($message) use ($response) {
                 $message->to('carcadeals@gmail.com')
-                    ->subject('Erro na requisição do Price Researcher: ' . $response->status());
+                    ->subject('Erro na requisição do Price Researcher: '.$response->status());
             });
+
             return;
         }
 
         $data = $response->json();
 
         foreach ($data['data']['games'] as $foundGame) {
-            if (!isset($foundGame['id_steam'])) continue;
+            if (! isset($foundGame['id_steam'])) {
+                continue;
+            }
             Game::where('id', $foundGame['id'])->update(['id_steamcharts' => $foundGame['id_steam']]);
         }
 
-        Log::info('Id Steam dos jogos atualizados com sucesso: ' . count($data['data']['games']));
+        Log::info('Id Steam dos jogos atualizados com sucesso: '.count($data['data']['games']));
     }
 
     /**
@@ -134,7 +137,7 @@ class GameService
 
         foreach ($keys as $key) {
             $monthsListed = Carbon::parse($key->dataVenda)->diffInMonths(now());
-            $newMinPrice  = KeyPriceAging::calculateAgedPrice((float) $key->valorPagoIndividual, $monthsListed);
+            $newMinPrice = KeyPriceAging::calculateAgedPrice((float) $key->valorPagoIndividual, $monthsListed);
 
             if ($newMinPrice === null) {
                 continue; // Ainda não atingiu nenhum tier — sem alteração

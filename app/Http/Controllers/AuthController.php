@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Traits\HttpResponses;
 use Auth;
-use Illuminate\Http\Request;
 use Laravel\Socialite\Facades\Socialite;
 
 class AuthController extends Controller
@@ -60,6 +59,7 @@ class AuthController extends Controller
     public function logout()
     {
         Auth::logout();
+
         return $this->response(200, 'Logout realizado com sucesso');
         // return redirect()->route('login'); // Redireciona para verificar se o usuário foi deslogado
     }

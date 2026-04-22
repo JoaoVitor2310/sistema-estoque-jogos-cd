@@ -19,7 +19,7 @@ class CurrencyConversionService
     public function convertCurrency(string $from, string $to, float $amount): array
     {
         $from = strtoupper($from);
-        $to   = strtoupper($to);
+        $to = strtoupper($to);
 
         // Moedas iguais — sem chamada HTTP
         if ($from === $to) {
@@ -33,7 +33,7 @@ class CurrencyConversionService
                 'verify' => env('APP_ENV') === 'production',
             ])->get('https://economia.awesomeapi.com.br/json/last/USD-BRL,EUR-BRL');
 
-            if (!$response->successful()) {
+            if (! $response->successful()) {
                 $response->throw();
             }
 
@@ -46,7 +46,7 @@ class CurrencyConversionService
                 'EUR' => ((float) $data['EURBRL']['high'] + (float) $data['EURBRL']['low']) / 2,
             ];
 
-            if (!isset($rates[$from]) || !isset($rates[$to])) {
+            if (! isset($rates[$from]) || ! isset($rates[$to])) {
                 throw new \InvalidArgumentException("Moeda não suportada. Use: BRL, USD ou EUR. Recebeu: {$from} → {$to}");
             }
 
@@ -55,8 +55,9 @@ class CurrencyConversionService
 
             return ['success' => true, 'message' => 'Conversão realizada com sucesso', 'amount' => round($converted, 3)];
         } catch (\Exception $e) {
-            Log::error('Erro na conversão de moeda: ' . $e->getMessage());
-            return ['success' => false, 'message' => 'Erro na conversão. ' . $e->getMessage(), 'amount' => $amount];
+            Log::error('Erro na conversão de moeda: '.$e->getMessage());
+
+            return ['success' => false, 'message' => 'Erro na conversão. '.$e->getMessage(), 'amount' => $amount];
         }
     }
 }

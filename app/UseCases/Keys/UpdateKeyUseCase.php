@@ -30,9 +30,9 @@ class UpdateKeyUseCase
     /**
      * Atualiza os dados de uma key existente.
      *
-     * @param  string               $id        ID da key a ser atualizada
-     * @param  array<string, mixed> $validated Dados validados do Form Request
-     * @return Venda_chave_troca               Model atualizado com relacionamentos
+     * @param  string  $id  ID da key a ser atualizada
+     * @param  array<string, mixed>  $validated  Dados validados do Form Request
+     * @return Venda_chave_troca Model atualizado com relacionamentos
      *
      * @throws \Illuminate\Database\Eloquent\ModelNotFoundException
      */
@@ -49,8 +49,8 @@ class UpdateKeyUseCase
         }
 
         // Recalcula incomeSimulado (necessário para os lucros de venda)
-        $firstFormulas    = $this->calculationService->calculateFirstFormulas([$validated]);
-        $data             = $firstFormulas['games'][0];
+        $firstFormulas = $this->calculationService->calculateFirstFormulas([$validated]);
+        $data = $firstFormulas['games'][0];
         $somatorioIncomes = $firstFormulas['somatorioIncomes'];
 
         // isEdit=true: não retoca valorPagoIndividual nem lucros de compra
@@ -58,7 +58,7 @@ class UpdateKeyUseCase
 
         // Plataforma e fornecedor
         $data['plataformaIdentificada'] = PlatformIdentifier::identify($data['chaveRecebida']);
-        $data['id_fornecedor']          = $this->supplierService->findOrCreate($data['perfilOrigem']);
+        $data['id_fornecedor'] = $this->supplierService->findOrCreate($data['perfilOrigem']);
 
         // Verifica duplicidade excluindo o próprio registro
         $data['repetido'] = $this->keyRepository->findByKeyCode($data['chaveRecebida'], (int) $id) !== null;
@@ -71,7 +71,7 @@ class UpdateKeyUseCase
             }
         }
 
-        if (!empty($data['idGamivo'])) {
+        if (! empty($data['idGamivo'])) {
             $this->gameService->fillIdGamivo($data['nomeJogo'], $data['region'], $data['idGamivo']);
         }
 

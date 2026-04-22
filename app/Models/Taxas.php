@@ -12,6 +12,6 @@ class Taxas extends Model
     protected $fillable = [
         'id',
         'name',
-        'preco'
+        'preco',
     ];
 }

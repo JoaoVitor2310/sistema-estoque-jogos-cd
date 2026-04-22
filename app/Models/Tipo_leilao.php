@@ -11,10 +11,8 @@ class Tipo_leilao extends Model
 
     protected $table = 'tipo_leilao';
 
-    protected $fillable= [
+    protected $fillable = [
         'id',
         'name',
-      ];
-
-
+    ];
 }

@@ -7,65 +7,61 @@ use Database\Factories\VendaChaveTrocaFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use App\Models\Fornecedor;
-use App\Models\Tipo_reclamacao;
-use App\Models\Tipo_formato;
-use App\Models\Tipo_leilao;
-use App\Models\Plataforma;
 
 class Venda_chave_troca extends Model
 {
     use HasFactory;
 
     protected $table = 'venda_chave_trocas';
+
     protected $fillable = [
-        "id",
-        "color",
-        "id_fornecedor",
-        "tipo_reclamacao_id",
-        "steamId",
-        "idGamivo",
-        "chaveRecebida",
-        "repetido",
-        "plataformaIdentificada",
-        "nomeJogo",
-        "region",
-        "precoJogo",
-        "notaMetacritic",
-        "isSteam",
-        "randomClassificationG2A",
-        "randomClassificationKinguin",
-        "observacao",
-        "id_leilao_g2a",
-        "id_leilao_gamivo",
-        "id_leilao_kinguin",
-        "id_plataforma",
-        "precoCliente",
-        "minimoParaVenda",
-        "precoVenda",
-        "incomeReal",
-        "incomeSimulado",
-        "chaveEntregue",
-        "valorPagoTotal",
-        "qtdTF2",
-        "valorPagoIndividual",
-        "vendido",
-        "leiloes",
-        "quantidade",
-        "devolucoes",
-        "lucroRS",
-        "lucroPercentual",
-        "valorVendido",
-        "lucroVendaRS",
-        "lucroVendaPercentual",
-        "dataAdquirida",
-        "dataVenda", // Data posto a venda
-        "dataVendida",
-        "dataExpiracao",
-        "perfilOrigem",
-        "minApiGamivo",
-        "maxApiGamivo",
-        "email"
+        'id',
+        'color',
+        'id_fornecedor',
+        'tipo_reclamacao_id',
+        'steamId',
+        'idGamivo',
+        'chaveRecebida',
+        'repetido',
+        'plataformaIdentificada',
+        'nomeJogo',
+        'region',
+        'precoJogo',
+        'notaMetacritic',
+        'isSteam',
+        'randomClassificationG2A',
+        'randomClassificationKinguin',
+        'observacao',
+        'id_leilao_g2a',
+        'id_leilao_gamivo',
+        'id_leilao_kinguin',
+        'id_plataforma',
+        'precoCliente',
+        'minimoParaVenda',
+        'precoVenda',
+        'incomeReal',
+        'incomeSimulado',
+        'chaveEntregue',
+        'valorPagoTotal',
+        'qtdTF2',
+        'valorPagoIndividual',
+        'vendido',
+        'leiloes',
+        'quantidade',
+        'devolucoes',
+        'lucroRS',
+        'lucroPercentual',
+        'valorVendido',
+        'lucroVendaRS',
+        'lucroVendaPercentual',
+        'dataAdquirida',
+        'dataVenda', // Data posto a venda
+        'dataVendida',
+        'dataExpiracao',
+        'perfilOrigem',
+        'minApiGamivo',
+        'maxApiGamivo',
+        'email',
     ];
 
     public function fornecedor()
@@ -127,7 +123,7 @@ class Venda_chave_troca extends Model
     {
         $query->whereDoesntHave(
             'game.bundles',
-            fn(Builder $b) => $b->where('bundles.release_date', '>', Carbon::now()->subDays($days))
+            fn (Builder $b) => $b->where('bundles.release_date', '>', Carbon::now()->subDays($days))
         );
     }
 
@@ -144,7 +140,7 @@ class Venda_chave_troca extends Model
         'id_leilao_g2a',
         'id_leilao_gamivo',
         'id_leilao_kinguin',
-        'id_plataforma'
+        'id_plataforma',
     ];
 
     protected static function newFactory()

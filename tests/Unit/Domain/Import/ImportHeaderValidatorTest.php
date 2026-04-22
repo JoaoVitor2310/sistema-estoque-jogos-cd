@@ -32,8 +32,8 @@ describe('ImportHeaderValidator', function () {
         });
 
         it('includes the column letter, expected name and actual value in the error message', function () {
-            $actual        = ImportHeaderValidator::EXPECTED_COLUMNS;
-            $actual['K']   = 'Titulo';
+            $actual = ImportHeaderValidator::EXPECTED_COLUMNS;
+            $actual['K'] = 'Titulo';
 
             $errors = ImportHeaderValidator::validate($actual);
 

@@ -20,7 +20,7 @@ return new class extends Migration
             $table->enum('type', ['bundle', 'choice'])->after('name')->nullable()->comment('Tipo do bundle');
         });
     }
-    
+
     /**
      * Reverse the migrations.
      */

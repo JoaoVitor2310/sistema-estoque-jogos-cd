@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Providers;
+
 use App\Models\AuthorizedUsers;
 use App\Models\User;
 use Illuminate\Support\Facades\Gate;
@@ -25,7 +26,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('is-admin', function (User $user) {
             $adminEmail = config('app.admin_email');
 
-            return !empty($adminEmail) && $user->email === $adminEmail;
+            return ! empty($adminEmail) && $user->email === $adminEmail;
         });
 
         Gate::define('can-edit', function (User $user) {

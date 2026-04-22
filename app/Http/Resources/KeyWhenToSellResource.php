@@ -14,16 +14,16 @@ class KeyWhenToSellResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'idGamivo'            => $this->idGamivo,
-            'minimoParaVenda'     => $this->minimoParaVenda,
+            'idGamivo' => $this->idGamivo,
+            'minimoParaVenda' => $this->minimoParaVenda,
             'valorPagoIndividual' => $this->valorPagoIndividual,
-            'chaveRecebida'       => $this->chaveRecebida,
-            'nomeJogo'            => $this->nomeJogo,
-            'region'              => $this->region,
-            'dataAdquirida'       => $this->dataAdquirida,
-            'dataVenda'           => $this->dataVenda,
-            'dataVendida'         => $this->dataVendida,
-            'dataExpiracao'       => $this->dataExpiracao,
+            'chaveRecebida' => $this->chaveRecebida,
+            'nomeJogo' => $this->nomeJogo,
+            'region' => $this->region,
+            'dataAdquirida' => $this->dataAdquirida,
+            'dataVenda' => $this->dataVenda,
+            'dataVendida' => $this->dataVendida,
+            'dataExpiracao' => $this->dataExpiracao,
         ];
     }
 }

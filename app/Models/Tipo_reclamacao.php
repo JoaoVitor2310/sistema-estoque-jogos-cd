@@ -11,8 +11,8 @@ class Tipo_reclamacao extends Model
 
     protected $table = 'tipo_reclamacao';
 
-    protected $fillable= [
+    protected $fillable = [
         'id',
         'name',
-      ];
+    ];
 }

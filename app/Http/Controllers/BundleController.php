@@ -2,11 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreBundleRequest;
 use App\Models\Bundle;
-use App\Models\Game;
-use App\Models\Recursos;
 use App\Services\BundleService;
 use App\Traits\HttpResponses;
 use Illuminate\Http\Request;
@@ -54,8 +51,6 @@ class BundleController extends Controller
         ]);
     }
 
-
-
     public function store(StoreBundleRequest $request)
     {
         $data = $request->validated();
@@ -69,7 +64,7 @@ class BundleController extends Controller
                 // Cria o bundle
                 $created = Bundle::create($data);
 
-                if ($created && !empty($games)) {
+                if ($created && ! empty($games)) {
                     // Associa os jogos ao bundle na tabela pivot
                     $created->games()->attach($games);
 
@@ -82,10 +77,10 @@ class BundleController extends Controller
                 return $this->response(201, 'Bundle cadastrado com sucesso', $created);
             });
         } catch (\Exception $e) {
-            Log::error('Erro ao criar bundle: ' . $e->getMessage(), [
+            Log::error('Erro ao criar bundle: '.$e->getMessage(), [
                 'data' => $data,
                 'games' => $games,
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return $this->error(500, 'Erro interno ao cadastrar bundle novo.', [$e->getMessage()]);
@@ -97,7 +92,7 @@ class BundleController extends Controller
         try {
             $request->validate([
                 'games' => 'required|array',
-                'games.*' => 'exists:games,id'
+                'games.*' => 'exists:games,id',
             ]);
 
             $bundle = Bundle::findOrFail($bundleId);
@@ -121,6 +116,7 @@ class BundleController extends Controller
             }]);
         } catch (\Exception $e) {
             Log::error('Erro ao adicionar jogos ao bundle', [$e->getMessage()]);
+
             return $this->error(500, 'Erro interno ao adicionar jogos ao bundle', [$e->getMessage()]);
         }
 
@@ -136,6 +132,7 @@ class BundleController extends Controller
             $bundle->games()->detach($gameIds);
         } catch (\Exception $e) {
             Log::error('Erro ao remover jogos do bundle', [$e->getMessage()]);
+
             return $this->error(500, 'Erro interno ao remover jogos do bundle', [$e->getMessage()]);
         }
 
@@ -148,9 +145,12 @@ class BundleController extends Controller
             $bundle = Bundle::findOrFail($id);
 
             $result = $bundle->delete();
-            if (!$result) return $this->error(500, 'Erro interno ao deletar bundle');
+            if (! $result) {
+                return $this->error(500, 'Erro interno ao deletar bundle');
+            }
         } catch (\Exception $e) {
             Log::error('Erro ao deletar bundle', [$e->getMessage()]);
+
             return $this->error(500, 'Erro interno ao deletar bundle', [$e->getMessage()]);
         }
 
@@ -166,10 +166,12 @@ class BundleController extends Controller
 
             $result = $bundle->update($data);
 
-            if (!$result)
+            if (! $result) {
                 return $this->error(500, 'Erro interno ao atualizar bundle');
+            }
         } catch (\Exception $e) {
             Log::error('Erro ao atualizar bundle', [$e->getMessage()]);
+
             return $this->error(500, 'Erro interno ao atualizar bundle', [$e->getMessage()]);
         }
 

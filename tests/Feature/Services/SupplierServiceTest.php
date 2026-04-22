@@ -43,8 +43,8 @@ describe('SupplierService', function () {
             // Pré-cria o fornecedor
             $existingId = DB::table('fornecedor')->insertGetId([
                 'perfilOrigem' => 'https://steamcommunity.com/id/existing',
-                'created_at'   => now(),
-                'updated_at'   => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
             ]);
 
             $returnedId = app(SupplierService::class)->findOrCreate('https://steamcommunity.com/id/existing');

@@ -26,22 +26,22 @@
 use App\Services\Keys\KeyCalculationService;
 
 dataset('min/max price scenarios', [
-    'high valorPago (>10)'    => [15.0, 10.0,  21.0, 120.0],
-    'mid valorPago (>4, <=10)' => [ 5.0,  5.0,   7.5,  40.0],
-    'low valorPago (<=4, >=1)' => [ 4.0,  4.0,   6.4,  32.0],
-    'low valorPago (<4, >=1)'  => [ 2.0,  2.0,   3.2,  16.0],
-    'very low valorPago (<1)'  => [ 0.5,  0.3,   0.8,  15.0],
+    'high valorPago (>10)' => [15.0, 10.0,  21.0, 120.0],
+    'mid valorPago (>4, <=10)' => [5.0,  5.0,   7.5,  40.0],
+    'low valorPago (<=4, >=1)' => [4.0,  4.0,   6.4,  32.0],
+    'low valorPago (<4, >=1)' => [2.0,  2.0,   3.2,  16.0],
+    'very low valorPago (<1)' => [0.5,  0.3,   0.8,  15.0],
 ]);
 
 describe('CalculateService::calculateMinMaxApi()', function () {
 
     beforeEach(function () {
-        $this->service = new KeyCalculationService();
+        $this->service = new KeyCalculationService;
     });
 
     $game = fn (float $valorPago, float $precoCliente) => [
         'valorPagoIndividual' => $valorPago,
-        'precoCliente'        => $precoCliente,
+        'precoCliente' => $precoCliente,
     ];
 
     describe('minimum price tiers', function () use ($game) {

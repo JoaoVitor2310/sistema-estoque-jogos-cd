@@ -39,25 +39,25 @@ function seedGameServiceFks(): void
 function insertListedKey(array $overrides = []): int
 {
     return DB::table('venda_chave_trocas')->insertGetId(array_merge([
-        'nomeJogo'            => 'Listed Game',
-        'chaveRecebida'       => 'LISTED-' . uniqid(),
-        'precoCliente'        => 5.00,
+        'nomeJogo' => 'Listed Game',
+        'chaveRecebida' => 'LISTED-'.uniqid(),
+        'precoCliente' => 5.00,
         'valorPagoIndividual' => 1.00,
-        'lucroPercentual'     => 25.00,
-        'minApiGamivo'        => 1.50,
-        'maxApiGamivo'        => 10.00,
-        'perfilOrigem'        => 'https://steamcommunity.com/id/seed',
-        'id_fornecedor'       => 1,
-        'tipo_reclamacao_id'  => 1,
-        'tipo_formato_id'     => 1,
-        'id_leilao_g2a'       => 1,
-        'id_leilao_gamivo'    => 1,
-        'id_leilao_kinguin'   => 1,
-        'id_plataforma'       => 1,
-        'dataVenda'           => now()->subDays(5)->toDateString(), // Já listada
-        'dataVendida'         => null,
-        'created_at'          => now(),
-        'updated_at'          => now(),
+        'lucroPercentual' => 25.00,
+        'minApiGamivo' => 1.50,
+        'maxApiGamivo' => 10.00,
+        'perfilOrigem' => 'https://steamcommunity.com/id/seed',
+        'id_fornecedor' => 1,
+        'tipo_reclamacao_id' => 1,
+        'tipo_formato_id' => 1,
+        'id_leilao_g2a' => 1,
+        'id_leilao_gamivo' => 1,
+        'id_leilao_kinguin' => 1,
+        'id_plataforma' => 1,
+        'dataVenda' => now()->subDays(5)->toDateString(), // Já listada
+        'dataVendida' => null,
+        'created_at' => now(),
+        'updated_at' => now(),
     ], $overrides));
 }
 
@@ -74,23 +74,23 @@ describe('GameService', function () {
         it('finds id_gamivo from venda_chave_trocas first (priority over games table)', function () {
             // Key tem um idGamivo — deve ser retornado sem consultar games
             DB::table('venda_chave_trocas')->insert([
-                'nomeJogo'            => 'Priority Game',
-                'chaveRecebida'       => 'PRIO-KEY-001',
-                'idGamivo'            => 'gam-from-key',
-                'precoCliente'        => 5.00,
+                'nomeJogo' => 'Priority Game',
+                'chaveRecebida' => 'PRIO-KEY-001',
+                'idGamivo' => 'gam-from-key',
+                'precoCliente' => 5.00,
                 'valorPagoIndividual' => 2.00,
-                'lucroPercentual'     => 25.00,
-                'perfilOrigem'        => 'https://steamcommunity.com/id/seed',
-                'id_fornecedor'       => 1,
-                'tipo_reclamacao_id'  => 1,
-                'tipo_formato_id'     => 1,
-                'id_leilao_g2a'       => 1,
-                'id_leilao_gamivo'    => 1,
-                'id_leilao_kinguin'   => 1,
-                'id_plataforma'       => 1,
-                'region'              => null,
-                'created_at'          => now(),
-                'updated_at'          => now(),
+                'lucroPercentual' => 25.00,
+                'perfilOrigem' => 'https://steamcommunity.com/id/seed',
+                'id_fornecedor' => 1,
+                'tipo_reclamacao_id' => 1,
+                'tipo_formato_id' => 1,
+                'id_leilao_g2a' => 1,
+                'id_leilao_gamivo' => 1,
+                'id_leilao_kinguin' => 1,
+                'id_plataforma' => 1,
+                'region' => null,
+                'created_at' => now(),
+                'updated_at' => now(),
             ]);
 
             // Game com id diferente — não deve ser retornado
@@ -168,7 +168,7 @@ describe('GameService', function () {
         it('creates the game record when it does not exist', function () {
             app(GameService::class)->createGameIfDontExists([
                 'nomeJogo' => 'Brand New Game',
-                'region'   => null,
+                'region' => null,
                 'idGamivo' => 'gam-new-001',
             ]);
 
@@ -178,7 +178,7 @@ describe('GameService', function () {
         it('stores idGamivo on the created game', function () {
             app(GameService::class)->createGameIfDontExists([
                 'nomeJogo' => 'Game With Gamivo Id',
-                'region'   => null,
+                'region' => null,
                 'idGamivo' => 'gam-stored-001',
             ]);
 
@@ -191,7 +191,7 @@ describe('GameService', function () {
 
             app(GameService::class)->createGameIfDontExists([
                 'nomeJogo' => 'Existing Game', // Casing diferente
-                'region'   => null,
+                'region' => null,
                 'idGamivo' => null,
             ]);
 
@@ -225,10 +225,10 @@ describe('GameService', function () {
         it('does not change minApiGamivo for keys listed less than 3 months ago', function () {
             // 1 mês listada → abaixo do primeiro tier → sem alteração
             insertListedKey([
-                'chaveRecebida'       => 'RECENT-LISTED-001',
+                'chaveRecebida' => 'RECENT-LISTED-001',
                 'valorPagoIndividual' => 1.00,
-                'minApiGamivo'        => 1.50,
-                'dataVenda'           => Carbon::now()->subMonths(1)->toDateString(),
+                'minApiGamivo' => 1.50,
+                'dataVenda' => Carbon::now()->subMonths(1)->toDateString(),
             ]);
 
             app(GameService::class)->updateMinPrices();
@@ -240,10 +240,10 @@ describe('GameService', function () {
         it('applies 1.4x multiplier for keys listed between 3 and 6 months', function () {
             // 4 meses listada → tier de 3 meses → 1.0 × 1.4 = 1.4
             insertListedKey([
-                'chaveRecebida'       => 'MED-LISTED-001',
+                'chaveRecebida' => 'MED-LISTED-001',
                 'valorPagoIndividual' => 1.00,
-                'minApiGamivo'        => 1.50,
-                'dataVenda'           => Carbon::now()->subMonths(4)->toDateString(),
+                'minApiGamivo' => 1.50,
+                'dataVenda' => Carbon::now()->subMonths(4)->toDateString(),
             ]);
 
             app(GameService::class)->updateMinPrices();
@@ -255,10 +255,10 @@ describe('GameService', function () {
         it('applies 1.3x multiplier for keys listed between 6 and 9 months', function () {
             // 7 meses listada → tier de 6 meses → 1.0 × 1.3 = 1.3
             insertListedKey([
-                'chaveRecebida'       => 'OLD-LISTED-001',
+                'chaveRecebida' => 'OLD-LISTED-001',
                 'valorPagoIndividual' => 1.00,
-                'minApiGamivo'        => 1.50,
-                'dataVenda'           => Carbon::now()->subMonths(7)->toDateString(),
+                'minApiGamivo' => 1.50,
+                'dataVenda' => Carbon::now()->subMonths(7)->toDateString(),
             ]);
 
             app(GameService::class)->updateMinPrices();
@@ -270,10 +270,10 @@ describe('GameService', function () {
         it('applies the price floor for keys listed more than 12 months (clearance sell)', function () {
             // Jogo muito antigo → vende pelo piso mínimo independente de lucro
             insertListedKey([
-                'chaveRecebida'       => 'ANCIENT-LISTED-001',
+                'chaveRecebida' => 'ANCIENT-LISTED-001',
                 'valorPagoIndividual' => 1.00,
-                'minApiGamivo'        => 1.50,
-                'dataVenda'           => Carbon::now()->subMonths(13)->toDateString(),
+                'minApiGamivo' => 1.50,
+                'dataVenda' => Carbon::now()->subMonths(13)->toDateString(),
             ]);
 
             app(GameService::class)->updateMinPrices();
@@ -285,11 +285,11 @@ describe('GameService', function () {
         it('skips keys that are already sold (dataVendida set)', function () {
             // Key vendida não deve ter minApiGamivo alterado
             insertListedKey([
-                'chaveRecebida'       => 'SOLD-OLD-001',
+                'chaveRecebida' => 'SOLD-OLD-001',
                 'valorPagoIndividual' => 1.00,
-                'minApiGamivo'        => 1.50,
-                'dataVenda'           => Carbon::now()->subMonths(4)->toDateString(),
-                'dataVendida'         => Carbon::now()->subDays(2)->toDateString(),
+                'minApiGamivo' => 1.50,
+                'dataVenda' => Carbon::now()->subMonths(4)->toDateString(),
+                'dataVendida' => Carbon::now()->subDays(2)->toDateString(),
             ]);
 
             app(GameService::class)->updateMinPrices();
@@ -302,10 +302,10 @@ describe('GameService', function () {
             // Insere 15 keys todas com 4 meses de listagem → todas elegíveis para atualização
             for ($i = 1; $i <= 15; $i++) {
                 insertListedKey([
-                    'chaveRecebida'       => "BATCH-KEY-{$i}",
+                    'chaveRecebida' => "BATCH-KEY-{$i}",
                     'valorPagoIndividual' => 1.00,
-                    'minApiGamivo'        => 1.50, // Valor original
-                    'dataVenda'           => Carbon::now()->subMonths(4)->toDateString(),
+                    'minApiGamivo' => 1.50, // Valor original
+                    'dataVenda' => Carbon::now()->subMonths(4)->toDateString(),
                 ]);
             }
 

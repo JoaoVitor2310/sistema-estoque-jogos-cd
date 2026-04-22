@@ -8,9 +8,9 @@ use App\Services\ResourceService;
 use App\UseCases\Bundles\SyncBundlesFromApiUseCase;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schedule;
-use Illuminate\Support\Facades\Log;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -29,17 +29,15 @@ Schedule::call(function () {
         try {
             Mail::send('emails.expiration-alert', ['jogos' => $keysAboutToExpire], function ($message) {
                 $message->to('carcadeals@gmail.com')
-                    ->subject('⚠️ Alerta: ' . \Carbon\Carbon::now()->format('d/m/Y') . ' - Jogos expirando em até 30 dias');
+                    ->subject('⚠️ Alerta: '.\Carbon\Carbon::now()->format('d/m/Y').' - Jogos expirando em até 30 dias');
             });
 
-            Log::info('Email de expiração enviado com sucesso. Jogos encontrados: ' . $keysAboutToExpire->count());
+            Log::info('Email de expiração enviado com sucesso. Jogos encontrados: '.$keysAboutToExpire->count());
         } catch (\Exception $e) {
-            Log::error('Erro ao enviar email de expiração: ' . $e->getMessage());
+            Log::error('Erro ao enviar email de expiração: '.$e->getMessage());
         }
     }
 })->cron('0 7 * * *')->timezone('America/Sao_Paulo');
-
-
 
 Schedule::call(function () {
     $tf2 = Recursos::where('name', 'TF2')->first();
@@ -48,7 +46,7 @@ Schedule::call(function () {
     $data['currentCurrency'] = 'BRL';
     $data['preco_real'] = $tf2->preco_real;
 
-    $resourceService = new ResourceService();
+    $resourceService = new ResourceService;
     $data = $resourceService->getResourcesCurrency($data);
 
     // Comparar o preço do dolar no sistema com o preço dolar do dia atual
@@ -56,12 +54,12 @@ Schedule::call(function () {
         try {
             Mail::send('emails.dolar-alert', ['tf2' => $tf2, 'data' => $data], function ($message) {
                 $message->to('carcadeals@gmail.com')
-                    ->subject('⚠️ Alerta: ' . \Carbon\Carbon::now()->format('d/m/Y') . ' - Dolar variou mais que 0.20');
+                    ->subject('⚠️ Alerta: '.\Carbon\Carbon::now()->format('d/m/Y').' - Dolar variou mais que 0.20');
             });
 
             Log::info('Email de alerta de dolar enviado com sucesso. Dolar variou mais que 0.20');
         } catch (\Exception $e) {
-            Log::error('Erro ao enviar email de alerta de dolar: ' . $e->getMessage());
+            Log::error('Erro ao enviar email de alerta de dolar: '.$e->getMessage());
         }
     }
 })->cron('0 7 * * *')->timezone('America/Sao_Paulo');
@@ -71,16 +69,16 @@ Schedule::call(function () {
 })->cron('5 * * * *')->timezone('UTC');
 
 Schedule::call(function () {
-    $gameService = new GameService();
+    $gameService = new GameService;
     $gameService->searchGamesIdSteam();
 })->cron('0 6 * * *')->timezone('America/Sao_Paulo');
 
 Schedule::call(function () {
-    $gameService = new GameService();
+    $gameService = new GameService;
     $gameService->updateMinPrices();
 })->cron('0 6 * * *')->timezone('America/Sao_Paulo');
 
 Schedule::call(function () {
-    $keyService = new KeyService();
+    $keyService = new KeyService;
     $keyService->checkLimboKeys();
 })->cron('0 6 * * *')->timezone('America/Sao_Paulo');

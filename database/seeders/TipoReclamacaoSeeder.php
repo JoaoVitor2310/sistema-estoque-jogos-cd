@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
@@ -17,7 +16,7 @@ class TipoReclamacaoSeeder extends Seeder
             ['name' => 'Nenhuma'],
             ['name' => 'Dup'],
             ['name' => 'Rev'],
-            ['name' => 'Reg']
+            ['name' => 'Reg'],
         ]);
     }
 }

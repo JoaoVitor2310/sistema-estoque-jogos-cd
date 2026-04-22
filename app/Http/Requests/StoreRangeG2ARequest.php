@@ -2,10 +2,9 @@
 
 namespace App\Http\Requests;
 
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
-use Illuminate\Contracts\Validation\Validator;
-
 
 class StoreRangeG2ARequest extends FormRequest
 {
@@ -25,9 +24,9 @@ class StoreRangeG2ARequest extends FormRequest
     public function rules(): array
     {
         return [
-            "minimo" => ["required", "decimal:0,2"],
-            "maximo" => ["required", "decimal:0,2"],
-            "taxa" => ["required", "decimal:0,2"],
+            'minimo' => ['required', 'decimal:0,2'],
+            'maximo' => ['required', 'decimal:0,2'],
+            'taxa' => ['required', 'decimal:0,2'],
         ];
     }
 
@@ -37,7 +36,7 @@ class StoreRangeG2ARequest extends FormRequest
             'statusCode' => 422,
             'message' => 'Dados inválidos',
             'errors' => $validator->errors(),
-            'data' => []
+            'data' => [],
         ], 422));
     }
 }

@@ -11,10 +11,10 @@ class Ranges_taxa_G2A extends Model
 
     protected $table = 'ranges_taxa_g2a';
 
-    protected $fillable= [
+    protected $fillable = [
         'id',
         'minimo',
         'maximo',
         'taxa',
-      ];
+    ];
 }

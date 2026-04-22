@@ -17,7 +17,7 @@ class UpdateSoldOffersUseCase
     ) {}
 
     /**
-     * @param  array<int, array{keys: string[], profit: numeric, saleDate: string}> $soldGames
+     * @param  array<int, array{keys: string[], profit: numeric, saleDate: string}>  $soldGames
      * @return array<int, mixed> Keys que falharam na atualização
      */
     public function execute(array $soldGames): array
@@ -28,7 +28,9 @@ class UpdateSoldOffersUseCase
             foreach ($game['keys'] as $keyCode) {
                 $key = $this->keyRepository->findByKeyCode($keyCode);
 
-                if (!$key || $key->valorVendido) continue;
+                if (! $key || $key->valorVendido) {
+                    continue;
+                }
 
                 $saleFormulas = $this->calculationService->calculateSaleFormulas(
                     (float) $game['profit'],
@@ -36,13 +38,15 @@ class UpdateSoldOffersUseCase
                 );
 
                 $updated = $key->update([
-                    'dataVendida'          => $game['saleDate'],
-                    'valorVendido'         => $game['profit'],
-                    'lucroVendaRS'         => $saleFormulas['lucroVendaRS'],
+                    'dataVendida' => $game['saleDate'],
+                    'valorVendido' => $game['profit'],
+                    'lucroVendaRS' => $saleFormulas['lucroVendaRS'],
                     'lucroVendaPercentual' => $saleFormulas['lucroVendaPercentual'],
                 ]);
 
-                if (!$updated) $notUpdated[] = $key;
+                if (! $updated) {
+                    $notUpdated[] = $key;
+                }
             }
         }
 

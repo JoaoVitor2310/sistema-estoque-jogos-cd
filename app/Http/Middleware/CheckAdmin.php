@@ -11,6 +11,7 @@ use Symfony\Component\HttpFoundation\Response;
 class CheckAdmin
 {
     use HttpResponses;
+
     /**
      * Handle an incoming request.
      *

@@ -2,8 +2,8 @@
 
 namespace App\Http\Requests;
 
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Contracts\Validation\Validator;
+use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
 
 class GameRequest extends FormRequest
@@ -24,14 +24,14 @@ class GameRequest extends FormRequest
     public function rules(): array
     {
         return [
-            "name" => "required|string",
-            "region" => ["string", "nullable"],
-            "id_gamivo" => ["string", "nullable"],
-            "id_steamcharts" => ["string", "nullable"],
-            "popularity" => ["integer", "nullable"],
-            "price_tf2" => ["decimal:0,2", "nullable"],
-            "price_euro" => ["decimal:0,2", "nullable"],
-            "release_date" => ["string", "nullable"],
+            'name' => 'required|string',
+            'region' => ['string', 'nullable'],
+            'id_gamivo' => ['string', 'nullable'],
+            'id_steamcharts' => ['string', 'nullable'],
+            'popularity' => ['integer', 'nullable'],
+            'price_tf2' => ['decimal:0,2', 'nullable'],
+            'price_euro' => ['decimal:0,2', 'nullable'],
+            'release_date' => ['string', 'nullable'],
         ];
     }
 
@@ -41,7 +41,7 @@ class GameRequest extends FormRequest
             'statusCode' => 422,
             'message' => 'Dados inválidos',
             'errors' => $validator->errors(),
-            'data' => []
+            'data' => [],
         ], 422));
     }
 }

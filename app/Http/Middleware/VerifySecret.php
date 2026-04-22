@@ -7,13 +7,9 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Verifica se o request do webhook VIP carrega o Bearer token correto.
- *
- * O price_researcher envia o token via header:
- *   Authorization: Bearer <EXTERNAL_SECRET>
- *
- * hash_equals() previne timing attacks na comparação.
- * Em caso de falha, retorna 401 sem revelar o motivo específico.
+ * Verifica se o request de servico externo carrega o Bearer token correto.
+ * O servico envia: Authorization: Bearer <VIP_WEBHOOK_SECRET>
+ * hash_equals() previne timing attacks.
  */
 class VerifySecret
 {
@@ -22,7 +18,7 @@ class VerifySecret
         $expected = config('services.vip_webhook.secret');
         $provided = $request->bearerToken();
 
-        if (empty($expected) || empty($provided) || !hash_equals($expected, $provided)) {
+        if (empty($expected) || empty($provided) || ! hash_equals($expected, $provided)) {
             return response()->json(['message' => 'Unauthorized.'], 401);
         }
 

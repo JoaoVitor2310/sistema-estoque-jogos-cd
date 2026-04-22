@@ -24,8 +24,10 @@ use Illuminate\Support\Facades\Cache;
 class KeyCalculationService
 {
     private const FEES_CACHE_KEY = 'marketplace_fees';
-    private const TF2_CACHE_KEY  = 'tf2_euro_price';
-    private const CACHE_TTL      = 3600; // 1 hora
+
+    private const TF2_CACHE_KEY = 'tf2_euro_price';
+
+    private const CACHE_TTL = 3600; // 1 hora
 
     /**
      * Retorna as taxas do Gamivo encapsuladas num VO, com cache de 1 hora.
@@ -58,7 +60,7 @@ class KeyCalculationService
     /**
      * Calcula o income líquido do Gamivo para cada key do lote e acumula o somatório.
      *
-     * @param  array<int, array<string, mixed>> $games
+     * @param  array<int, array<string, mixed>>  $games
      * @return array{games: array<int, array<string, mixed>>, somatorioIncomes: float}
      */
     public function calculateFirstFormulas(array $games): array
@@ -69,12 +71,12 @@ class KeyCalculationService
             $income = $this->calculateIncome((float) $game['precoCliente']);
 
             $game['incomeSimulado'] = $income;
-            $somatorioIncomes      += $income;
+            $somatorioIncomes += $income;
         }
         unset($game);
 
         return [
-            'games'            => $games,
+            'games' => $games,
             'somatorioIncomes' => $somatorioIncomes,
         ];
     }
@@ -85,17 +87,17 @@ class KeyCalculationService
      * Quando $isEdit = true, o custo individual e os lucros de compra não são
      * recalculados — o valor já está fixado no banco.
      *
-     * @param  array<string, mixed> $game
+     * @param  array<string, mixed>  $game
      * @return array<string, mixed>
      */
     public function calculateFormulas(array $game, float $somatorioIncomes, bool $isEdit = false): array
     {
-        if (!$isEdit) {
+        if (! $isEdit) {
             $individualCost = ProfitCalculator::individualCost(
-                qtdTF2:           (float) $game['qtdTF2'],
-                tf2EuroPrice:     $this->getTf2EuroPrice(),
+                qtdTF2: (float) $game['qtdTF2'],
+                tf2EuroPrice: $this->getTf2EuroPrice(),
                 somatorioIncomes: $somatorioIncomes,
-                gameIncome:       (float) $game['incomeSimulado'],
+                gameIncome: (float) $game['incomeSimulado'],
             );
 
             $purchaseProfit = ProfitCalculator::purchaseProfit(
@@ -104,17 +106,17 @@ class KeyCalculationService
             );
 
             $game['valorPagoIndividual'] = $individualCost;
-            $game['lucroRS']             = $purchaseProfit;
-            $game['lucroPercentual']     = ProfitCalculator::purchaseProfitPercent($purchaseProfit, $individualCost);
+            $game['lucroRS'] = $purchaseProfit;
+            $game['lucroPercentual'] = ProfitCalculator::purchaseProfitPercent($purchaseProfit, $individualCost);
         }
 
         $individualCost = (float) $game['valorPagoIndividual'];
-        $rawVendido     = $game['valorVendido'] ?? null;
-        $valorVendido   = ($rawVendido !== null && $rawVendido !== '') ? (float) $rawVendido : null;
+        $rawVendido = $game['valorVendido'] ?? null;
+        $valorVendido = ($rawVendido !== null && $rawVendido !== '') ? (float) $rawVendido : null;
 
         $saleProfit = ProfitCalculator::saleProfit($valorVendido, $individualCost);
 
-        $game['lucroVendaRS']         = $saleProfit;
+        $game['lucroVendaRS'] = $saleProfit;
         $game['lucroVendaPercentual'] = ProfitCalculator::saleProfitPercent($saleProfit, $individualCost);
 
         return $game;
@@ -123,14 +125,14 @@ class KeyCalculationService
     /**
      * Calcula min e max para a API do Gamivo e devolve o array do jogo enriquecido.
      *
-     * @param  array<string, mixed> $game
+     * @param  array<string, mixed>  $game
      * @return array<string, mixed>
      */
     public function calculateMinMaxApi(array $game): array
     {
         $result = MinMaxPriceCalculator::calculate(
             individualCost: (float) $game['valorPagoIndividual'],
-            clientPrice:    (float) $game['precoCliente'],
+            clientPrice: (float) $game['precoCliente'],
         );
 
         $game['minApiGamivo'] = $result['min'];
@@ -150,7 +152,7 @@ class KeyCalculationService
         $saleProfit = ProfitCalculator::saleProfit($salePrice, $individualCost);
 
         return [
-            'lucroVendaRS'         => $saleProfit,
+            'lucroVendaRS' => $saleProfit,
             'lucroVendaPercentual' => ProfitCalculator::saleProfitPercent($saleProfit, $individualCost),
         ];
     }

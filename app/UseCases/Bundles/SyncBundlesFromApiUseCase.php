@@ -36,8 +36,9 @@ class SyncBundlesFromApiUseCase
         try {
             $response = $this->apiService->getBundles();
 
-            if (!$response['success']) {
-                Log::error('Erro ao buscar bundles: ' . $response['message']);
+            if (! $response['success']) {
+                Log::error('Erro ao buscar bundles: '.$response['message']);
+
                 return;
             }
 
@@ -45,13 +46,13 @@ class SyncBundlesFromApiUseCase
             $this->syncBundles($response['data']);
             DB::commit();
 
-            Log::info('Bundles atualizados com sucesso! Total: ' . count($response['data']));
+            Log::info('Bundles atualizados com sucesso! Total: '.count($response['data']));
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error(
-                'Erro ao processar bundles: ' . $e->getMessage()
-                . ' | Linha: ' . $e->getLine()
-                . ' | Arquivo: ' . $e->getFile()
+                'Erro ao processar bundles: '.$e->getMessage()
+                .' | Linha: '.$e->getLine()
+                .' | Arquivo: '.$e->getFile()
             );
         }
     }
@@ -68,31 +69,31 @@ class SyncBundlesFromApiUseCase
             $bundle = Bundle::firstOrCreate(
                 ['url' => $apiBundle['url']],
                 [
-                    'name'         => $apiBundle['title'],
-                    'type'         => $type,
+                    'name' => $apiBundle['title'],
+                    'type' => $type,
                     'release_date' => $apiBundle['dateFrom'],
-                    'end_date'     => $apiBundle['dateTo'],
+                    'end_date' => $apiBundle['dateTo'],
                 ]
             );
 
             // Alerta por e-mail ao detectar um novo Choice
             if ($type === 'choice' && $bundle->wasRecentlyCreated) {
                 Mail::raw(
-                    'Choice novo detectado: ' . $bundle->name . "\n\nURL: " . $bundle->url,
-                    fn($message) => $message
+                    'Choice novo detectado: '.$bundle->name."\n\nURL: ".$bundle->url,
+                    fn ($message) => $message
                         ->to('carcadeals@gmail.com')
-                        ->subject('🎮 Choice novo: ' . $bundle->name)
+                        ->subject('🎮 Choice novo: '.$bundle->name)
                 );
             }
 
             $topTierBundle = max($apiBundle['tiers']);
 
-            if (!$this->saveBundlePrices($topTierBundle, $apiBundle, $bundle)) {
+            if (! $this->saveBundlePrices($topTierBundle, $apiBundle, $bundle)) {
                 continue;
             }
 
             $games = collect($topTierBundle['games'])
-                ->map(fn($apiGame) => Game::firstOrCreate(['name' => $apiGame['title']]))
+                ->map(fn ($apiGame) => Game::firstOrCreate(['name' => $apiGame['title']]))
                 ->all();
 
             $bundle->games()->syncWithoutDetaching(
@@ -130,20 +131,21 @@ class SyncBundlesFromApiUseCase
             if ($converted['success']) {
                 $priceDolar = $converted['amount'];
             } else {
-                Log::error('Não foi possível converter preço do bundle: ' . $apiBundle['title']);
+                Log::error('Não foi possível converter preço do bundle: '.$apiBundle['title']);
                 Mail::raw(
-                    'Não foi possível converter preço do bundle: ' . $apiBundle['title'],
-                    fn($message) => $message
+                    'Não foi possível converter preço do bundle: '.$apiBundle['title'],
+                    fn ($message) => $message
                         ->to('carcadeals@gmail.com')
-                        ->subject('🎮 Erro ao converter preço do bundle: ' . $apiBundle['title'])
+                        ->subject('🎮 Erro ao converter preço do bundle: '.$apiBundle['title'])
                 );
+
                 return false;
             }
         }
 
         $tf2PriceDolar = Recursos::where('name', 'TF2')->value('preco_dolar');
 
-        $bundle->price_dolar       = $priceDolar;
+        $bundle->price_dolar = $priceDolar;
         $bundle->minimum_price_tf2 = $priceDolar / $tf2PriceDolar;
         $bundle->save();
 
@@ -162,22 +164,22 @@ class SyncBundlesFromApiUseCase
 
         try {
             $response = Http::timeout(3200)->post(
-                config('services.price_researcher.base_url') . '/api/games/search',
+                config('services.price_researcher.base_url').'/api/games/search',
                 [
-                    'minPopularity'   => 0,
-                    'gameNames'       => $gameNames,
+                    'minPopularity' => 0,
+                    'gameNames' => $gameNames,
                     'checkGamivoOffer' => false,
                 ]
             );
 
             $responseData = $response->json();
 
-            if (!($responseData['success'] ?? false) || !isset($responseData['data']['games'])) {
+            if (! ($responseData['success'] ?? false) || ! isset($responseData['data']['games'])) {
                 return;
             }
 
             foreach ($responseData['data']['games'] as $apiGame) {
-                $matchedGame = collect($games)->first(fn($game) => $game->name === $apiGame['name']);
+                $matchedGame = collect($games)->first(fn ($game) => $game->name === $apiGame['name']);
 
                 if ($matchedGame && isset($apiGame['GamivoPrice'])) {
                     // Converte formato europeu (0,09) para decimal (0.09)
@@ -189,9 +191,9 @@ class SyncBundlesFromApiUseCase
             }
         } catch (\Exception $e) {
             Log::error(
-                'Erro ao buscar preços dos jogos: ' . $e->getMessage()
-                . ' | Arquivo: ' . $e->getFile()
-                . ' | Linha: ' . $e->getLine()
+                'Erro ao buscar preços dos jogos: '.$e->getMessage()
+                .' | Arquivo: '.$e->getFile()
+                .' | Linha: '.$e->getLine()
             );
         }
     }

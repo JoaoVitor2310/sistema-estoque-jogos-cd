@@ -19,23 +19,23 @@ class KeyAutoSellResource extends JsonResource
         $newestBundle = $this->game?->bundles->first();
 
         return [
-            'nomeJogo'            => $this->nomeJogo,
-            'game_region'         => $this->region,
-            'bundle_type'         => $newestBundle?->type,
+            'nomeJogo' => $this->nomeJogo,
+            'game_region' => $this->region,
+            'bundle_type' => $newestBundle?->type,
             'bundle_launch_price' => $newestBundle?->pivot->bundle_launch_price,
-            'game_popularity'     => $this->game?->popularity,
+            'game_popularity' => $this->game?->popularity,
             'bundle_release_date' => $newestBundle?->release_date,
-            'idGamivo'            => $this->idGamivo,
-            'precoCliente'        => $this->precoCliente,
-            'lucroPercentual'     => $this->lucroPercentual,
-            'minimoParaVenda'     => $this->minimoParaVenda,
+            'idGamivo' => $this->idGamivo,
+            'precoCliente' => $this->precoCliente,
+            'lucroPercentual' => $this->lucroPercentual,
+            'minimoParaVenda' => $this->minimoParaVenda,
             'valorPagoIndividual' => $this->valorPagoIndividual,
-            'chaveRecebida'       => $this->chaveRecebida,
-            'dataAdquirida'       => $this->dataAdquirida,
-            'dataVenda'           => $this->dataVenda,
-            'dataVendida'         => $this->dataVendida,
-            'dataExpiracao'       => $this->dataExpiracao,
-            'game_release_date'   => $this->game?->release_date,
+            'chaveRecebida' => $this->chaveRecebida,
+            'dataAdquirida' => $this->dataAdquirida,
+            'dataVenda' => $this->dataVenda,
+            'dataVendida' => $this->dataVendida,
+            'dataExpiracao' => $this->dataExpiracao,
+            'game_release_date' => $this->game?->release_date,
         ];
     }
 }

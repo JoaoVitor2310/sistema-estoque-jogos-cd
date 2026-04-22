@@ -20,9 +20,9 @@ describe('IncomeCalculator', function () {
     beforeEach(function () {
         $this->fee = new MarketplaceFee(
             percentualMenor: 0.060,
-            fixoMenor:       0.250,
+            fixoMenor: 0.250,
             percentualMaior: 0.080,
-            fixoMaior:       0.400,
+            fixoMaior: 0.400,
         );
     });
 
@@ -62,9 +62,9 @@ describe('IncomeCalculator', function () {
             // Mesmo que fixoMenor seja 0.25, abaixo de 0.28 a taxa é 0.11
             $feeWithDifferentFixo = new MarketplaceFee(
                 percentualMenor: 0.060,
-                fixoMenor:       0.999, // valor diferente para confirmar que não é usado
+                fixoMenor: 0.999, // valor diferente para confirmar que não é usado
                 percentualMaior: 0.080,
-                fixoMaior:       0.400,
+                fixoMaior: 0.400,
             );
 
             // 0.20 − 0.11 = 0.09 (fixoMenor=0.999 ignorado)

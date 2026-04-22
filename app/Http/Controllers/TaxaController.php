@@ -1,19 +1,20 @@
 <?php
 
 namespace App\Http\Controllers;
-use App\Http\Controllers\Controller;
+
 use App\Http\Requests\StoreFeeRequest;
 use App\Http\Requests\StoreRangeG2ARequest;
 use App\Http\Requests\UpdateFeeRequest;
 use App\Models\Ranges_taxa_G2A;
-use App\Traits\HttpResponses;
 use App\Models\Taxas;
-
+use App\Traits\HttpResponses;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+
 class TaxaController extends Controller
 {
     use HttpResponses;
+
     /**
      * Display a listing of the resource.
      */
@@ -87,15 +88,17 @@ class TaxaController extends Controller
     public function update(UpdateFeeRequest $request, string $id)
     {
         $fee = Taxas::select('*')->where('id', $id)->first();
-        if (!$fee)
+        if (! $fee) {
             return $this->error(404, 'Taxa não encontrada');
+        }
 
         $data = $request->validated();
 
         $result = Taxas::where('id', $id)->update($data);
 
-        if (!$result)
+        if (! $result) {
             return $this->error(500, 'Erro interno ao atualizar taxa');
+        }
 
         $fee['preco'] = $data['preco'];
 
@@ -110,13 +113,14 @@ class TaxaController extends Controller
     public function destroy(string $id)
     {
         $taxa = Taxas::select('*')->where('id', $id)->first();
-        if (!$taxa)
+        if (! $taxa) {
             return $this->error(404, 'Taxa não encontrada');
-
+        }
 
         $result = Taxas::where('id', $id)->delete();
-        if (!$result)
+        if (! $result) {
             return $this->error(500, 'Erro interno ao deletar taxa');
+        }
 
         return $this->response(200, 'Taxa deletada com sucesso', $taxa);
     }
@@ -124,18 +128,21 @@ class TaxaController extends Controller
     public function destroyArray(Request $request)
     {
         $taxas = $request->input('taxas');
-        if (!$taxas)
+        if (! $taxas) {
             return $this->error(404, 'Taxas não enviadas', ['taxas' => 'Taxas não enviadas']);
+        }
         // return $this->response(200, 'a', $taxas);
         foreach ($taxas as $taxa) {
 
             $item = Taxas::select('*')->where('id', $taxa['id'])->first();
-            if (!$item)
+            if (! $item) {
                 return $this->error(404, 'Taxa não encontrada');
+            }
 
             $result = Taxas::where('id', $taxa['id'])->delete();
-            if (!$result)
+            if (! $result) {
                 return $this->error(500, 'Erro interno ao deletar taxa');
+            }
         }
 
         return $this->response(200, 'Taxas deletadas com sucesso', $taxas);
@@ -163,13 +170,14 @@ class TaxaController extends Controller
     public function destroyRangeG2A(string $id)
     {
         $taxa = Ranges_taxa_G2A::select('*')->where('id', $id)->first();
-        if (!$taxa)
+        if (! $taxa) {
             return $this->error(404, 'Taxa não encontrada');
-
+        }
 
         $result = Ranges_taxa_G2A::where('id', $id)->delete();
-        if (!$result)
+        if (! $result) {
             return $this->error(500, 'Erro interno ao deletar taxa');
+        }
 
         return $this->response(200, 'Taxa deletada com sucesso', $taxa);
     }
@@ -177,18 +185,21 @@ class TaxaController extends Controller
     public function destroyArrayG2A(Request $request)
     {
         $taxas = $request->input('taxas');
-        if (!$taxas)
+        if (! $taxas) {
             return $this->error(404, 'Taxas não enviadas', ['taxas' => 'Taxas não enviadas']);
+        }
         // return $this->response(200, 'a', $taxas);
         foreach ($taxas as $taxa) {
 
             $item = Ranges_taxa_G2A::select('*')->where('id', $taxa['id'])->first();
-            if (!$item)
+            if (! $item) {
                 return $this->error(404, 'Taxa não encontrada');
+            }
 
             $result = Ranges_taxa_G2A::where('id', $taxa['id'])->delete();
-            if (!$result)
+            if (! $result) {
                 return $this->error(500, 'Erro interno ao deletar taxa');
+            }
         }
 
         return $this->response(200, 'Taxas deletadas com sucesso', $taxas);
@@ -197,8 +208,9 @@ class TaxaController extends Controller
     public function updateRangeG2A(StoreRangeG2ARequest $request, string $id)
     {
         $fee = Ranges_taxa_G2A::select('*')->where('id', $id)->first();
-        if (!$fee)
+        if (! $fee) {
             return $this->error(404, 'Taxa não encontrada');
+        }
 
         $data = $request->validated();
 
@@ -208,8 +220,9 @@ class TaxaController extends Controller
         $fee['maximo'] = $data['maximo'];
         $fee['taxa'] = $data['taxa'];
 
-        if (!$result)
+        if (! $result) {
             return $this->error(500, 'Erro interno ao atualizar taxa');
+        }
 
         return $this->response(200, 'Taxa atualizada com sucesso', $fee);
 

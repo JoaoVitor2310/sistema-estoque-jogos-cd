@@ -19,7 +19,7 @@ class KeyRepository
     public function findByKeyCode(string $keyCode, ?int $excludeId = null): ?Venda_chave_troca
     {
         return Venda_chave_troca::where('chaveRecebida', $keyCode)
-            ->when($excludeId, fn($q) => $q->where('id', '!=', $excludeId))
+            ->when($excludeId, fn ($q) => $q->where('id', '!=', $excludeId))
             ->first();
     }
 
@@ -44,7 +44,7 @@ class KeyRepository
             ->notYetListed()
             ->notGiftLink()
             ->withoutRecentBundle(KeyEligibility::BUNDLE_EXCLUSION_DAYS)
-            ->with(['game.bundles' => fn($q) => $q->latest('release_date')])
+            ->with(['game.bundles' => fn ($q) => $q->latest('release_date')])
             ->get();
     }
 }

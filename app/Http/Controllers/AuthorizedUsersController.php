@@ -54,13 +54,14 @@ class AuthorizedUsersController extends Controller
     public function destroy(string $id)
     {
         $email = AuthorizedUsers::select('*')->where('id', $id)->first();
-        if (!$email)
+        if (! $email) {
             return $this->error(404, 'Usuário não encontrado');
-
+        }
 
         $result = AuthorizedUsers::where('id', $id)->delete();
-        if (!$result)
+        if (! $result) {
             return $this->error(500, 'Erro interno ao deletar usuário');
+        }
 
         return $this->response(200, 'Usuário deletado com sucesso', $email);
     }
@@ -68,18 +69,21 @@ class AuthorizedUsersController extends Controller
     public function destroyArray(Request $request)
     {
         $items = $request->input('items');
-        if (!$items)
+        if (! $items) {
             return $this->error(404, 'Usuários não enviados', ['errors' => 'Usuários não enviados']);
+        }
 
         foreach ($items as $item) {
 
             $item = AuthorizedUsers::select('*')->where('id', $item['id'])->first();
-            if (!$item)
+            if (! $item) {
                 return $this->error(404, 'Usuário não encontrada');
+            }
 
             $result = AuthorizedUsers::where('id', $item['id'])->delete();
-            if (!$result)
+            if (! $result) {
                 return $this->error(500, 'Erro interno ao deletar usuário');
+            }
         }
 
         return $this->response(200, 'Usuários deletados com sucesso', $items);
@@ -88,15 +92,17 @@ class AuthorizedUsersController extends Controller
     public function update(AuthorizedUserRequest $request, string $id)
     {
         $item = AuthorizedUsers::select('*')->where('id', $id)->first();
-        if (!$item)
+        if (! $item) {
             return $this->error(404, 'Usuário não encontrado');
+        }
 
         $data = $request->validated();
 
         $result = AuthorizedUsers::where('id', $id)->update($data);
 
-        if (!$result)
+        if (! $result) {
             return $this->error(500, 'Erro interno ao atualizar taxa');
+        }
 
         return $this->response(200, 'Usuário atualizado com sucesso', $data);
     }

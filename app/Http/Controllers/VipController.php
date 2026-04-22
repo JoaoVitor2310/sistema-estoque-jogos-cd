@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use App\Models\Vip;
 use App\Models\VipList;
 use App\Services\VipListExecutionService;
@@ -23,6 +22,7 @@ class VipController extends Controller
     public function index()
     {
         $vips = Vip::with('list')->get();
+
         return Inertia::render('Vips', [
             'vips' => $vips,
         ]);
@@ -55,8 +55,8 @@ class VipController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name'        => 'required|string|max:255',
-            'id_steam'    => 'nullable|string|max:255',
+            'name' => 'required|string|max:255',
+            'id_steam' => 'nullable|string|max:255',
         ]);
 
         $vip = Vip::create($validated);
@@ -69,8 +69,8 @@ class VipController extends Controller
         $vip = Vip::findOrFail($id);
 
         $validated = $request->validate([
-            'name'        => 'required|string|max:255',
-            'id_steam'    => 'nullable|string|max:255',
+            'name' => 'required|string|max:255',
+            'id_steam' => 'nullable|string|max:255',
         ]);
 
         $vip->update($validated);

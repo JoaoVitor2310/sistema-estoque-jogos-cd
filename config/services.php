@@ -49,7 +49,7 @@ return [
         'base_url' => env('THIS_URL'),
         'dev_base_url' => env('DEV_THIS_URL'),
     ],
-    
+
     'price_researcher' => [
         'base_url' => env('API_PRICE_RESEARCHER'),
         'dev_base_url' => env('DEV_API_PRICE_RESEARCHER'),
@@ -61,6 +61,6 @@ return [
     ],
 
     'vip_webhook' => [
-        'secret' => env('VIP_WEBHOOK_SECRET'),
+        'secret' => env('EXTERNAL_SECRET'),
     ],
 ];

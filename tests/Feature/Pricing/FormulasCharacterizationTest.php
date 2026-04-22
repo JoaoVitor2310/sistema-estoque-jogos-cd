@@ -37,7 +37,7 @@ describe('KeyCalculationService', function () {
             ['name' => 'TF2', 'preco_euro' => 1.500, 'preco_dolar' => 1.600, 'preco_real' => 8.000, 'created_at' => now(), 'updated_at' => now()],
         ]);
 
-        $this->service = new KeyCalculationService();
+        $this->service = new KeyCalculationService;
     });
 
     // -------------------------------------------------------------------------

@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\Venda_chave_troca;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -26,7 +25,7 @@ class VipService
             'valorPagoIndividual',
             'minApiGamivo',
             'maxApiGamivo',
-            'dataVenda'
+            'dataVenda',
         ])
             ->whereNull('dataVendida')
             ->whereNotNull('idGamivo')
@@ -34,11 +33,15 @@ class VipService
             ->get();
 
         foreach ($games as $game) {
-            if ($game->id !== 675) continue;
+            if ($game->id !== 675) {
+                continue;
+            }
             // Checar preço atual
             $actualPrice = $this->getActualPrice($game->idGamivo);
 
-            if (!$actualPrice['success']) continue;
+            if (! $actualPrice['success']) {
+                continue;
+            }
 
             $actualPrice['price'] = 2;
 
@@ -56,22 +59,24 @@ class VipService
 
     /**
      * Get the actual price of the game on Gamivo
-     * @param string $idGamivo
-     * @return array
+     *
+     * @param  string  $idGamivo
      */
     private function getActualPrice($idGamivo): array
     {
         try {
-            $response = Http::get(config('services.carca_api_gamivo.base_url') . '/api/products/' . $idGamivo);
+            $response = Http::get(config('services.carca_api_gamivo.base_url').'/api/products/'.$idGamivo);
             if ($response->successful()) {
                 $response = $response->json();
+
                 return ['success' => true, 'price' => $response['actualPrice']['price']];
             } else {
                 return ['success' => false, 'price' => null];
             }
         } catch (\Throwable $e) {
             //error log
-            Log::error('Error getting actual price of game on Gamivo: ' . $e->getMessage() . ' - ' . $e->getLine() . ' - ' . $e->getFile());
+            Log::error('Error getting actual price of game on Gamivo: '.$e->getMessage().' - '.$e->getLine().' - '.$e->getFile());
+
             return ['success' => false, 'price' => null];
         }
     }

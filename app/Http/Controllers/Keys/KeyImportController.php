@@ -26,7 +26,7 @@ class KeyImportController extends Controller
     {
         $result = $this->importKeysUseCase->execute($request->file('file')->getRealPath());
 
-        if (!$result['success']) {
+        if (! $result['success']) {
             return $this->error(422, $result['message'], $result['errors']);
         }
 
@@ -40,7 +40,7 @@ class KeyImportController extends Controller
     {
         $filePath = public_path('assets/example/import_keys.xlsx');
 
-        if (!file_exists($filePath)) {
+        if (! file_exists($filePath)) {
             return $this->error(404, 'Arquivo de exemplo não encontrado');
         }
 

@@ -64,7 +64,7 @@ Modelo central. Representa keys compradas e/ou vendidas.
 Campos relevantes:
 - PARA REMOVER -> id_fornecedor, notaMetacritic, isSteam, randomClassificationG2A, randomClassificationKinguin, id_leilao_g2a, id_leilao_gamivo, id_leilao_kinguin, id_plataforma, precoVenda, incomeReal, chaveEntregue, vendido(como tem data de venda, não é necessário), leiloes, quantidade, devolucoes, 
 - `tipo_reclamacao_id` - id do problema que deu na key, é importante para saber qual problema deu e agrupar
-- `notaMetacritic` - id do problema que deu na key, é importante para saber qual problema deu e agrupar
+- `notaMetacritic` - REMOVER
 - `steamId` - id na steam, plataforma que vende os jogos oficiais
 - `nomeJogo`, `region`, `plataforma_id` - nome, região que ele está limitado(EU = Europa por exemplo), plataforma que vai ser vendido
 - `valorPagoIndividual` — custo individual da key
@@ -159,7 +159,7 @@ Tem 14+ métodos cobrindo CRUD, importação, cálculo automático, consulta de 
 
 **6. Validação fraca em campos críticos**
 - Preços (`valorPagoIndividual`, `precoCliente`) não têm validação de mínimo > 0 nos Form Requests
-- `notaMetacritic` aceita qualquer inteiro (0 a 100 mas sem rule `between`)
+- `notaMetacritic` remover
 - Nenhuma validação de unicidade de key antes de inserir
 
 **7. `autoSell()` com query complexa sem teste**
@@ -713,5 +713,5 @@ GOOGLE_REDIRECT_URI=
 
 # Admin (sugerido — ainda não implementado)
 ADMIN_EMAIL=carcadeals@gmail.com
-VIP_WEBHOOK_SECRET=
+EXTERNAL_SECRET=
 ```

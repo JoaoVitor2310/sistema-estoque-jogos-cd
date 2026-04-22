@@ -11,8 +11,8 @@ class Plataforma extends Model
 
     protected $table = 'plataforma';
 
-    protected $fillable= [
+    protected $fillable = [
         'id',
         'name',
-      ];
+    ];
 }

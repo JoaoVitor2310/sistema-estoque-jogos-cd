@@ -20,14 +20,14 @@ class ExecuteVipListUseCase
 {
     /**
      * @return array{success: true, message: string, data: mixed}
-     *       | array{success: false, code: int, message: string, data?: mixed}
+     *                                                            | array{success: false, code: int, message: string, data?: mixed}
      */
     public function execute(Vip $vip): array
     {
-        if (!$vip->id_steam) {
+        if (! $vip->id_steam) {
             return [
                 'success' => false,
-                'code'    => 400,
+                'code' => 400,
                 'message' => 'Não há id steam para executar',
             ];
         }
@@ -43,12 +43,12 @@ class ExecuteVipListUseCase
                 ]
             );
 
-            $baseUrl      = rtrim(config('services.price_researcher.base_url'), '/');
+            $baseUrl = rtrim(config('services.price_researcher.base_url'), '/');
             $callbackBase = rtrim(config('services.sistema-estoque.base_url'), '/');
 
-            $response = Http::post($baseUrl . '/api/lists/run', [
-                'id_steam'     => $vip->id_steam,
-                'callback_url' => $callbackBase . '/vips/callback/' . $vipList->id,
+            $response = Http::post($baseUrl.'/api/lists/run', [
+                'id_steam' => $vip->id_steam,
+                'callback_url' => $callbackBase.'/vips/callback/'.$vipList->id,
             ]);
 
             $responseData = $response->json() ?? [];
@@ -58,9 +58,9 @@ class ExecuteVipListUseCase
 
                 return [
                     'success' => false,
-                    'code'    => 400,
+                    'code' => 400,
                     'message' => 'Erro ao executar listas',
-                    'data'    => $responseData,
+                    'data' => $responseData,
                 ];
             }
 
@@ -69,7 +69,7 @@ class ExecuteVipListUseCase
             return [
                 'success' => true,
                 'message' => 'Listas executadas com sucesso',
-                'data'    => $responseData,
+                'data' => $responseData,
             ];
         } catch (\Throwable $e) {
             DB::rollBack();

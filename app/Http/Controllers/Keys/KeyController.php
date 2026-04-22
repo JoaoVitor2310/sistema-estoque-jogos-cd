@@ -44,16 +44,16 @@ class KeyController extends Controller
         ])->orderBy('id', 'desc')->paginate($limit);
 
         return Inertia::render('VendaChaveTroca', [
-            'games'          => $games->items(),
-            'totalGames'     => $games->total(),
-            'tiposFormato'   => Tipo_formato::all(),
-            'tiposLeilao'    => Tipo_leilao::all(),
-            'plataformas'    => Plataforma::all(),
+            'games' => $games->items(),
+            'totalGames' => $games->total(),
+            'tiposFormato' => Tipo_formato::all(),
+            'tiposLeilao' => Tipo_leilao::all(),
+            'plataformas' => Plataforma::all(),
             'tiposReclamacao' => Tipo_reclamacao::all(),
-            'pagination'     => [
+            'pagination' => [
                 'current_page' => $games->currentPage(),
-                'last_page'    => $games->lastPage(),
-                'per_page'     => $games->perPage(),
+                'last_page' => $games->lastPage(),
+                'per_page' => $games->perPage(),
             ],
         ]);
     }
@@ -71,16 +71,16 @@ class KeyController extends Controller
         ])->orderBy('id', 'desc')->paginate($limit);
 
         return $this->response(200, 'Página de jogos atualizada com sucesso.', [
-            'games'          => $games,
-            'totalGames'     => $games->total(),
-            'tiposFormato'   => Tipo_formato::all(),
-            'tiposLeilao'    => Tipo_leilao::all(),
-            'plataformas'    => Plataforma::all(),
+            'games' => $games,
+            'totalGames' => $games->total(),
+            'tiposFormato' => Tipo_formato::all(),
+            'tiposLeilao' => Tipo_leilao::all(),
+            'plataformas' => Plataforma::all(),
             'tiposReclamacao' => Tipo_reclamacao::all(),
-            'pagination'     => [
+            'pagination' => [
                 'current_page' => $games->currentPage(),
-                'last_page'    => $games->lastPage(),
-                'per_page'     => $games->perPage(),
+                'last_page' => $games->lastPage(),
+                'per_page' => $games->perPage(),
             ],
         ]);
     }
@@ -98,10 +98,13 @@ class KeyController extends Controller
         ]);
 
         foreach ($filters as $key => $value) {
-            if (!$value) continue;
+            if (! $value) {
+                continue;
+            }
 
             if (is_array($value)) {
                 $query->whereIn($key, $value);
+
                 continue;
             }
 
@@ -109,10 +112,11 @@ class KeyController extends Controller
                 // Campos de data: filtro por presença/ausência ou valor
                 if (in_array($key, ['dataVenda', 'dataVendida', 'dataExpiracao'])) {
                     match ($value) {
-                        'sim'   => $query->whereNotNull($key),
-                        'nao'   => $query->whereNull($key),
+                        'sim' => $query->whereNotNull($key),
+                        'nao' => $query->whereNull($key),
                         default => $query->where($key, 'ILIKE', "%{$value}%"),
                     };
+
                     continue;
                 }
 
@@ -123,10 +127,12 @@ class KeyController extends Controller
                         'nao' => $query->whereNull('idGamivo'),
                         default => null,
                     };
+
                     continue;
                 }
 
                 $query->where($key, 'ILIKE', "%{$value}%");
+
                 continue;
             }
 
@@ -137,12 +143,12 @@ class KeyController extends Controller
         $games = $query->orderBy('id', 'desc')->paginate($limit);
 
         return $this->response(200, 'Pesquisa realizada com sucesso.', [
-            'games'      => $games,
+            'games' => $games,
             'totalGames' => $games->total(),
             'pagination' => [
                 'current_page' => $games->currentPage(),
-                'last_page'    => $games->lastPage(),
-                'per_page'     => $games->perPage(),
+                'last_page' => $games->lastPage(),
+                'per_page' => $games->perPage(),
             ],
         ]);
     }
@@ -182,7 +188,9 @@ class KeyController extends Controller
     {
         $game = Venda_chave_troca::find($id);
 
-        if (!$game) return $this->error(404, 'Jogo não encontrado');
+        if (! $game) {
+            return $this->error(404, 'Jogo não encontrado');
+        }
 
         $game->delete();
 
@@ -196,12 +204,16 @@ class KeyController extends Controller
     {
         $games = $request->input('games');
 
-        if (!$games) return $this->error(404, 'Jogos não enviados', ['games' => 'Jogos não enviados']);
+        if (! $games) {
+            return $this->error(404, 'Jogos não enviados', ['games' => 'Jogos não enviados']);
+        }
 
         foreach ($games as $game) {
             $item = Venda_chave_troca::find($game['id']);
 
-            if (!$item) return $this->error(404, 'Jogo não encontrado');
+            if (! $item) {
+                return $this->error(404, 'Jogo não encontrado');
+            }
 
             $item->delete();
         }

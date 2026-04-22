@@ -32,24 +32,24 @@ function seedRepoFks(): void
 function insertRepoKey(array $overrides = []): int
 {
     return DB::table('venda_chave_trocas')->insertGetId(array_merge([
-        'nomeJogo'            => 'Repo Test Game',
-        'idGamivo'            => 'gam-' . uniqid(),
-        'chaveRecebida'       => 'REPO-KEY-' . uniqid(),
-        'precoCliente'        => 5.00,
+        'nomeJogo' => 'Repo Test Game',
+        'idGamivo' => 'gam-'.uniqid(),
+        'chaveRecebida' => 'REPO-KEY-'.uniqid(),
+        'precoCliente' => 5.00,
         'valorPagoIndividual' => 2.00,
-        'lucroPercentual'     => 25.00,
-        'perfilOrigem'        => 'https://steamcommunity.com/id/test',
-        'id_fornecedor'       => 1,
-        'tipo_reclamacao_id'  => 1,
-        'tipo_formato_id'     => 1,
-        'id_leilao_g2a'       => 1,
-        'id_leilao_gamivo'    => 1,
-        'id_leilao_kinguin'   => 1,
-        'id_plataforma'       => 1,
-        'dataVenda'           => null,
-        'dataVendida'         => null,
-        'created_at'          => now(),
-        'updated_at'          => now(),
+        'lucroPercentual' => 25.00,
+        'perfilOrigem' => 'https://steamcommunity.com/id/test',
+        'id_fornecedor' => 1,
+        'tipo_reclamacao_id' => 1,
+        'tipo_formato_id' => 1,
+        'id_leilao_g2a' => 1,
+        'id_leilao_gamivo' => 1,
+        'id_leilao_kinguin' => 1,
+        'id_plataforma' => 1,
+        'dataVenda' => null,
+        'dataVendida' => null,
+        'created_at' => now(),
+        'updated_at' => now(),
     ], $overrides));
 }
 
@@ -139,9 +139,9 @@ describe('KeyRepository', function () {
 
         it('excludes a key already listed for sale (dataVenda set)', function () {
             insertRepoKey([
-                'idGamivo'     => 'gam-listed-001',
+                'idGamivo' => 'gam-listed-001',
                 'chaveRecebida' => 'LISTED-KEY-001',
-                'dataVenda'    => Carbon::now()->subDays(5)->toDateString(),
+                'dataVenda' => Carbon::now()->subDays(5)->toDateString(),
             ]);
 
             $results = app(KeyRepository::class)->findEligibleForAutoSell();
@@ -151,9 +151,9 @@ describe('KeyRepository', function () {
 
         it('excludes a key already sold (dataVendida set)', function () {
             insertRepoKey([
-                'idGamivo'     => 'gam-sold-001',
+                'idGamivo' => 'gam-sold-001',
                 'chaveRecebida' => 'SOLD-REPO-001',
-                'dataVendida'  => Carbon::now()->subDays(10)->toDateString(),
+                'dataVendida' => Carbon::now()->subDays(10)->toDateString(),
             ]);
 
             $results = app(KeyRepository::class)->findEligibleForAutoSell();
@@ -163,7 +163,7 @@ describe('KeyRepository', function () {
 
         it('excludes gift links (chaveRecebida containing "http")', function () {
             insertRepoKey([
-                'idGamivo'     => 'gam-gift-001',
+                'idGamivo' => 'gam-gift-001',
                 'chaveRecebida' => 'https://store.steampowered.com/gift/abc123',
             ]);
 
@@ -174,12 +174,12 @@ describe('KeyRepository', function () {
         });
 
         it('excludes a key whose game is in a bundle released less than 21 days ago', function () {
-            $keyCode  = 'RECENT-BUNDLE-KEY';
+            $keyCode = 'RECENT-BUNDLE-KEY';
             $idGamivo = 'gam-recent-001';
 
             insertRepoKey(['idGamivo' => $idGamivo, 'chaveRecebida' => $keyCode]);
 
-            $gameId   = DB::table('games')->insertGetId(['name' => 'Recent Game', 'id_gamivo' => $idGamivo, 'created_at' => now(), 'updated_at' => now()]);
+            $gameId = DB::table('games')->insertGetId(['name' => 'Recent Game', 'id_gamivo' => $idGamivo, 'created_at' => now(), 'updated_at' => now()]);
             $bundleId = DB::table('bundles')->insertGetId(['name' => 'Recent Bundle', 'type' => 'bundle', 'release_date' => Carbon::now()->subDays(10)->toDateString(), 'created_at' => now(), 'updated_at' => now()]);
             DB::table('bundle_games')->insert(['bundle_id' => $bundleId, 'game_id' => $gameId, 'created_at' => now(), 'updated_at' => now()]);
 
@@ -189,12 +189,12 @@ describe('KeyRepository', function () {
         });
 
         it('includes a key whose game is in a bundle released more than 21 days ago', function () {
-            $keyCode  = 'OLD-BUNDLE-KEY';
+            $keyCode = 'OLD-BUNDLE-KEY';
             $idGamivo = 'gam-old-001';
 
             insertRepoKey(['idGamivo' => $idGamivo, 'chaveRecebida' => $keyCode]);
 
-            $gameId   = DB::table('games')->insertGetId(['name' => 'Old Bundle Game', 'id_gamivo' => $idGamivo, 'created_at' => now(), 'updated_at' => now()]);
+            $gameId = DB::table('games')->insertGetId(['name' => 'Old Bundle Game', 'id_gamivo' => $idGamivo, 'created_at' => now(), 'updated_at' => now()]);
             $bundleId = DB::table('bundles')->insertGetId(['name' => 'Old Bundle', 'type' => 'bundle', 'release_date' => Carbon::now()->subDays(30)->toDateString(), 'created_at' => now(), 'updated_at' => now()]);
             DB::table('bundle_games')->insert(['bundle_id' => $bundleId, 'game_id' => $gameId, 'created_at' => now(), 'updated_at' => now()]);
 
@@ -210,7 +210,7 @@ describe('KeyRepository', function () {
             insertRepoKey(['idGamivo' => 'gam-sold',  'chaveRecebida' => 'SOLD-MIX-001', 'dataVendida' => now()->toDateString()]);
 
             $results = app(KeyRepository::class)->findEligibleForAutoSell();
-            $codes   = $results->pluck('chaveRecebida');
+            $codes = $results->pluck('chaveRecebida');
 
             expect($codes)->toContain('OK-KEY-001')
                 ->and($codes)->toContain('OK-KEY-002')

@@ -47,22 +47,22 @@ function seedUpdateFks(): void
 function insertKeyForUpdate(array $overrides = []): int
 {
     return DB::table('venda_chave_trocas')->insertGetId(array_merge([
-        'nomeJogo'            => 'Original Game',
-        'chaveRecebida'       => 'ORIG-KEY-00001',
-        'precoCliente'        => 5.00,
+        'nomeJogo' => 'Original Game',
+        'chaveRecebida' => 'ORIG-KEY-00001',
+        'precoCliente' => 5.00,
         'valorPagoIndividual' => 3.50, // Custo fixado na compra
-        'qtdTF2'              => 2.5,
-        'lucroPercentual'     => 25.00,
-        'perfilOrigem'        => 'https://steamcommunity.com/id/seed',
-        'id_fornecedor'       => 1,
-        'tipo_reclamacao_id'  => 1,
-        'tipo_formato_id'     => 1,
-        'id_leilao_g2a'       => 1,
-        'id_leilao_gamivo'    => 1,
-        'id_leilao_kinguin'   => 1,
-        'id_plataforma'       => 1,
-        'created_at'          => now(),
-        'updated_at'          => now(),
+        'qtdTF2' => 2.5,
+        'lucroPercentual' => 25.00,
+        'perfilOrigem' => 'https://steamcommunity.com/id/seed',
+        'id_fornecedor' => 1,
+        'tipo_reclamacao_id' => 1,
+        'tipo_formato_id' => 1,
+        'id_leilao_g2a' => 1,
+        'id_leilao_gamivo' => 1,
+        'id_leilao_kinguin' => 1,
+        'id_plataforma' => 1,
+        'created_at' => now(),
+        'updated_at' => now(),
     ], $overrides));
 }
 
@@ -72,20 +72,20 @@ function insertKeyForUpdate(array $overrides = []): int
 function makeUpdateInput(array $overrides = []): array
 {
     return array_merge([
-        'nomeJogo'            => 'Updated Game',
-        'chaveRecebida'       => 'ORIG-KEY-00001',
-        'perfilOrigem'        => 'https://steamcommunity.com/id/seed',
-        'precoCliente'        => 6.00,
-        'region'              => null,
-        'tipo_reclamacao_id'  => 1,
-        'tipo_formato_id'     => 1,
-        'id_leilao_g2a'       => 1,
-        'id_leilao_gamivo'    => 1,
-        'id_leilao_kinguin'   => 1,
-        'id_plataforma'       => 1,
-        'dataAdquirida'       => now()->toDateString(),
-        'idGamivo'            => null,
-        'valorVendido'        => null,
+        'nomeJogo' => 'Updated Game',
+        'chaveRecebida' => 'ORIG-KEY-00001',
+        'perfilOrigem' => 'https://steamcommunity.com/id/seed',
+        'precoCliente' => 6.00,
+        'region' => null,
+        'tipo_reclamacao_id' => 1,
+        'tipo_formato_id' => 1,
+        'id_leilao_g2a' => 1,
+        'id_leilao_gamivo' => 1,
+        'id_leilao_kinguin' => 1,
+        'id_plataforma' => 1,
+        'dataAdquirida' => now()->toDateString(),
+        'idGamivo' => null,
+        'valorVendido' => null,
     ], $overrides);
 }
 

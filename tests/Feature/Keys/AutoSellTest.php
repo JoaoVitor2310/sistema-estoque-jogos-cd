@@ -23,24 +23,24 @@ use Illuminate\Support\Facades\DB;
 function createKey(array $overrides = []): void
 {
     DB::table('venda_chave_trocas')->insert(array_merge([
-        'nomeJogo'            => 'Test Game',
-        'idGamivo'            => 'gam-' . uniqid(),
-        'chaveRecebida'       => 'ABCDE-12345-FGHIJ',
-        'precoCliente'        => 5.00,
+        'nomeJogo' => 'Test Game',
+        'idGamivo' => 'gam-'.uniqid(),
+        'chaveRecebida' => 'ABCDE-12345-FGHIJ',
+        'precoCliente' => 5.00,
         'valorPagoIndividual' => 2.00,
-        'lucroPercentual'     => 25.00,
-        'perfilOrigem'        => 'https://steamcommunity.com/id/test',
-        'id_fornecedor'       => 1,
-        'tipo_reclamacao_id'  => 1,
-        'tipo_formato_id'     => 1,
-        'id_leilao_g2a'       => 1,
-        'id_leilao_gamivo'    => 1,
-        'id_leilao_kinguin'   => 1,
-        'id_plataforma'       => 1,
-        'dataVenda'           => null,
-        'dataVendida'         => null,
-        'created_at'          => now(),
-        'updated_at'          => now(),
+        'lucroPercentual' => 25.00,
+        'perfilOrigem' => 'https://steamcommunity.com/id/test',
+        'id_fornecedor' => 1,
+        'tipo_reclamacao_id' => 1,
+        'tipo_formato_id' => 1,
+        'id_leilao_g2a' => 1,
+        'id_leilao_gamivo' => 1,
+        'id_leilao_kinguin' => 1,
+        'id_plataforma' => 1,
+        'dataVenda' => null,
+        'dataVendida' => null,
+        'created_at' => now(),
+        'updated_at' => now(),
     ], $overrides));
 }
 
@@ -102,7 +102,7 @@ describe('GET /venda-chave-troca/auto-sell', function () {
 
         it('the key has already been listed for sale (dataVenda is set)', function () {
             createKey([
-                'idGamivo'  => 'gam-listed',
+                'idGamivo' => 'gam-listed',
                 'dataVenda' => Carbon::now()->subDays(5)->toDateString(),
             ]);
 
@@ -113,7 +113,7 @@ describe('GET /venda-chave-troca/auto-sell', function () {
 
         it('the key has already been sold (dataVendida is set)', function () {
             createKey([
-                'idGamivo'    => 'gam-sold',
+                'idGamivo' => 'gam-sold',
                 'dataVendida' => Carbon::now()->subDays(10)->toDateString(),
             ]);
 
@@ -124,7 +124,7 @@ describe('GET /venda-chave-troca/auto-sell', function () {
 
         it('chaveRecebida contains "http" (gift link)', function () {
             createKey([
-                'idGamivo'      => 'gam-gift',
+                'idGamivo' => 'gam-gift',
                 'chaveRecebida' => 'https://store.steampowered.com/gift/abc123',
             ]);
 
