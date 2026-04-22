@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# Pre-commit hook — roda Pint e PHPStan antes de cada commit.
+# Instalar: make install-hooks
+
+set -euo pipefail
+
+BOLD='\033[1m'
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RESET='\033[0m'
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+
+# Detecta se PHP está disponível diretamente ou se deve rodar via Docker
+if command -v php &>/dev/null; then
+    PHP_EXEC=""          # roda direto: ./vendor/bin/pint
+else
+    PHP_EXEC="docker compose exec -T app-cd"   # roda via container
+fi
+
+echo ""
+echo -e "${BOLD}▶ Pre-commit checks${RESET}"
+
+# ── Pint ──────────────────────────────────────────────────────────────────────
+echo -e "\n${YELLOW}[1/2] Pint — verificando formatação...${RESET}"
+
+if ! $PHP_EXEC ./vendor/bin/pint --test; then
+    echo ""
+    echo -e "${RED}✖ Pint encontrou problemas de formatação.${RESET}"
+    echo -e "  Rode ${BOLD}./vendor/bin/pint${RESET} (ou ${BOLD}docker compose exec app-cd ./vendor/bin/pint${RESET}) para corrigir automaticamente."
+    echo ""
+    exit 1
+fi
+
+echo -e "${GREEN}✔ Pint: sem problemas de formatação${RESET}"
+
+# ── PHPStan ───────────────────────────────────────────────────────────────────
+echo -e "\n${YELLOW}[2/2] PHPStan — analisando app/Domain/ (nível 7)...${RESET}"
+
+if ! $PHP_EXEC ./vendor/bin/phpstan analyse --configuration=phpstan.neon --memory-limit=512M --no-progress; then
+    echo ""
+    echo -e "${RED}✖ PHPStan encontrou erros. Corrija antes de commitar.${RESET}"
+    echo ""
+    exit 1
+fi
+
+echo -e "${GREEN}✔ PHPStan: sem erros${RESET}"
+
+echo ""
+echo -e "${GREEN}${BOLD}✔ Todos os checks passaram. Commitando...${RESET}"
+echo ""
