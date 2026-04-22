@@ -7,11 +7,6 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
  * Representação completa de uma Venda_chave_troca para endpoints de CRUD.
- *
- * Inclui todas as colunas operacionais e relações carregadas (whenLoaded).
- * Campos marcados para remoção no schema (precoVenda, incomeReal, etc.)
- * são mantidos aqui até a Fase Futura 0 (rename/drop de colunas),
- * para não quebrar o frontend durante a transição.
  */
 class KeyResource extends JsonResource
 {
@@ -30,6 +25,11 @@ class KeyResource extends JsonResource
             'color' => $this->color,
             'observacao' => $this->observacao,
             'email' => $this->email,
+
+            // Formato, reclamação e plataforma de venda (enums como string)
+            'key_format' => $this->key_format,
+            'claim_type' => $this->claim_type,
+            'sell_platform' => $this->sell_platform,
 
             // Precificação
             'precoCliente' => $this->precoCliente,
@@ -55,14 +55,8 @@ class KeyResource extends JsonResource
             'dataVendida' => $this->dataVendida,
             'dataExpiracao' => $this->dataExpiracao,
 
-            // Relações (incluídas apenas quando eager-loaded)
+            // Relações
             'fornecedor' => $this->whenLoaded('fornecedor'),
-            'tipoReclamacao' => $this->whenLoaded('tipoReclamacao'),
-            'tipoFormato' => $this->whenLoaded('tipoFormato'),
-            'leilaoG2A' => $this->whenLoaded('leilaoG2A'),
-            'leilaoGamivo' => $this->whenLoaded('leilaoGamivo'),
-            'leilaoKinguin' => $this->whenLoaded('leilaoKinguin'),
-            'plataforma' => $this->whenLoaded('plataforma'),
         ];
     }
 }

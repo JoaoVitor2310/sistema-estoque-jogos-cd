@@ -34,10 +34,6 @@ function seedUpdateFks(): void
         ['name' => 'TF2', 'preco_euro' => 2.0, 'preco_dolar' => 2.2, 'preco_real' => 10.0, 'created_at' => now(), 'updated_at' => now()],
     ]);
 
-    DB::table('tipo_reclamacao')->insert(['id' => 1, 'name' => 'Nenhuma']);
-    DB::table('tipo_formato')->insert(['id' => 1, 'name' => 'Key']);
-    DB::table('tipo_leilao')->insert(['id' => 1, 'name' => 'Fixo']);
-    DB::table('plataforma')->insert(['id' => 1, 'name' => 'Gamivo']);
     DB::table('fornecedor')->insert(['id' => 1, 'perfilOrigem' => 'https://steamcommunity.com/id/seed']);
 }
 
@@ -55,12 +51,9 @@ function insertKeyForUpdate(array $overrides = []): int
         'lucroPercentual' => 25.00,
         'perfilOrigem' => 'https://steamcommunity.com/id/seed',
         'id_fornecedor' => 1,
-        'tipo_reclamacao_id' => 1,
-        'tipo_formato_id' => 1,
-        'id_leilao_g2a' => 1,
-        'id_leilao_gamivo' => 1,
-        'id_leilao_kinguin' => 1,
-        'id_plataforma' => 1,
+        'claim_type' => 'Nenhuma',
+        'key_format' => 'RK',
+        'sell_platform' => 'Gamivo',
         'created_at' => now(),
         'updated_at' => now(),
     ], $overrides));
@@ -77,12 +70,9 @@ function makeUpdateInput(array $overrides = []): array
         'perfilOrigem' => 'https://steamcommunity.com/id/seed',
         'precoCliente' => 6.00,
         'region' => null,
-        'tipo_reclamacao_id' => 1,
-        'tipo_formato_id' => 1,
-        'id_leilao_g2a' => 1,
-        'id_leilao_gamivo' => 1,
-        'id_leilao_kinguin' => 1,
-        'id_plataforma' => 1,
+        'claim_type' => 'Nenhuma',
+        'key_format' => 'RK',
+        'sell_platform' => 'Gamivo',
         'dataAdquirida' => now()->toDateString(),
         'idGamivo' => null,
         'valorVendido' => null,
@@ -187,7 +177,6 @@ describe('UpdateKeyUseCase', function () {
         $result = app(UpdateKeyUseCase::class)->execute((string) $id, makeUpdateInput());
 
         expect($result)->toBeInstanceOf(Venda_chave_troca::class)
-            ->and($result->relationLoaded('fornecedor'))->toBeTrue()
-            ->and($result->relationLoaded('tipoReclamacao'))->toBeTrue();
+            ->and($result->relationLoaded('fornecedor'))->toBeTrue();
     });
 });

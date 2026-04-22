@@ -22,9 +22,9 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
  *  - Gerenciar a transação que envolve todo o fluxo
  *
  * Layout do XLSX:
- *   A=id_leilao_g2a  B=dataAdquirida  C=precoCliente  D=perfilOrigem
- *   E=qtdTF2         F=Bundle         G=dataExpiracao  H=Popularidade
- *   I=region         J=chaveRecebida  K=nomeJogo
+ *   A=ignorado      B=dataAdquirida  C=precoCliente  D=perfilOrigem
+ *   E=qtdTF2        F=Bundle         G=dataExpiracao  H=Popularidade
+ *   I=region        J=chaveRecebida  K=nomeJogo
  */
 class ImportKeysFromXlsxUseCase
 {
@@ -135,33 +135,23 @@ class ImportKeysFromXlsxUseCase
                     ? trim($worksheet->getCell('C'.$row)->getValue())
                     : null,
                 'dataExpiracao' => ExcelDateConverter::convert($worksheet->getCell('G'.$row)->getValue()),
-                'id_leilao_g2a' => intval($worksheet->getCell('A'.$row)->getValue() ?? 1),
 
                 // Defaults — campos não presentes no XLSX recebem valores padrão
                 'idGamivo' => null,
                 'steamId' => null,
                 'precoJogo' => null,
-                'notaMetacritic' => 0,
                 'minimoParaVenda' => null,
                 'minApiGamivo' => null,
                 'maxApiGamivo' => null,
-                'tipo_reclamacao_id' => 1,  // Sem reclamação
-                'tipo_formato_id' => 1,   // Padrão
-                'id_leilao_gamivo' => 1,
-                'id_leilao_kinguin' => 1,
-                'id_plataforma' => 3,   // Gamivo por padrão
+                'claim_type' => 'Nenhuma',
+                'key_format' => 'RK',
+                'sell_platform' => 'Gamivo',
                 'dataVenda' => null,
                 'dataVendida' => null,
                 'observacao' => null,
-                'chaveEntregue' => null,
                 'valorPagoTotal' => null,
-                'vendido' => false,
-                'leiloes' => 1,
-                'quantidade' => 1,
-                'devolucoes' => false,
                 'valorVendido' => null,
                 'email' => null,
-                'isSteam' => false,
                 'color' => null,
             ];
 

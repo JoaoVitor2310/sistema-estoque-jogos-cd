@@ -104,15 +104,7 @@ class RegisterKeyUseCase
 
                 // Persiste e carrega com relacionamentos
                 $created = Venda_chave_troca::create($game);
-                $fullGames[] = $created->load([
-                    'fornecedor',
-                    'tipoReclamacao',
-                    'tipoFormato',
-                    'leilaoG2A',
-                    'leilaoGamivo',
-                    'leilaoKinguin',
-                    'plataforma',
-                ]);
+                $fullGames[] = $created->load(['fornecedor']);
 
                 Log::info('Key registrada com sucesso', [
                     'id' => $created->id,

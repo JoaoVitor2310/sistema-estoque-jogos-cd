@@ -5,33 +5,9 @@ export type Fornecedor = {
     updated_at: string | null;
 }
 
-export type TipoReclamacao = {
-    id: number;
-    name: string;
-    created_at: string | null;
-    updated_at: string | null;
-}
-
-export type TipoFormato = {
-    id: number;
-    name: string;
-    created_at: string | null;
-    updated_at: string | null;
-}
-
-export type Leilao = {
-    id: number;
-    name: string;
-    created_at: string | null;
-    updated_at: string | null;
-}
-
-export type Plataforma = {
-    id: number;
-    name: string;
-    created_at: string | null;
-    updated_at: string | null;
-}
+export type KeyFormat = 'RK' | 'DP' | 'GF' | 'SG' | 'FR' | 'CD' | 'T';
+export type ClaimType = 'Nenhuma' | 'Dup' | 'Rev' | 'Reg';
+export type SellPlatform = 'Nenhuma' | 'G2A' | 'Gamivo' | 'Kinguin';
 
 export type GameLine = {
     id: number;
@@ -43,23 +19,15 @@ export type GameLine = {
     plataformaIdentificada: string;
     nomeJogo: string;
     precoJogo: number | null;
-    notaMetacritic: number | null;
-    isSteam: boolean;
-    randomClassificationG2A: string;
-    randomClassificationKinguin: string;
     observacao: string;
+    key_format: KeyFormat | null;
+    claim_type: ClaimType | null;
+    sell_platform: SellPlatform | null;
     precoCliente: number | null;
     minimoParaVenda: number | null;
-    precoVenda: number | null;
-    incomeReal: number | null;
     incomeSimulado: number | null;
-    chaveEntregue: string;
     valorPagoTotal: string;
     valorPagoIndividual: number | null;
-    vendido: boolean;
-    leiloes: number | null;
-    quantidade: number | null;
-    devolucoes: boolean;
     lucroRS: number | null;
     lucroPercentual: number | null;
     valorVendido: number | null;
@@ -72,13 +40,7 @@ export type GameLine = {
     email: string;
     minApiGamivo: number;
     maxApiGamivo: number;
-    
+
     // Relacionamentos
     fornecedor: Fornecedor;
-    tipo_reclamacao: TipoReclamacao;
-    tipo_formato: TipoFormato;
-    leilao_g2a: Leilao;
-    leilao_gamivo: Leilao;
-    leilao_kinguin: Leilao;
-    plataforma: Plataforma;
 }

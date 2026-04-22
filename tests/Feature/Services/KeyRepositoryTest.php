@@ -22,10 +22,6 @@ use Illuminate\Support\Facades\DB;
 
 function seedRepoFks(): void
 {
-    DB::table('tipo_reclamacao')->insertOrIgnore(['id' => 1, 'name' => 'Nenhuma']);
-    DB::table('tipo_formato')->insertOrIgnore(['id' => 1, 'name' => 'Key']);
-    DB::table('tipo_leilao')->insertOrIgnore(['id' => 1, 'name' => 'Fixo']);
-    DB::table('plataforma')->insertOrIgnore(['id' => 1, 'name' => 'Gamivo']);
     DB::table('fornecedor')->insertOrIgnore(['id' => 1, 'perfilOrigem' => 'https://steamcommunity.com/id/seed']);
 }
 
@@ -40,12 +36,9 @@ function insertRepoKey(array $overrides = []): int
         'lucroPercentual' => 25.00,
         'perfilOrigem' => 'https://steamcommunity.com/id/test',
         'id_fornecedor' => 1,
-        'tipo_reclamacao_id' => 1,
-        'tipo_formato_id' => 1,
-        'id_leilao_g2a' => 1,
-        'id_leilao_gamivo' => 1,
-        'id_leilao_kinguin' => 1,
-        'id_plataforma' => 1,
+        'claim_type' => 'Nenhuma',
+        'key_format' => 'RK',
+        'sell_platform' => 'Gamivo',
         'dataVenda' => null,
         'dataVendida' => null,
         'created_at' => now(),

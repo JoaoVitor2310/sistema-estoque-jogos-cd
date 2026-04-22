@@ -15,13 +15,9 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             FornecedorSeeder::class,
-            PlataformaSeeder::class,
             RangesTaxaG2ASeeder::class,
             RecursosSeeder::class,
             TaxasSeeder::class,
-            TipoFormatoSeeder::class,
-            TipoLeilaoSeeder::class,
-            TipoReclamacaoSeeder::class,
             AuthorizedUsersSeeder::class,
             VendaChaveTrocaSeeder::class,
         ]);

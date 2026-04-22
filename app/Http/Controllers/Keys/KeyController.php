@@ -2,14 +2,13 @@
 
 namespace App\Http\Controllers\Keys;
 
+use App\Domain\Enums\ClaimType;
+use App\Domain\Enums\KeyFormat;
+use App\Domain\Enums\SellPlatform;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreGameRequest;
 use App\Http\Requests\StoreGameRequestArray;
 use App\Http\Resources\KeyResource;
-use App\Models\Plataforma;
-use App\Models\Tipo_formato;
-use App\Models\Tipo_leilao;
-use App\Models\Tipo_reclamacao;
 use App\Models\Venda_chave_troca;
 use App\Traits\HttpResponses;
 use App\UseCases\Keys\RegisterKeyUseCase;
@@ -38,23 +37,21 @@ class KeyController extends Controller
     {
         $limit = $request->query('limit', 100);
 
-        $games = Venda_chave_troca::with([
-            'fornecedor', 'tipoReclamacao', 'tipoFormato',
-            'leilaoG2A', 'leilaoGamivo', 'leilaoKinguin', 'plataforma',
-        ])->orderBy('id', 'desc')->paginate($limit);
+        $games = Venda_chave_troca::with(['fornecedor'])
+            ->orderBy('id', 'desc')
+            ->paginate($limit);
 
         return Inertia::render('VendaChaveTroca', [
             'games' => $games->items(),
             'totalGames' => $games->total(),
-            'tiposFormato' => Tipo_formato::all(),
-            'tiposLeilao' => Tipo_leilao::all(),
-            'plataformas' => Plataforma::all(),
-            'tiposReclamacao' => Tipo_reclamacao::all(),
             'pagination' => [
                 'current_page' => $games->currentPage(),
                 'last_page' => $games->lastPage(),
                 'per_page' => $games->perPage(),
             ],
+            'keyFormats' => array_column(KeyFormat::cases(), 'value'),
+            'claimTypes' => array_column(ClaimType::cases(), 'value'),
+            'sellPlatforms' => array_column(SellPlatform::cases(), 'value'),
         ]);
     }
 
@@ -65,18 +62,13 @@ class KeyController extends Controller
     {
         $limit = $request->query('limit', 100);
 
-        $games = Venda_chave_troca::with([
-            'fornecedor', 'tipoReclamacao', 'tipoFormato',
-            'leilaoG2A', 'leilaoGamivo', 'leilaoKinguin', 'plataforma',
-        ])->orderBy('id', 'desc')->paginate($limit);
+        $games = Venda_chave_troca::with(['fornecedor'])
+            ->orderBy('id', 'desc')
+            ->paginate($limit);
 
         return $this->response(200, 'Página de jogos atualizada com sucesso.', [
             'games' => $games,
             'totalGames' => $games->total(),
-            'tiposFormato' => Tipo_formato::all(),
-            'tiposLeilao' => Tipo_leilao::all(),
-            'plataformas' => Plataforma::all(),
-            'tiposReclamacao' => Tipo_reclamacao::all(),
             'pagination' => [
                 'current_page' => $games->currentPage(),
                 'last_page' => $games->lastPage(),
@@ -92,10 +84,7 @@ class KeyController extends Controller
     {
         $filters = $request->except('page');
 
-        $query = Venda_chave_troca::with([
-            'fornecedor', 'tipoReclamacao', 'tipoFormato',
-            'leilaoG2A', 'leilaoGamivo', 'leilaoKinguin', 'plataforma',
-        ]);
+        $query = Venda_chave_troca::with(['fornecedor']);
 
         foreach ($filters as $key => $value) {
             if (! $value) {

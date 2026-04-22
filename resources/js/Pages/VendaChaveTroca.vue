@@ -30,7 +30,14 @@ import { usePage } from '@inertiajs/vue3';
 
 // onMouted {
 let rowData: GameLine[] = reactive([]);
-const props = defineProps({ games: Array, totalGames: Number, pagination: Object, tiposFormato: Array, tiposLeilao: Array, plataformas: Array, tiposReclamacao: Array });
+const props = defineProps({
+  games: Array,
+  totalGames: Number,
+  pagination: Object,
+  keyFormats: Array as () => string[],
+  claimTypes: Array as () => string[],
+  sellPlatforms: Array as () => string[],
+});
 // console.log(props.tiposFormato);
 Object.assign(rowData, props.games);
 // @ts-ignore
@@ -60,34 +67,24 @@ const selectedFile = ref<File | null>(null);
 const selectedNewObject = {
   id: 0,
   color: '',
-  tipo_reclamacao_id: 1,
+  claim_type: 'Nenhuma',
   dont_sell: false,
   steamId: '',
   idGamivo: '',
-  tipo_formato_id: 1,
+  key_format: 'RK',
   chaveRecebida: '',
   repetido: false,
   nomeJogo: '',
   region: '',
   precoJogo: null,
-  notaMetacritic: 0,
-  isSteam: false,
   observacao: '',
-  id_leilao_g2a: 1,
-  id_leilao_gamivo: 1,
-  id_leilao_kinguin: 1,
-  id_plataforma: 3,
+  sell_platform: 'Gamivo',
   precoCliente: null,
   minimoParaVenda: null,
-  chaveEntregue: '',
   valorPagoTotal: '',
   valorPagoIndividual: null,
   minApiGamivo: null,
   maxApiGamivo: null,
-  vendido: false,
-  leiloes: 1,
-  quantidade: 1,
-  devolucoes: false,
   valorVendido: null,
   lucroVendaRS: null,
   lucroVendaPercentual: null,
@@ -142,12 +139,6 @@ const handleEditButton = (data: any) => {
   DialogVisible.value = true;
   isEdit.value = true;
   selected.splice(0, selected.length, ...data);
-  selected[0].tipo_formato_id = data[0].tipo_formato.id;
-  selected[0].tipo_reclamacao_id = data[0].tipo_reclamacao.id;
-  selected[0].id_leilao_g2a = data[0].leilao_g2_a.id;
-  selected[0].id_leilao_gamivo = data[0].leilao_gamivo.id;
-  selected[0].id_leilao_kinguin = data[0].leilao_kinguin.id;
-  selected[0].id_plataforma = data[0].plataforma.id;
   sharedDataAdquirida.value = data[0].dataAdquirida;
   sharedPerfilOrigem.value = data[0].perfilOrigem;
   sharedValorPagoTotal.value = data[0].valorPagoTotal;
@@ -173,12 +164,6 @@ const onEdit = async (selected: any) => {
     }
   } else {
     product = { ...selected };
-    product.tipo_reclamacao_id = selected.tipo_reclamacao.id;
-    product.tipo_formato_id = selected.tipo_formato.id;
-    product.id_plataforma = selected.plataforma.id;
-    product.id_leilao_g2a = selected.leilao_g2_a.id;
-    product.id_leilao_gamivo = selected.leilao_gamivo.id;
-    product.id_leilao_kinguin = selected.leilao_kinguin.id;
     if (selected.dataAdquirida) {
       selected.dataAdquirida = identifyAndFormatDate(selected.dataAdquirida);
     }
@@ -346,25 +331,19 @@ const currentFirst = ref((pagination.value.current_page - 1) * pagination.value.
 const isSearching = ref(false);
 
 const searchFilter = reactive({
-  tipo_reclamacao_id: [],
+  claim_type: [],
   steamId: '',
-  tipo_formato_id: [],
+  key_format: [],
   dont_sell: false,
   chaveRecebida: '',
   plataformaIdentificada: '',
   nomeJogo: '',
   region: '',
-  isSteam: [],
   idGamivo: '',
   hasIdGamivo: '',
   observacao: '',
-  randomClassificationG2A: '',
-  randomClassificationKinguin: '',
-  id_plataforma: [],
-  chaveEntregue: '',
+  sell_platform: [],
   valorPagoTotal: '',
-  vendido: [],
-  devolucoes: [],
   dataAdquirida: '',
   dataVenda: '',
   dataVendaRange: null,
@@ -418,16 +397,16 @@ const onPageChange = async (search: boolean, event: PageState | null = null) => 
 };
 
 const getRowStyle = (data: GameLine) => {
-  const styleMap = {
-    2: '#ffcccc', // Vermelho claro
-    3: '#ffcccc', // Vermelho claro 
-    4: '#FFE066', // Amarelo claro
+  const styleMap: Record<string, string> = {
+    Dup: '#ffcccc', // Vermelho claro
+    Rev: '#ffcccc', // Vermelho claro
+    Reg: '#FFE066', // Amarelo claro
   };
 
   return data.color
     ? { backgroundColor: `#${data.color}` }
-    : data.tipo_reclamacao && styleMap[data.tipo_reclamacao.id]
-      ? { backgroundColor: styleMap[data.tipo_reclamacao.id] }
+    : data.claim_type && styleMap[data.claim_type]
+      ? { backgroundColor: styleMap[data.claim_type] }
       : null;
 };
 
@@ -576,8 +555,8 @@ const handleImportSubmit = async (): Promise<void> => {
         <div class="d-flex flex-column">
           <label class="fw-bold">Reclamação</label>
           <div class="d-flex gap-5 mb-3">
-            <Select v-model="item.tipo_reclamacao_id" :options="props.tiposReclamacao" optionLabel="name"
-              optionValue="id" class="w-full md:w-56" />
+            <Select v-model="item.claim_type" :options="props.claimTypes"
+              class="w-full md:w-56" />
           </div>
         </div>
         <!-- <div class="d-flex flex-column">
@@ -589,7 +568,7 @@ const handleImportSubmit = async (): Promise<void> => {
         <div class="d-flex flex-column">
           <label class="fw-bold">Formato</label>
           <div class="d-flex gap-5 mb-3">
-            <Select v-model="item.tipo_formato_id" :options="props.tiposFormato" optionValue="id" optionLabel="name"
+            <Select v-model="item.key_format" :options="props.keyFormats"
               placeholder="Formato do Jogo" class="w-full md:w-56" />
           </div>
         </div>
@@ -663,7 +642,7 @@ const handleImportSubmit = async (): Promise<void> => {
         <div class="d-flex flex-column">
           <label class="fw-bold">Plataforma</label>
           <div class="d-flex gap-5 mb-3">
-            <Select v-model="item.id_plataforma" :options="props.plataformas" optionLabel="name" optionValue="id"
+            <Select v-model="item.sell_platform" :options="props.sellPlatforms"
               class="w-full md:w-56" />
           </div>
         </div>
@@ -857,16 +836,16 @@ const handleImportSubmit = async (): Promise<void> => {
         </template>
         <!-- <Column selectionMode="multiple" headerStyle="width: 3rem"></Column> -->
         <Column field="id" header="ID" sortable></Column>
-        <Column field="tipo_reclamacao.name" header="Reclamação?" filterField="searchField" :showFilterMenu="true"
+        <Column field="claim_type" header="Reclamação?" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
-            <MultiSelect placeholder="Pesquisar" v-model="searchFilter.tipo_reclamacao_id"
-              :options="props.tiposReclamacao" optionLabel="name" optionValue="id" style="min-width: 14rem">
+            <MultiSelect placeholder="Pesquisar" v-model="searchFilter.claim_type"
+              :options="props.claimTypes" style="min-width: 14rem">
             </MultiSelect>
           </template>
           <template #editor="{ data, field }">
-            <Select v-model="data.tipo_reclamacao.id" :options="props.tiposReclamacao" @change="onEdit(data)"
-              optionLabel="name" optionValue="id" />
+            <Select v-model="data.claim_type" :options="props.claimTypes"
+              @change="onEdit(data)" />
           </template>
         </Column>
         <!-- <Column field="steamId" header="SteamID" filterField="searchField" :showFilterMenu="true"
@@ -888,20 +867,20 @@ const handleImportSubmit = async (): Promise<void> => {
             </Select>
           </template>
           <template #editor="{ data, field }">
-            <Select v-model="data.tipo_formato.id" :options="props.tiposFormato" @change="onEdit(data)"
+            <Select v-model="data.key_format.id" :options="props.tiposFormato" @change="onEdit(data)"
               optionLabel="name" optionValue="id" />
           </template>
         </Column> -->
-        <Column field="tipo_formato.name" header="Formato" filterField="searchField" :showFilterMenu="true"
+        <Column field="key_format" header="Formato" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
-            <MultiSelect v-model="searchFilter.tipo_formato_id" placeholder="Pesquisar" :options="props.tiposFormato"
-              optionLabel="name" optionValue="id" style="min-width: 14rem">
+            <MultiSelect v-model="searchFilter.key_format" placeholder="Pesquisar"
+              :options="props.keyFormats" style="min-width: 14rem">
             </MultiSelect>
           </template>
           <template #editor="{ data, field }">
-            <Select v-model="data.tipo_formato.id" :options="props.tiposFormato" @change="onEdit(data)"
-              optionLabel="name" optionValue="id" />
+            <Select v-model="data.key_format" :options="props.keyFormats"
+              @change="onEdit(data)" />
           </template>
         </Column>
         <Column field="plataformaIdentificada" header="Plat. Identificada" filterField="searchField"
@@ -1065,16 +1044,16 @@ const handleImportSubmit = async (): Promise<void> => {
               optionLabel="name" optionValue="id" />
           </template>
         </Column> -->
-        <Column field="plataforma.name" header="Plataforma" filterField="searchField" :showFilterMenu="true"
+        <Column field="sell_platform" header="Plataforma" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
-            <MultiSelect v-model="searchFilter.id_plataforma" :options="props.plataformas" placeholder="Pesquisar"
-              optionLabel="name" optionValue="id" style="min-width: 14rem">
+            <MultiSelect v-model="searchFilter.sell_platform"
+              :options="props.sellPlatforms" placeholder="Pesquisar" style="min-width: 14rem">
             </MultiSelect>
           </template>
           <template #editor="{ data, field }">
-            <Select v-model="data.plataforma.id" :options="props.plataformas" @change="onEdit(data)" optionLabel="name"
-              optionValue="id" />
+            <Select v-model="data.sell_platform" :options="props.sellPlatforms"
+              @change="onEdit(data)" />
           </template>
         </Column>
         <Column field="precoCliente" header="Preço Cliente" sortable class="text-center p-0">

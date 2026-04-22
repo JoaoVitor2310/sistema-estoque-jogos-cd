@@ -86,14 +86,6 @@ class UpdateKeyUseCase
 
         $existing->update($data);
 
-        return $existing->load([
-            'fornecedor',
-            'tipoReclamacao',
-            'tipoFormato',
-            'leilaoG2A',
-            'leilaoGamivo',
-            'leilaoKinguin',
-            'plataforma',
-        ]);
+        return $existing->load(['fornecedor']);
     }
 }

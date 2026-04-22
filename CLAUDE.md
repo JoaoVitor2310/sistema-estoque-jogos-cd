@@ -23,6 +23,7 @@ Atue sempre como arquiteto de software sênior com conhecimento profundo de Lara
 - Nunca coloque lógica de negócio fora do Domain
 - Ao sugerir onde um novo arquivo deve viver, justifique com base na camada correta da arquitetura
 - Nomes de variáveis dentro do código sempre em inglês, utilize português somente em comentários
+- Nomes de colunas do banco de dados sempre em inglês e snake_case — ex: `key_format`, `claim_type`, `sell_platform`. Nunca criar colunas com nomes em português ou misturados
 - Não comente nada sobre decisões futuras
 - Mantenha sempre boas práticas (Design Patterns, Clean Code, SOLID, etc)
 - Identifique possíveis Code Smells, alerte e proponha soluções.
@@ -62,7 +63,7 @@ Laravel (Inertia.js + Vue)
 Modelo central. Representa keys compradas e/ou vendidas.
 
 Campos relevantes:
-- PARA REMOVER -> id_fornecedor, notaMetacritic, isSteam, randomClassificationG2A, randomClassificationKinguin, id_leilao_g2a, id_leilao_gamivo, id_leilao_kinguin, id_plataforma, precoVenda, incomeReal, chaveEntregue, vendido(como tem data de venda, não é necessário), leiloes, quantidade, devolucoes, 
+- PARA REMOVER -> notaMetacritic, isSteam, randomClassificationG2A, randomClassificationKinguin, id_leilao_g2a, id_leilao_gamivo, id_leilao_kinguin, id_plataforma, precoVenda, incomeReal, chaveEntregue, vendido(como tem data de venda, não é necessário), leiloes, quantidade, devolucoes, 
 - `tipo_reclamacao_id` - id do problema que deu na key, é importante para saber qual problema deu e agrupar
 - `notaMetacritic` - REMOVER
 - `steamId` - id na steam, plataforma que vende os jogos oficiais

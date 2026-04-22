@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Domain\Enums\ClaimType;
+use App\Domain\Enums\KeyFormat;
+use App\Domain\Enums\SellPlatform;
 use Carbon\Carbon;
 use Database\Factories\VendaChaveTrocaFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -18,7 +21,7 @@ class Venda_chave_troca extends Model
         'id',
         'color',
         'id_fornecedor',
-        'tipo_reclamacao_id',
+        'claim_type',
         'steamId',
         'idGamivo',
         'chaveRecebida',
@@ -27,35 +30,22 @@ class Venda_chave_troca extends Model
         'nomeJogo',
         'region',
         'precoJogo',
-        'notaMetacritic',
-        'isSteam',
-        'randomClassificationG2A',
-        'randomClassificationKinguin',
         'observacao',
-        'id_leilao_g2a',
-        'id_leilao_gamivo',
-        'id_leilao_kinguin',
-        'id_plataforma',
+        'key_format',
+        'sell_platform',
         'precoCliente',
         'minimoParaVenda',
-        'precoVenda',
-        'incomeReal',
         'incomeSimulado',
-        'chaveEntregue',
         'valorPagoTotal',
         'qtdTF2',
         'valorPagoIndividual',
-        'vendido',
-        'leiloes',
-        'quantidade',
-        'devolucoes',
         'lucroRS',
         'lucroPercentual',
         'valorVendido',
         'lucroVendaRS',
         'lucroVendaPercentual',
         'dataAdquirida',
-        'dataVenda', // Data posto a venda
+        'dataVenda',
         'dataVendida',
         'dataExpiracao',
         'perfilOrigem',
@@ -64,39 +54,15 @@ class Venda_chave_troca extends Model
         'email',
     ];
 
+    protected $casts = [
+        'key_format'    => KeyFormat::class,
+        'claim_type' => ClaimType::class,
+        'sell_platform' => SellPlatform::class,
+    ];
+
     public function fornecedor()
     {
         return $this->belongsTo(Fornecedor::class, 'id_fornecedor');
-    }
-
-    public function tipoReclamacao()
-    {
-        return $this->belongsTo(Tipo_reclamacao::class, 'tipo_reclamacao_id');
-    }
-
-    public function tipoFormato()
-    {
-        return $this->belongsTo(Tipo_formato::class, 'tipo_formato_id');
-    }
-
-    public function leilaoG2A()
-    {
-        return $this->belongsTo(Tipo_leilao::class, 'id_leilao_g2a');
-    }
-
-    public function leilaoGamivo()
-    {
-        return $this->belongsTo(Tipo_leilao::class, 'id_leilao_gamivo');
-    }
-
-    public function leilaoKinguin()
-    {
-        return $this->belongsTo(Tipo_leilao::class, 'id_leilao_kinguin');
-    }
-
-    public function plataforma()
-    {
-        return $this->belongsTo(Plataforma::class, 'id_plataforma');
     }
 
     public function game()
@@ -132,16 +98,6 @@ class Venda_chave_troca extends Model
     {
         $this->attributes['region'] = ($value === '' || $value === null) ? null : $value;
     }
-
-    protected $hidden = [
-        'id_fornecedor',
-        'tipo_reclamacao_id',
-        'tipo_formato_id',
-        'id_leilao_g2a',
-        'id_leilao_gamivo',
-        'id_leilao_kinguin',
-        'id_plataforma',
-    ];
 
     protected static function newFactory()
     {

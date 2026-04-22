@@ -34,10 +34,6 @@ function seedSoldOffersFks(): void
         ['name' => 'TF2', 'preco_euro' => 2.0, 'preco_dolar' => 2.2, 'preco_real' => 10.0, 'created_at' => now(), 'updated_at' => now()],
     ]);
 
-    DB::table('tipo_reclamacao')->insert(['id' => 1, 'name' => 'Nenhuma']);
-    DB::table('tipo_formato')->insert(['id' => 1, 'name' => 'Key']);
-    DB::table('tipo_leilao')->insert(['id' => 1, 'name' => 'Fixo']);
-    DB::table('plataforma')->insert(['id' => 1, 'name' => 'Gamivo']);
     DB::table('fornecedor')->insert(['id' => 1, 'perfilOrigem' => 'https://steamcommunity.com/id/seed']);
 }
 
@@ -55,12 +51,9 @@ function insertUnsoldKey(string $keyCode, float $individualCost = 2.00): void
         'lucroPercentual' => 25.00,
         'perfilOrigem' => 'https://steamcommunity.com/id/test',
         'id_fornecedor' => 1,
-        'tipo_reclamacao_id' => 1,
-        'tipo_formato_id' => 1,
-        'id_leilao_g2a' => 1,
-        'id_leilao_gamivo' => 1,
-        'id_leilao_kinguin' => 1,
-        'id_plataforma' => 1,
+        'claim_type' => 'Nenhuma',
+        'key_format' => 'RK',
+        'sell_platform' => 'Gamivo',
         'dataVenda' => now()->subDays(10)->toDateString(),
         'dataVendida' => null,
         'valorVendido' => null,
@@ -211,12 +204,9 @@ describe('UpdateSoldOffersUseCase', function () {
             'lucroPercentual' => 25.00,
             'perfilOrigem' => 'https://steamcommunity.com/id/test',
             'id_fornecedor' => 1,
-            'tipo_reclamacao_id' => 1,
-            'tipo_formato_id' => 1,
-            'id_leilao_g2a' => 1,
-            'id_leilao_gamivo' => 1,
-            'id_leilao_kinguin' => 1,
-            'id_plataforma' => 1,
+            'claim_type' => 'Nenhuma',
+            'key_format' => 'RK',
+            'sell_platform' => 'Gamivo',
             'dataVenda' => now()->subDays(15)->toDateString(),
             'dataVendida' => now()->subDays(5)->toDateString(),
             'valorVendido' => 3.00, // Já foi vendida

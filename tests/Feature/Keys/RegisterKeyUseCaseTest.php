@@ -40,11 +40,6 @@ function seedRegisterFks(): void
     DB::table('recursos')->insert([
         ['name' => 'TF2', 'preco_euro' => 2.0, 'preco_dolar' => 2.2, 'preco_real' => 10.0, 'created_at' => now(), 'updated_at' => now()],
     ]);
-
-    DB::table('tipo_reclamacao')->insert(['id' => 1, 'name' => 'Nenhuma']);
-    DB::table('tipo_formato')->insert(['id' => 1, 'name' => 'Key']);
-    DB::table('tipo_leilao')->insert(['id' => 1, 'name' => 'Fixo']);
-    DB::table('plataforma')->insert(['id' => 1, 'name' => 'Gamivo']);
 }
 
 /**
@@ -64,28 +59,18 @@ function makeGameInput(array $overrides = []): array
         'idGamivo' => null,
         'steamId' => null,
         'precoJogo' => null,
-        'notaMetacritic' => 0,
         'minimoParaVenda' => null,
         'minApiGamivo' => null,
         'maxApiGamivo' => null,
-        'tipo_reclamacao_id' => 1,
-        'tipo_formato_id' => 1,
-        'id_leilao_g2a' => 1,
-        'id_leilao_gamivo' => 1,
-        'id_leilao_kinguin' => 1,
-        'id_plataforma' => 1,
+        'claim_type' => 'Nenhuma',
+        'key_format' => 'RK',
+        'sell_platform' => 'Gamivo',
         'dataVenda' => null,
         'dataVendida' => null,
         'observacao' => null,
-        'chaveEntregue' => null,
         'valorPagoTotal' => null,
-        'vendido' => false,
-        'leiloes' => 1,
-        'quantidade' => 1,
-        'devolucoes' => false,
         'valorVendido' => null,
         'email' => null,
-        'isSteam' => false,
         'color' => null,
     ], $overrides);
 }
@@ -271,7 +256,7 @@ describe('RegisterKeyUseCase', function () {
         $validGame = makeGameInput(['chaveRecebida' => 'VALID-KEY-001']);
         $invalidGame = makeGameInput([
             'chaveRecebida' => 'VALID-KEY-002',
-            'tipo_reclamacao_id' => 9999, // FK inválido → viola constraint no banco
+            'claim_type' => 'INVALID_ENUM', // Valor inválido → ValueError ao fazer cast pelo Eloquent
         ]);
 
         $result = app(RegisterKeyUseCase::class)->execute([$validGame, $invalidGame]);
@@ -283,7 +268,7 @@ describe('RegisterKeyUseCase', function () {
 
     it('includes error count in the message when errors occur', function () {
         $invalidGame = makeGameInput([
-            'tipo_reclamacao_id' => 9999,
+            'claim_type' => 'INVALID_ENUM', // Valor inválido → ValueError ao fazer cast pelo Eloquent
         ]);
 
         $result = app(RegisterKeyUseCase::class)->execute([$invalidGame]);

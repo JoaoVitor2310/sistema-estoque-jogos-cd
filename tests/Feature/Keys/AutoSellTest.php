@@ -31,12 +31,9 @@ function createKey(array $overrides = []): void
         'lucroPercentual' => 25.00,
         'perfilOrigem' => 'https://steamcommunity.com/id/test',
         'id_fornecedor' => 1,
-        'tipo_reclamacao_id' => 1,
-        'tipo_formato_id' => 1,
-        'id_leilao_g2a' => 1,
-        'id_leilao_gamivo' => 1,
-        'id_leilao_kinguin' => 1,
-        'id_plataforma' => 1,
+        'claim_type' => 'Nenhuma',
+        'key_format' => 'RK',
+        'sell_platform' => 'Gamivo',
         'dataVenda' => null,
         'dataVendida' => null,
         'created_at' => now(),
@@ -62,11 +59,6 @@ describe('GET /venda-chave-troca/auto-sell', function () {
             ['name' => 'gamivoFixoMaior',       'preco' => 0.550, 'created_at' => now(), 'updated_at' => now()],
         ]);
 
-        // FK reference rows required by venda_chave_trocas
-        DB::table('tipo_reclamacao')->insert(['id' => 1, 'name' => 'Nenhuma']);
-        DB::table('tipo_formato')->insert(['id' => 1, 'name' => 'Key']);
-        DB::table('tipo_leilao')->insert(['id' => 1, 'name' => 'Fixo']);
-        DB::table('plataforma')->insert(['id' => 1, 'name' => 'Gamivo']);
         DB::table('fornecedor')->insert(['id' => 1, 'perfilOrigem' => 'https://steamcommunity.com/id/seed']);
     });
 

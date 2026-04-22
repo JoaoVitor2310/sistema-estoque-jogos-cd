@@ -26,39 +26,29 @@ class StoreGameRequestArray extends FormRequest
         return [
             'games' => 'required|array',
             'games.*.color' => 'nullable',
-            'games.*.tipo_reclamacao_id' => ['integer', 'exists:tipo_reclamacao,id'],   // 6.6: FK dinâmica
+            'games.*.claim_type' => ['nullable', 'string'],
             'games.*.steamId' => ['string', 'nullable'],
             'games.*.idGamivo' => ['string', 'nullable'],
-            'games.*.tipo_formato_id' => ['integer', 'exists:tipo_formato,id'],      // 6.6: FK dinâmica
+            'games.*.key_format' => ['nullable', 'string'],
             'games.*.chaveRecebida' => 'required',
             'games.*.nomeJogo' => 'required',
             'games.*.region' => ['string', 'nullable'],
             'games.*.precoJogo' => ['nullable', 'decimal:0,2'],
-            'games.*.notaMetacritic' => 'integer|min:0|max:100',
-            'games.*.isSteam' => ['boolean', 'nullable'],
             'games.*.observacao' => ['string', 'nullable'],
-            'games.*.id_leilao_g2a' => ['integer', 'exists:tipo_leilao,id'],       // 6.6: FK dinâmica
-            'games.*.id_leilao_gamivo' => ['integer', 'exists:tipo_leilao,id'],       // 6.6: FK dinâmica
-            'games.*.id_leilao_kinguin' => ['integer', 'exists:tipo_leilao,id'],       // 6.6: FK dinâmica
-            'games.*.id_plataforma' => ['integer', 'exists:plataforma,id'],        // 6.6: FK dinâmica
-            'games.*.precoCliente' => ['required', 'decimal:0,2', 'gt:0'],        // 6.5: preço > 0
+            'games.*.sell_platform' => ['nullable', 'string'],
+            'games.*.precoCliente' => ['required', 'decimal:0,2', 'gt:0'],
             'games.*.minimoParaVenda' => ['nullable', 'decimal:0,2'],
             'games.*.minApiGamivo' => ['nullable', 'decimal:0,2'],
             'games.*.maxApiGamivo' => ['nullable', 'decimal:0,2'],
-            'games.*.chaveEntregue' => ['string', 'nullable'],
             'games.*.valorPagoTotal' => ['string', 'nullable'],
-            'games.*.vendido' => 'boolean',
-            'games.*.leiloes' => 'integer|min:0',
-            'games.*.quantidade' => 'integer|min:0',
-            'games.*.devolucoes' => 'boolean',
-            'games.*.valorVendido' => ['nullable', 'decimal:0,2', 'gt:0'],        // 6.5: valor vendido > 0 se informado
+            'games.*.valorVendido' => ['nullable', 'decimal:0,2', 'gt:0'],
             'games.*.dataAdquirida' => ['required', 'string'],
             'games.*.dataVenda' => ['nullable', 'string'],
             'games.*.dataVendida' => ['nullable', 'string'],
             'games.*.dataExpiracao' => ['nullable', 'string'],
             'games.*.perfilOrigem' => ['required', 'string'],
             'games.*.email' => ['nullable', 'string'],
-            'games.*.qtdTF2' => ['required', 'decimal:0,2', 'gt:0'],        // 6.5: quantidade TF2 > 0
+            'games.*.qtdTF2' => ['required', 'decimal:0,2', 'gt:0'],
         ];
     }
 
