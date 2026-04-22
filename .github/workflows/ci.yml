@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test:
+    name: PHP 8.3 — Pint · PHPStan · Pest
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pgsql, pdo_pgsql, mbstring, xml, bcmath, zip
+          coverage: none
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Copy .env
+        run: cp .env.example .env
+
+      - name: Generate app key
+        run: php artisan key:generate
+
+      # ── Step 1: Formatting ─────────────────────────────────────────────────
+      - name: Laravel Pint (format check)
+        run: ./vendor/bin/pint --test
+
+      # ── Step 2: Static analysis (Domain only, level 7) ────────────────────
+      - name: PHPStan
+        run: ./vendor/bin/phpstan analyse --configuration=phpstan.neon --memory-limit=512M
+
+      # ── Step 3: Test suite ─────────────────────────────────────────────────
+      - name: Pest
+        run: php artisan test --no-coverage

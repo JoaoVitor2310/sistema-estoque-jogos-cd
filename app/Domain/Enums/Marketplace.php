@@ -31,10 +31,10 @@ enum Marketplace: int
     public function label(): string
     {
         return match ($this) {
-            self::G2A     => 'G2A',
-            self::Gamivo  => 'Gamivo',
+            self::G2A => 'G2A',
+            self::Gamivo => 'Gamivo',
             self::Kinguin => 'Kinguin',
-            self::Troca   => 'Troca',
+            self::Troca => 'Troca',
         };
     }
 
@@ -46,7 +46,7 @@ enum Marketplace: int
     {
         return match ($this) {
             self::Gamivo, self::Kinguin, self::Troca => true,
-            self::G2A                                => false,
+            self::G2A => false,
         };
     }
 }

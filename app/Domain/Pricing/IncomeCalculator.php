@@ -38,9 +38,9 @@ final class IncomeCalculator
     /**
      * Calcula o income líquido após as taxas da Gamivo.
      *
-     * @param float          $clientPrice Preço de venda no marketplace (€)
-     * @param MarketplaceFee $fee         Taxas vigentes da Gamivo
-     * @return float                      Income líquido (€)
+     * @param  float  $clientPrice  Preço de venda no marketplace (€)
+     * @param  MarketplaceFee  $fee  Taxas vigentes da Gamivo
+     * @return float Income líquido (€)
      */
     public static function forGamivo(float $clientPrice, MarketplaceFee $fee): float
     {

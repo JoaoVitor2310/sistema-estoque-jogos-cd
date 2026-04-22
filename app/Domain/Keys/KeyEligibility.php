@@ -26,12 +26,11 @@ final class KeyEligibility
     /**
      * Avalia se uma key está elegível para listagem automática.
      *
-     * @param string|null $gamivoId             ID da key no Gamivo (null = não cadastrada)
-     * @param string|null $keyCode              Código da key (null = não recebida ainda)
-     * @param Carbon|null $listedAt             Data em que foi listada para venda (null = não listada)
-     * @param Carbon|null $soldAt               Data de venda (null = não vendida)
-     * @param Carbon|null $newestBundleRelease  Release date do bundle mais recente do jogo (null = sem bundle)
-     * @return bool
+     * @param  string|null  $gamivoId  ID da key no Gamivo (null = não cadastrada)
+     * @param  string|null  $keyCode  Código da key (null = não recebida ainda)
+     * @param  Carbon|null  $listedAt  Data em que foi listada para venda (null = não listada)
+     * @param  Carbon|null  $soldAt  Data de venda (null = não vendida)
+     * @param  Carbon|null  $newestBundleRelease  Release date do bundle mais recente do jogo (null = sem bundle)
      */
     public static function isEligibleForAutoSell(
         ?string $gamivoId,

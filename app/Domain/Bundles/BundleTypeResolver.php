@@ -13,13 +13,14 @@ namespace App\Domain\Bundles;
 final class BundleTypeResolver
 {
     public const TYPE_CHOICE = 'choice';
+
     public const TYPE_BUNDLE = 'bundle';
 
     /**
      * Resolve o tipo do bundle a partir do título.
      *
-     * @param string $title Título do bundle vindo da API
-     * @return string       'choice' ou 'bundle'
+     * @param  string  $title  Título do bundle vindo da API
+     * @return string 'choice' ou 'bundle'
      */
     public static function resolve(string $title): string
     {

@@ -17,4 +17,8 @@ class AuthorizedUsers extends Model
         'email',
         'status',
     ];
+
+    protected $casts = [
+        'status' => 'boolean',
+    ];
 }

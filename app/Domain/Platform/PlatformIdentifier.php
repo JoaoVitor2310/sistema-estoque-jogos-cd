@@ -16,13 +16,13 @@ final class PlatformIdentifier
      * Todos os padrões usam \w (word characters: a-z, A-Z, 0-9, _).
      */
     private const PATTERNS = [
-        'Steam'      => '/^\w{5}-\w{5}-\w{5}$|^\w{15}\s\w{2}$/',
-        'EA'         => '/^\w{4}-\w{4}-\w{4}-\w{4}-\w{4}$/',
+        'Steam' => '/^\w{5}-\w{5}-\w{5}$|^\w{15}\s\w{2}$/',
+        'EA' => '/^\w{4}-\w{4}-\w{4}-\w{4}-\w{4}$/',
         'EA/Ubisoft' => '/^\w{4}-\w{4}-\w{4}-\w{4}$/',
-        'EGS'        => '/^\w{5}-\w{5}-\w{5}-\w{5}$/',
-        'GOG'        => '/^\w{18}$/',
-        'XBOX'       => '/^\w{5}-\w{5}-\w{5}-\w{5}-\w{5}$/',
-        'PSN'        => '/^\w{4}-\w{4}-\w{4}$/',
+        'EGS' => '/^\w{5}-\w{5}-\w{5}-\w{5}$/',
+        'GOG' => '/^\w{18}$/',
+        'XBOX' => '/^\w{5}-\w{5}-\w{5}-\w{5}-\w{5}$/',
+        'PSN' => '/^\w{4}-\w{4}-\w{4}$/',
     ];
 
     private const UNKNOWN = 'DESCONHECIDO';
@@ -32,8 +32,8 @@ final class PlatformIdentifier
      *
      * Retorna 'DESCONHECIDO' quando nenhum padrão é encontrado.
      *
-     * @param string $keyCode Código da key (ex: "XXXXX-XXXXX-XXXXX")
-     * @return string         Nome da plataforma ou 'DESCONHECIDO'
+     * @param  string  $keyCode  Código da key (ex: "XXXXX-XXXXX-XXXXX")
+     * @return string Nome da plataforma ou 'DESCONHECIDO'
      */
     public static function identify(string $keyCode): string
     {

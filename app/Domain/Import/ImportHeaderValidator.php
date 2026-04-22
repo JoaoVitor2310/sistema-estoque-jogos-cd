@@ -34,8 +34,8 @@ final class ImportHeaderValidator
     /**
      * Valida os cabeçalhos recebidos contra os esperados.
      *
-     * @param array<string, string> $actual Cabeçalhos extraídos da planilha (coluna → valor lido)
-     * @return array<string>                Lista de mensagens de erro; vazia se válido
+     * @param  array<string, string>  $actual  Cabeçalhos extraídos da planilha (coluna → valor lido)
+     * @return array<string> Lista de mensagens de erro; vazia se válido
      */
     public static function validate(array $actual): array
     {

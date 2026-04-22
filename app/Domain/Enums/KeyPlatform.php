@@ -10,12 +10,12 @@ namespace App\Domain\Enums;
  */
 enum KeyPlatform: string
 {
-    case Steam   = 'Steam';
-    case EA      = 'EA';
-    case Epic    = 'Epic Games Store';
-    case GOG     = 'GOG';
-    case Xbox    = 'Xbox';
-    case PSN     = 'PlayStation Network';
+    case Steam = 'Steam';
+    case EA = 'EA';
+    case Epic = 'Epic Games Store';
+    case GOG = 'GOG';
+    case Xbox = 'Xbox';
+    case PSN = 'PlayStation Network';
     case Unknown = 'Desconhecido';
 
     /**

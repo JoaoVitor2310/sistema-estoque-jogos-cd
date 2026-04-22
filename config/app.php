@@ -123,4 +123,16 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Admin E-mail
+    |--------------------------------------------------------------------------
+    |
+    | Endereço de e-mail que recebe a permissão de administrador (Gate 'is-admin').
+    | Configure via variável de ambiente para não precisar alterar código.
+    |
+    */
+
+    'admin_email' => env('ADMIN_EMAIL'),
+
 ];

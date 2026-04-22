@@ -14,6 +14,7 @@ use App\Http\Controllers\ResourceController;
 use App\Http\Controllers\VipController;
 use App\Http\Middleware\CheckAdmin;
 use App\Http\Middleware\CheckPermission;
+use App\Http\Middleware\VerifyVipWebhookSecret;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -40,7 +41,10 @@ Route::prefix('vips')
         Route::put('/{id}', 'update')->name('vips.update');
         Route::delete('/{id}', 'destroy')->name('vips.destroy');
         Route::post('/run/{vip}', 'runVipList')->name('vips.runVipList');
-        Route::post('/callback/{vipList}', 'callbackVipList')->name('vips.callbackVipList')->withoutMiddleware([CheckPermission::class]);
+        Route::post('/callback/{vipList}', 'callbackVipList')
+            ->name('vips.callbackVipList')
+            ->withoutMiddleware([CheckPermission::class])
+            ->middleware(VerifyVipWebhookSecret::class);
 });
 
 
@@ -77,14 +81,14 @@ Route::prefix('fees')
 Route::prefix('games')
     ->middleware(CheckPermission::class)
     ->controller(GameController::class)->group(function () {
-        Route::get('/paginated', 'paginated')->name('games.paginated')->withoutMiddleware([CheckPermission::class]);
-        Route::post('/search', 'search')->name('games.search')->withoutMiddleware([CheckPermission::class]);
+        Route::get('/paginated', 'paginated')->name('games.paginated');
+        Route::post('/search', 'search')->name('games.search');
         Route::post('/', 'store')->name('games.store');
         Route::put('/{id}', 'update')->name('games.update');
         Route::delete('/{id}', 'destroy')->name('games.destroy');
         Route::delete('/', 'destroyArray')->name('games.destroyArray');
-        Route::get('/search-popularity', 'searchPopularity')->name('games.searchPopularity')->withoutMiddleware([CheckPermission::class]);
-        Route::post('/update-popularity', 'updatePopularity')->name('games.updatePopularity')->withoutMiddleware([CheckPermission::class]);
+        Route::get('/search-popularity', 'searchPopularity')->name('games.searchPopularity')->middleware(VerifyVipWebhookSecret::class);
+        Route::post('/update-popularity', 'updatePopularity')->name('games.updatePopularity')->middleware(VerifyVipWebhookSecret::class);
     });
 
 Route::prefix('bundles')
@@ -120,8 +124,8 @@ Route::prefix('venda-chave-troca')
     ->middleware(CheckPermission::class)
     ->group(function () {
         // KeyController — CRUD
-        Route::get('/paginated', [KeyController::class, 'paginated'])->name('venda-chave-troca.paginated')->withoutMiddleware([CheckPermission::class]);
-        Route::post('/search', [KeyController::class, 'search'])->name('venda-chave-troca.search')->withoutMiddleware([CheckPermission::class]);
+        Route::get('/paginated', [KeyController::class, 'paginated'])->name('venda-chave-troca.paginated');
+        Route::post('/search', [KeyController::class, 'search'])->name('venda-chave-troca.search');
         Route::post('/', [KeyController::class, 'store'])->name('venda-chave-troca.store');
         Route::put('/{id}', [KeyController::class, 'update'])->name('venda-chave-troca.update');
         Route::delete('/{id}', [KeyController::class, 'destroy'])->name('venda-chave-troca.destroy');

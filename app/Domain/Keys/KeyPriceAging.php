@@ -21,9 +21,9 @@ final class KeyPriceAging
     /** Multiplicadores de degradação por faixa de meses listada. */
     private const AGING_TIERS = [
         12 => null,  // >= 12 meses: preço piso (liquidar)
-        9  => 1.2,   // >= 9 meses:  custo × 1.2
-        6  => 1.3,   // >= 6 meses:  custo × 1.3
-        3  => 1.4,   // >= 3 meses:  custo × 1.4
+        9 => 1.2,   // >= 9 meses:  custo × 1.2
+        6 => 1.3,   // >= 6 meses:  custo × 1.3
+        3 => 1.4,   // >= 3 meses:  custo × 1.4
     ];
 
     /**
@@ -32,9 +32,9 @@ final class KeyPriceAging
      * Retorna null quando o tempo ainda não atingiu o primeiro tier (< 3 meses),
      * sinalizando que nenhuma alteração deve ser feita.
      *
-     * @param float $individualCost Custo individual da key (€)
-     * @param int   $monthsListed   Meses desde que a key foi listada para venda
-     * @return float|null           Novo preço mínimo, ou null se sem alteração
+     * @param  float  $individualCost  Custo individual da key (€)
+     * @param  int  $monthsListed  Meses desde que a key foi listada para venda
+     * @return float|null Novo preço mínimo, ou null se sem alteração
      */
     public static function calculateAgedPrice(float $individualCost, int $monthsListed): ?float
     {
@@ -56,9 +56,9 @@ final class KeyPriceAging
      * a única saída é liquidar no piso. Caso contrário, aceita 10% do preço
      * atual de mercado para dar chance de venda.
      *
-     * @param float $individualCost    Custo individual da key (€)
-     * @param float $actualMarketPrice Preço atual da key no mercado Gamivo (€)
-     * @return float                   Novo preço mínimo (€)
+     * @param  float  $individualCost  Custo individual da key (€)
+     * @param  float  $actualMarketPrice  Preço atual da key no mercado Gamivo (€)
+     * @return float Novo preço mínimo (€)
      */
     public static function calculateLimboPrice(float $individualCost, float $actualMarketPrice): float
     {

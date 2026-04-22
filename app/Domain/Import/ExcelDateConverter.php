@@ -23,7 +23,8 @@ final class ExcelDateConverter
      * Equivale ao Unix timestamp negativo de 25569 dias antes de 01/01/1970.
      */
     private const EXCEL_UNIX_EPOCH_DIFF_DAYS = 25569;
-    private const SECONDS_PER_DAY            = 86400;
+
+    private const SECONDS_PER_DAY = 86400;
 
     /**
      * Formatos de string aceitos, em ordem de tentativa.
@@ -33,7 +34,7 @@ final class ExcelDateConverter
     /**
      * Converte um valor de célula do Excel para Y-m-d.
      *
-     * @param mixed $value Valor extraído da célula (int, float, string ou null)
+     * @param  mixed  $value  Valor extraído da célula (int, float, string ou null)
      * @return string|null Data no formato Y-m-d, ou null se ausente/inválido
      */
     public static function convert(mixed $value): ?string
