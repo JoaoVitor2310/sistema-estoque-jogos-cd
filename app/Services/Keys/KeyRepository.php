@@ -18,7 +18,7 @@ class KeyRepository
      */
     public function findByKeyCode(string $keyCode, ?int $excludeId = null): ?Venda_chave_troca
     {
-        return Venda_chave_troca::where('chaveRecebida', $keyCode)
+        return Venda_chave_troca::where('key_code', $keyCode)
             ->when($excludeId, fn ($q) => $q->where('id', '!=', $excludeId))
             ->first();
     }
@@ -27,9 +27,9 @@ class KeyRepository
      * Retorna keys elegíveis para listagem automática no Gamivo.
      *
      * Regras aplicadas via local scopes (ver Venda_chave_troca):
-     *  - registeredOnGamivo: idGamivo preenchido
-     *  - notYetListed: dataVenda e dataVendida nulas
-     *  - notGiftLink: chaveRecebida sem URL
+     *  - registeredOnGamivo: gamivo_id preenchido
+     *  - notYetListed: listed_at e sold_at nulas
+     *  - notGiftLink: key_code sem URL
      *  - withoutRecentBundle: jogo fora de bundles dos últimos N dias
      *
      * Eager loading traz o jogo e seus bundles ordenados por release_date desc,

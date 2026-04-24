@@ -13,9 +13,9 @@
 |
 | Regra de degradação de preço (PRODUCT.md + KeyPriceAging):
 |   < 3 meses  → sem alteração
-|   3–6 meses  → valorPagoIndividual × 1.4
-|   6–9 meses  → valorPagoIndividual × 1.3
-|   9–12 meses → valorPagoIndividual × 1.2
+|   3–6 meses  → individual_cost × 1.4
+|   6–9 meses  → individual_cost × 1.3
+|   9–12 meses → individual_cost × 1.2
 |   ≥ 12 meses → piso de 0.02 (MinMaxPriceCalculator::FLOOR)
 |
 */
@@ -29,26 +29,26 @@ use Illuminate\Support\Facades\DB;
 
 function seedGameServiceFks(): void
 {
-    DB::table('fornecedor')->insertOrIgnore(['id' => 1, 'perfilOrigem' => 'https://steamcommunity.com/id/seed']);
+    DB::table('fornecedor')->insertOrIgnore(['id' => 1, 'supplier_url' => 'https://steamcommunity.com/id/seed']);
 }
 
 function insertListedKey(array $overrides = []): int
 {
     return DB::table('venda_chave_trocas')->insertGetId(array_merge([
-        'nomeJogo' => 'Listed Game',
-        'chaveRecebida' => 'LISTED-'.uniqid(),
-        'precoCliente' => 5.00,
-        'valorPagoIndividual' => 1.00,
-        'lucroPercentual' => 25.00,
+        'game_name' => 'Listed Game',
+        'key_code' => 'LISTED-'.uniqid(),
+        'market_price' => 5.00,
+        'individual_cost' => 1.00,
+        'purchase_profit_percent' => 25.00,
         'minApiGamivo' => 1.50,
         'maxApiGamivo' => 10.00,
-        'perfilOrigem' => 'https://steamcommunity.com/id/seed',
+        'supplier_url' => 'https://steamcommunity.com/id/seed',
         'id_fornecedor' => 1,
         'claim_type' => 'Nenhuma',
         'key_format' => 'RK',
         'sell_platform' => 'Gamivo',
-        'dataVenda' => now()->subDays(5)->toDateString(), // Já listada
-        'dataVendida' => null,
+        'listed_at' => now()->subDays(5)->toDateString(), // Já listada
+        'sold_at' => null,
         'created_at' => now(),
         'updated_at' => now(),
     ], $overrides));
@@ -64,16 +64,16 @@ describe('GameService', function () {
 
     describe('getIdGamivo()', function () {
 
-        it('finds id_gamivo from venda_chave_trocas first (priority over games table)', function () {
-            // Key tem um idGamivo — deve ser retornado sem consultar games
+        it('finds gamivo_id from venda_chave_trocas first (priority over games table)', function () {
+            // Key tem um gamivo_id — deve ser retornado sem consultar games
             DB::table('venda_chave_trocas')->insert([
-                'nomeJogo' => 'Priority Game',
-                'chaveRecebida' => 'PRIO-KEY-001',
-                'idGamivo' => 'gam-from-key',
-                'precoCliente' => 5.00,
-                'valorPagoIndividual' => 2.00,
-                'lucroPercentual' => 25.00,
-                'perfilOrigem' => 'https://steamcommunity.com/id/seed',
+                'game_name' => 'Priority Game',
+                'key_code' => 'PRIO-KEY-001',
+                'gamivo_id' => 'gam-from-key',
+                'market_price' => 5.00,
+                'individual_cost' => 2.00,
+                'purchase_profit_percent' => 25.00,
+                'supplier_url' => 'https://steamcommunity.com/id/seed',
                 'id_fornecedor' => 1,
                 'claim_type' => 'Nenhuma',
                 'key_format' => 'RK',
@@ -91,7 +91,7 @@ describe('GameService', function () {
             expect($result)->toBe('gam-from-key');
         });
 
-        it('falls back to the games table when no key has the id_gamivo', function () {
+        it('falls back to the games table when no key has the gamivo_id', function () {
             DB::table('games')->insert(['name' => 'Fallback Game', 'region' => null, 'id_gamivo' => 'gam-fallback-001', 'created_at' => now(), 'updated_at' => now()]);
 
             $result = app(GameService::class)->getIdGamivo('Fallback Game', null);
@@ -99,7 +99,7 @@ describe('GameService', function () {
             expect($result)->toBe('gam-fallback-001');
         });
 
-        it('returns false when the id_gamivo is not found in either table', function () {
+        it('returns false when the gamivo_id is not found in either table', function () {
             $result = app(GameService::class)->getIdGamivo('Completely Unknown Game', null);
 
             expect($result)->toBeFalse();
@@ -157,19 +157,19 @@ describe('GameService', function () {
 
         it('creates the game record when it does not exist', function () {
             app(GameService::class)->createGameIfDontExists([
-                'nomeJogo' => 'Brand New Game',
+                'game_name' => 'Brand New Game',
                 'region' => null,
-                'idGamivo' => 'gam-new-001',
+                'gamivo_id' => 'gam-new-001',
             ]);
 
             expect(DB::table('games')->where('name', 'Brand New Game')->exists())->toBeTrue();
         });
 
-        it('stores idGamivo on the created game', function () {
+        it('stores gamivo_id on the created game', function () {
             app(GameService::class)->createGameIfDontExists([
-                'nomeJogo' => 'Game With Gamivo Id',
+                'game_name' => 'Game With Gamivo Id',
                 'region' => null,
-                'idGamivo' => 'gam-stored-001',
+                'gamivo_id' => 'gam-stored-001',
             ]);
 
             $game = DB::table('games')->where('name', 'Game With Gamivo Id')->first();
@@ -180,9 +180,9 @@ describe('GameService', function () {
             DB::table('games')->insert(['name' => 'existing game', 'region' => null, 'created_at' => now(), 'updated_at' => now()]);
 
             app(GameService::class)->createGameIfDontExists([
-                'nomeJogo' => 'Existing Game', // Casing diferente
+                'game_name' => 'Existing Game', // Casing diferente
                 'region' => null,
-                'idGamivo' => null,
+                'gamivo_id' => null,
             ]);
 
             $count = DB::table('games')->whereRaw('LOWER("name") = ?', ['existing game'])->count();
@@ -190,15 +190,15 @@ describe('GameService', function () {
         });
 
         it('treats games with the same name but different regions as distinct records', function () {
-            app(GameService::class)->createGameIfDontExists(['nomeJogo' => 'Multi Region Game', 'region' => 'EU', 'idGamivo' => null]);
-            app(GameService::class)->createGameIfDontExists(['nomeJogo' => 'Multi Region Game', 'region' => 'NA', 'idGamivo' => null]);
+            app(GameService::class)->createGameIfDontExists(['game_name' => 'Multi Region Game', 'region' => 'EU', 'gamivo_id' => null]);
+            app(GameService::class)->createGameIfDontExists(['game_name' => 'Multi Region Game', 'region' => 'NA', 'gamivo_id' => null]);
 
             $count = DB::table('games')->where('name', 'Multi Region Game')->count();
             expect($count)->toBe(2);
         });
 
         it('is idempotent — calling twice does not create duplicates', function () {
-            $data = ['nomeJogo' => 'Idempotent Game', 'region' => null, 'idGamivo' => null];
+            $data = ['game_name' => 'Idempotent Game', 'region' => null, 'gamivo_id' => null];
 
             app(GameService::class)->createGameIfDontExists($data);
             app(GameService::class)->createGameIfDontExists($data);
@@ -215,76 +215,76 @@ describe('GameService', function () {
         it('does not change minApiGamivo for keys listed less than 3 months ago', function () {
             // 1 mês listada → abaixo do primeiro tier → sem alteração
             insertListedKey([
-                'chaveRecebida' => 'RECENT-LISTED-001',
-                'valorPagoIndividual' => 1.00,
+                'key_code' => 'RECENT-LISTED-001',
+                'individual_cost' => 1.00,
                 'minApiGamivo' => 1.50,
-                'dataVenda' => Carbon::now()->subMonths(1)->toDateString(),
+                'listed_at' => Carbon::now()->subMonths(1)->toDateString(),
             ]);
 
             app(GameService::class)->updateMinPrices();
 
-            $row = DB::table('venda_chave_trocas')->where('chaveRecebida', 'RECENT-LISTED-001')->first();
+            $row = DB::table('venda_chave_trocas')->where('key_code', 'RECENT-LISTED-001')->first();
             expect((float) $row->minApiGamivo)->toBe(1.50); // Sem alteração
         });
 
         it('applies 1.4x multiplier for keys listed between 3 and 6 months', function () {
             // 4 meses listada → tier de 3 meses → 1.0 × 1.4 = 1.4
             insertListedKey([
-                'chaveRecebida' => 'MED-LISTED-001',
-                'valorPagoIndividual' => 1.00,
+                'key_code' => 'MED-LISTED-001',
+                'individual_cost' => 1.00,
                 'minApiGamivo' => 1.50,
-                'dataVenda' => Carbon::now()->subMonths(4)->toDateString(),
+                'listed_at' => Carbon::now()->subMonths(4)->toDateString(),
             ]);
 
             app(GameService::class)->updateMinPrices();
 
-            $row = DB::table('venda_chave_trocas')->where('chaveRecebida', 'MED-LISTED-001')->first();
+            $row = DB::table('venda_chave_trocas')->where('key_code', 'MED-LISTED-001')->first();
             expect((float) $row->minApiGamivo)->toEqualWithDelta(1.4, 0.001);
         });
 
         it('applies 1.3x multiplier for keys listed between 6 and 9 months', function () {
             // 7 meses listada → tier de 6 meses → 1.0 × 1.3 = 1.3
             insertListedKey([
-                'chaveRecebida' => 'OLD-LISTED-001',
-                'valorPagoIndividual' => 1.00,
+                'key_code' => 'OLD-LISTED-001',
+                'individual_cost' => 1.00,
                 'minApiGamivo' => 1.50,
-                'dataVenda' => Carbon::now()->subMonths(7)->toDateString(),
+                'listed_at' => Carbon::now()->subMonths(7)->toDateString(),
             ]);
 
             app(GameService::class)->updateMinPrices();
 
-            $row = DB::table('venda_chave_trocas')->where('chaveRecebida', 'OLD-LISTED-001')->first();
+            $row = DB::table('venda_chave_trocas')->where('key_code', 'OLD-LISTED-001')->first();
             expect((float) $row->minApiGamivo)->toEqualWithDelta(1.3, 0.001);
         });
 
         it('applies the price floor for keys listed more than 12 months (clearance sell)', function () {
             // Jogo muito antigo → vende pelo piso mínimo independente de lucro
             insertListedKey([
-                'chaveRecebida' => 'ANCIENT-LISTED-001',
-                'valorPagoIndividual' => 1.00,
+                'key_code' => 'ANCIENT-LISTED-001',
+                'individual_cost' => 1.00,
                 'minApiGamivo' => 1.50,
-                'dataVenda' => Carbon::now()->subMonths(13)->toDateString(),
+                'listed_at' => Carbon::now()->subMonths(13)->toDateString(),
             ]);
 
             app(GameService::class)->updateMinPrices();
 
-            $row = DB::table('venda_chave_trocas')->where('chaveRecebida', 'ANCIENT-LISTED-001')->first();
+            $row = DB::table('venda_chave_trocas')->where('key_code', 'ANCIENT-LISTED-001')->first();
             expect((float) $row->minApiGamivo)->toEqualWithDelta(MinMaxPriceCalculator::FLOOR, 0.001);
         });
 
-        it('skips keys that are already sold (dataVendida set)', function () {
+        it('skips keys that are already sold (sold_at set)', function () {
             // Key vendida não deve ter minApiGamivo alterado
             insertListedKey([
-                'chaveRecebida' => 'SOLD-OLD-001',
-                'valorPagoIndividual' => 1.00,
+                'key_code' => 'SOLD-OLD-001',
+                'individual_cost' => 1.00,
                 'minApiGamivo' => 1.50,
-                'dataVenda' => Carbon::now()->subMonths(4)->toDateString(),
-                'dataVendida' => Carbon::now()->subDays(2)->toDateString(),
+                'listed_at' => Carbon::now()->subMonths(4)->toDateString(),
+                'sold_at' => Carbon::now()->subDays(2)->toDateString(),
             ]);
 
             app(GameService::class)->updateMinPrices();
 
-            $row = DB::table('venda_chave_trocas')->where('chaveRecebida', 'SOLD-OLD-001')->first();
+            $row = DB::table('venda_chave_trocas')->where('key_code', 'SOLD-OLD-001')->first();
             expect((float) $row->minApiGamivo)->toBe(1.50); // Sem alteração
         });
 
@@ -292,10 +292,10 @@ describe('GameService', function () {
             // Insere 15 keys todas com 4 meses de listagem → todas elegíveis para atualização
             for ($i = 1; $i <= 15; $i++) {
                 insertListedKey([
-                    'chaveRecebida' => "BATCH-KEY-{$i}",
-                    'valorPagoIndividual' => 1.00,
+                    'key_code' => "BATCH-KEY-{$i}",
+                    'individual_cost' => 1.00,
                     'minApiGamivo' => 1.50, // Valor original
-                    'dataVenda' => Carbon::now()->subMonths(4)->toDateString(),
+                    'listed_at' => Carbon::now()->subMonths(4)->toDateString(),
                 ]);
             }
 

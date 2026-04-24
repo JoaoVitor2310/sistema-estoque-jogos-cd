@@ -15,13 +15,13 @@ class KeyResource extends JsonResource
         return [
             // Identificação
             'id' => $this->id,
-            'nomeJogo' => $this->nomeJogo,
+            'game_name' => $this->game_name,
             'region' => $this->region,
-            'chaveRecebida' => $this->chaveRecebida,
-            'plataformaIdentificada' => $this->plataformaIdentificada,
-            'idGamivo' => $this->idGamivo,
+            'key_code' => $this->key_code,
+            'identified_platform' => $this->identified_platform,
+            'gamivo_id' => $this->gamivo_id,
             'steamId' => $this->steamId,
-            'repetido' => $this->repetido,
+            'is_duplicate' => $this->is_duplicate,
             'color' => $this->color,
             'observacao' => $this->observacao,
             'email' => $this->email,
@@ -32,28 +32,28 @@ class KeyResource extends JsonResource
             'sell_platform' => $this->sell_platform,
 
             // Precificação
-            'precoCliente' => $this->precoCliente,
-            'valorPagoIndividual' => $this->valorPagoIndividual,
-            'valorPagoTotal' => $this->valorPagoTotal,
-            'qtdTF2' => $this->qtdTF2,
-            'incomeSimulado' => $this->incomeSimulado,
-            'lucroRS' => $this->lucroRS,
-            'lucroPercentual' => $this->lucroPercentual,
-            'minimoParaVenda' => $this->minimoParaVenda,
+            'market_price' => $this->market_price,
+            'individual_cost' => $this->individual_cost,
+            'total_paid' => $this->total_paid,
+            'tf2_quantity' => $this->tf2_quantity,
+            'simulated_income' => $this->simulated_income,
+            'purchase_profit' => $this->purchase_profit,
+            'purchase_profit_percent' => $this->purchase_profit_percent,
+            'minimum_sale_price' => $this->minimum_sale_price,
             'minApiGamivo' => $this->minApiGamivo,
             'maxApiGamivo' => $this->maxApiGamivo,
-            'valorVendido' => $this->valorVendido,
-            'lucroVendaRS' => $this->lucroVendaRS,
-            'lucroVendaPercentual' => $this->lucroVendaPercentual,
+            'sold_price' => $this->sold_price,
+            'sale_profit' => $this->sale_profit,
+            'sale_profit_percent' => $this->sale_profit_percent,
 
             // Fornecedor
-            'perfilOrigem' => $this->perfilOrigem,
+            'supplier_url' => $this->supplier_url,
 
             // Datas
-            'dataAdquirida' => $this->dataAdquirida,
-            'dataVenda' => $this->dataVenda,
-            'dataVendida' => $this->dataVendida,
-            'dataExpiracao' => $this->dataExpiracao,
+            'acquired_at' => $this->acquired_at,
+            'listed_at' => $this->listed_at,
+            'sold_at' => $this->sold_at,
+            'expires_at' => $this->expires_at,
 
             // Relações
             'fornecedor' => $this->whenLoaded('fornecedor'),

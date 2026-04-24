@@ -7,7 +7,7 @@
 |
 | Cobre o fluxo completo de registro de um lote de keys:
 |   - Cálculos financeiros (income, custo individual, lucros, min/max)
-|   - Detecção de chave duplicada (repetido)
+|   - Detecção de chave duplicada (is_duplicate)
 |   - Identificação de plataforma
 |   - Criação de fornecedor e jogo quando inexistentes
 |   - Isolamento de erros: falha em uma key não interrompe o lote
@@ -44,32 +44,32 @@ function seedRegisterFks(): void
 
 /**
  * Monta o array de entrada de uma key no mesmo formato que o XLSX produz.
- * precoCliente = 5.00 → income ≈ 4.53 (tier baixo: 5×0.928 - 0.11)
+ * market_price = 5.00 → income ≈ 4.53 (tier baixo: 5×0.928 - 0.11)
  */
 function makeGameInput(array $overrides = []): array
 {
     return array_merge([
-        'nomeJogo' => 'Test Game',
-        'chaveRecebida' => 'AAAAA-11111-BBBBB',
-        'perfilOrigem' => 'https://steamcommunity.com/id/seller',
-        'qtdTF2' => 2.0,
-        'precoCliente' => 5.00,
+        'game_name' => 'Test Game',
+        'key_code' => 'AAAAA-11111-BBBBB',
+        'supplier_url' => 'https://steamcommunity.com/id/seller',
+        'tf2_quantity' => 2.0,
+        'market_price' => 5.00,
         'region' => null,
-        'dataAdquirida' => now()->toDateString(),
-        'idGamivo' => null,
+        'acquired_at' => now()->toDateString(),
+        'gamivo_id' => null,
         'steamId' => null,
         'precoJogo' => null,
-        'minimoParaVenda' => null,
+        'minimum_sale_price' => null,
         'minApiGamivo' => null,
         'maxApiGamivo' => null,
         'claim_type' => 'Nenhuma',
         'key_format' => 'RK',
         'sell_platform' => 'Gamivo',
-        'dataVenda' => null,
-        'dataVendida' => null,
+        'listed_at' => null,
+        'sold_at' => null,
         'observacao' => null,
-        'valorPagoTotal' => null,
-        'valorVendido' => null,
+        'total_paid' => null,
+        'sold_price' => null,
         'email' => null,
         'color' => null,
     ], $overrides);
@@ -93,37 +93,37 @@ describe('RegisterKeyUseCase', function () {
             ->and($result['errors'])->toBeEmpty();
     });
 
-    it('calculates incomeSimulado based on Gamivo fees', function () {
-        // precoCliente = 5.00 → tier baixo: 5 × (1 - 0.072) - 0.11 = 4.53
+    it('calculates simulated_income based on Gamivo fees', function () {
+        // market_price = 5.00 → tier baixo: 5 × (1 - 0.072) - 0.11 = 4.53
         $result = app(RegisterKeyUseCase::class)->execute([makeGameInput()]);
 
-        expect($result['games'][0]->incomeSimulado)->toEqualWithDelta(4.53, 0.01);
+        expect($result['games'][0]->simulated_income)->toEqualWithDelta(4.53, 0.01);
     });
 
-    it('calculates valorPagoIndividual proportional to income share', function () {
+    it('calculates individual_cost proportional to income share', function () {
         // Lote de 1 key: ratio = 1.0 → custo = 2.0 × 2.0 × 1.0 = 4.0
         $result = app(RegisterKeyUseCase::class)->execute([makeGameInput()]);
 
-        expect((float) $result['games'][0]->valorPagoIndividual)->toEqualWithDelta(4.0, 0.01);
+        expect((float) $result['games'][0]->individual_cost)->toEqualWithDelta(4.0, 0.01);
     });
 
-    it('calculates minimoParaVenda as 1.05x precoCliente', function () {
+    it('calculates minimum_sale_price as 1.05x market_price', function () {
         // 1.05 × 5.00 = 5.25
-        $result = app(RegisterKeyUseCase::class)->execute([makeGameInput(['precoCliente' => 5.00])]);
+        $result = app(RegisterKeyUseCase::class)->execute([makeGameInput(['market_price' => 5.00])]);
 
-        expect((float) $result['games'][0]->minimoParaVenda)
+        expect((float) $result['games'][0]->minimum_sale_price)
             ->toEqualWithDelta(SalePriceCalculator::minimumSalePrice(5.00), 0.001);
     });
 
-    it('formats valorPagoTotal as "{qtdTF2}x TF2 Keys / {count}"', function () {
+    it('formats total_paid as "{tf2_quantity}x TF2 Keys / {count}"', function () {
         $result = app(RegisterKeyUseCase::class)->execute([
-            makeGameInput(['qtdTF2' => 3.5, 'chaveRecebida' => 'KEY-A-00001']),
-            makeGameInput(['qtdTF2' => 3.5, 'chaveRecebida' => 'KEY-B-00002']),
+            makeGameInput(['tf2_quantity' => 3.5, 'key_code' => 'KEY-A-00001']),
+            makeGameInput(['tf2_quantity' => 3.5, 'key_code' => 'KEY-B-00002']),
         ]);
 
         // Lote de 2 keys — cada uma recebe o rótulo referente ao lote completo
-        expect($result['games'][0]->valorPagoTotal)->toBe('3.5x TF2 Keys / 2')
-            ->and($result['games'][1]->valorPagoTotal)->toBe('3.5x TF2 Keys / 2');
+        expect($result['games'][0]->total_paid)->toBe('3.5x TF2 Keys / 2')
+            ->and($result['games'][1]->total_paid)->toBe('3.5x TF2 Keys / 2');
     });
 
     it('populates minApiGamivo and maxApiGamivo', function () {
@@ -136,46 +136,46 @@ describe('RegisterKeyUseCase', function () {
 
     // ── Duplicate detection ───────────────────────────────────────────────────
 
-    it('marks repetido=true when the key code already exists in the database', function () {
+    it('marks is_duplicate=true when the key code already exists in the database', function () {
         // Insere uma key com a mesma chave no banco antes do execute
         DB::table('venda_chave_trocas')->insert(array_merge(makeGameInput(), [
-            'id_fornecedor' => DB::table('fornecedor')->insertGetId(['perfilOrigem' => 'https://steamcommunity.com/id/seed']),
+            'id_fornecedor' => DB::table('fornecedor')->insertGetId(['supplier_url' => 'https://steamcommunity.com/id/seed']),
             'created_at' => now(),
             'updated_at' => now(),
         ]));
 
         $result = app(RegisterKeyUseCase::class)->execute([makeGameInput()]);
 
-        expect($result['games'][0]->repetido)->toBeTrue();
+        expect($result['games'][0]->is_duplicate)->toBeTrue();
     });
 
-    it('does not mark repetido when the key code is unique', function () {
+    it('does not mark is_duplicate when the key code is unique', function () {
         $result = app(RegisterKeyUseCase::class)->execute([makeGameInput()]);
 
-        expect($result['games'][0]->repetido)->toBeFalsy();
+        expect($result['games'][0]->is_duplicate)->toBeFalsy();
     });
 
     // ── Platform identification ───────────────────────────────────────────────
 
     it('identifies Steam platform from the 5-5-5 key format', function () {
         $result = app(RegisterKeyUseCase::class)->execute([
-            makeGameInput(['chaveRecebida' => 'ABCDE-12345-FGHIJ']),
+            makeGameInput(['key_code' => 'ABCDE-12345-FGHIJ']),
         ]);
 
-        expect($result['games'][0]->plataformaIdentificada)->toBe('Steam');
+        expect($result['games'][0]->identified_platform)->toBe('Steam');
     });
 
-    it('sets plataformaIdentificada to DESCONHECIDO for unrecognized formats', function () {
+    it('sets identified_platform to DESCONHECIDO for unrecognized formats', function () {
         $result = app(RegisterKeyUseCase::class)->execute([
-            makeGameInput(['chaveRecebida' => 'UNKNOWNFORMATKEY']),
+            makeGameInput(['key_code' => 'UNKNOWNFORMATKEY']),
         ]);
 
-        expect($result['games'][0]->plataformaIdentificada)->toBe('DESCONHECIDO');
+        expect($result['games'][0]->identified_platform)->toBe('DESCONHECIDO');
     });
 
     it('includes unidentified-platform count in the message', function () {
         $result = app(RegisterKeyUseCase::class)->execute([
-            makeGameInput(['chaveRecebida' => 'UNKNOWNFORMATKEY']),
+            makeGameInput(['key_code' => 'UNKNOWNFORMATKEY']),
         ]);
 
         expect($result['message'])->toContain('plataforma não identificada');
@@ -185,21 +185,21 @@ describe('RegisterKeyUseCase', function () {
 
     it('creates the supplier if it does not exist', function () {
         $profile = 'https://steamcommunity.com/id/newvendor';
-        app(RegisterKeyUseCase::class)->execute([makeGameInput(['perfilOrigem' => $profile])]);
+        app(RegisterKeyUseCase::class)->execute([makeGameInput(['supplier_url' => $profile])]);
 
-        expect(DB::table('fornecedor')->where('perfilOrigem', $profile)->exists())->toBeTrue();
+        expect(DB::table('fornecedor')->where('supplier_url', $profile)->exists())->toBeTrue();
     });
 
-    it('reuses the same supplier when two keys share the same perfilOrigem', function () {
+    it('reuses the same supplier when two keys share the same supplier_url', function () {
         $profile = 'https://steamcommunity.com/id/sameSeller';
 
         app(RegisterKeyUseCase::class)->execute([
-            makeGameInput(['chaveRecebida' => 'KEY-X-11111', 'perfilOrigem' => $profile]),
-            makeGameInput(['chaveRecebida' => 'KEY-X-22222', 'perfilOrigem' => $profile]),
+            makeGameInput(['key_code' => 'KEY-X-11111', 'supplier_url' => $profile]),
+            makeGameInput(['key_code' => 'KEY-X-22222', 'supplier_url' => $profile]),
         ]);
 
         $keys = DB::table('venda_chave_trocas')
-            ->whereIn('chaveRecebida', ['KEY-X-11111', 'KEY-X-22222'])
+            ->whereIn('key_code', ['KEY-X-11111', 'KEY-X-22222'])
             ->pluck('id_fornecedor')
             ->unique();
 
@@ -210,7 +210,7 @@ describe('RegisterKeyUseCase', function () {
     // ── Game table ────────────────────────────────────────────────────────────
 
     it('creates a game record in the games table', function () {
-        app(RegisterKeyUseCase::class)->execute([makeGameInput(['nomeJogo' => 'Brand New Game'])]);
+        app(RegisterKeyUseCase::class)->execute([makeGameInput(['game_name' => 'Brand New Game'])]);
 
         expect(DB::table('games')->where('name', 'Brand New Game')->exists())->toBeTrue();
     });
@@ -219,14 +219,14 @@ describe('RegisterKeyUseCase', function () {
         // Jogo já existe com casing diferente
         DB::table('games')->insert(['name' => 'test game', 'region' => null, 'created_at' => now(), 'updated_at' => now()]);
 
-        app(RegisterKeyUseCase::class)->execute([makeGameInput(['nomeJogo' => 'Test Game', 'region' => null])]);
+        app(RegisterKeyUseCase::class)->execute([makeGameInput(['game_name' => 'Test Game', 'region' => null])]);
 
         expect(DB::table('games')->whereRaw('LOWER("name") = ?', ['test game'])->count())->toBe(1);
     });
 
-    it('propagates idGamivo to the games table when provided', function () {
+    it('propagates gamivo_id to the games table when provided', function () {
         app(RegisterKeyUseCase::class)->execute([
-            makeGameInput(['idGamivo' => 'gam-test-99', 'nomeJogo' => 'Game With Id']),
+            makeGameInput(['gamivo_id' => 'gam-test-99', 'game_name' => 'Game With Id']),
         ]);
 
         expect(DB::table('games')->where('id_gamivo', 'gam-test-99')->exists())->toBeTrue();
@@ -239,12 +239,12 @@ describe('RegisterKeyUseCase', function () {
         // income game1 = 5×0.928 - 0.11 ≈ 4.53 ; income game2 = 10×0.898 - 0.55 ≈ 8.43
         // somatorio ≈ 12.96 ; custo total do lote = 2.0 × 2.0 = 4.0
         $result = app(RegisterKeyUseCase::class)->execute([
-            makeGameInput(['chaveRecebida' => 'BATCH-KEY-001', 'precoCliente' => 5.00]),
-            makeGameInput(['chaveRecebida' => 'BATCH-KEY-002', 'precoCliente' => 10.00]),
+            makeGameInput(['key_code' => 'BATCH-KEY-001', 'market_price' => 5.00]),
+            makeGameInput(['key_code' => 'BATCH-KEY-002', 'market_price' => 10.00]),
         ]);
 
-        $cost1 = (float) $result['games'][0]->valorPagoIndividual;
-        $cost2 = (float) $result['games'][1]->valorPagoIndividual;
+        $cost1 = (float) $result['games'][0]->individual_cost;
+        $cost2 = (float) $result['games'][1]->individual_cost;
 
         // O jogo mais caro (income maior) deve ter custo individual maior
         expect($cost2)->toBeGreaterThan($cost1);
@@ -253,9 +253,9 @@ describe('RegisterKeyUseCase', function () {
     // ── Error isolation ───────────────────────────────────────────────────────
 
     it('collects errors per key without interrupting the remaining batch', function () {
-        $validGame = makeGameInput(['chaveRecebida' => 'VALID-KEY-001']);
+        $validGame = makeGameInput(['key_code' => 'VALID-KEY-001']);
         $invalidGame = makeGameInput([
-            'chaveRecebida' => 'VALID-KEY-002',
+            'key_code' => 'VALID-KEY-002',
             'claim_type' => 'INVALID_ENUM', // Valor inválido → ValueError ao fazer cast pelo Eloquent
         ]);
 

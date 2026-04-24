@@ -22,9 +22,9 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
  *  - Gerenciar a transação que envolve todo o fluxo
  *
  * Layout do XLSX:
- *   A=ignorado      B=dataAdquirida  C=precoCliente  D=perfilOrigem
- *   E=qtdTF2        F=Bundle         G=dataExpiracao  H=Popularidade
- *   I=region        J=chaveRecebida  K=nomeJogo
+ *   A=acquired_at   B=market_price   C=supplier_url   D=tf2_quantity
+ *   E=Bundle        F=expires_at     G=Popularidade   H=region
+ *   I=key_code      J=game_name
  */
 class ImportKeysFromXlsxUseCase
 {
@@ -119,38 +119,38 @@ class ImportKeysFromXlsxUseCase
         $errors = [];
 
         for ($row = 2; $row <= $worksheet->getHighestRow(); $row++) {
-            // Pula linhas sem chave (coluna J)
-            if (empty($worksheet->getCell('J'.$row)->getValue())) {
+            // Pula linhas sem chave (coluna I)
+            if (empty($worksheet->getCell('I'.$row)->getValue())) {
                 continue;
             }
 
             $data = [
-                'chaveRecebida' => trim($worksheet->getCell('J'.$row)->getValue() ?? ''),
-                'nomeJogo' => trim($worksheet->getCell('K'.$row)->getValue() ?? ''),
-                'perfilOrigem' => trim($worksheet->getCell('D'.$row)->getValue() ?? ''),
-                'qtdTF2' => floatval(str_replace(',', '.', $worksheet->getCell('E'.$row)->getValue() ?? '0')),
-                'dataAdquirida' => ExcelDateConverter::convert($worksheet->getCell('B'.$row)->getValue()) ?? now()->toDateString(),
-                'region' => trim($worksheet->getCell('I'.$row)->getValue() ?? '') ?: null,
-                'precoCliente' => $worksheet->getCell('C'.$row)->getValue()
-                    ? trim($worksheet->getCell('C'.$row)->getValue())
+                'key_code' => trim($worksheet->getCell('I'.$row)->getValue() ?? ''),
+                'game_name' => trim($worksheet->getCell('J'.$row)->getValue() ?? ''),
+                'supplier_url' => trim($worksheet->getCell('C'.$row)->getValue() ?? ''),
+                'tf2_quantity' => floatval(str_replace(',', '.', $worksheet->getCell('D'.$row)->getValue() ?? '0')),
+                'acquired_at' => ExcelDateConverter::convert($worksheet->getCell('A'.$row)->getValue()) ?? now()->toDateString(),
+                'region' => trim($worksheet->getCell('H'.$row)->getValue() ?? '') ?: null,
+                'market_price' => $worksheet->getCell('B'.$row)->getValue()
+                    ? trim($worksheet->getCell('B'.$row)->getValue())
                     : null,
-                'dataExpiracao' => ExcelDateConverter::convert($worksheet->getCell('G'.$row)->getValue()),
+                'expires_at' => ExcelDateConverter::convert($worksheet->getCell('F'.$row)->getValue()),
 
                 // Defaults — campos não presentes no XLSX recebem valores padrão
-                'idGamivo' => null,
+                'gamivo_id' => null,
                 'steamId' => null,
                 'precoJogo' => null,
-                'minimoParaVenda' => null,
+                'minimum_sale_price' => null,
                 'minApiGamivo' => null,
                 'maxApiGamivo' => null,
                 'claim_type' => 'Nenhuma',
                 'key_format' => 'RK',
                 'sell_platform' => 'Gamivo',
-                'dataVenda' => null,
-                'dataVendida' => null,
+                'listed_at' => null,
+                'sold_at' => null,
                 'observacao' => null,
-                'valorPagoTotal' => null,
-                'valorVendido' => null,
+                'total_paid' => null,
+                'sold_price' => null,
                 'email' => null,
                 'color' => null,
             ];

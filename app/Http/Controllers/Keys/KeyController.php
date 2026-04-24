@@ -99,7 +99,7 @@ class KeyController extends Controller
 
             if (is_string($value)) {
                 // Campos de data: filtro por presença/ausência ou valor
-                if (in_array($key, ['dataVenda', 'dataVendida', 'dataExpiracao'])) {
+                if (in_array($key, ['listed_at', 'sold_at', 'expires_at'])) {
                     match ($value) {
                         'sim' => $query->whereNotNull($key),
                         'nao' => $query->whereNull($key),
@@ -109,11 +109,11 @@ class KeyController extends Controller
                     continue;
                 }
 
-                // Filtro especial: existência do idGamivo
+                // Filtro especial: existência do gamivo_id
                 if ($key === 'hasIdGamivo') {
                     match ($value) {
-                        'sim' => $query->whereNotNull('idGamivo'),
-                        'nao' => $query->whereNull('idGamivo'),
+                        'sim' => $query->whereNotNull('gamivo_id'),
+                        'nao' => $query->whereNull('gamivo_id'),
                         default => null,
                     };
 
@@ -163,7 +163,7 @@ class KeyController extends Controller
             return $this->error(404, 'Jogo não encontrado');
         }
 
-        $message = $game->plataformaIdentificada === 'DESCONHECIDO'
+        $message = $game->identified_platform === 'DESCONHECIDO'
             ? 'Jogo atualizado, mas a plataforma não foi identificada.'
             : 'Jogo atualizado com sucesso';
 

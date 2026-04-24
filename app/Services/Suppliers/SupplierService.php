@@ -6,16 +6,16 @@ use App\Models\Fornecedor;
 
 /**
  * Infraestrutura de fornecedores — busca e criação no banco.
- * Zero lógica de negócio: apenas find-or-create pelo perfil de origem.
+ * Zero lógica de negócio: apenas find-or-create pela URL do perfil.
  */
 class SupplierService
 {
     /**
-     * Busca o fornecedor pelo perfil de origem ou cria um novo.
+     * Busca o fornecedor pela URL do perfil ou cria um novo.
      * Retorna o ID do fornecedor.
      */
-    public function findOrCreate(string $perfilOrigem): int
+    public function findOrCreate(string $supplierUrl): int
     {
-        return Fornecedor::firstOrCreate(['perfilOrigem' => $perfilOrigem])->id;
+        return Fornecedor::firstOrCreate(['supplier_url' => $supplierUrl])->id;
     }
 }

@@ -43,7 +43,7 @@ class RegisterKeyUseCase
         $fullGames = [];
         $errors = [];
 
-        // Passo 1 — calcula incomeSimulado por key e acumula o somatório do lote
+        // Passo 1 — calcula simulated_income por key e acumula o somatório do lote
         $firstFormulas = $this->calculationService->calculateFirstFormulas($games);
         $games = $firstFormulas['games'];
         $somatorioIncomes = $firstFormulas['somatorioIncomes'];
@@ -53,53 +53,53 @@ class RegisterKeyUseCase
         foreach ($games as $index => $game) {
             try {
                 // Resolve fornecedor (cria se necessário)
-                $game['id_fornecedor'] = $this->supplierService->findOrCreate($game['perfilOrigem']);
+                $game['id_fornecedor'] = $this->supplierService->findOrCreate($game['supplier_url']);
 
                 // Calcula lucros de compra
                 $game = $this->calculationService->calculateFormulas($game, $somatorioIncomes, false);
 
                 // Verifica duplicidade
-                if ($this->keyRepository->findByKeyCode($game['chaveRecebida'])) {
-                    $game['repetido'] = true;
+                if ($this->keyRepository->findByKeyCode($game['key_code'])) {
+                    $game['is_duplicate'] = true;
                 }
 
                 // Identifica plataforma pelo padrão da chave (Domain — sem dependência de infra)
-                $game['plataformaIdentificada'] = PlatformIdentifier::identify($game['chaveRecebida']);
+                $game['identified_platform'] = PlatformIdentifier::identify($game['key_code']);
 
                 // Calcula min/max da API Gamivo
                 $game = $this->calculationService->calculateMinMaxApi($game);
 
                 // Normaliza nome do jogo
-                $game['nomeJogo'] = trim($game['nomeJogo']);
+                $game['game_name'] = trim($game['game_name']);
 
-                // Busca idGamivo externo se ainda não tiver
-                if (empty($game['idGamivo'])) {
-                    $idGamivo = $this->gameService->getIdGamivo($game['nomeJogo'], $game['region']);
-                    if ($idGamivo) {
-                        $game['idGamivo'] = $idGamivo;
+                // Busca gamivo_id externo se ainda não tiver
+                if (empty($game['gamivo_id'])) {
+                    $gamivoId = $this->gameService->getIdGamivo($game['game_name'], $game['region']);
+                    if ($gamivoId) {
+                        $game['gamivo_id'] = $gamivoId;
                     }
                 }
 
-                // Propaga idGamivo para a tabela games
-                if (! empty($game['idGamivo'])) {
-                    $this->gameService->fillIdGamivo($game['nomeJogo'], $game['region'], $game['idGamivo']);
+                // Propaga gamivo_id para a tabela games
+                if (! empty($game['gamivo_id'])) {
+                    $this->gameService->fillIdGamivo($game['game_name'], $game['region'], $game['gamivo_id']);
                 }
 
                 // Cadastra o jogo na tabela games se ainda não existir
                 $this->gameService->createGameIfDontExists($game);
 
-                $game['minimoParaVenda'] = SalePriceCalculator::minimumSalePrice((float) $game['precoCliente']);
+                $game['minimum_sale_price'] = SalePriceCalculator::minimumSalePrice((float) $game['market_price']);
 
-                $game['valorPagoTotal'] = SalePriceCalculator::tradeCostLabel((float) $game['qtdTF2'], $totalGames);
+                $game['total_paid'] = SalePriceCalculator::tradeCostLabel((float) $game['tf2_quantity'], $totalGames);
 
                 // Remove campos de lucro de venda nulos antes de persistir.
                 // O banco tem DEFAULT 0 para esses campos — a semântica "não vendida"
-                // já é capturada por dataVendida IS NULL.
-                if (($game['lucroVendaRS'] ?? null) === null) {
-                    unset($game['lucroVendaRS']);
+                // já é capturada por sold_at IS NULL.
+                if (($game['sale_profit'] ?? null) === null) {
+                    unset($game['sale_profit']);
                 }
-                if (($game['lucroVendaPercentual'] ?? null) === null) {
-                    unset($game['lucroVendaPercentual']);
+                if (($game['sale_profit_percent'] ?? null) === null) {
+                    unset($game['sale_profit_percent']);
                 }
 
                 // Persiste e carrega com relacionamentos
@@ -108,19 +108,19 @@ class RegisterKeyUseCase
 
                 Log::info('Key registrada com sucesso', [
                     'id' => $created->id,
-                    'nome' => $game['nomeJogo'],
+                    'nome' => $game['game_name'],
                 ]);
             } catch (\Throwable $e) {
                 Log::error('Erro ao registrar key', [
                     'indice' => $index + 1,
-                    'nome' => $game['nomeJogo'] ?? 'Desconhecido',
+                    'nome' => $game['game_name'] ?? 'Desconhecido',
                     'erro' => $e->getMessage(),
                     'trace' => $e->getTraceAsString(),
                 ]);
 
                 $errors[] = [
                     'linha' => $index + 1,
-                    'jogo' => $game['nomeJogo'] ?? 'Desconhecido',
+                    'jogo' => $game['game_name'] ?? 'Desconhecido',
                     'erro' => $e->getMessage(),
                 ];
             }
@@ -143,7 +143,7 @@ class RegisterKeyUseCase
     {
         $hasUnidentified = array_filter(
             $fullGames,
-            fn ($g) => ($g->plataformaIdentificada ?? null) === 'DESCONHECIDO',
+            fn ($g) => ($g->identified_platform ?? null) === 'DESCONHECIDO',
         );
 
         $message = 'Jogos cadastrados com sucesso';

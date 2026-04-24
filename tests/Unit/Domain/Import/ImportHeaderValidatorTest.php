@@ -23,8 +23,8 @@ describe('ImportHeaderValidator', function () {
 
         it('returns an error for each mismatched column', function () {
             $actual = ImportHeaderValidator::EXPECTED_COLUMNS;
-            $actual['A'] = 'G2A Errado';
-            $actual['C'] = 'Gamivo Errado';
+            $actual['A'] = 'Data Errada';
+            $actual['C'] = 'URL perfil Errada';
 
             $errors = ImportHeaderValidator::validate($actual);
 
@@ -33,27 +33,27 @@ describe('ImportHeaderValidator', function () {
 
         it('includes the column letter, expected name and actual value in the error message', function () {
             $actual = ImportHeaderValidator::EXPECTED_COLUMNS;
-            $actual['K'] = 'Titulo';
+            $actual['J'] = 'Titulo';
 
             $errors = ImportHeaderValidator::validate($actual);
 
-            expect($errors[0])->toContain('K')
+            expect($errors[0])->toContain('J')
                 ->and($errors[0])->toContain('Nome do Jogo')
                 ->and($errors[0])->toContain('Titulo');
         });
 
         it('returns an error when a column is missing from the actual headers', function () {
             $actual = ImportHeaderValidator::EXPECTED_COLUMNS;
-            unset($actual['J']); // remove coluna da Chave
+            unset($actual['I']); // remove coluna da Chave
 
             $errors = ImportHeaderValidator::validate($actual);
 
             expect($errors)->toHaveCount(1)
-                ->and($errors[0])->toContain('J');
+                ->and($errors[0])->toContain('I');
         });
 
-        it('returns errors for all 11 columns when actual headers are empty', function () {
-            expect(ImportHeaderValidator::validate([]))->toHaveCount(11);
+        it('returns errors for all 10 columns when actual headers are empty', function () {
+            expect(ImportHeaderValidator::validate([]))->toHaveCount(10);
         });
     });
 });

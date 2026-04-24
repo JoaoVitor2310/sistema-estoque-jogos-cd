@@ -20,16 +20,16 @@ class VipService
     {
         $games = Venda_chave_troca::select([
             'id',
-            'chaveRecebida',
-            'idGamivo',
-            'valorPagoIndividual',
+            'key_code',
+            'gamivo_id',
+            'individual_cost',
             'minApiGamivo',
             'maxApiGamivo',
-            'dataVenda',
+            'listed_at',
         ])
-            ->whereNull('dataVendida')
-            ->whereNotNull('idGamivo')
-            ->where('dataVenda', '<=', now()->subMonths(12))
+            ->whereNull('sold_at')
+            ->whereNotNull('gamivo_id')
+            ->where('listed_at', '<=', now()->subMonths(12))
             ->get();
 
         foreach ($games as $game) {
@@ -37,7 +37,7 @@ class VipService
                 continue;
             }
             // Checar preço atual
-            $actualPrice = $this->getActualPrice($game->idGamivo);
+            $actualPrice = $this->getActualPrice($game->gamivo_id);
 
             if (! $actualPrice['success']) {
                 continue;
@@ -45,8 +45,8 @@ class VipService
 
             $actualPrice['price'] = 2;
 
-            if ($actualPrice['price'] < $game->valorPagoIndividual) {
-                // Se o preco atual < valorPagoIndividual, minApi = 0,02
+            if ($actualPrice['price'] < $game->individual_cost) {
+                // Se o preco atual < individual_cost, minApi = 0,02
                 $game->minApiGamivo = 0.02;
             } else {
                 // Se não, minApi = preco atual * 0,10
@@ -60,12 +60,12 @@ class VipService
     /**
      * Get the actual price of the game on Gamivo
      *
-     * @param  string  $idGamivo
+     * @param  string  $gamivoId
      */
-    private function getActualPrice($idGamivo): array
+    private function getActualPrice($gamivoId): array
     {
         try {
-            $response = Http::get(config('services.carca_api_gamivo.base_url').'/api/products/'.$idGamivo);
+            $response = Http::get(config('services.carca_api_gamivo.base_url').'/api/products/'.$gamivoId);
             if ($response->successful()) {
                 $response = $response->json();
 

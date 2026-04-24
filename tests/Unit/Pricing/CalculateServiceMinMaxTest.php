@@ -40,8 +40,8 @@ describe('CalculateService::calculateMinMaxApi()', function () {
     });
 
     $game = fn (float $valorPago, float $precoCliente) => [
-        'valorPagoIndividual' => $valorPago,
-        'precoCliente' => $precoCliente,
+        'individual_cost' => $valorPago,
+        'market_price' => $precoCliente,
     ];
 
     describe('minimum price tiers', function () use ($game) {

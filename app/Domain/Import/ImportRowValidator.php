@@ -19,12 +19,12 @@ final class ImportRowValidator
      * Regras de validação compatíveis com Laravel Validator::make().
      */
     public const RULES = [
-        'nomeJogo' => 'required|string|max:255',
-        'chaveRecebida' => 'required|string',
+        'game_name' => 'required|string|max:255',
+        'key_code' => 'required|string',
         'region' => 'nullable|string|max:50',
-        'perfilOrigem' => 'required|string|max:255',
-        'qtdTF2' => 'required|numeric|min:0.01',
-        'dataAdquirida' => 'nullable|string',
+        'supplier_url' => 'required|string|max:255',
+        'tf2_quantity' => 'required|numeric|min:0.01',
+        'acquired_at' => 'nullable|string',
     ];
 
     /**
@@ -36,12 +36,12 @@ final class ImportRowValidator
     public static function messages(int $rowNumber): array
     {
         return [
-            'nomeJogo.required' => "Linha {$rowNumber}: Nome do jogo é obrigatório",
-            'chaveRecebida.required' => "Linha {$rowNumber}: Chave recebida é obrigatória",
-            'perfilOrigem.required' => "Linha {$rowNumber}: URL do perfil (coluna D) é obrigatória",
-            'qtdTF2.required' => "Linha {$rowNumber}: Quantidade de TF2 (coluna E) é obrigatória",
-            'qtdTF2.numeric' => "Linha {$rowNumber}: Quantidade de TF2 deve ser numérica",
-            'qtdTF2.min' => "Linha {$rowNumber}: Quantidade de TF2 deve ser pelo menos 0.01 (para evitar divisão por zero)",
+            'game_name.required' => "Linha {$rowNumber}: Nome do jogo é obrigatório",
+            'key_code.required' => "Linha {$rowNumber}: Chave recebida é obrigatória",
+            'supplier_url.required' => "Linha {$rowNumber}: URL do perfil (coluna D) é obrigatória",
+            'tf2_quantity.required' => "Linha {$rowNumber}: Quantidade de TF2 (coluna E) é obrigatória",
+            'tf2_quantity.numeric' => "Linha {$rowNumber}: Quantidade de TF2 deve ser numérica",
+            'tf2_quantity.min' => "Linha {$rowNumber}: Quantidade de TF2 deve ser pelo menos 0.01 (para evitar divisão por zero)",
         ];
     }
 }

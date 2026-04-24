@@ -18,17 +18,16 @@ final class ImportHeaderValidator
      * Qualquer mudança no layout do arquivo de importação deve ser feita aqui.
      */
     public const EXPECTED_COLUMNS = [
-        'A' => 'G2A',
-        'B' => 'Data',
-        'C' => 'Gamivo',
-        'D' => 'URL perfil',
-        'E' => 'Qtd. TF2',
-        'F' => 'Bundle',
-        'G' => 'Data expiração',
-        'H' => 'Popularidade',
-        'I' => 'Region Lock',
-        'J' => 'Chave',
-        'K' => 'Nome do Jogo',
+        'A' => 'Data',
+        'B' => 'Gamivo',
+        'C' => 'URL perfil',
+        'D' => 'Qtd. TF2',
+        'E' => 'Bundle',
+        'F' => 'Data expiração',
+        'G' => 'Popularidade',
+        'H' => 'Region Lock',
+        'I' => 'Chave',
+        'J' => 'Nome do Jogo',
     ];
 
     /**

@@ -10,7 +10,7 @@
 |
 | Regras documentadas em PRODUCT.md:
 |   - Uma key pode ser vendida com lucro, zero lucro ou prejuízo.
-|   - Keys já vendidas (valorVendido preenchido) não devem ser sobreescritas.
+|   - Keys já vendidas (sold_price preenchido) não devem ser sobreescritas.
 |   - Keys não encontradas são silenciosamente ignoradas.
 |
 */
@@ -34,7 +34,7 @@ function seedSoldOffersFks(): void
         ['name' => 'TF2', 'preco_euro' => 2.0, 'preco_dolar' => 2.2, 'preco_real' => 10.0, 'created_at' => now(), 'updated_at' => now()],
     ]);
 
-    DB::table('fornecedor')->insert(['id' => 1, 'perfilOrigem' => 'https://steamcommunity.com/id/seed']);
+    DB::table('fornecedor')->insert(['id' => 1, 'supplier_url' => 'https://steamcommunity.com/id/seed']);
 }
 
 /**
@@ -43,20 +43,20 @@ function seedSoldOffersFks(): void
 function insertUnsoldKey(string $keyCode, float $individualCost = 2.00): void
 {
     DB::table('venda_chave_trocas')->insert([
-        'nomeJogo' => 'Test Game',
-        'idGamivo' => 'gam-'.uniqid(),
-        'chaveRecebida' => $keyCode,
-        'precoCliente' => 5.00,
-        'valorPagoIndividual' => $individualCost,
-        'lucroPercentual' => 25.00,
-        'perfilOrigem' => 'https://steamcommunity.com/id/test',
+        'game_name' => 'Test Game',
+        'gamivo_id' => 'gam-'.uniqid(),
+        'key_code' => $keyCode,
+        'market_price' => 5.00,
+        'individual_cost' => $individualCost,
+        'purchase_profit_percent' => 25.00,
+        'supplier_url' => 'https://steamcommunity.com/id/test',
         'id_fornecedor' => 1,
         'claim_type' => 'Nenhuma',
         'key_format' => 'RK',
         'sell_platform' => 'Gamivo',
-        'dataVenda' => now()->subDays(10)->toDateString(),
-        'dataVendida' => null,
-        'valorVendido' => null,
+        'listed_at' => now()->subDays(10)->toDateString(),
+        'sold_at' => null,
+        'sold_price' => null,
         'created_at' => now(),
         'updated_at' => now(),
     ]);
@@ -73,43 +73,43 @@ describe('UpdateSoldOffersUseCase', function () {
 
     // ── Happy path ────────────────────────────────────────────────────────────
 
-    it('marks the key as sold with dataVendida and valorVendido', function () {
+    it('marks the key as sold with sold_at and sold_price', function () {
         insertUnsoldKey('SOLD-KEY-001');
 
         app(UpdateSoldOffersUseCase::class)->execute([
             ['keys' => ['SOLD-KEY-001'], 'profit' => 5.00, 'saleDate' => '2024-06-01'],
         ]);
 
-        $row = DB::table('venda_chave_trocas')->where('chaveRecebida', 'SOLD-KEY-001')->first();
+        $row = DB::table('venda_chave_trocas')->where('key_code', 'SOLD-KEY-001')->first();
 
-        expect($row->dataVendida)->toBe('2024-06-01')
-            ->and((float) $row->valorVendido)->toBe(5.00);
+        expect($row->sold_at)->toBe('2024-06-01')
+            ->and((float) $row->sold_price)->toBe(5.00);
     });
 
-    it('calculates lucroVendaRS as salePrice minus individualCost', function () {
-        // lucroVendaRS = 5.00 - 2.00 = 3.00
+    it('calculates sale_profit as salePrice minus individualCost', function () {
+        // sale_profit = 5.00 - 2.00 = 3.00
         insertUnsoldKey('PROFIT-KEY-001', individualCost: 2.00);
 
         app(UpdateSoldOffersUseCase::class)->execute([
             ['keys' => ['PROFIT-KEY-001'], 'profit' => 5.00, 'saleDate' => '2024-06-01'],
         ]);
 
-        $row = DB::table('venda_chave_trocas')->where('chaveRecebida', 'PROFIT-KEY-001')->first();
+        $row = DB::table('venda_chave_trocas')->where('key_code', 'PROFIT-KEY-001')->first();
 
-        expect((float) $row->lucroVendaRS)->toEqualWithDelta(3.00, 0.001);
+        expect((float) $row->sale_profit)->toEqualWithDelta(3.00, 0.001);
     });
 
-    it('calculates lucroVendaPercentual relative to the individual cost', function () {
-        // lucroVendaPercentual = (3.00 / 2.00) × 100 = 150%
+    it('calculates sale_profit_percent relative to the individual cost', function () {
+        // sale_profit_percent = (3.00 / 2.00) × 100 = 150%
         insertUnsoldKey('PROFIT-KEY-002', individualCost: 2.00);
 
         app(UpdateSoldOffersUseCase::class)->execute([
             ['keys' => ['PROFIT-KEY-002'], 'profit' => 5.00, 'saleDate' => '2024-06-01'],
         ]);
 
-        $row = DB::table('venda_chave_trocas')->where('chaveRecebida', 'PROFIT-KEY-002')->first();
+        $row = DB::table('venda_chave_trocas')->where('key_code', 'PROFIT-KEY-002')->first();
 
-        expect((float) $row->lucroVendaPercentual)->toEqualWithDelta(150.0, 0.01);
+        expect((float) $row->sale_profit_percent)->toEqualWithDelta(150.0, 0.01);
     });
 
     it('records zero profit when sold exactly at cost', function () {
@@ -119,23 +119,23 @@ describe('UpdateSoldOffersUseCase', function () {
             ['keys' => ['ZERO-KEY-001'], 'profit' => 3.00, 'saleDate' => '2024-06-01'],
         ]);
 
-        $row = DB::table('venda_chave_trocas')->where('chaveRecebida', 'ZERO-KEY-001')->first();
+        $row = DB::table('venda_chave_trocas')->where('key_code', 'ZERO-KEY-001')->first();
 
-        expect((float) $row->lucroVendaRS)->toEqualWithDelta(0.0, 0.001);
+        expect((float) $row->sale_profit)->toEqualWithDelta(0.0, 0.001);
     });
 
-    it('records a loss (negative lucroVendaRS) when sold below cost', function () {
+    it('records a loss (negative sale_profit) when sold below cost', function () {
         // Cenário real: jogo desvalorizou após bundle, vendido abaixo do custo
-        // lucroVendaRS = 1.00 - 3.00 = -2.00
+        // sale_profit = 1.00 - 3.00 = -2.00
         insertUnsoldKey('LOSS-KEY-001', individualCost: 3.00);
 
         app(UpdateSoldOffersUseCase::class)->execute([
             ['keys' => ['LOSS-KEY-001'], 'profit' => 1.00, 'saleDate' => '2024-06-01'],
         ]);
 
-        $row = DB::table('venda_chave_trocas')->where('chaveRecebida', 'LOSS-KEY-001')->first();
+        $row = DB::table('venda_chave_trocas')->where('key_code', 'LOSS-KEY-001')->first();
 
-        expect((float) $row->lucroVendaRS)->toEqualWithDelta(-2.00, 0.001);
+        expect((float) $row->sale_profit)->toEqualWithDelta(-2.00, 0.001);
     });
 
     it('returns an empty array when all keys were updated successfully', function () {
@@ -159,8 +159,8 @@ describe('UpdateSoldOffersUseCase', function () {
         ]);
 
         $updated = DB::table('venda_chave_trocas')
-            ->whereIn('chaveRecebida', ['MULTI-KEY-001', 'MULTI-KEY-002'])
-            ->whereNotNull('dataVendida')
+            ->whereIn('key_code', ['MULTI-KEY-001', 'MULTI-KEY-002'])
+            ->whereNotNull('sold_at')
             ->count();
 
         expect($updated)->toBe(2);
@@ -176,8 +176,8 @@ describe('UpdateSoldOffersUseCase', function () {
         ]);
 
         $soldCount = DB::table('venda_chave_trocas')
-            ->whereIn('chaveRecebida', ['GAME-A-KEY-001', 'GAME-B-KEY-001'])
-            ->whereNotNull('dataVendida')
+            ->whereIn('key_code', ['GAME-A-KEY-001', 'GAME-B-KEY-001'])
+            ->whereNotNull('sold_at')
             ->count();
 
         expect($soldCount)->toBe(2);
@@ -195,21 +195,21 @@ describe('UpdateSoldOffersUseCase', function () {
     });
 
     it('does not overwrite a key that was already sold', function () {
-        // Key já possui valorVendido = 3.00 (venda anterior)
+        // Key já possui sold_price = 3.00 (venda anterior)
         DB::table('venda_chave_trocas')->insert([
-            'nomeJogo' => 'Already Sold Game',
-            'chaveRecebida' => 'ALREADY-SOLD-001',
-            'precoCliente' => 5.00,
-            'valorPagoIndividual' => 2.00,
-            'lucroPercentual' => 25.00,
-            'perfilOrigem' => 'https://steamcommunity.com/id/test',
+            'game_name' => 'Already Sold Game',
+            'key_code' => 'ALREADY-SOLD-001',
+            'market_price' => 5.00,
+            'individual_cost' => 2.00,
+            'purchase_profit_percent' => 25.00,
+            'supplier_url' => 'https://steamcommunity.com/id/test',
             'id_fornecedor' => 1,
             'claim_type' => 'Nenhuma',
             'key_format' => 'RK',
             'sell_platform' => 'Gamivo',
-            'dataVenda' => now()->subDays(15)->toDateString(),
-            'dataVendida' => now()->subDays(5)->toDateString(),
-            'valorVendido' => 3.00, // Já foi vendida
+            'listed_at' => now()->subDays(15)->toDateString(),
+            'sold_at' => now()->subDays(5)->toDateString(),
+            'sold_price' => 3.00, // Já foi vendida
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -218,9 +218,9 @@ describe('UpdateSoldOffersUseCase', function () {
             ['keys' => ['ALREADY-SOLD-001'], 'profit' => 99.00, 'saleDate' => '2024-06-01'],
         ]);
 
-        $row = DB::table('venda_chave_trocas')->where('chaveRecebida', 'ALREADY-SOLD-001')->first();
+        $row = DB::table('venda_chave_trocas')->where('key_code', 'ALREADY-SOLD-001')->first();
 
-        // valorVendido deve permanecer 3.00 — não sobreescrito
-        expect((float) $row->valorVendido)->toBe(3.00);
+        // sold_price deve permanecer 3.00 — não sobreescrito
+        expect((float) $row->sold_price)->toBe(3.00);
     });
 });

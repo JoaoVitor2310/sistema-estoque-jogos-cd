@@ -13,6 +13,6 @@ class Fornecedor extends Model
 
     protected $fillable = [
         'id',
-        'perfilOrigem',
+        'supplier_url',
     ];
 }

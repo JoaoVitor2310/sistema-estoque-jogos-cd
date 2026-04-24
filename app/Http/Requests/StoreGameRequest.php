@@ -2,9 +2,13 @@
 
 namespace App\Http\Requests;
 
+use App\Domain\Enums\ClaimType;
+use App\Domain\Enums\KeyFormat;
+use App\Domain\Enums\SellPlatform;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Validation\Rule;
 
 class StoreGameRequest extends FormRequest
 {
@@ -25,29 +29,29 @@ class StoreGameRequest extends FormRequest
     {
         return [
             'color' => 'nullable',
-            'claim_type' => ['nullable', 'string'],
+            'claim_type' => ['nullable', Rule::enum(ClaimType::class)],
             'steamId' => ['string', 'nullable'],
-            'idGamivo' => ['string', 'nullable'],
-            'key_format' => ['nullable', 'string'],
-            'chaveRecebida' => 'required',
-            'nomeJogo' => 'required',
+            'gamivo_id' => ['string', 'nullable'],
+            'key_format' => ['nullable', Rule::enum(KeyFormat::class)],
+            'key_code' => 'required',
+            'game_name' => 'required',
             'region' => ['string', 'nullable'],
             'precoJogo' => ['nullable', 'decimal:0,2'],
             'observacao' => ['string', 'nullable'],
-            'sell_platform' => ['nullable', 'string'],
-            'precoCliente' => ['required', 'decimal:0,2', 'gt:0'],
-            'minimoParaVenda' => ['nullable', 'decimal:0,2'],
+            'sell_platform' => ['nullable', Rule::enum(SellPlatform::class)],
+            'market_price' => ['required', 'decimal:0,2', 'gt:0'],
+            'minimum_sale_price' => ['nullable', 'decimal:0,2'],
             'minApiGamivo' => ['nullable', 'decimal:0,2'],
             'maxApiGamivo' => ['nullable', 'decimal:0,2'],
-            'valorPagoTotal' => ['string', 'nullable'],
-            'valorVendido' => ['nullable', 'decimal:0,2', 'gt:0'],
-            'dataAdquirida' => ['required', 'string'],
-            'dataVenda' => ['nullable', 'string'],
-            'dataVendida' => ['nullable', 'string'],
-            'dataExpiracao' => ['nullable', 'string'],
-            'perfilOrigem' => ['required', 'string'],
+            'total_paid' => ['string', 'nullable'],
+            'sold_price' => ['nullable', 'decimal:0,2', 'gt:0'],
+            'acquired_at' => ['required', 'string'],
+            'listed_at' => ['nullable', 'string'],
+            'sold_at' => ['nullable', 'string'],
+            'expires_at' => ['nullable', 'string'],
+            'supplier_url' => ['required', 'string'],
             'email' => ['nullable', 'string'],
-            'qtdTF2' => ['nullable', 'decimal:0,2', 'gt:0'],
+            'tf2_quantity' => ['nullable', 'decimal:0,2', 'gt:0'],
         ];
     }
 

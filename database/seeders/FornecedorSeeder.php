@@ -13,8 +13,8 @@ class FornecedorSeeder extends Seeder
     public function run(): void
     {
         DB::table('fornecedor')->insert([
-            ['perfilOrigem' => 'https://steamcommunity.com/profiles/76561198028508165', 'quantidade_reclamacoes' => 0],
-            ['perfilOrigem' => 'https://steamcommunity.com/profiles/76561198257358048', 'quantidade_reclamacoes' => 0],
+            ['supplier_url' => 'https://steamcommunity.com/profiles/76561198028508165', 'quantidade_reclamacoes' => 0],
+            ['supplier_url' => 'https://steamcommunity.com/profiles/76561198257358048', 'quantidade_reclamacoes' => 0],
         ]);
     }
 }

@@ -9,7 +9,7 @@ use App\Models\Venda_chave_troca;
  * Registra uma key como "posta à venda" no Gamivo.
  *
  * Regras de negócio:
- * - Só atualiza se a key ainda não estiver listada (dataVenda IS NULL).
+ * - Só atualiza se a key ainda não estiver listada (listed_at IS NULL).
  * - Opcionalmente reseta minApiGamivo para o piso global de preços
  *   (MinMaxPriceCalculator::FLOOR) para ganhar visibilidade imediata na plataforma.
  */
@@ -20,20 +20,20 @@ class ListKeyForSaleUseCase
      */
     public function execute(string $keyCode, bool $resetMinApiGamivo = true): array
     {
-        $data = ['dataVenda' => now()->toDateString()];
+        $data = ['listed_at' => now()->toDateString()];
 
         if ($resetMinApiGamivo) {
             $data['minApiGamivo'] = MinMaxPriceCalculator::FLOOR;
         }
 
-        $updated = Venda_chave_troca::where('chaveRecebida', $keyCode)
-            ->whereNull('dataVenda')
+        $updated = Venda_chave_troca::where('key_code', $keyCode)
+            ->whereNull('listed_at')
             ->update($data);
 
         if ($updated === 0) {
             return [
                 'success' => false,
-                'message' => 'Nenhum registro foi atualizado. Verifique se a chave existe ou se já possui dataVenda.',
+                'message' => 'Nenhum registro foi atualizado. Verifique se a chave existe ou se já possui listed_at.',
             ];
         }
 

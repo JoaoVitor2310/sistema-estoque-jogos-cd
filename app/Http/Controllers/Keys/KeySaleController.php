@@ -46,19 +46,19 @@ class KeySaleController extends Controller
     }
 
     /**
-     * Retorna keys que já possuem idGamivo e preço mínimo definido, mas ainda não foram listadas.
+     * Retorna keys que já possuem gamivo_id e preço mínimo definido, mas ainda não foram listadas.
      */
     public function whenToSell(Request $request)
     {
         $keys = Venda_chave_troca::select([
-            'idGamivo', 'minimoParaVenda', 'valorPagoIndividual',
-            'chaveRecebida', 'nomeJogo', 'region',
-            'dataAdquirida', 'dataVenda', 'dataVendida', 'dataExpiracao',
+            'gamivo_id', 'minimum_sale_price', 'individual_cost',
+            'key_code', 'game_name', 'region',
+            'acquired_at', 'listed_at', 'sold_at', 'expires_at',
         ])
-            ->whereNotNull('idGamivo')
-            ->whereNotNull('minimoParaVenda')
-            ->whereNull('dataVenda')
-            ->whereNull('dataVendida')
+            ->whereNotNull('gamivo_id')
+            ->whereNotNull('minimum_sale_price')
+            ->whereNull('listed_at')
+            ->whereNull('sold_at')
             ->get();
 
         return $this->response(
@@ -84,25 +84,25 @@ class KeySaleController extends Controller
     public function searchByIdGamivo(Request $request, string $idGamivo)
     {
         $keys = Venda_chave_troca::select(['minApiGamivo', 'maxApiGamivo'])
-            ->where('idGamivo', $idGamivo)
-            ->whereNull('dataVendida')
-            ->whereNotNull('dataVenda')
+            ->where('gamivo_id', $idGamivo)
+            ->whereNull('sold_at')
+            ->whereNotNull('listed_at')
             ->get();
 
         return $this->response(200, 'Jogos encontrados com sucesso', KeyGamivoMinMaxResource::collection($keys));
     }
 
     /**
-     * Registra a data em que a key foi colocada à venda (dataVenda = hoje).
+     * Registra a data em que a key foi colocada à venda (listed_at = hoje).
      * Opcionalmente reseta minApiGamivo para o piso de listagem pública do Gamivo.
      */
     public function insertDataVenda(Request $request)
     {
-        $keyCode = $request->input('chaveRecebida');
+        $keyCode = $request->input('key_code');
         $resetMinApiGamivo = $request->input('updateMinApiGamivo', true);
 
         if (! $keyCode) {
-            return $this->error(404, 'Chave não encontrada', ['chaveRecebida' => 'Chave não encontrada']);
+            return $this->error(404, 'Chave não encontrada', ['key_code' => 'Chave não encontrada']);
         }
 
         $result = $this->listKeyForSaleUseCase->execute($keyCode, $resetMinApiGamivo);

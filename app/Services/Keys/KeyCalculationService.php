@@ -68,9 +68,9 @@ class KeyCalculationService
         $somatorioIncomes = 0.0;
 
         foreach ($games as &$game) {
-            $income = $this->calculateIncome((float) $game['precoCliente']);
+            $income = $this->calculateIncome((float) $game['market_price']);
 
-            $game['incomeSimulado'] = $income;
+            $game['simulated_income'] = $income;
             $somatorioIncomes += $income;
         }
         unset($game);
@@ -94,30 +94,30 @@ class KeyCalculationService
     {
         if (! $isEdit) {
             $individualCost = ProfitCalculator::individualCost(
-                qtdTF2: (float) $game['qtdTF2'],
+                qtdTF2: (float) $game['tf2_quantity'],
                 tf2EuroPrice: $this->getTf2EuroPrice(),
                 somatorioIncomes: $somatorioIncomes,
-                gameIncome: (float) $game['incomeSimulado'],
+                gameIncome: (float) $game['simulated_income'],
             );
 
             $purchaseProfit = ProfitCalculator::purchaseProfit(
-                incomeSimulado: (float) $game['incomeSimulado'],
+                incomeSimulado: (float) $game['simulated_income'],
                 individualCost: $individualCost,
             );
 
-            $game['valorPagoIndividual'] = $individualCost;
-            $game['lucroRS'] = $purchaseProfit;
-            $game['lucroPercentual'] = ProfitCalculator::purchaseProfitPercent($purchaseProfit, $individualCost);
+            $game['individual_cost'] = $individualCost;
+            $game['purchase_profit'] = $purchaseProfit;
+            $game['purchase_profit_percent'] = ProfitCalculator::purchaseProfitPercent($purchaseProfit, $individualCost);
         }
 
-        $individualCost = (float) $game['valorPagoIndividual'];
-        $rawVendido = $game['valorVendido'] ?? null;
+        $individualCost = (float) $game['individual_cost'];
+        $rawVendido = $game['sold_price'] ?? null;
         $valorVendido = ($rawVendido !== null && $rawVendido !== '') ? (float) $rawVendido : null;
 
         $saleProfit = ProfitCalculator::saleProfit($valorVendido, $individualCost);
 
-        $game['lucroVendaRS'] = $saleProfit;
-        $game['lucroVendaPercentual'] = ProfitCalculator::saleProfitPercent($saleProfit, $individualCost);
+        $game['sale_profit'] = $saleProfit;
+        $game['sale_profit_percent'] = ProfitCalculator::saleProfitPercent($saleProfit, $individualCost);
 
         return $game;
     }
@@ -131,8 +131,8 @@ class KeyCalculationService
     public function calculateMinMaxApi(array $game): array
     {
         $result = MinMaxPriceCalculator::calculate(
-            individualCost: (float) $game['valorPagoIndividual'],
-            clientPrice: (float) $game['precoCliente'],
+            individualCost: (float) $game['individual_cost'],
+            clientPrice: (float) $game['market_price'],
         );
 
         $game['minApiGamivo'] = $result['min'];
@@ -145,15 +145,15 @@ class KeyCalculationService
      * Calcula os lucros de venda de uma key já vendida.
      * Usado em updateSoldOffers().
      *
-     * @return array{lucroVendaRS: float, lucroVendaPercentual: float}
+     * @return array{sale_profit: float, sale_profit_percent: float}
      */
     public function calculateSaleFormulas(float $salePrice, float $individualCost): array
     {
         $saleProfit = ProfitCalculator::saleProfit($salePrice, $individualCost);
 
         return [
-            'lucroVendaRS' => $saleProfit,
-            'lucroVendaPercentual' => ProfitCalculator::saleProfitPercent($saleProfit, $individualCost),
+            'sale_profit' => $saleProfit,
+            'sale_profit_percent' => ProfitCalculator::saleProfitPercent($saleProfit, $individualCost),
         ];
     }
 

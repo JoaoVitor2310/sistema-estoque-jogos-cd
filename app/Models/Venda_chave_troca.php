@@ -23,32 +23,32 @@ class Venda_chave_troca extends Model
         'id_fornecedor',
         'claim_type',
         'steamId',
-        'idGamivo',
-        'chaveRecebida',
-        'repetido',
-        'plataformaIdentificada',
-        'nomeJogo',
+        'gamivo_id',
+        'key_code',
+        'is_duplicate',
+        'identified_platform',
+        'game_name',
         'region',
         'precoJogo',
         'observacao',
         'key_format',
         'sell_platform',
-        'precoCliente',
-        'minimoParaVenda',
-        'incomeSimulado',
-        'valorPagoTotal',
-        'qtdTF2',
-        'valorPagoIndividual',
-        'lucroRS',
-        'lucroPercentual',
-        'valorVendido',
-        'lucroVendaRS',
-        'lucroVendaPercentual',
-        'dataAdquirida',
-        'dataVenda',
-        'dataVendida',
-        'dataExpiracao',
-        'perfilOrigem',
+        'market_price',
+        'minimum_sale_price',
+        'simulated_income',
+        'total_paid',
+        'tf2_quantity',
+        'individual_cost',
+        'purchase_profit',
+        'purchase_profit_percent',
+        'sold_price',
+        'sale_profit',
+        'sale_profit_percent',
+        'acquired_at',
+        'listed_at',
+        'sold_at',
+        'expires_at',
+        'supplier_url',
         'minApiGamivo',
         'maxApiGamivo',
         'email',
@@ -67,22 +67,22 @@ class Venda_chave_troca extends Model
 
     public function game()
     {
-        return $this->belongsTo(Game::class, 'idGamivo', 'id_gamivo');
+        return $this->belongsTo(Game::class, 'gamivo_id', 'id_gamivo');
     }
 
     public function scopeRegisteredOnGamivo(Builder $query): void
     {
-        $query->whereNotNull('idGamivo')->where('idGamivo', '!=', '');
+        $query->whereNotNull('gamivo_id')->where('gamivo_id', '!=', '');
     }
 
     public function scopeNotYetListed(Builder $query): void
     {
-        $query->whereNull('dataVenda')->whereNull('dataVendida');
+        $query->whereNull('listed_at')->whereNull('sold_at');
     }
 
     public function scopeNotGiftLink(Builder $query): void
     {
-        $query->where('chaveRecebida', 'not like', '%http%');
+        $query->where('key_code', 'not like', '%http%');
     }
 
     public function scopeWithoutRecentBundle(Builder $query, int $days): void

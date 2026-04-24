@@ -14,8 +14,8 @@ use Illuminate\Support\Facades\Mail;
  * Infraestrutura para operações sobre jogos.
  *
  * Responsabilidades:
- *  - Lookup de idGamivo (em venda_chave_trocas e games)
- *  - Preenchimento de idGamivo na tabela games
+ *  - Lookup de gamivo_id (em venda_chave_trocas e games)
+ *  - Preenchimento de id_gamivo na tabela games
  *  - Criação de jogo na tabela games (quando não existe)
  *  - Busca de IDs no Steamcharts via price_researcher
  *  - Atualização de preço mínimo da API Gamivo por envelhecimento (delega regra ao Domain)
@@ -23,19 +23,19 @@ use Illuminate\Support\Facades\Mail;
 class GameService
 {
     /**
-     * Procura o idGamivo pelo nome do jogo e região.
+     * Procura o gamivo_id pelo nome do jogo e região.
      * Busca primeiro nas keys existentes, depois na tabela games.
      */
     public function getIdGamivo(string $gameName, ?string $region): string|false
     {
-        $key = Venda_chave_troca::select('idGamivo')
-            ->whereRaw('LOWER("nomeJogo") = LOWER(?)', [$gameName])
+        $key = Venda_chave_troca::select('gamivo_id')
+            ->whereRaw('LOWER("game_name") = LOWER(?)', [$gameName])
             ->where('region', $region)
-            ->whereNotNull('idGamivo')
+            ->whereNotNull('gamivo_id')
             ->first();
 
         if ($key) {
-            return $key->idGamivo;
+            return $key->gamivo_id;
         }
 
         $game = Game::select('id_gamivo')
@@ -48,7 +48,7 @@ class GameService
     }
 
     /**
-     * Preenche o idGamivo na tabela games quando ainda não está cadastrado.
+     * Preenche o id_gamivo na tabela games quando ainda não está cadastrado.
      */
     public function fillIdGamivo(string $gameName, ?string $region, string $idGamivo): void
     {
@@ -70,16 +70,16 @@ class GameService
      * já que não há garantia de normalização na entrada.
      * firstOrCreate() puro usaria match exato — incorreto aqui.
      *
-     * @param  array{nomeJogo: string, region: string|null, idGamivo: string|null}  $game
+     * @param  array{game_name: string, region: string|null, gamivo_id: string|null}  $game
      */
     public function createGameIfDontExists(array $game): void
     {
-        Game::whereRaw('LOWER("name") = LOWER(?)', [$game['nomeJogo']])
+        Game::whereRaw('LOWER("name") = LOWER(?)', [$game['game_name']])
             ->where('region', $game['region'])
             ->firstOr(fn () => Game::create([
-                'name' => $game['nomeJogo'],
+                'name' => $game['game_name'],
                 'region' => $game['region'],
-                'id_gamivo' => $game['idGamivo'],
+                'id_gamivo' => $game['gamivo_id'],
             ]));
     }
 
@@ -129,15 +129,15 @@ class GameService
      */
     public function updateMinPrices(): void
     {
-        $keys = Venda_chave_troca::select('id', 'nomeJogo', 'region', 'valorPagoIndividual', 'minApiGamivo', 'maxApiGamivo', 'dataVenda', 'dataVendida')
-            ->whereNotNull('dataVenda')
-            ->whereNull('dataVendida')
+        $keys = Venda_chave_troca::select('id', 'game_name', 'region', 'individual_cost', 'minApiGamivo', 'maxApiGamivo', 'listed_at', 'sold_at')
+            ->whereNotNull('listed_at')
+            ->whereNull('sold_at')
             ->limit(10)
             ->get();
 
         foreach ($keys as $key) {
-            $monthsListed = Carbon::parse($key->dataVenda)->diffInMonths(now());
-            $newMinPrice = KeyPriceAging::calculateAgedPrice((float) $key->valorPagoIndividual, $monthsListed);
+            $monthsListed = Carbon::parse($key->listed_at)->diffInMonths(now());
+            $newMinPrice = KeyPriceAging::calculateAgedPrice((float) $key->individual_cost, $monthsListed);
 
             if ($newMinPrice === null) {
                 continue; // Ainda não atingiu nenhum tier — sem alteração

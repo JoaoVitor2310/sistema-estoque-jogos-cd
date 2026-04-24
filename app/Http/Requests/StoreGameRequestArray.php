@@ -2,9 +2,13 @@
 
 namespace App\Http\Requests;
 
+use App\Domain\Enums\ClaimType;
+use App\Domain\Enums\KeyFormat;
+use App\Domain\Enums\SellPlatform;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Validation\Rule;
 
 class StoreGameRequestArray extends FormRequest
 {
@@ -26,29 +30,29 @@ class StoreGameRequestArray extends FormRequest
         return [
             'games' => 'required|array',
             'games.*.color' => 'nullable',
-            'games.*.claim_type' => ['nullable', 'string'],
+            'games.*.claim_type' => ['nullable', Rule::enum(ClaimType::class)],
             'games.*.steamId' => ['string', 'nullable'],
-            'games.*.idGamivo' => ['string', 'nullable'],
-            'games.*.key_format' => ['nullable', 'string'],
-            'games.*.chaveRecebida' => 'required',
-            'games.*.nomeJogo' => 'required',
+            'games.*.gamivo_id' => ['string', 'nullable'],
+            'games.*.key_format' => ['nullable', Rule::enum(KeyFormat::class)],
+            'games.*.key_code' => 'required',
+            'games.*.game_name' => 'required',
             'games.*.region' => ['string', 'nullable'],
             'games.*.precoJogo' => ['nullable', 'decimal:0,2'],
             'games.*.observacao' => ['string', 'nullable'],
-            'games.*.sell_platform' => ['nullable', 'string'],
-            'games.*.precoCliente' => ['required', 'decimal:0,2', 'gt:0'],
-            'games.*.minimoParaVenda' => ['nullable', 'decimal:0,2'],
+            'games.*.sell_platform' => ['nullable', Rule::enum(SellPlatform::class)],
+            'games.*.market_price' => ['required', 'decimal:0,2', 'gt:0'],
+            'games.*.minimum_sale_price' => ['nullable', 'decimal:0,2'],
             'games.*.minApiGamivo' => ['nullable', 'decimal:0,2'],
             'games.*.maxApiGamivo' => ['nullable', 'decimal:0,2'],
-            'games.*.valorPagoTotal' => ['string', 'nullable'],
-            'games.*.valorVendido' => ['nullable', 'decimal:0,2', 'gt:0'],
-            'games.*.dataAdquirida' => ['required', 'string'],
-            'games.*.dataVenda' => ['nullable', 'string'],
-            'games.*.dataVendida' => ['nullable', 'string'],
-            'games.*.dataExpiracao' => ['nullable', 'string'],
-            'games.*.perfilOrigem' => ['required', 'string'],
+            'games.*.total_paid' => ['string', 'nullable'],
+            'games.*.sold_price' => ['nullable', 'decimal:0,2', 'gt:0'],
+            'games.*.acquired_at' => ['required', 'string'],
+            'games.*.listed_at' => ['nullable', 'string'],
+            'games.*.sold_at' => ['nullable', 'string'],
+            'games.*.expires_at' => ['nullable', 'string'],
+            'games.*.supplier_url' => ['required', 'string'],
             'games.*.email' => ['nullable', 'string'],
-            'games.*.qtdTF2' => ['required', 'decimal:0,2', 'gt:0'],
+            'games.*.tf2_quantity' => ['required', 'decimal:0,2', 'gt:0'],
         ];
     }
 

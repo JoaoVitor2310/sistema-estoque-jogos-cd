@@ -13,7 +13,7 @@ use App\Services\Suppliers\SupplierService;
  * Orquestra a atualização de uma key existente.
  *
  * Diferenças em relação ao RegisterKeyUseCase:
- *  - Preserva valorPagoIndividual do banco (custo já fixado na compra)
+ *  - Preserva individual_cost do banco (custo já fixado na compra)
  *  - Usa isEdit=true para não recalcular lucros de compra
  *  - Não cria o jogo na tabela games (já deve existir)
  *  - Verifica duplicidade excluindo o próprio registro
@@ -41,47 +41,47 @@ class UpdateKeyUseCase
         $existing = Venda_chave_troca::findOrFail($id);
 
         // Custo individual vem do banco — não pode ser alterado no update
-        $validated['valorPagoIndividual'] = $existing->valorPagoIndividual;
+        $validated['individual_cost'] = $existing->individual_cost;
 
-        // qtdTF2 é opcional no update; preserva do banco se ausente
-        if (empty($validated['qtdTF2'])) {
-            $validated['qtdTF2'] = $existing->qtdTF2;
+        // tf2_quantity é opcional no update; preserva do banco se ausente
+        if (empty($validated['tf2_quantity'])) {
+            $validated['tf2_quantity'] = $existing->tf2_quantity;
         }
 
-        // Recalcula incomeSimulado (necessário para os lucros de venda)
+        // Recalcula simulated_income (necessário para os lucros de venda)
         $firstFormulas = $this->calculationService->calculateFirstFormulas([$validated]);
         $data = $firstFormulas['games'][0];
         $somatorioIncomes = $firstFormulas['somatorioIncomes'];
 
-        // isEdit=true: não retoca valorPagoIndividual nem lucros de compra
+        // isEdit=true: não retoca individual_cost nem lucros de compra
         $data = $this->calculationService->calculateFormulas($data, $somatorioIncomes, true);
 
         // Plataforma e fornecedor
-        $data['plataformaIdentificada'] = PlatformIdentifier::identify($data['chaveRecebida']);
-        $data['id_fornecedor'] = $this->supplierService->findOrCreate($data['perfilOrigem']);
+        $data['identified_platform'] = PlatformIdentifier::identify($data['key_code']);
+        $data['id_fornecedor'] = $this->supplierService->findOrCreate($data['supplier_url']);
 
         // Verifica duplicidade excluindo o próprio registro
-        $data['repetido'] = $this->keyRepository->findByKeyCode($data['chaveRecebida'], (int) $id) !== null;
+        $data['is_duplicate'] = $this->keyRepository->findByKeyCode($data['key_code'], (int) $id) !== null;
 
-        // Sincroniza idGamivo
-        if (empty($data['idGamivo'])) {
-            $idGamivo = $this->gameService->getIdGamivo($data['nomeJogo'], $data['region']);
-            if ($idGamivo) {
-                $data['idGamivo'] = $idGamivo;
+        // Sincroniza gamivo_id
+        if (empty($data['gamivo_id'])) {
+            $gamivoId = $this->gameService->getIdGamivo($data['game_name'], $data['region']);
+            if ($gamivoId) {
+                $data['gamivo_id'] = $gamivoId;
             }
         }
 
-        if (! empty($data['idGamivo'])) {
-            $this->gameService->fillIdGamivo($data['nomeJogo'], $data['region'], $data['idGamivo']);
+        if (! empty($data['gamivo_id'])) {
+            $this->gameService->fillIdGamivo($data['game_name'], $data['region'], $data['gamivo_id']);
         }
 
         // Remove campos de lucro de venda nulos antes de persistir.
-        // O banco tem DEFAULT 0 — a semântica "não vendida" já é capturada por dataVendida IS NULL.
-        if (($data['lucroVendaRS'] ?? null) === null) {
-            unset($data['lucroVendaRS']);
+        // O banco tem DEFAULT 0 — a semântica "não vendida" já é capturada por sold_at IS NULL.
+        if (($data['sale_profit'] ?? null) === null) {
+            unset($data['sale_profit']);
         }
-        if (($data['lucroVendaPercentual'] ?? null) === null) {
-            unset($data['lucroVendaPercentual']);
+        if (($data['sale_profit_percent'] ?? null) === null) {
+            unset($data['sale_profit_percent']);
         }
 
         $existing->update($data);

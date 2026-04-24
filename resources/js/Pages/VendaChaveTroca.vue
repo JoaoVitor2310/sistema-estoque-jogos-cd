@@ -70,30 +70,30 @@ const selectedNewObject = {
   claim_type: 'Nenhuma',
   dont_sell: false,
   steamId: '',
-  idGamivo: '',
+  gamivo_id: '',
   key_format: 'RK',
-  chaveRecebida: '',
-  repetido: false,
-  nomeJogo: '',
+  key_code: '',
+  is_duplicate: false,
+  game_name: '',
   region: '',
   precoJogo: null,
   observacao: '',
   sell_platform: 'Gamivo',
-  precoCliente: null,
-  minimoParaVenda: null,
-  valorPagoTotal: '',
-  valorPagoIndividual: null,
+  market_price: null,
+  minimum_sale_price: null,
+  total_paid: '',
+  individual_cost: null,
   minApiGamivo: null,
   maxApiGamivo: null,
-  valorVendido: null,
-  lucroVendaRS: null,
-  lucroVendaPercentual: null,
-  dataAdquirida: null,
-  dataVenda: '',
-  dataVendida: '',
-  perfilOrigem: '',
+  sold_price: null,
+  sale_profit: null,
+  sale_profit_percent: null,
+  acquired_at: null,
+  listed_at: '',
+  sold_at: '',
+  supplier_url: '',
   email: '',
-  qtdTF2: null,
+  tf2_quantity: null,
 };
 
 const selected = reactive([selectedNewObject]);
@@ -104,22 +104,22 @@ const sharedPerfilOrigem = ref('');
 const sharedEmail = ref('');
 const sharedValorPagoTotal = ref('');
 
-// Sincroniza o valor de qtdTF2 em todos os itens
+// Sincroniza o valor de tf2_quantity em todos os itens
 watch(sharedQtdTF2, (newValue) => {
   selected.forEach(item => {
-    item.qtdTF2 = newValue;
+    item.tf2_quantity = newValue;
   });
 });
 
 watch(sharedDataAdquirida, (newValue) => {
   selected.forEach(item => {
-    item.dataAdquirida = newValue;
+    item.acquired_at = newValue;
   });
 });
 
 watch(sharedPerfilOrigem, (newValue) => {
   selected.forEach(item => {
-    item.perfilOrigem = newValue;
+    item.supplier_url = newValue;
   });
 });
 
@@ -131,7 +131,7 @@ watch(sharedEmail, (newValue) => {
 
 watch(sharedValorPagoTotal, (newValue) => {
   selected.forEach(item => {
-    item.valorPagoTotal = newValue;
+    item.total_paid = newValue;
   });
 });
 
@@ -139,9 +139,9 @@ const handleEditButton = (data: any) => {
   DialogVisible.value = true;
   isEdit.value = true;
   selected.splice(0, selected.length, ...data);
-  sharedDataAdquirida.value = data[0].dataAdquirida;
-  sharedPerfilOrigem.value = data[0].perfilOrigem;
-  sharedValorPagoTotal.value = data[0].valorPagoTotal;
+  sharedDataAdquirida.value = data[0].acquired_at;
+  sharedPerfilOrigem.value = data[0].supplier_url;
+  sharedValorPagoTotal.value = data[0].total_paid;
   sharedEmail.value = data[0].email;
 };
 
@@ -151,27 +151,27 @@ const onEdit = async (selected: any) => {
   if (Array.isArray(selected)) {
     product = { ...selected[0] };
     if (sharedDataAdquirida.value) {
-      product.dataAdquirida = sharedDataAdquirida.value;
+      product.acquired_at = sharedDataAdquirida.value;
     }
     if (sharedPerfilOrigem.value !== '') {
-      product.perfilOrigem = sharedPerfilOrigem.value;
+      product.supplier_url = sharedPerfilOrigem.value;
     }
     if (sharedEmail.value !== '') {
       product.email = sharedEmail.value;
     }
     if (sharedValorPagoTotal.value !== '') {
-      product.valorPagoTotal = sharedValorPagoTotal.value;
+      product.total_paid = sharedValorPagoTotal.value;
     }
   } else {
     product = { ...selected };
-    if (selected.dataAdquirida) {
-      selected.dataAdquirida = identifyAndFormatDate(selected.dataAdquirida);
+    if (selected.acquired_at) {
+      selected.acquired_at = identifyAndFormatDate(selected.acquired_at);
     }
-    if (selected.dataVenda) {
-      selected.dataVenda = identifyAndFormatDate(selected.dataVenda);
+    if (selected.listed_at) {
+      selected.listed_at = identifyAndFormatDate(selected.listed_at);
     }
-    if (selected.dataVendida) {
-      selected.dataVendida = identifyAndFormatDate(selected.dataVendida);
+    if (selected.sold_at) {
+      selected.sold_at = identifyAndFormatDate(selected.sold_at);
     }
     console.log(selected);
   }
@@ -233,14 +233,14 @@ const handleAddButton = async (): Promise<void> => { // Mostra o dialog com o el
 
 const onAdd = async (): Promise<void> => { // Faz a req pra api add o elemento
   selected.forEach(item => {
-    if (item.dataAdquirida) {
-      item.dataAdquirida = identifyAndFormatDate(item.dataAdquirida);
+    if (item.acquired_at) {
+      item.acquired_at = identifyAndFormatDate(item.acquired_at);
     }
-    if (item.dataVenda) {
-      item.dataVenda = identifyAndFormatDate(item.dataVenda);
+    if (item.listed_at) {
+      item.listed_at = identifyAndFormatDate(item.listed_at);
     }
-    if (item.dataVendida) {
-      item.dataVendida = identifyAndFormatDate(item.dataVendida);
+    if (item.sold_at) {
+      item.sold_at = identifyAndFormatDate(item.sold_at);
     }
   });
 
@@ -335,21 +335,21 @@ const searchFilter = reactive({
   steamId: '',
   key_format: [],
   dont_sell: false,
-  chaveRecebida: '',
-  plataformaIdentificada: '',
-  nomeJogo: '',
+  key_code: '',
+  identified_platform: '',
+  game_name: '',
   region: '',
-  idGamivo: '',
+  gamivo_id: '',
   hasIdGamivo: '',
   observacao: '',
   sell_platform: [],
-  valorPagoTotal: '',
-  dataAdquirida: '',
-  dataVenda: '',
-  dataVendaRange: null,
-  dataVendida: '',
-  dataExpiracao: '',
-  perfilOrigem: '',
+  total_paid: '',
+  acquired_at: '',
+  listed_at: '',
+  listed_at_range: null,
+  sold_at: '',
+  expires_at: '',
+  supplier_url: '',
   email: '',
 })
 
@@ -367,9 +367,6 @@ const onPageChange = async (search: boolean, event: PageState | null = null) => 
   let method = 'GET';
 
   if (isSearching.value) {
-    // searchFilter.dataAdquirida = formatDateToDB(searchFilter.dataAdquirida);
-    // searchFilter.dataVenda = formatDateToDB(searchFilter.dataVenda);
-    // searchFilter.dataVendida = formatDateToDB(searchFilter.dataVendida);
     url = `/venda-chave-troca/search?page=${page}`;
     method = 'POST';
   }
@@ -411,9 +408,9 @@ const getRowStyle = (data: GameLine) => {
 };
 
 const getChaveRecebidaStyle = (data: GameLine) => {
-  if (data.repetido) {
+  if (data.is_duplicate) {
     return {
-      backgroundColor: '#ff0000', // Vermelho para repetido
+      backgroundColor: '#ff0000', // Vermelho para duplicado
       color: '#ffffff', // Texto branco
     };
   }
@@ -506,9 +503,9 @@ const handleImportSubmit = async (): Promise<void> => {
         'Content-Type': 'multipart/form-data',
       },
     });
-    
+
     showResponse(res, toast.add);
-    
+
     if (res.status === 200 || res.status === 201) {
       ImportDialogVisible.value = false;
       selectedFile.value = null;
@@ -559,12 +556,6 @@ const handleImportSubmit = async (): Promise<void> => {
               class="w-full md:w-56" />
           </div>
         </div>
-        <!-- <div class="d-flex flex-column">
-          <label class="fw-bold">SteamID</label>
-          <div class="d-flex gap-5 mb-3">
-            <InputText class="flex-auto" v-model="item.steamId" />
-          </div>
-        </div> -->
         <div class="d-flex flex-column">
           <label class="fw-bold">Formato</label>
           <div class="d-flex gap-5 mb-3">
@@ -575,13 +566,13 @@ const handleImportSubmit = async (): Promise<void> => {
         <div class="d-flex flex-column" v-if="user && user.email === 'carcadeals@gmail.com'">
           <label class="fw-bold">Chave Recebida*</label>
           <div class="d-flex gap-5 mb-3">
-            <InputText class="flex-auto" v-model="item.chaveRecebida" />
+            <InputText class="flex-auto" v-model="item.key_code" />
           </div>
         </div>
         <div class="d-flex flex-column">
           <label class="fw-bold">Nome do jogo*</label>
           <div class="d-flex gap-5 mb-3">
-            <InputText class="flex-auto" v-model="item.nomeJogo" />
+            <InputText class="flex-auto" v-model="item.game_name" />
           </div>
         </div>
         <div class="d-flex flex-column">
@@ -590,55 +581,12 @@ const handleImportSubmit = async (): Promise<void> => {
             <InputText class="flex-auto" v-model="item.region" />
           </div>
         </div>
-        <!-- <div class="d-flex flex-column">
-            <label class="fw-bold">Preço Steam*</label>
-            <div class="d-flex gap-5 mb-3">
-              <InputNumber class="flex-auto" v-model="item.precoJogo" mode="decimal" showButtons :minFractionDigits="2"
-              :maxFractionDigits="2" useGrouping />
-            </div>
-          </div> -->
-        <!-- <div class="d-flex flex-column">
-          <label class="fw-bold">Nota Metacritic</label>
-          <div class="d-flex gap-5 mb-3">
-            <InputNumber class="flex-auto" v-model.number="item.notaMetacritic" showButtons :min="0" :max="100" />
-          </div>
-        </div>
-        <div class="d-flex flex-column">
-          <label class="fw-bold">É Steam?</label>
-          <div class="d-flex  gap-2 mb-3">
-            <label for="ingredient1" class="">Sim</label>
-            <RadioButton v-model="item.isSteam" :value="true" />
-            <label for="ingredient1" class="">Não</label>
-            <RadioButton v-model="item.isSteam" :value="false" />
-          </div>
-        </div> -->
         <div class="d-flex flex-column">
           <label class="fw-bold">Observação</label>
           <div class="d-flex gap-5 mb-3">
             <InputText class="flex-auto" v-model="item.observacao" />
           </div>
         </div>
-        <!-- <div class="d-flex flex-column">
-          <label class="fw-bold text-nowrap">Leilão G2A</label>
-          <div class="d-flex gap-5 mb-3">
-            <Select v-model="item.id_leilao_g2a" :options="props.tiposLeilao" optionLabel="name" optionValue="id"
-            class="w-full md:w-56" />
-          </div>
-        </div>
-        <div class="d-flex flex-column">
-          <label class="fw-bold text-nowrap">Leilão Gamivo</label>
-          <div class="d-flex gap-5 mb-3">
-            <Select v-model="item.id_leilao_gamivo" :options="props.tiposLeilao" optionLabel="name" optionValue="id"
-            class="w-full" />
-          </div>
-        </div>
-        <div class="d-flex flex-column">
-          <label class="fw-bold text-nowrap">Leilão Kinguin</label>
-          <div class="d-flex gap-5 mb-3">
-            <Select v-model="item.id_leilao_kinguin" :options="props.tiposLeilao" optionLabel="name" optionValue="id"
-            class="w-full md:w-56" />
-          </div>
-        </div> -->
         <div class="d-flex flex-column">
           <label class="fw-bold">Plataforma</label>
           <div class="d-flex gap-5 mb-3">
@@ -646,23 +594,17 @@ const handleImportSubmit = async (): Promise<void> => {
               class="w-full md:w-56" />
           </div>
         </div>
-        <!-- <div class="d-flex flex-column">
-          <label class="fw-bold">Id Gamivo</label>
-          <div class="d-flex gap-5 mb-3">
-            <InputText class="flex-auto" v-model="item.idGamivo" />
-          </div>
-        </div> -->
         <div class="d-flex flex-column">
           <label class="fw-bold">Preço Cliente*</label>
           <div class="d-flex gap-5 mb-3">
-            <InputNumber class="flex-auto" v-model="item.precoCliente" mode="decimal" showButtons :minFractionDigits="2"
+            <InputNumber class="flex-auto" v-model="item.market_price" mode="decimal" showButtons :minFractionDigits="2"
               :maxFractionDigits="2" :min="0" useGrouping />
           </div>
         </div>
         <div class="d-flex flex-column">
           <label class="fw-bold">Preço Mínimo para Venda</label>
           <div class="d-flex gap-5 mb-3">
-            <InputNumber class="flex-auto" v-model="item.minimoParaVenda" mode="decimal" showButtons
+            <InputNumber class="flex-auto" v-model="item.minimum_sale_price" mode="decimal" showButtons
               :minFractionDigits="2" :maxFractionDigits="2" :min="0" useGrouping />
           </div>
         </div>
@@ -673,52 +615,16 @@ const handleImportSubmit = async (): Promise<void> => {
               :maxFractionDigits="2" useGrouping />
           </div>
         </div>
-        <!-- <div class="d-flex flex-column">
-          <label class="fw-bold">Chave Entregue</label>
-          <div class="d-flex gap-5 mb-3">
-            <InputText class="flex-auto" v-model="item.chaveEntregue" />
-          </div>
-        </div>-->
         <div class="d-flex flex-column">
           <label class="fw-bold">Valor Pago Total</label>
           <div class="d-flex gap-5 mb-3">
             <InputText class="flex-auto" v-model="sharedValorPagoTotal" />
           </div>
         </div>
-        <!-- <div class="d-flex flex-column">
-          <label class="fw-bold">Vendido</label>
-          <div class="d-flex gap-2 mb-3">
-            <label for="ingredient1">Sim</label>
-            <RadioButton v-model="item.vendido" :value="true" />
-            <label for="ingredient1">Não</label>
-            <RadioButton v-model="item.vendido" :value="false" />
-          </div>
-        </div> -->
-        <!-- <div class="d-flex flex-column">
-          <label class="fw-bold">Leilões</label>
-          <div class="d-flex gap-5 mb-3">
-            <InputNumber class="flex-auto" v-model="item.leiloes" showButtons :min="0" />
-          </div>
-        </div>
-        <div class="d-flex flex-column">
-          <label class="fw-bold">Quantidade</label>
-          <div class="d-flex gap-5 mb-3">
-            <InputNumber class="flex-auto" v-model="item.quantidade" showButtons :min="0" />
-          </div>
-        </div>
-        <div class="d-flex flex-column">
-          <label class="fw-bold">Devoluções</label>
-          <div class="d-flex gap-2 mb-3">
-            <label>Sim</label>
-            <RadioButton v-model="item.devolucoes" :value="true" />
-            <label>Não</label>
-            <RadioButton v-model="item.devolucoes" :value="false" />
-          </div>
-        </div> -->
         <div class="d-flex flex-column">
           <label class="fw-bold">Valor Vendido</label>
           <div class="d-flex gap-5 mb-3">
-            <InputNumber class="flex-auto" v-model="item.valorVendido" mode="decimal" showButtons :minFractionDigits="2"
+            <InputNumber class="flex-auto" v-model="item.sold_price" mode="decimal" showButtons :minFractionDigits="2"
               :maxFractionDigits="2" useGrouping />
           </div>
         </div>
@@ -731,13 +637,13 @@ const handleImportSubmit = async (): Promise<void> => {
         <div class="d-flex flex-column">
           <label class="fw-bold">Data posto a Venda</label>
           <div class="d-flex gap-5 mb-3">
-            <InputText class="flex-auto" v-model="item.dataVenda" />
+            <InputText class="flex-auto" v-model="item.listed_at" />
           </div>
         </div>
         <div class="d-flex flex-column">
           <label class="fw-bold text-nowrap">Data Vendida</label>
           <div class="d-flex gap-5 mb-3">
-            <InputText class="flex-auto" v-model="item.dataVendida" />
+            <InputText class="flex-auto" v-model="item.sold_at" />
           </div>
         </div>
         <div class="d-flex flex-column">
@@ -746,12 +652,6 @@ const handleImportSubmit = async (): Promise<void> => {
             <InputText class="flex-auto" v-model="sharedPerfilOrigem" />
           </div>
         </div>
-        <!-- <div class="d-flex flex-column">
-          <label class="fw-bold me-2">Email</label>
-          <div class="d-flex gap-5 mb-3">
-            <InputText class="flex-auto" v-model="sharedEmail" />
-          </div>
-        </div> -->
       </div>
 
       <div class="d-flex justify-content-end gap-2 position-absolute bottom-0 end-0 p-3 botao-rodape">
@@ -768,23 +668,23 @@ const handleImportSubmit = async (): Promise<void> => {
             <i class="pi pi-info-circle me-2"></i>
             <span>Use o arquivo de exemplo como referência para o formato correto.</span>
           </div>
-          <Button 
-            type="button" 
-            label="Baixar Exemplo" 
-            icon="pi pi-download" 
+          <Button
+            type="button"
+            label="Baixar Exemplo"
+            icon="pi pi-download"
             severity="info"
             size="small"
             @click="downloadExampleFile"
           />
         </div>
-        
+
         <span class="d-block mb-2">Selecione um arquivo Excel (.xlsx) para importar os jogos.</span>
-        
+
         <div class="d-flex flex-column">
           <label class="fw-bold mb-2">Arquivo Excel</label>
-          <input 
-            type="file" 
-            accept=".xlsx,.xls" 
+          <input
+            type="file"
+            accept=".xlsx,.xls"
             @change="handleFileSelect"
             class="form-control"
           />
@@ -820,8 +720,6 @@ const handleImportSubmit = async (): Promise<void> => {
                 severity="danger" icon="pi pi-plus" @click="handleDeleteButton($event, 2)" raised />
             </div>
             <div class="d-flex gap-2 flex-column flex-md-row">
-              <!-- <MultiSelect :modelValue="selectedColumns" :options="columns" optionLabel="header"
-              @update:modelValue="onToggle" placeholder="Selecione Colunas" :maxSelectedLabels="3" /> -->
               <Button label="Pesquisar" aria-label="Pesquisar" severity="info" icon="pi pi-search"
                 @click="onPageChange(true)" raised />
               <Button icon="pi pi-external-link" label="Exportar CSV" @click="exportCSV()" />
@@ -848,29 +746,6 @@ const handleImportSubmit = async (): Promise<void> => {
               @change="onEdit(data)" />
           </template>
         </Column>
-        <!-- <Column field="steamId" header="SteamID" filterField="searchField" :showFilterMenu="true"
-          :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
-          <template #filter>
-            <InputText v-model="searchFilter.steamId" type="text" placeholder="Pesquisar" />
-          </template>
-          <template #editor="{ data, field }">
-            <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
-          </template>
-        </Column> -->
-        <!-- <Column field="is_bundle" header="Não vender" filterField="searchField" :showFilterMenu="true"
-          :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
-          <template #filter>
-            <Select v-model="searchFilter.is_bundle" :options="[
-              { name: 'Sim', value: 'sim' },
-              { name: 'Não', value: 'nao' }
-            ]" placeholder="Não vender?" optionLabel="name" optionValue="value" style="min-width: 14rem">
-            </Select>
-          </template>
-          <template #editor="{ data, field }">
-            <Select v-model="data.key_format.id" :options="props.tiposFormato" @change="onEdit(data)"
-              optionLabel="name" optionValue="id" />
-          </template>
-        </Column> -->
         <Column field="key_format" header="Formato" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
@@ -883,32 +758,32 @@ const handleImportSubmit = async (): Promise<void> => {
               @change="onEdit(data)" />
           </template>
         </Column>
-        <Column field="plataformaIdentificada" header="Plat. Identificada" filterField="searchField"
+        <Column field="identified_platform" header="Plat. Identificada" filterField="searchField"
           :showFilterMenu="true" :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false"
           class="text-center p-0">
           <template #filter>
-            <InputText v-model="searchFilter.plataformaIdentificada" type="text" placeholder="Pesquisar" />
+            <InputText v-model="searchFilter.identified_platform" type="text" placeholder="Pesquisar" />
           </template>
         </Column>
-        <Column field="chaveRecebida" header="Chave Recebida" filterField="searchField" :showFilterMenu="true"
+        <Column field="key_code" header="Chave Recebida" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0"
           v-if="user && user.email === 'carcadeals@gmail.com'">
           <template #filter>
-            <InputText v-model="searchFilter.chaveRecebida" type="text" placeholder="Pesquisar" />
+            <InputText v-model="searchFilter.key_code" type="text" placeholder="Pesquisar" />
           </template>
           <template #body="{ data }">
             <div :style="getChaveRecebidaStyle(data)" style="width: 100%; height: 100%;">
-              {{ data.chaveRecebida }}
+              {{ data.key_code }}
             </div>
           </template>
           <template #editor="{ data, field }">
             <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
           </template>
         </Column>
-        <Column field="nomeJogo" header="Nome do Jogo" filterField="searchField" :showFilterMenu="true"
+        <Column field="game_name" header="Nome do Jogo" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
-            <InputText v-model="searchFilter.nomeJogo" type="text" placeholder="Pesquisar" />
+            <InputText v-model="searchFilter.game_name" type="text" placeholder="Pesquisar" />
           </template>
           <template #editor="{ data, field }">
             <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
@@ -923,46 +798,10 @@ const handleImportSubmit = async (): Promise<void> => {
             <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
           </template>
         </Column>
-        <!-- <Column field="precoJogo" header="Preço Steam" sortable class="text-center p-0">
-          <template #body="slotProps">
-            <span v-if="slotProps.data.precoJogo"> € {{ slotProps.data.precoJogo }} </span>
-          </template>
-          <template #editor="{ data, field }">
-            <InputNumber v-model="data[field]" @update:modelValue="onEdit(data)" mode="decimal" :minFractionDigits="2"
-              :maxFractionDigits="2" useGrouping autofocus fluid />
-          </template>
-        </Column> -->
-        <!-- <Column field="notaMetacritic" header="Nota Metacritic" sortable class="text-center p-0">
-          <template #editor="{ data, field }">
-            <InputNumber v-model="data[field]" @update:modelValue="onEdit(data)" mode="decimal" :max="100" useGrouping
-              autofocus fluid />
-          </template>
-        </Column>
-        <Column field="isSteam" header="É Steam?" filterField="searchField" :showFilterMenu="true"
+        <Column field="gamivo_id" header="Id Gamivo" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
-            <MultiSelect v-model="searchFilter.isSteam" :options="[{ name: true }, { name: false }]"
-              placeholder="Pesquisar" optionLabel="name" optionValue="name" style="min-width: 14rem">
-            </MultiSelect>
-          </template>
-          <template #body="{ data }">
-            <i class="pi m-1 fw-bold" :class="[
-              data.isSteam === true ? 'pi-check-circle' :
-                data.isSteam === false ? 'pi-times-circle' : 'pi-question',
-              data.isSteam === true ? 'text-primary' :
-                data.isSteam === false ? 'text-danger' : ''
-            ]">
-            </i>
-          </template>
-          <template #editor="{ data, field }">
-            <Select v-model="data.isSteam" :options="[{ label: 'Sim', value: true }, { label: 'Não', value: false }]"
-              @change="onEdit(data)" optionLabel="label" optionValue="value" />
-          </template>
-        </Column> -->
-        <Column field="idGamivo" header="Id Gamivo" filterField="searchField" :showFilterMenu="true"
-          :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
-          <template #filter>
-            <InputText v-model="searchFilter.idGamivo" type="text" placeholder="Pesquisar por ID" />
+            <InputText v-model="searchFilter.gamivo_id" type="text" placeholder="Pesquisar por ID" />
             <Select v-model="searchFilter.hasIdGamivo" :options="[
               { name: 'Sim', value: 'sim' },
               { name: 'Não', value: 'nao' }
@@ -973,20 +812,6 @@ const handleImportSubmit = async (): Promise<void> => {
             <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
           </template>
         </Column>
-        <!-- <Column field="randomClassificationG2A" header="Classificação G2A" filterField="searchField"
-          :showFilterMenu="true" :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false"
-          class="text-center p-0">
-          <template #filter>
-            <InputText v-model="searchFilter.randomClassificationG2A" type="text" placeholder="Pesquisar" />
-          </template>
-        </Column>
-        <Column field="randomClassificationKinguin" header="Classificação Kinguin" filterField="searchField"
-          :showFilterMenu="true" :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false"
-          class="text-center p-0">
-          <template #filter>
-            <InputText v-model="searchFilter.randomClassificationKinguin" type="text" placeholder="Pesquisar" />
-          </template>
-        </Column> -->
         <Column field="observacao" header="Observação" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
@@ -996,54 +821,6 @@ const handleImportSubmit = async (): Promise<void> => {
             <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
           </template>
         </Column>
-        <!-- <Column field="leilao_g2_a.name" header="Leilão G2A" class="text-center p-0">
-          <template #body="{ data }">
-            <i class="pi m-1 fw-bold" :class="[
-              data.leilao_g2_a.id === 1 ? 'pi-check-circle' :
-                data.leilao_g2_a.id === 2 ? 'pi-check-circle' :
-                  data.leilao_g2_a.id === 3 ? 'pi-times-circle' : 'pi-question',
-              data.leilao_g2_a.id === 2 ? 'text-primary' :
-                data.leilao_g2_a.id === 3 ? 'text-danger' : ''
-            ]">
-            </i>
-          </template>
-          <template #editor="{ data, field }">
-            <Select v-model="data.leilao_g2_a.id" :options="props.tiposLeilao" @change="onEdit(data)" optionLabel="name"
-              optionValue="id" />
-          </template>
-        </Column>
-        <Column field="leilao_gamivo.name" header="Leilão Gamivo" class="text-center p-0">
-          <template #body="{ data }">
-            <i class="pi m-1 fw-bold" :class="[
-              data.leilao_gamivo.id === 1 ? 'pi-check-circle' :
-                data.leilao_gamivo.id === 2 ? 'pi-check-circle' :
-                  data.leilao_gamivo.id === 3 ? 'pi-times-circle' : 'pi-question',
-              data.leilao_gamivo.id === 2 ? 'text-primary' :
-                data.leilao_gamivo.id === 3 ? 'text-danger' : ''
-            ]">
-            </i>
-          </template>
-          <template #editor="{ data, field }">
-            <Select v-model="data.leilao_gamivo.id" :options="props.tiposLeilao" @change="onEdit(data)"
-              optionLabel="name" optionValue="id" />
-          </template>
-        </Column>
-        <Column field="leilao_kinguin.name" header="Leilão Kinguin" class="text-center p-0">
-          <template #body="{ data }">
-            <i class="pi m-1 fw-bold" :class="[
-              data.leilao_kinguin.id === 1 ? 'pi-check-circle' :
-                data.leilao_kinguin.id === 2 ? 'pi-check-circle' :
-                  data.leilao_kinguin.id === 3 ? 'pi-times-circle' : 'pi-question',
-              data.leilao_kinguin.id === 2 ? 'text-primary' :
-                data.leilao_kinguin.id === 3 ? 'text-danger' : ''
-            ]">
-            </i>
-          </template>
-          <template #editor="{ data, field }">
-            <Select v-model="data.leilao_kinguin.id" :options="props.tiposLeilao" @change="onEdit(data)"
-              optionLabel="name" optionValue="id" />
-          </template>
-        </Column> -->
         <Column field="sell_platform" header="Plataforma" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
@@ -1056,60 +833,36 @@ const handleImportSubmit = async (): Promise<void> => {
               @change="onEdit(data)" />
           </template>
         </Column>
-        <Column field="precoCliente" header="Preço Cliente" sortable class="text-center p-0">
+        <Column field="market_price" header="Preço Cliente" sortable class="text-center p-0">
           <template #body="slotProps">
-            € {{ slotProps.data.precoCliente }}
+            € {{ slotProps.data.market_price }}
           </template>
           <template #editor="{ data, field }">
             <InputNumber v-model="data[field]" @update:modelValue="onEdit(data)" mode="decimal" :minFractionDigits="2"
               :maxFractionDigits="2" useGrouping autofocus fluid />
           </template>
         </Column>
-        <Column field="minimoParaVenda" header="Preço Min. Venda" sortable class="text-center p-0">
+        <Column field="minimum_sale_price" header="Preço Min. Venda" sortable class="text-center p-0">
           <template #body="slotProps">
-            <span v-if="slotProps.data.minimoParaVenda">€ {{ slotProps.data.minimoParaVenda }}</span>
+            <span v-if="slotProps.data.minimum_sale_price">€ {{ slotProps.data.minimum_sale_price }}</span>
           </template>
           <template #editor="{ data, field }">
             <InputNumber v-model="data[field]" @update:modelValue="onEdit(data)" mode="decimal" :minFractionDigits="2"
               :maxFractionDigits="2" useGrouping autofocus fluid />
           </template>
         </Column>
-        <!-- <Column field="precoVenda" header="Preço Venda" sortable class="text-center p-0">
-          <template #body="slotProps">
-            € {{ slotProps.data.precoVenda }}
-          </template>
-        </Column>
-        <Column field="incomeReal" header="Income Real" sortable class="text-center p-0">
-          <template #body="slotProps">
-            € {{ slotProps.data.incomeReal }}
-          </template>
-        </Column> -->
-        <!-- <Column field="incomeSimulado" header="Income Simulado" sortable class="text-center p-0">
-          <template #body="slotProps">
-            € {{ slotProps.data.incomeSimulado }}
-          </template>
-        </Column> -->
-        <!-- <Column field="chaveEntregue" header="Chave Entregue" filterField="searchField" :showFilterMenu="true"
+        <Column field="total_paid" header="Valor Pago Total" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
-            <InputText v-model="searchFilter.chaveEntregue" type="text" placeholder="Pesquisar" />
-          </template>
-          <template #editor="{ data, field }">
-            <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
-          </template>
-        </Column> -->
-        <Column field="valorPagoTotal" header="Valor Pago Total" filterField="searchField" :showFilterMenu="true"
-          :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
-          <template #filter>
-            <InputText v-model="searchFilter.valorPagoTotal" type="text" placeholder="Pesquisar" />
+            <InputText v-model="searchFilter.total_paid" type="text" placeholder="Pesquisar" />
           </template>
           <template #editor="{ data, field }">
             <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
           </template>
         </Column>
-        <Column field="valorPagoIndividual" header="Valor Pago Indiv." sortable class="text-center p-0">
+        <Column field="individual_cost" header="Valor Pago Indiv." sortable class="text-center p-0">
           <template #body="slotProps">
-            € {{ slotProps.data.valorPagoIndividual }}
+            € {{ slotProps.data.individual_cost }}
           </template>
         </Column>
         <Column field="minApiGamivo" header="Min. API Gamivo" sortable class="text-center p-0">
@@ -1130,174 +883,111 @@ const handleImportSubmit = async (): Promise<void> => {
               :maxFractionDigits="2" useGrouping autofocus fluid />
           </template>
         </Column>
-        <!-- <Column field="vendido" header="Vendido" filterField="searchField" :showFilterMenu="true"
-          :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
-          <template #filter>
-            <MultiSelect v-model="searchFilter.vendido" :options="[{ name: true }, { name: false }]"
-              placeholder="Pesquisar" optionLabel="name" optionValue="name" style="min-width: 14rem">
-            </MultiSelect>
-          </template>
-          <template #body="{ data }">
-            <i class="pi m-1 fw-bold" :class="[
-              data.vendido === true ? 'pi-check-circle' :
-                data.vendido === false ? 'pi-times-circle' : 'pi-question',
-              data.vendido === true ? 'text-primary' :
-                data.vendido === false ? 'text-danger' : ''
-            ]">
-            </i>
-          </template>
-          <template #editor="{ data, field }">
-            <Select v-model="data[field]" :options="[{ label: 'Sim', value: true }, { label: 'Não', value: false }]"
-              @change="onEdit(data)" optionLabel="label" optionValue="value" />
-          </template>
-        </Column> -->
-        <!-- <Column field="leiloes" header="Leilões" sortable class="text-center p-0">
-          <template #editor="{ data, field }">
-            <InputNumber v-model="data[field]" @update:modelValue="onEdit(data)" mode="decimal" :min="0" useGrouping
-              autofocus fluid />
-          </template>
-        </Column>
-        <Column field="quantidade" header="Quantidade" sortable class="text-center p-0">
-          <template #editor="{ data, field }">
-            <InputNumber v-model="data[field]" @update:modelValue="onEdit(data)" mode="decimal" :min="0" useGrouping
-              autofocus fluid />
-          </template>
-        </Column>
-        <Column field="devolucoes" header="Devoluções" filterField="searchField" :showFilterMenu="true"
-          :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
-          <template #filter>
-            <MultiSelect v-model="searchFilter.devolucoes" :options="[{ name: true }, { name: false }]"
-              placeholder="Pesquisar" optionLabel="name" optionValue="name" style="min-width: 14rem">
-            </MultiSelect>
-          </template>
-          <template #body="{ data }">
-            <i class="pi m-1 fw-bold" :class="[
-              data.devolucoes === true ? 'pi-check-circle' :
-                data.devolucoes === false ? 'pi-times-circle' : 'pi-question',
-              data.devolucoes === true ? 'text-primary' :
-                data.devolucoes === false ? 'text-danger' : ''
-            ]">
-            </i>
-          </template>
-          <template #editor="{ data, field }">
-            <Select v-model="data[field]" :options="[{ label: 'Sim', value: true }, { label: 'Não', value: false }]"
-              @change="onEdit(data)" optionLabel="label" optionValue="value" />
-          </template>
-        </Column> -->
-        <Column field="lucroRS" header="Lucro Compra(€)" sortable class="text-center p-0">
+        <Column field="purchase_profit" header="Lucro Compra(€)" sortable class="text-center p-0">
           <template #body="slotProps">
-            € {{ slotProps.data.lucroRS }}
+            € {{ slotProps.data.purchase_profit }}
           </template>
         </Column>
-        <Column field="lucroPercentual" header="Lucro Compra(%)" sortable class="text-center p-0">
+        <Column field="purchase_profit_percent" header="Lucro Compra(%)" sortable class="text-center p-0">
           <template #body="slotProps">
-            <div :style="getStyleByPercentual(slotProps.data, 'lucroPercentual')" style="width: 100%; height: 100%;">
-              {{ slotProps.data.lucroPercentual }}%
+            <div :style="getStyleByPercentual(slotProps.data, 'purchase_profit_percent')" style="width: 100%; height: 100%;">
+              {{ slotProps.data.purchase_profit_percent }}%
             </div>
           </template>
         </Column>
-        <Column field="valorVendido" header="Valor Vendido" sortable class="text-center p-0">
+        <Column field="sold_price" header="Valor Vendido" sortable class="text-center p-0">
           <template #body="slotProps">
-            <span v-if="slotProps.data.valorVendido">€ {{ slotProps.data.valorVendido }}</span>
+            <span v-if="slotProps.data.sold_price">€ {{ slotProps.data.sold_price }}</span>
           </template>
           <template #editor="{ data, field }">
             <InputNumber v-model="data[field]" @update:modelValue="onEdit(data)" mode="decimal" :minFractionDigits="2"
               :maxFractionDigits="2" useGrouping autofocus fluid />
           </template>
         </Column>
-        <Column field="lucroVendaRS" header="Lucro Venda(€)" sortable class="text-center p-0">
+        <Column field="sale_profit" header="Lucro Venda(€)" sortable class="text-center p-0">
           <template #body="slotProps">
-            <span v-if="slotProps.data.valorVendido">€ {{ slotProps.data.lucroVendaRS }}</span>
+            <span v-if="slotProps.data.sold_price">€ {{ slotProps.data.sale_profit }}</span>
           </template>
         </Column>
-        <Column field="lucroVendaPercentual" header="Lucro Venda(%)" sortable class="text-center p-0">
+        <Column field="sale_profit_percent" header="Lucro Venda(%)" sortable class="text-center p-0">
           <template #body="slotProps">
-            <div :style="getStyleByPercentual(slotProps.data, 'lucroVendaPercentual')"
+            <div :style="getStyleByPercentual(slotProps.data, 'sale_profit_percent')"
               style="width: 100%; height: 100%;">
-              {{ slotProps.data.lucroVendaPercentual }}%
+              {{ slotProps.data.sale_profit_percent }}%
             </div>
           </template>
         </Column>
-        <Column field="dataAdquirida" header="Data Adquirida" filterField="searchField" :showFilterMenu="true"
+        <Column field="acquired_at" header="Data Adquirida" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
-            <!-- <DatePicker v-model="searchFilter.dataAdquirida" dateFormat="dd/mm/yy" showIcon fluid :showOnFocus="false"
+            <!-- <DatePicker v-model="searchFilter.acquired_at" dateFormat="dd/mm/yy" showIcon fluid :showOnFocus="false"
               showButtonBar /> -->
           </template>
           <template #body="slotProps">
-            {{ formatDateToBR(slotProps.data.dataAdquirida) }}
+            {{ formatDateToBR(slotProps.data.acquired_at) }}
           </template>
           <template #editor="{ data, field }">
             <InputText class="flex-auto" v-model="data[field]" @change="onEdit(data)" />
           </template>
         </Column>
-        <Column field="dataVenda" header="Data posto a Venda" filterField="searchField" :showFilterMenu="true"
+        <Column field="listed_at" header="Data posto a Venda" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
-            <Select v-model="searchFilter.dataVenda" :options="[
+            <Select v-model="searchFilter.listed_at" :options="[
               { name: 'Sim', value: 'sim' },
               { name: 'Não', value: 'nao' }
             ]" placeholder="Já posto a venda?" optionLabel="name" optionValue="value" style="min-width: 14rem">
             </Select>
           </template>
           <template #body="slotProps">
-            {{ formatDateToBR(slotProps.data.dataVenda) }}
+            {{ formatDateToBR(slotProps.data.listed_at) }}
           </template>
           <template #editor="{ data, field }">
             <InputText class="flex-auto" v-model="data[field]" @change="onEdit(data)" />
           </template>
         </Column>
-        <Column field="dataVendida" header="Data Vendida" filterField="searchField" :showFilterMenu="true"
+        <Column field="sold_at" header="Data Vendida" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
-            <Select v-model="searchFilter.dataVendida" :options="[
+            <Select v-model="searchFilter.sold_at" :options="[
               { name: 'Sim', value: 'sim' },
               { name: 'Não', value: 'nao' }
             ]" placeholder="Já vendido?" optionLabel="name" optionValue="value" style="min-width: 14rem">
             </Select>
           </template>
           <template #body="slotProps">
-            {{ formatDateToBR(slotProps.data.dataVendida) }}
+            {{ formatDateToBR(slotProps.data.sold_at) }}
           </template>
           <template #editor="{ data, field }">
             <InputText class="flex-auto" v-model="data[field]" @change="onEdit(data)" />
           </template>
         </Column>
-        <Column field="dataExpiracao" header="Data Expiração" filterField="searchField" :showFilterMenu="true"
+        <Column field="expires_at" header="Data Expiração" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
-            <Select v-model="searchFilter.dataExpiracao" :options="[
+            <Select v-model="searchFilter.expires_at" :options="[
               { name: 'Sim', value: 'sim' },
               { name: 'Não', value: 'nao' }
             ]" placeholder="Expira?" optionLabel="name" optionValue="value" style="min-width: 14rem">
             </Select>
           </template>
           <template #body="slotProps">
-            {{ formatDateToBR(slotProps.data.dataExpiracao) }}
+            {{ formatDateToBR(slotProps.data.expires_at) }}
           </template>
           <template #editor="{ data, field }">
             <InputText class="flex-auto" v-model="data[field]" @change="onEdit(data)" />
           </template>
         </Column>
-        <Column field="perfilOrigem" header="Perfil/Origem" filterField="searchField" :showFilterMenu="true"
+        <Column field="supplier_url" header="Perfil/Origem" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0"
           v-if="user && user.email === 'carcadeals@gmail.com'">
           <template #filter>
-            <InputText v-model="searchFilter.perfilOrigem" type="text" placeholder="Pesquisar" />
+            <InputText v-model="searchFilter.supplier_url" type="text" placeholder="Pesquisar" />
           </template>
           <template #editor="{ data, field }">
             <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
           </template>
         </Column>
-        <!-- <Column field="email" header="Email" filterField="searchField" :showFilterMenu="true"
-          :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
-          <template #filter>
-            <InputText v-model="searchFilter.email" type="text" placeholder="Pesquisar" />
-          </template>
-          <template #editor="{ data, field }">
-            <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
-          </template>
-        </Column> -->
         <Column header="Ação">
           <template #body="slotProps">
             <div class="d-flex gap-1">

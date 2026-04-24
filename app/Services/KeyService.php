@@ -25,27 +25,27 @@ class KeyService
     {
         $games = Venda_chave_troca::select([
             'id',
-            'chaveRecebida',
-            'idGamivo',
-            'valorPagoIndividual',
+            'key_code',
+            'gamivo_id',
+            'individual_cost',
             'minApiGamivo',
             'maxApiGamivo',
-            'dataVenda',
+            'listed_at',
         ])
-            ->whereNull('dataVendida')
-            ->whereNotNull('idGamivo')
-            ->where('dataVenda', '<=', now()->subMonths(12))
+            ->whereNull('sold_at')
+            ->whereNotNull('gamivo_id')
+            ->where('listed_at', '<=', now()->subMonths(12))
             ->get();
 
         foreach ($games as $game) {
-            $actualPrice = $this->getActualPrice($game->idGamivo);
+            $actualPrice = $this->getActualPrice($game->gamivo_id);
 
             if (! $actualPrice['success']) {
                 continue;
             }
 
             $game->minApiGamivo = KeyPriceAging::calculateLimboPrice(
-                individualCost: (float) $game->valorPagoIndividual,
+                individualCost: (float) $game->individual_cost,
                 actualMarketPrice: (float) $actualPrice['price'],
             );
 
@@ -56,12 +56,12 @@ class KeyService
     /**
      * Get the actual price of the game on Gamivo
      *
-     * @param  string  $idGamivo
+     * @param  string  $gamivoId
      */
-    private function getActualPrice($idGamivo): array
+    private function getActualPrice($gamivoId): array
     {
         try {
-            $response = Http::get(config('services.carca_api_gamivo.base_url').'/api/products/'.$idGamivo);
+            $response = Http::get(config('services.carca_api_gamivo.base_url').'/api/products/'.$gamivoId);
             if ($response->successful()) {
                 $response = $response->json();
 

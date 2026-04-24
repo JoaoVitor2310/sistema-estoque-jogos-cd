@@ -19,22 +19,22 @@ class KeyAutoSellResource extends JsonResource
         $newestBundle = $this->game?->bundles->first();
 
         return [
-            'nomeJogo' => $this->nomeJogo,
+            'nomeJogo' => $this->game_name,
             'game_region' => $this->region,
             'bundle_type' => $newestBundle?->type,
             'bundle_launch_price' => $newestBundle?->pivot->bundle_launch_price,
             'game_popularity' => $this->game?->popularity,
             'bundle_release_date' => $newestBundle?->release_date,
-            'idGamivo' => $this->idGamivo,
-            'precoCliente' => $this->precoCliente,
-            'lucroPercentual' => $this->lucroPercentual,
-            'minimoParaVenda' => $this->minimoParaVenda,
-            'valorPagoIndividual' => $this->valorPagoIndividual,
-            'chaveRecebida' => $this->chaveRecebida,
-            'dataAdquirida' => $this->dataAdquirida,
-            'dataVenda' => $this->dataVenda,
-            'dataVendida' => $this->dataVendida,
-            'dataExpiracao' => $this->dataExpiracao,
+            'idGamivo' => $this->gamivo_id,
+            'precoCliente' => $this->market_price,
+            'lucroPercentual' => $this->purchase_profit_percent,
+            'minimoParaVenda' => $this->minimum_sale_price,
+            'valorPagoIndividual' => $this->individual_cost,
+            'chaveRecebida' => $this->key_code,
+            'dataAdquirida' => $this->acquired_at,
+            'dataVenda' => $this->listed_at,
+            'dataVendida' => $this->sold_at,
+            'dataExpiracao' => $this->expires_at,
             'game_release_date' => $this->game?->release_date,
         ];
     }

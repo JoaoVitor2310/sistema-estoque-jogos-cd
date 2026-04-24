@@ -28,20 +28,20 @@ class UpdateSoldOffersUseCase
             foreach ($game['keys'] as $keyCode) {
                 $key = $this->keyRepository->findByKeyCode($keyCode);
 
-                if (! $key || $key->valorVendido) {
+                if (! $key || $key->sold_price) {
                     continue;
                 }
 
                 $saleFormulas = $this->calculationService->calculateSaleFormulas(
                     (float) $game['profit'],
-                    (float) $key->valorPagoIndividual,
+                    (float) $key->individual_cost,
                 );
 
                 $updated = $key->update([
-                    'dataVendida' => $game['saleDate'],
-                    'valorVendido' => $game['profit'],
-                    'lucroVendaRS' => $saleFormulas['lucroVendaRS'],
-                    'lucroVendaPercentual' => $saleFormulas['lucroVendaPercentual'],
+                    'sold_at' => $game['saleDate'],
+                    'sold_price' => $game['profit'],
+                    'sale_profit' => $saleFormulas['sale_profit'],
+                    'sale_profit_percent' => $saleFormulas['sale_profit_percent'],
                 ]);
 
                 if (! $updated) {
