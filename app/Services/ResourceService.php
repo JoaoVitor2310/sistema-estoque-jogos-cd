@@ -12,39 +12,39 @@ class ResourceService
 
         switch ($data['currentCurrency']) {
             case 'BRL':
-                $base_price = $data['preco_real'];
+                $base_price = $data['price_brl'];
                 $euro_result = $currencyService->convertCurrency('BRL', 'EUR', $base_price);
                 if ($euro_result['success']) {
-                    $data['preco_euro'] = $euro_result['amount'];
+                    $data['price_euro'] = $euro_result['amount'];
                 }
 
                 $dolar_result = $currencyService->convertCurrency('BRL', 'USD', $base_price);
                 if ($dolar_result['success']) {
-                    $data['preco_dolar'] = $dolar_result['amount'];
+                    $data['price_dollar'] = $dolar_result['amount'];
                 }
                 break;
             case 'EUR':
-                $base_price = $data['preco_euro'];
+                $base_price = $data['price_euro'];
                 $real_result = $currencyService->convertCurrency('EUR', 'BRL', $base_price);
                 if ($real_result['success']) {
-                    $data['preco_real'] = $real_result['amount'];
+                    $data['price_brl'] = $real_result['amount'];
                 }
 
                 $dolar_result = $currencyService->convertCurrency('EUR', 'USD', $base_price);
                 if ($dolar_result['success']) {
-                    $data['preco_dolar'] = $dolar_result['amount'];
+                    $data['price_dollar'] = $dolar_result['amount'];
                 }
                 break;
             case 'USD':
-                $base_price = $data['preco_dolar'];
+                $base_price = $data['price_dollar'];
                 $real_result = $currencyService->convertCurrency('USD', 'BRL', $base_price);
                 if ($real_result['success']) {
-                    $data['preco_real'] = $real_result['amount'];
+                    $data['price_brl'] = $real_result['amount'];
                 }
 
                 $euro_result = $currencyService->convertCurrency('USD', 'EUR', $base_price);
                 if ($euro_result['success']) {
-                    $data['preco_euro'] = $euro_result['amount'];
+                    $data['price_euro'] = $euro_result['amount'];
                 }
                 break;
         }

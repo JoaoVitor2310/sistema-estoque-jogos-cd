@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\Venda_chave_troca;
+use App\Models\Key;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -18,13 +18,13 @@ class VipService
 
     public function runVipLists(): void
     {
-        $games = Venda_chave_troca::select([
+        $games = Key::select([
             'id',
             'key_code',
             'gamivo_id',
             'individual_cost',
-            'minApiGamivo',
-            'maxApiGamivo',
+            'min_api',
+            'max_api',
             'listed_at',
         ])
             ->whereNull('sold_at')
@@ -47,10 +47,10 @@ class VipService
 
             if ($actualPrice['price'] < $game->individual_cost) {
                 // Se o preco atual < individual_cost, minApi = 0,02
-                $game->minApiGamivo = 0.02;
+                $game->min_api = 0.02;
             } else {
                 // Se não, minApi = preco atual * 0,10
-                $game->minApiGamivo = $actualPrice['price'] * 0.10;
+                $game->min_api = $actualPrice['price'] * 0.10;
             }
 
             $game->save();

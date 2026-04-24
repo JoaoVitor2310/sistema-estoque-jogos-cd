@@ -23,18 +23,18 @@ use Illuminate\Support\Facades\DB;
 
 function seedSoldOffersFks(): void
 {
-    DB::table('taxas')->insert([
+    DB::table('fees')->insert([
         ['name' => 'gamivoPercentualMenor', 'preco' => 0.072, 'created_at' => now(), 'updated_at' => now()],
         ['name' => 'gamivoFixoMenor',       'preco' => 0.110, 'created_at' => now(), 'updated_at' => now()],
         ['name' => 'gamivoPercentualMaior', 'preco' => 0.102, 'created_at' => now(), 'updated_at' => now()],
         ['name' => 'gamivoFixoMaior',       'preco' => 0.550, 'created_at' => now(), 'updated_at' => now()],
     ]);
 
-    DB::table('recursos')->insert([
-        ['name' => 'TF2', 'preco_euro' => 2.0, 'preco_dolar' => 2.2, 'preco_real' => 10.0, 'created_at' => now(), 'updated_at' => now()],
+    DB::table('assets')->insert([
+        ['name' => 'TF2', 'price_euro' => 2.0, 'price_dollar' => 2.2, 'price_brl' => 10.0, 'created_at' => now(), 'updated_at' => now()],
     ]);
 
-    DB::table('fornecedor')->insert(['id' => 1, 'supplier_url' => 'https://steamcommunity.com/id/seed']);
+    DB::table('suppliers')->insert(['id' => 1, 'supplier_url' => 'https://steamcommunity.com/id/seed']);
 }
 
 /**
@@ -42,7 +42,7 @@ function seedSoldOffersFks(): void
  */
 function insertUnsoldKey(string $keyCode, float $individualCost = 2.00): void
 {
-    DB::table('venda_chave_trocas')->insert([
+    DB::table('keys')->insert([
         'game_name' => 'Test Game',
         'gamivo_id' => 'gam-'.uniqid(),
         'key_code' => $keyCode,
@@ -50,7 +50,7 @@ function insertUnsoldKey(string $keyCode, float $individualCost = 2.00): void
         'individual_cost' => $individualCost,
         'purchase_profit_percent' => 25.00,
         'supplier_url' => 'https://steamcommunity.com/id/test',
-        'id_fornecedor' => 1,
+        'supplier_id' => 1,
         'claim_type' => 'Nenhuma',
         'key_format' => 'RK',
         'sell_platform' => 'Gamivo',
@@ -80,7 +80,7 @@ describe('UpdateSoldOffersUseCase', function () {
             ['keys' => ['SOLD-KEY-001'], 'profit' => 5.00, 'saleDate' => '2024-06-01'],
         ]);
 
-        $row = DB::table('venda_chave_trocas')->where('key_code', 'SOLD-KEY-001')->first();
+        $row = DB::table('keys')->where('key_code', 'SOLD-KEY-001')->first();
 
         expect($row->sold_at)->toBe('2024-06-01')
             ->and((float) $row->sold_price)->toBe(5.00);
@@ -94,7 +94,7 @@ describe('UpdateSoldOffersUseCase', function () {
             ['keys' => ['PROFIT-KEY-001'], 'profit' => 5.00, 'saleDate' => '2024-06-01'],
         ]);
 
-        $row = DB::table('venda_chave_trocas')->where('key_code', 'PROFIT-KEY-001')->first();
+        $row = DB::table('keys')->where('key_code', 'PROFIT-KEY-001')->first();
 
         expect((float) $row->sale_profit)->toEqualWithDelta(3.00, 0.001);
     });
@@ -107,7 +107,7 @@ describe('UpdateSoldOffersUseCase', function () {
             ['keys' => ['PROFIT-KEY-002'], 'profit' => 5.00, 'saleDate' => '2024-06-01'],
         ]);
 
-        $row = DB::table('venda_chave_trocas')->where('key_code', 'PROFIT-KEY-002')->first();
+        $row = DB::table('keys')->where('key_code', 'PROFIT-KEY-002')->first();
 
         expect((float) $row->sale_profit_percent)->toEqualWithDelta(150.0, 0.01);
     });
@@ -119,7 +119,7 @@ describe('UpdateSoldOffersUseCase', function () {
             ['keys' => ['ZERO-KEY-001'], 'profit' => 3.00, 'saleDate' => '2024-06-01'],
         ]);
 
-        $row = DB::table('venda_chave_trocas')->where('key_code', 'ZERO-KEY-001')->first();
+        $row = DB::table('keys')->where('key_code', 'ZERO-KEY-001')->first();
 
         expect((float) $row->sale_profit)->toEqualWithDelta(0.0, 0.001);
     });
@@ -133,7 +133,7 @@ describe('UpdateSoldOffersUseCase', function () {
             ['keys' => ['LOSS-KEY-001'], 'profit' => 1.00, 'saleDate' => '2024-06-01'],
         ]);
 
-        $row = DB::table('venda_chave_trocas')->where('key_code', 'LOSS-KEY-001')->first();
+        $row = DB::table('keys')->where('key_code', 'LOSS-KEY-001')->first();
 
         expect((float) $row->sale_profit)->toEqualWithDelta(-2.00, 0.001);
     });
@@ -158,7 +158,7 @@ describe('UpdateSoldOffersUseCase', function () {
             ['keys' => ['MULTI-KEY-001', 'MULTI-KEY-002'], 'profit' => 5.00, 'saleDate' => '2024-06-01'],
         ]);
 
-        $updated = DB::table('venda_chave_trocas')
+        $updated = DB::table('keys')
             ->whereIn('key_code', ['MULTI-KEY-001', 'MULTI-KEY-002'])
             ->whereNotNull('sold_at')
             ->count();
@@ -175,7 +175,7 @@ describe('UpdateSoldOffersUseCase', function () {
             ['keys' => ['GAME-B-KEY-001'], 'profit' => 8.00, 'saleDate' => '2024-06-01'],
         ]);
 
-        $soldCount = DB::table('venda_chave_trocas')
+        $soldCount = DB::table('keys')
             ->whereIn('key_code', ['GAME-A-KEY-001', 'GAME-B-KEY-001'])
             ->whereNotNull('sold_at')
             ->count();
@@ -196,14 +196,14 @@ describe('UpdateSoldOffersUseCase', function () {
 
     it('does not overwrite a key that was already sold', function () {
         // Key já possui sold_price = 3.00 (venda anterior)
-        DB::table('venda_chave_trocas')->insert([
+        DB::table('keys')->insert([
             'game_name' => 'Already Sold Game',
             'key_code' => 'ALREADY-SOLD-001',
             'market_price' => 5.00,
             'individual_cost' => 2.00,
             'purchase_profit_percent' => 25.00,
             'supplier_url' => 'https://steamcommunity.com/id/test',
-            'id_fornecedor' => 1,
+            'supplier_id' => 1,
             'claim_type' => 'Nenhuma',
             'key_format' => 'RK',
             'sell_platform' => 'Gamivo',
@@ -218,7 +218,7 @@ describe('UpdateSoldOffersUseCase', function () {
             ['keys' => ['ALREADY-SOLD-001'], 'profit' => 99.00, 'saleDate' => '2024-06-01'],
         ]);
 
-        $row = DB::table('venda_chave_trocas')->where('key_code', 'ALREADY-SOLD-001')->first();
+        $row = DB::table('keys')->where('key_code', 'ALREADY-SOLD-001')->first();
 
         // sold_price deve permanecer 3.00 — não sobreescrito
         expect((float) $row->sold_price)->toBe(3.00);

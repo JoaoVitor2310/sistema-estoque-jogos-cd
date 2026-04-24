@@ -3,7 +3,7 @@
 namespace App\UseCases\Keys;
 
 use App\Domain\Platform\PlatformIdentifier;
-use App\Models\Venda_chave_troca;
+use App\Models\Key;
 use App\Services\Games\GameService;
 use App\Services\Keys\KeyCalculationService;
 use App\Services\Keys\KeyRepository;
@@ -32,13 +32,13 @@ class UpdateKeyUseCase
      *
      * @param  string  $id  ID da key a ser atualizada
      * @param  array<string, mixed>  $validated  Dados validados do Form Request
-     * @return Venda_chave_troca Model atualizado com relacionamentos
+     * @return Key Model atualizado com relacionamentos
      *
      * @throws \Illuminate\Database\Eloquent\ModelNotFoundException
      */
-    public function execute(string $id, array $validated): Venda_chave_troca
+    public function execute(string $id, array $validated): Key
     {
-        $existing = Venda_chave_troca::findOrFail($id);
+        $existing = Key::findOrFail($id);
 
         // Custo individual vem do banco — não pode ser alterado no update
         $validated['individual_cost'] = $existing->individual_cost;
@@ -58,7 +58,7 @@ class UpdateKeyUseCase
 
         // Plataforma e fornecedor
         $data['identified_platform'] = PlatformIdentifier::identify($data['key_code']);
-        $data['id_fornecedor'] = $this->supplierService->findOrCreate($data['supplier_url']);
+        $data['supplier_id'] = $this->supplierService->findOrCreate($data['supplier_url']);
 
         // Verifica duplicidade excluindo o próprio registro
         $data['is_duplicate'] = $this->keyRepository->findByKeyCode($data['key_code'], (int) $id) !== null;
@@ -86,6 +86,6 @@ class UpdateKeyUseCase
 
         $existing->update($data);
 
-        return $existing->load(['fornecedor']);
+        return $existing->load(['supplier']);
     }
 }

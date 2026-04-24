@@ -3,11 +3,11 @@
 namespace App\Services\Keys;
 
 use App\Domain\Keys\KeyEligibility;
-use App\Models\Venda_chave_troca;
+use App\Models\Key;
 use Illuminate\Database\Eloquent\Collection;
 
 /**
- * Queries complexas sobre venda_chave_trocas.
+ * Queries complexas sobre a tabela keys.
  * Infraestrutura pura — sem lógica de negócio.
  */
 class KeyRepository
@@ -16,9 +16,9 @@ class KeyRepository
      * Busca uma key pelo código de ativação.
      * Quando $excludeId é fornecido, ignora o próprio registro (útil no update).
      */
-    public function findByKeyCode(string $keyCode, ?int $excludeId = null): ?Venda_chave_troca
+    public function findByKeyCode(string $keyCode, ?int $excludeId = null): ?Key
     {
-        return Venda_chave_troca::where('key_code', $keyCode)
+        return Key::where('key_code', $keyCode)
             ->when($excludeId, fn ($q) => $q->where('id', '!=', $excludeId))
             ->first();
     }
@@ -26,7 +26,7 @@ class KeyRepository
     /**
      * Retorna keys elegíveis para listagem automática no Gamivo.
      *
-     * Regras aplicadas via local scopes (ver Venda_chave_troca):
+     * Regras aplicadas via local scopes (ver Key):
      *  - registeredOnGamivo: gamivo_id preenchido
      *  - notYetListed: listed_at e sold_at nulas
      *  - notGiftLink: key_code sem URL
@@ -35,11 +35,11 @@ class KeyRepository
      * Eager loading traz o jogo e seus bundles ordenados por release_date desc,
      * permitindo que o UseCase selecione o bundle mais recente (um por key).
      *
-     * @return Collection<int, Venda_chave_troca>
+     * @return Collection<int, Key>
      */
     public function findEligibleForAutoSell(): Collection
     {
-        return Venda_chave_troca::query()
+        return Key::query()
             ->registeredOnGamivo()
             ->notYetListed()
             ->notGiftLink()

@@ -28,7 +28,7 @@ class GameRequestArray extends FormRequest
             'games.*.name' => 'required',
             'games.*.region' => ['string', 'nullable'],
             'games.*.id_gamivo' => ['string', 'nullable'],
-            'games.*.id_steamcharts' => ['string', 'nullable'],
+            'games.*.steamcharts_id' => ['string', 'nullable'],
             'games.*.popularity' => ['integer', 'nullable'],
             'games.*.price_tf2' => ['decimal:0,2', 'nullable'],
             'games.*.price_euro' => ['decimal:0,2', 'nullable'],

@@ -89,31 +89,31 @@ describe('Protected routes', function () {
         });
     });
 
-    // ── venda-chave-troca routes ───────────────────────────────────────────────
+    // ── keys routes ───────────────────────────────────────────────
 
-    describe('GET /venda-chave-troca/paginated', function () {
+    describe('GET /keys/paginated', function () {
 
         it('returns 403 for unauthenticated requests', function () {
-            $this->getJson('/venda-chave-troca/paginated')->assertStatus(403);
+            $this->getJson('/keys/paginated')->assertStatus(403);
         });
 
         it('returns 200 for authorized users', function () {
             $user = makeAuthorizedUser();
 
-            $this->actingAs($user)->getJson('/venda-chave-troca/paginated')->assertStatus(200);
+            $this->actingAs($user)->getJson('/keys/paginated')->assertStatus(200);
         });
     });
 
-    describe('POST /venda-chave-troca/search', function () {
+    describe('POST /keys/search', function () {
 
         it('returns 403 for unauthenticated requests', function () {
-            $this->postJson('/venda-chave-troca/search')->assertStatus(403);
+            $this->postJson('/keys/search')->assertStatus(403);
         });
 
         it('returns 200 for authorized users', function () {
             $user = makeAuthorizedUser();
 
-            $this->actingAs($user)->postJson('/venda-chave-troca/search', ['search' => ''])->assertStatus(200);
+            $this->actingAs($user)->postJson('/keys/search', ['search' => ''])->assertStatus(200);
         });
     });
 });

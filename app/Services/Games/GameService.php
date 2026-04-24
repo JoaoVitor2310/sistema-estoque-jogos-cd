@@ -4,7 +4,7 @@ namespace App\Services\Games;
 
 use App\Domain\Keys\KeyPriceAging;
 use App\Models\Game;
-use App\Models\Venda_chave_troca;
+use App\Models\Key;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Mail;
  * Infraestrutura para operações sobre jogos.
  *
  * Responsabilidades:
- *  - Lookup de gamivo_id (em venda_chave_trocas e games)
+ *  - Lookup de gamivo_id (em keys e games)
  *  - Preenchimento de id_gamivo na tabela games
  *  - Criação de jogo na tabela games (quando não existe)
  *  - Busca de IDs no Steamcharts via price_researcher
@@ -28,7 +28,7 @@ class GameService
      */
     public function getIdGamivo(string $gameName, ?string $region): string|false
     {
-        $key = Venda_chave_troca::select('gamivo_id')
+        $key = Key::select('gamivo_id')
             ->whereRaw('LOWER("game_name") = LOWER(?)', [$gameName])
             ->where('region', $region)
             ->whereNotNull('gamivo_id')
@@ -89,7 +89,7 @@ class GameService
      */
     public function searchGamesIdSteam(): void
     {
-        $games = Game::whereNull('id_steamcharts')
+        $games = Game::whereNull('steamcharts_id')
             ->select('id', 'name')
             ->get()
             ->map(fn ($game) => ['id' => $game->id, 'name' => $game->name])
@@ -116,7 +116,7 @@ class GameService
             if (! isset($foundGame['id_steam'])) {
                 continue;
             }
-            Game::where('id', $foundGame['id'])->update(['id_steamcharts' => $foundGame['id_steam']]);
+            Game::where('id', $foundGame['id'])->update(['steamcharts_id' => $foundGame['id_steam']]);
         }
 
         Log::info('Id Steam dos jogos atualizados com sucesso: '.count($data['data']['games']));
@@ -129,7 +129,7 @@ class GameService
      */
     public function updateMinPrices(): void
     {
-        $keys = Venda_chave_troca::select('id', 'game_name', 'region', 'individual_cost', 'minApiGamivo', 'maxApiGamivo', 'listed_at', 'sold_at')
+        $keys = Key::select('id', 'game_name', 'region', 'individual_cost', 'min_api', 'max_api', 'listed_at', 'sold_at')
             ->whereNotNull('listed_at')
             ->whereNull('sold_at')
             ->limit(10)
@@ -143,7 +143,7 @@ class GameService
                 continue; // Ainda não atingiu nenhum tier — sem alteração
             }
 
-            $key->minApiGamivo = $newMinPrice;
+            $key->min_api = $newMinPrice;
             $key->save();
         }
     }

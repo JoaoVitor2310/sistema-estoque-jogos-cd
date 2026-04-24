@@ -69,22 +69,21 @@ const selectedNewObject = {
   color: '',
   claim_type: 'Nenhuma',
   dont_sell: false,
-  steamId: '',
+  steam_id: '',
   gamivo_id: '',
   key_format: 'RK',
   key_code: '',
   is_duplicate: false,
   game_name: '',
   region: '',
-  precoJogo: null,
-  observacao: '',
+  notes: '',
   sell_platform: 'Gamivo',
   market_price: null,
   minimum_sale_price: null,
   total_paid: '',
   individual_cost: null,
-  minApiGamivo: null,
-  maxApiGamivo: null,
+  min_api: null,
+  max_api: null,
   sold_price: null,
   sale_profit: null,
   sale_profit_percent: null,
@@ -176,7 +175,7 @@ const onEdit = async (selected: any) => {
     console.log(selected);
   }
   try {
-    const res = await axiosInstance.put(`/venda-chave-troca/${product.id}`, product);
+    const res = await axiosInstance.put(`/keys/${product.id}`, product);
     // console.log(res.data);
     showResponse(res, toast.add);
 
@@ -246,7 +245,7 @@ const onAdd = async (): Promise<void> => { // Faz a req pra api add o elemento
 
   try {
     // console.log(selected)
-    const res = await axiosInstance.post(`/venda-chave-troca`, { games: selected });
+    const res = await axiosInstance.post(`/keys`, { games: selected });
     // console.log(res.data.data);
     showResponse(res, toast.add);
     if (res.status === 200 || res.status === 201) {
@@ -281,7 +280,7 @@ const handleDeleteButton = (event: any, qtd: number) => {
     accept: async () => {
       if (qtd === 1) {
         try {
-          const res = await axiosInstance.delete(`/venda-chave-troca/${selected[0].id}`);
+          const res = await axiosInstance.delete(`/keys/${selected[0].id}`);
           showResponse(res, toast.add);
           if (res.status === 200 || res.status === 201) {
             const itemToDelete = rowData.findIndex(item => item.id === selected[0].id);
@@ -300,7 +299,7 @@ const handleDeleteButton = (event: any, qtd: number) => {
         }
       } else {
         try {
-          const res = await axiosInstance.delete(`/venda-chave-troca`, {
+          const res = await axiosInstance.delete(`/keys`, {
             params: {
               games: selectedProduct.value
             }
@@ -332,7 +331,7 @@ const isSearching = ref(false);
 
 const searchFilter = reactive({
   claim_type: [],
-  steamId: '',
+  steam_id: '',
   key_format: [],
   dont_sell: false,
   key_code: '',
@@ -341,7 +340,7 @@ const searchFilter = reactive({
   region: '',
   gamivo_id: '',
   hasIdGamivo: '',
-  observacao: '',
+  notes: '',
   sell_platform: [],
   total_paid: '',
   acquired_at: '',
@@ -363,11 +362,11 @@ const onPageChange = async (search: boolean, event: PageState | null = null) => 
   const limit = event ? event.rows : 100;
   const page = event ? event.page + 1 : 1; // Paginator começa em 0. 1 como página padrão
 
-  let url = `/venda-chave-troca/paginated?limit=${limit}&page=${page}`;
+  let url = `/keys/paginated?limit=${limit}&page=${page}`;
   let method = 'GET';
 
   if (isSearching.value) {
-    url = `/venda-chave-troca/search?page=${page}`;
+    url = `/keys/search?page=${page}`;
     method = 'POST';
   }
 
@@ -461,7 +460,7 @@ const handleImportButton = (): void => {
 };
 
 const downloadExampleFile = (): void => {
-  window.location.href = '/venda-chave-troca/download-example_keys';
+  window.location.href = '/keys/download-example_keys';
 };
 
 const handleFileSelect = (event: Event): void => {
@@ -498,7 +497,7 @@ const handleImportSubmit = async (): Promise<void> => {
   formData.append('file', selectedFile.value);
 
   try {
-    const res = await axiosInstance.post('/venda-chave-troca/import', formData, {
+    const res = await axiosInstance.post('/keys/import', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -584,7 +583,7 @@ const handleImportSubmit = async (): Promise<void> => {
         <div class="d-flex flex-column">
           <label class="fw-bold">Observação</label>
           <div class="d-flex gap-5 mb-3">
-            <InputText class="flex-auto" v-model="item.observacao" />
+            <InputText class="flex-auto" v-model="item.notes" />
           </div>
         </div>
         <div class="d-flex flex-column">
@@ -812,10 +811,10 @@ const handleImportSubmit = async (): Promise<void> => {
             <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
           </template>
         </Column>
-        <Column field="observacao" header="Observação" filterField="searchField" :showFilterMenu="true"
+        <Column field="notes" header="Observação" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
-            <InputText v-model="searchFilter.observacao" type="text" placeholder="Pesquisar" />
+            <InputText v-model="searchFilter.notes" type="text" placeholder="Pesquisar" />
           </template>
           <template #editor="{ data, field }">
             <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
@@ -865,18 +864,18 @@ const handleImportSubmit = async (): Promise<void> => {
             € {{ slotProps.data.individual_cost }}
           </template>
         </Column>
-        <Column field="minApiGamivo" header="Min. API Gamivo" sortable class="text-center p-0">
+        <Column field="min_api" header="Min. API Gamivo" sortable class="text-center p-0">
           <template #body="slotProps">
-            € {{ slotProps.data.minApiGamivo }}
+            € {{ slotProps.data.min_api }}
           </template>
           <template #editor="{ data, field }">
             <InputNumber v-model="data[field]" @update:modelValue="onEdit(data)" mode="decimal" :minFractionDigits="2"
               :maxFractionDigits="2" useGrouping autofocus fluid />
           </template>
         </Column>
-        <Column field="maxApiGamivo" header="Max. API Gamivo" sortable class="text-center p-0">
+        <Column field="max_api" header="Max. API Gamivo" sortable class="text-center p-0">
           <template #body="slotProps">
-            € {{ slotProps.data.maxApiGamivo }}
+            € {{ slotProps.data.max_api }}
           </template>
           <template #editor="{ data, field }">
             <InputNumber v-model="data[field]" @update:modelValue="onEdit(data)" mode="decimal" :minFractionDigits="2"

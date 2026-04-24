@@ -6,7 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * Representação completa de uma Venda_chave_troca para endpoints de CRUD.
+ * Representação completa de uma Key para endpoints de CRUD.
  */
 class KeyResource extends JsonResource
 {
@@ -20,10 +20,10 @@ class KeyResource extends JsonResource
             'key_code' => $this->key_code,
             'identified_platform' => $this->identified_platform,
             'gamivo_id' => $this->gamivo_id,
-            'steamId' => $this->steamId,
+            'steam_id' => $this->steam_id,
             'is_duplicate' => $this->is_duplicate,
             'color' => $this->color,
-            'observacao' => $this->observacao,
+            'notes' => $this->notes,
             'email' => $this->email,
 
             // Formato, reclamação e plataforma de venda (enums como string)
@@ -40,8 +40,8 @@ class KeyResource extends JsonResource
             'purchase_profit' => $this->purchase_profit,
             'purchase_profit_percent' => $this->purchase_profit_percent,
             'minimum_sale_price' => $this->minimum_sale_price,
-            'minApiGamivo' => $this->minApiGamivo,
-            'maxApiGamivo' => $this->maxApiGamivo,
+            'min_api' => $this->min_api,
+            'max_api' => $this->max_api,
             'sold_price' => $this->sold_price,
             'sale_profit' => $this->sale_profit,
             'sale_profit_percent' => $this->sale_profit_percent,
@@ -56,7 +56,7 @@ class KeyResource extends JsonResource
             'expires_at' => $this->expires_at,
 
             // Relações
-            'fornecedor' => $this->whenLoaded('fornecedor'),
+            'supplier' => $this->whenLoaded('supplier'),
         ];
     }
 }

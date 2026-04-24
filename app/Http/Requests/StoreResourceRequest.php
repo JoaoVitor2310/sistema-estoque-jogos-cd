@@ -25,9 +25,9 @@ class StoreResourceRequest extends FormRequest
     {
         return [
             'name' => 'string',
-            'preco_euro' => ['required', 'decimal:0,3'],
-            'preco_dolar' => ['required', 'decimal:0,3'],
-            'preco_real' => ['required', 'decimal:0,3'],
+            'price_euro' => ['required', 'decimal:0,3'],
+            'price_dollar' => ['required', 'decimal:0,3'],
+            'price_brl' => ['required', 'decimal:0,3'],
             'currentCurrency' => ['required', 'string', 'in:EUR,USD,BRL'],
         ];
     }

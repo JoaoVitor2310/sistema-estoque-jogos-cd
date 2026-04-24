@@ -3,14 +3,14 @@
 namespace App\UseCases\Keys;
 
 use App\Domain\Pricing\MinMaxPriceCalculator;
-use App\Models\Venda_chave_troca;
+use App\Models\Key;
 
 /**
  * Registra uma key como "posta à venda" no Gamivo.
  *
  * Regras de negócio:
  * - Só atualiza se a key ainda não estiver listada (listed_at IS NULL).
- * - Opcionalmente reseta minApiGamivo para o piso global de preços
+ * - Opcionalmente reseta min_api para o piso global de preços
  *   (MinMaxPriceCalculator::FLOOR) para ganhar visibilidade imediata na plataforma.
  */
 class ListKeyForSaleUseCase
@@ -18,15 +18,15 @@ class ListKeyForSaleUseCase
     /**
      * @return array{success: bool, message: string}
      */
-    public function execute(string $keyCode, bool $resetMinApiGamivo = true): array
+    public function execute(string $keyCode, bool $resetMinApi = true): array
     {
         $data = ['listed_at' => now()->toDateString()];
 
-        if ($resetMinApiGamivo) {
-            $data['minApiGamivo'] = MinMaxPriceCalculator::FLOOR;
+        if ($resetMinApi) {
+            $data['min_api'] = MinMaxPriceCalculator::FLOOR;
         }
 
-        $updated = Venda_chave_troca::where('key_code', $keyCode)
+        $updated = Key::where('key_code', $keyCode)
             ->whereNull('listed_at')
             ->update($data);
 

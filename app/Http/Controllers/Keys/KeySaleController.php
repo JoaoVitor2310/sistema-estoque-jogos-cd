@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\KeyAutoSellResource;
 use App\Http\Resources\KeyGamivoMinMaxResource;
 use App\Http\Resources\KeyWhenToSellResource;
-use App\Models\Venda_chave_troca;
+use App\Models\Key;
 use App\Traits\HttpResponses;
 use App\UseCases\Keys\AutoSellUseCase;
 use App\UseCases\Keys\ListKeyForSaleUseCase;
@@ -50,7 +50,7 @@ class KeySaleController extends Controller
      */
     public function whenToSell(Request $request)
     {
-        $keys = Venda_chave_troca::select([
+        $keys = Key::select([
             'gamivo_id', 'minimum_sale_price', 'individual_cost',
             'key_code', 'game_name', 'region',
             'acquired_at', 'listed_at', 'sold_at', 'expires_at',
@@ -83,7 +83,7 @@ class KeySaleController extends Controller
      */
     public function searchByIdGamivo(Request $request, string $idGamivo)
     {
-        $keys = Venda_chave_troca::select(['minApiGamivo', 'maxApiGamivo'])
+        $keys = Key::select(['min_api', 'max_api'])
             ->where('gamivo_id', $idGamivo)
             ->whereNull('sold_at')
             ->whereNotNull('listed_at')
@@ -94,7 +94,7 @@ class KeySaleController extends Controller
 
     /**
      * Registra a data em que a key foi colocada à venda (listed_at = hoje).
-     * Opcionalmente reseta minApiGamivo para o piso de listagem pública do Gamivo.
+     * Opcionalmente reseta min_api para o piso de listagem pública do Gamivo.
      */
     public function insertDataVenda(Request $request)
     {

@@ -6,7 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * Transforma uma Venda_chave_troca com game.bundles eager-loaded
+ * Transforma uma Key com game.bundles eager-loaded
  * no formato achatado esperado pelo client para o autoSell.
  *
  * Bundles devem vir ordenados por release_date desc (ver KeyRepository),

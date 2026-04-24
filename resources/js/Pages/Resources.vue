@@ -47,17 +47,17 @@ const isEdit = ref(false); // Variável que define se é para criar ou editar no
 const selected = reactive({
   id: 0,
   name: '',
-  preco_euro: 0,
-  preco_dolar: 0,
-  preco_real: 0,
+  price_euro: 0,
+  price_dollar: 0,
+  price_brl: 0,
 })
 
 const onEdit = async (product: Resource, currentCurrency: string | null = null) => {
   isEdit.value = true;
   const res = await axiosInstance.put(`/resources/${product.id}`, {
-    preco_euro: product.preco_euro,
-    preco_dolar: product.preco_dolar,
-    preco_real: product.preco_real,
+    price_euro: product.price_euro,
+    price_dollar: product.price_dollar,
+    price_brl: product.price_brl,
     currentCurrency: currentCurrency
   });
   showResponse(res, toast.add);
@@ -76,9 +76,9 @@ const handleAddButton = async (): Promise<void> => { // Mostra o dialog com o el
   Object.assign(selected, { // Zera o valor de selected para criar um novo
     id: 0,
     name: '',
-    preco_euro: null,
-    preco_dolar: null,
-    preco_real: null,
+    price_euro: null,
+    price_dollar: null,
+    price_brl: null,
   });
   DialogVisible.value = true;
 }
@@ -87,9 +87,9 @@ const onAdd = async (newResource: Resource): Promise<void> => { // Faz a req pra
   try {
     const res = await axiosInstance.post(`/resources`, {
       name: newResource.name,
-      preco_euro: newResource.preco_euro,
-      preco_dolar: newResource.preco_dolar,
-      preco_real: newResource.preco_real,
+      price_euro: newResource.price_euro,
+      price_dollar: newResource.price_dollar,
+      price_brl: newResource.price_brl,
     });
     showResponse(res, toast.add);
     DialogVisible.value = false;
@@ -158,17 +158,17 @@ const handleDeleteButton = (event: any, qtd: number) => {
     </div>
     <div class="d-flex items-center gap-2 mb-8">
       <label class="fw-semibold w-24">Preço(euro)</label>
-      <InputNumber id="preco" class="flex-auto" v-model="selected.preco_euro" mode="decimal" :minFractionDigits="3"
+      <InputNumber id="preco" class="flex-auto" v-model="selected.price_euro" mode="decimal" :minFractionDigits="3"
         :maxFractionDigits="3" useGrouping />
     </div>
     <div class="d-flex items-center gap-1 mb-8">
       <label class="fw-semibold w-24">Preço(dólar)</label>
-      <InputNumber id="preco" class="flex-auto" v-model="selected.preco_dolar" mode="decimal" :minFractionDigits="3"
+      <InputNumber id="preco" class="flex-auto" v-model="selected.price_dollar" mode="decimal" :minFractionDigits="3"
         :maxFractionDigits="3" useGrouping />
     </div>
     <div class="d-flex items-center gap-3 mb-8">
       <label class="fw-semibold w-24">Preço(real)</label>
-      <InputNumber id="preco" class="flex-auto" v-model="selected.preco_real" mode="decimal" :minFractionDigits="3"
+      <InputNumber id="preco" class="flex-auto" v-model="selected.price_brl" mode="decimal" :minFractionDigits="3"
         :maxFractionDigits="3" useGrouping />
     </div>
     <div class="d-flex justify-content-end gap-2">
@@ -207,19 +207,19 @@ const handleDeleteButton = (event: any, qtd: number) => {
       <Column field="id" header="ID" sortable></Column>
       <Column field="name" header="Nome" sortable>
       </Column>
-      <Column field="preco_euro" header="Preço(euro)" sortable>
+      <Column field="price_euro" header="Preço(euro)" sortable>
         <template #editor="{ data, field }">
           <InputNumber v-model="data[field]" @blur="onEdit(data, 'EUR')" mode="decimal" :minFractionDigits="3"
             :maxFractionDigits="3" useGrouping autofocus fluid />
         </template>
       </Column>
-      <Column field="preco_dolar" header="Preço(dólar)" sortable>
+      <Column field="price_dollar" header="Preço(dólar)" sortable>
         <template #editor="{ data, field }">
           <InputNumber v-model="data[field]" @blur="onEdit(data, 'USD')" mode="decimal" :minFractionDigits="3"
             :maxFractionDigits="3" useGrouping autofocus fluid />
         </template>
       </Column>
-      <Column field="preco_real" header="Preço(real)" sortable>
+      <Column field="price_brl" header="Preço(real)" sortable>
         <template #editor="{ data, field }">
           <InputNumber v-model="data[field]" @blur="onEdit(data, 'BRL')" mode="decimal" :minFractionDigits="3"
             :maxFractionDigits="3" useGrouping autofocus fluid />

@@ -7,8 +7,8 @@ use App\Http\Controllers\GameController;
 use App\Http\Controllers\Keys\KeyController;
 use App\Http\Controllers\Keys\KeyImportController;
 use App\Http\Controllers\Keys\KeySaleController;
-use App\Http\Controllers\ResourceController;
-use App\Http\Controllers\TaxaController;
+use App\Http\Controllers\AssetController;
+use App\Http\Controllers\FeeController;
 use App\Http\Controllers\VipController;
 use App\Http\Middleware\CheckAdmin;
 use App\Http\Middleware\CheckPermission;
@@ -20,14 +20,12 @@ use Inertia\Inertia;
 // Pages
 
 Route::fallback(function () {
-    return redirect()->route('venda-chave-troca');
+    return redirect()->route('keys');
 });
 
-Route::get('/fees', [TaxaController::class, 'showMarketPlaceFees'])->name('fees'); // READ all fees
+Route::get('/fees', [FeeController::class, 'showMarketPlaceFees'])->name('fees'); // READ all fees
 
-Route::get('/ranges-taxa-G2A', [TaxaController::class, 'showRangesG2A'])->name('ranges-taxa-G2A');
-
-Route::get('/resources', [ResourceController::class, 'show'])->name('resources');
+Route::get('/resources', [AssetController::class, 'show'])->name('resources');
 
 Route::get('/bundles', [BundleController::class, 'index'])->name('bundles');
 
@@ -46,7 +44,7 @@ Route::prefix('vips')
             ->middleware(VerifySecret::class);
     });
 
-Route::get('/venda-chave-troca', [KeyController::class, 'show'])->name('venda-chave-troca');
+Route::get('/keys', [KeyController::class, 'show'])->name('keys');
 
 Route::get('/acesso', [AuthorizedUsersController::class, 'index'])->name('acesso');
 
@@ -69,7 +67,7 @@ Route::prefix('auth')->group(function () { // Logar
 
 Route::prefix('fees')
     ->middleware(CheckAdmin::class)
-    ->controller(TaxaController::class)->group(function () {
+    ->controller(FeeController::class)->group(function () {
         Route::post('/', 'store')->name('fees.store');
         Route::put('/{id}', 'update')->name('fees.update');
         Route::delete('/{id}', 'destroy')->name('fees.destroy');
@@ -99,18 +97,9 @@ Route::prefix('bundles')
         Route::delete('/{id}/games', 'removeGames')->name('bundles.removeGames');
     });
 
-Route::prefix('ranges-g2a')
-    ->middleware(CheckAdmin::class)
-    ->controller(TaxaController::class)->group(function () {
-        Route::post('/', 'storeRangeG2A')->name('ranges-g2a.storeRangeG2A');
-        Route::put('/{id}', 'updateRangeG2A')->name('ranges-g2a.updateRangeG2A');
-        Route::delete('/{id}', 'destroyRangeG2A')->name('ranges-g2a.destroyRangeG2A');
-        Route::delete('/', 'destroyArrayG2A')->name('ranges-g2a.destroyArrayG2A');
-    });
-
 Route::prefix('resources')
     ->middleware(CheckAdmin::class)
-    ->controller(ResourceController::class)
+    ->controller(AssetController::class)
     ->group(function () {
         Route::post('/', 'store')->name('resources.store');
         Route::put('/{id}', 'update')->name('resources.update');
@@ -118,27 +107,27 @@ Route::prefix('resources')
         Route::delete('/', 'destroyArray')->name('resources.destroyArray');
     });
 
-Route::prefix('venda-chave-troca')
+Route::prefix('keys')
     ->middleware(CheckPermission::class)
     ->group(function () {
         // KeyController — CRUD
-        Route::get('/paginated', [KeyController::class, 'paginated'])->name('venda-chave-troca.paginated');
-        Route::post('/search', [KeyController::class, 'search'])->name('venda-chave-troca.search');
-        Route::post('/', [KeyController::class, 'store'])->name('venda-chave-troca.store');
-        Route::put('/{id}', [KeyController::class, 'update'])->name('venda-chave-troca.update');
-        Route::delete('/{id}', [KeyController::class, 'destroy'])->name('venda-chave-troca.destroy');
-        Route::delete('/', [KeyController::class, 'destroyArray'])->name('venda-chave-troca.destroyArray');
+        Route::get('/paginated', [KeyController::class, 'paginated'])->name('keys.paginated');
+        Route::post('/search', [KeyController::class, 'search'])->name('keys.search');
+        Route::post('/', [KeyController::class, 'store'])->name('keys.store');
+        Route::put('/{id}', [KeyController::class, 'update'])->name('keys.update');
+        Route::delete('/{id}', [KeyController::class, 'destroy'])->name('keys.destroy');
+        Route::delete('/', [KeyController::class, 'destroyArray'])->name('keys.destroyArray');
 
         // KeySaleController — operações de venda
-        Route::get('/auto-sell', [KeySaleController::class, 'autoSell'])->name('venda-chave-troca.auto-sell')->withoutMiddleware([CheckPermission::class]);
-        Route::get('/when-to-sell', [KeySaleController::class, 'whenToSell'])->name('venda-chave-troca.when-to-sell')->withoutMiddleware([CheckPermission::class]);
-        Route::post('/update-sold-offers', [KeySaleController::class, 'updateSoldOffers'])->name('venda-chave-troca.update-sold-offers')->withoutMiddleware([CheckPermission::class]);
-        Route::get('/search-by-id-gamivo/{idGamivo}', [KeySaleController::class, 'searchByIdGamivo'])->name('venda-chave-troca.search-by-id-gamivo')->withoutMiddleware([CheckPermission::class]);
-        Route::post('/insert-data-venda', [KeySaleController::class, 'insertDataVenda'])->name('venda-chave-troca.insert-data-venda')->withoutMiddleware([CheckPermission::class]);
+        Route::get('/auto-sell', [KeySaleController::class, 'autoSell'])->name('keys.auto-sell')->withoutMiddleware([CheckPermission::class]);
+        Route::get('/when-to-sell', [KeySaleController::class, 'whenToSell'])->name('keys.when-to-sell')->withoutMiddleware([CheckPermission::class]);
+        Route::post('/update-sold-offers', [KeySaleController::class, 'updateSoldOffers'])->name('keys.update-sold-offers')->withoutMiddleware([CheckPermission::class]);
+        Route::get('/search-by-id-gamivo/{idGamivo}', [KeySaleController::class, 'searchByIdGamivo'])->name('keys.search-by-id-gamivo')->withoutMiddleware([CheckPermission::class]);
+        Route::post('/insert-data-venda', [KeySaleController::class, 'insertDataVenda'])->name('keys.insert-data-venda')->withoutMiddleware([CheckPermission::class]);
 
         // KeyImportController — importação XLSX
-        Route::post('/import', [KeyImportController::class, 'import'])->name('venda-chave-troca.import');
-        Route::get('/download-example_keys', [KeyImportController::class, 'downloadExample'])->name('venda-chave-troca.download-example_keys');
+        Route::post('/import', [KeyImportController::class, 'import'])->name('keys.import');
+        Route::get('/download-example_keys', [KeyImportController::class, 'downloadExample'])->name('keys.download-example_keys');
     });
 
 Route::prefix('authorize') // Gerenciar quem tem acesso
@@ -162,20 +151,20 @@ Route::prefix('authorize') // Gerenciar quem tem acesso
 // });
 
 Route::get('/dashboard', function () {
-    return redirect(route('venda-chave-troca', absolute: false));
+    return redirect(route('keys', absolute: false));
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', function () {
-        return redirect(route('venda-chave-troca', absolute: false));
+        return redirect(route('keys', absolute: false));
     })->name('profile.edit');
 
     Route::patch('/profile', function () {
-        return redirect(route('venda-chave-troca', absolute: false));
+        return redirect(route('keys', absolute: false));
     })->name('profile.update');
 
     Route::delete('/profile', function () {
-        return redirect(route('venda-chave-troca', absolute: false));
+        return redirect(route('keys', absolute: false));
     })->name('profile.destroy');
 });
 

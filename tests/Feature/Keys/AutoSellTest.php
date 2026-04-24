@@ -6,7 +6,7 @@
 |--------------------------------------------------------------------------
 |
 | Covers KeySaleController::autoSell()
-| Route: GET /venda-chave-troca/auto-sell  (no auth — withoutMiddleware)
+| Route: GET /keys/auto-sell  (no auth — withoutMiddleware)
 | Response shape: { "statusCode": 200, "message": "...", "data": [...] }
 |
 */
@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\DB;
  */
 function createKey(array $overrides = []): void
 {
-    DB::table('venda_chave_trocas')->insert(array_merge([
+    DB::table('keys')->insert(array_merge([
         'game_name' => 'Test Game',
         'gamivo_id' => 'gam-'.uniqid(),
         'key_code' => 'ABCDE-12345-FGHIJ',
@@ -30,7 +30,7 @@ function createKey(array $overrides = []): void
         'individual_cost' => 2.00,
         'purchase_profit_percent' => 25.00,
         'supplier_url' => 'https://steamcommunity.com/id/test',
-        'id_fornecedor' => 1,
+        'supplier_id' => 1,
         'claim_type' => 'Nenhuma',
         'key_format' => 'RK',
         'sell_platform' => 'Gamivo',
@@ -48,18 +48,18 @@ function idGamivoList(array $data): array
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-describe('GET /venda-chave-troca/auto-sell', function () {
+describe('GET /keys/auto-sell', function () {
 
     beforeEach(function () {
         // Formulas is injected into the controller constructor and queries taxas
-        DB::table('taxas')->insert([
+        DB::table('fees')->insert([
             ['name' => 'gamivoPercentualMenor', 'preco' => 0.072, 'created_at' => now(), 'updated_at' => now()],
             ['name' => 'gamivoFixoMenor',       'preco' => 0.110, 'created_at' => now(), 'updated_at' => now()],
             ['name' => 'gamivoPercentualMaior', 'preco' => 0.102, 'created_at' => now(), 'updated_at' => now()],
             ['name' => 'gamivoFixoMaior',       'preco' => 0.550, 'created_at' => now(), 'updated_at' => now()],
         ]);
 
-        DB::table('fornecedor')->insert(['id' => 1, 'supplier_url' => 'https://steamcommunity.com/id/seed']);
+        DB::table('suppliers')->insert(['id' => 1, 'supplier_url' => 'https://steamcommunity.com/id/seed']);
     });
 
     // ── Happy path ────────────────────────────────────────────────────────────
@@ -67,7 +67,7 @@ describe('GET /venda-chave-troca/auto-sell', function () {
     it('returns an eligible key in the listing', function () {
         createKey(['gamivo_id' => 'gam-eligible-001']);
 
-        $data = $this->getJson('/venda-chave-troca/auto-sell')->assertOk()->json('data');
+        $data = $this->getJson('/keys/auto-sell')->assertOk()->json('data');
 
         expect(idGamivoList($data))->toContain('gam-eligible-001');
     });
@@ -79,7 +79,7 @@ describe('GET /venda-chave-troca/auto-sell', function () {
         it('gamivo_id is null', function () {
             createKey(['gamivo_id' => null]);
 
-            $data = $this->getJson('/venda-chave-troca/auto-sell')->assertOk()->json('data');
+            $data = $this->getJson('/keys/auto-sell')->assertOk()->json('data');
 
             expect($data)->toHaveCount(0);
         });
@@ -87,7 +87,7 @@ describe('GET /venda-chave-troca/auto-sell', function () {
         it('gamivo_id is an empty string', function () {
             createKey(['gamivo_id' => '']);
 
-            $data = $this->getJson('/venda-chave-troca/auto-sell')->assertOk()->json('data');
+            $data = $this->getJson('/keys/auto-sell')->assertOk()->json('data');
 
             expect($data)->toHaveCount(0);
         });
@@ -98,7 +98,7 @@ describe('GET /venda-chave-troca/auto-sell', function () {
                 'listed_at' => Carbon::now()->subDays(5)->toDateString(),
             ]);
 
-            $data = $this->getJson('/venda-chave-troca/auto-sell')->assertOk()->json('data');
+            $data = $this->getJson('/keys/auto-sell')->assertOk()->json('data');
 
             expect(idGamivoList($data))->not->toContain('gam-listed');
         });
@@ -109,7 +109,7 @@ describe('GET /venda-chave-troca/auto-sell', function () {
                 'sold_at' => Carbon::now()->subDays(10)->toDateString(),
             ]);
 
-            $data = $this->getJson('/venda-chave-troca/auto-sell')->assertOk()->json('data');
+            $data = $this->getJson('/keys/auto-sell')->assertOk()->json('data');
 
             expect(idGamivoList($data))->not->toContain('gam-sold');
         });
@@ -120,7 +120,7 @@ describe('GET /venda-chave-troca/auto-sell', function () {
                 'key_code' => 'https://store.steampowered.com/gift/abc123',
             ]);
 
-            $data = $this->getJson('/venda-chave-troca/auto-sell')->assertOk()->json('data');
+            $data = $this->getJson('/keys/auto-sell')->assertOk()->json('data');
 
             expect(idGamivoList($data))->not->toContain('gam-gift');
         });
@@ -148,7 +148,7 @@ describe('GET /venda-chave-troca/auto-sell', function () {
                 'created_at' => now(), 'updated_at' => now(),
             ]);
 
-            $data = $this->getJson('/venda-chave-troca/auto-sell')->assertOk()->json('data');
+            $data = $this->getJson('/keys/auto-sell')->assertOk()->json('data');
 
             expect(idGamivoList($data))->not->toContain($gamivoId);
         });
@@ -171,7 +171,7 @@ describe('GET /venda-chave-troca/auto-sell', function () {
                 'created_at' => now(), 'updated_at' => now(),
             ]);
 
-            $data = $this->getJson('/venda-chave-troca/auto-sell')->assertOk()->json('data');
+            $data = $this->getJson('/keys/auto-sell')->assertOk()->json('data');
 
             expect(idGamivoList($data))->toContain($gamivoId);
         });
@@ -196,7 +196,7 @@ describe('GET /venda-chave-troca/auto-sell', function () {
                 'created_at' => now(), 'updated_at' => now(),
             ]);
 
-            $data = $this->getJson('/venda-chave-troca/auto-sell')->assertOk()->json('data');
+            $data = $this->getJson('/keys/auto-sell')->assertOk()->json('data');
 
             expect(idGamivoList($data))->not->toContain($gamivoId);
         });
@@ -210,7 +210,7 @@ describe('GET /venda-chave-troca/auto-sell', function () {
         createKey(['gamivo_id' => 'gam-sold', 'sold_at' => Carbon::now()->subDays(1)->toDateString()]);
         createKey(['gamivo_id' => 'gam-ok-2']);
 
-        $data = $this->getJson('/venda-chave-troca/auto-sell')->assertOk()->json('data');
+        $data = $this->getJson('/keys/auto-sell')->assertOk()->json('data');
 
         expect($data)->toHaveCount(2)
             ->and(idGamivoList($data))->toContain('gam-ok-1')

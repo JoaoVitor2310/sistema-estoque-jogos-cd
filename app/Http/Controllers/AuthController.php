@@ -37,7 +37,7 @@ class AuthController extends Controller
 
         Auth::login($user);
 
-        return redirect()->route('venda-chave-troca');
+        return redirect()->route('keys');
     }
 
     /**

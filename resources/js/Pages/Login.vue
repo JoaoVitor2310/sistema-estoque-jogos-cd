@@ -15,7 +15,7 @@ const handleRequest = async (endpoint: string, data: object) => {
         const res = await axiosInstance.post(endpoint, data);
         showResponse(res, toast.add);
         if (res.status === 200) {
-            window.location.href = route('venda-chave-troca');
+            window.location.href = route('keys');
         }
     } catch (error) {
         toast.add({

@@ -20,7 +20,7 @@ class AutoSellUseCase
     ) {}
 
     /**
-     * @return Collection<int, \App\Models\Venda_chave_troca>
+     * @return Collection<int, \App\Models\Key>
      */
     public function execute(): Collection
     {

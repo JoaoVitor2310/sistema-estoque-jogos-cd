@@ -13,7 +13,7 @@
 |
 */
 
-use App\Models\Venda_chave_troca;
+use App\Models\Key;
 use App\UseCases\Keys\UpdateKeyUseCase;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Cache;
@@ -23,18 +23,18 @@ use Illuminate\Support\Facades\DB;
 
 function seedUpdateFks(): void
 {
-    DB::table('taxas')->insert([
+    DB::table('fees')->insert([
         ['name' => 'gamivoPercentualMenor', 'preco' => 0.072, 'created_at' => now(), 'updated_at' => now()],
         ['name' => 'gamivoFixoMenor',       'preco' => 0.110, 'created_at' => now(), 'updated_at' => now()],
         ['name' => 'gamivoPercentualMaior', 'preco' => 0.102, 'created_at' => now(), 'updated_at' => now()],
         ['name' => 'gamivoFixoMaior',       'preco' => 0.550, 'created_at' => now(), 'updated_at' => now()],
     ]);
 
-    DB::table('recursos')->insert([
-        ['name' => 'TF2', 'preco_euro' => 2.0, 'preco_dolar' => 2.2, 'preco_real' => 10.0, 'created_at' => now(), 'updated_at' => now()],
+    DB::table('assets')->insert([
+        ['name' => 'TF2', 'price_euro' => 2.0, 'price_dollar' => 2.2, 'price_brl' => 10.0, 'created_at' => now(), 'updated_at' => now()],
     ]);
 
-    DB::table('fornecedor')->insert(['id' => 1, 'supplier_url' => 'https://steamcommunity.com/id/seed']);
+    DB::table('suppliers')->insert(['id' => 1, 'supplier_url' => 'https://steamcommunity.com/id/seed']);
 }
 
 /**
@@ -42,7 +42,7 @@ function seedUpdateFks(): void
  */
 function insertKeyForUpdate(array $overrides = []): int
 {
-    return DB::table('venda_chave_trocas')->insertGetId(array_merge([
+    return DB::table('keys')->insertGetId(array_merge([
         'game_name' => 'Original Game',
         'key_code' => 'ORIG-KEY-00001',
         'market_price' => 5.00,
@@ -50,7 +50,7 @@ function insertKeyForUpdate(array $overrides = []): int
         'tf2_quantity' => 2.5,
         'purchase_profit_percent' => 25.00,
         'supplier_url' => 'https://steamcommunity.com/id/seed',
-        'id_fornecedor' => 1,
+        'supplier_id' => 1,
         'claim_type' => 'Nenhuma',
         'key_format' => 'RK',
         'sell_platform' => 'Gamivo',
@@ -97,7 +97,7 @@ describe('UpdateKeyUseCase', function () {
 
         app(UpdateKeyUseCase::class)->execute((string) $id, makeUpdateInput(['market_price' => 9.99]));
 
-        $row = DB::table('venda_chave_trocas')->where('id', $id)->first();
+        $row = DB::table('keys')->where('id', $id)->first();
 
         expect((float) $row->individual_cost)->toBe(3.50);
     });
@@ -111,7 +111,7 @@ describe('UpdateKeyUseCase', function () {
 
         app(UpdateKeyUseCase::class)->execute((string) $id, $input);
 
-        $row = DB::table('venda_chave_trocas')->where('id', $id)->first();
+        $row = DB::table('keys')->where('id', $id)->first();
 
         expect((float) $row->tf2_quantity)->toBe(2.5);
     });
@@ -128,7 +128,7 @@ describe('UpdateKeyUseCase', function () {
             makeUpdateInput(['key_code' => 'EXISTING-CODE-001'])
         );
 
-        $row = DB::table('venda_chave_trocas')->where('id', $id2)->first();
+        $row = DB::table('keys')->where('id', $id2)->first();
 
         expect((bool) $row->is_duplicate)->toBeTrue();
     });
@@ -142,7 +142,7 @@ describe('UpdateKeyUseCase', function () {
             makeUpdateInput(['key_code' => 'MY-OWN-CODE-001'])
         );
 
-        $row = DB::table('venda_chave_trocas')->where('id', $id)->first();
+        $row = DB::table('keys')->where('id', $id)->first();
 
         expect((bool) $row->is_duplicate)->toBeFalsy();
     });
@@ -157,7 +157,7 @@ describe('UpdateKeyUseCase', function () {
             makeUpdateInput(['key_code' => 'STEAM-11111-XXXXX'])
         );
 
-        $row = DB::table('venda_chave_trocas')->where('id', $id)->first();
+        $row = DB::table('keys')->where('id', $id)->first();
 
         expect($row->identified_platform)->toBe('Steam');
     });
@@ -171,12 +171,12 @@ describe('UpdateKeyUseCase', function () {
 
     // ── Return value ──────────────────────────────────────────────────────────
 
-    it('returns the updated Venda_chave_troca model with relationships loaded', function () {
+    it('returns the updated Key model with relationships loaded', function () {
         $id = insertKeyForUpdate();
 
         $result = app(UpdateKeyUseCase::class)->execute((string) $id, makeUpdateInput());
 
-        expect($result)->toBeInstanceOf(Venda_chave_troca::class)
-            ->and($result->relationLoaded('fornecedor'))->toBeTrue();
+        expect($result)->toBeInstanceOf(Key::class)
+            ->and($result->relationLoaded('supplier'))->toBeTrue();
     });
 });

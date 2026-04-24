@@ -6,7 +6,7 @@
 |--------------------------------------------------------------------------
 |
 | Covers KeySaleController::insertDataVenda() → ListKeyForSaleUseCase
-| Route: POST /venda-chave-troca/insert-data-venda  (no auth — withoutMiddleware)
+| Route: POST /keys/insert-data-venda  (no auth — withoutMiddleware)
 | Response shape: { "statusCode": int, "message": "...", "data": [] }
 |
 */
@@ -18,12 +18,12 @@ use Illuminate\Support\Facades\DB;
 
 function seedFks(): void
 {
-    DB::table('fornecedor')->insertOrIgnore(['id' => 1, 'supplier_url' => 'https://steamcommunity.com/id/seed']);
+    DB::table('suppliers')->insertOrIgnore(['id' => 1, 'supplier_url' => 'https://steamcommunity.com/id/seed']);
 }
 
 function insertKey(string $keyCode, array $overrides = []): void
 {
-    DB::table('venda_chave_trocas')->insert(array_merge([
+    DB::table('keys')->insert(array_merge([
         'game_name' => 'Test Game',
         'gamivo_id' => 'gam-'.uniqid(),
         'key_code' => $keyCode,
@@ -31,14 +31,14 @@ function insertKey(string $keyCode, array $overrides = []): void
         'individual_cost' => 2.00,
         'purchase_profit_percent' => 25.00,
         'supplier_url' => 'https://steamcommunity.com/id/test',
-        'id_fornecedor' => 1,
+        'supplier_id' => 1,
         'claim_type' => 'Nenhuma',
         'key_format' => 'RK',
         'sell_platform' => 'Gamivo',
         'listed_at' => null,
         'sold_at' => null,
-        'minApiGamivo' => 1.50,
-        'maxApiGamivo' => 10.00,
+        'min_api' => 1.50,
+        'max_api' => 10.00,
         'created_at' => now(),
         'updated_at' => now(),
     ], $overrides));
@@ -46,19 +46,19 @@ function insertKey(string $keyCode, array $overrides = []): void
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-describe('POST /venda-chave-troca/insert-data-venda', function () {
+describe('POST /keys/insert-data-venda', function () {
 
     beforeEach(fn () => seedFks());
 
     // ── Validation ────────────────────────────────────────────────────────────
 
     it('returns 404 when key_code is missing from the request', function () {
-        $this->postJson('/venda-chave-troca/insert-data-venda', [])
+        $this->postJson('/keys/insert-data-venda', [])
             ->assertStatus(404);
     });
 
     it('returns 404 when key_code is empty string', function () {
-        $this->postJson('/venda-chave-troca/insert-data-venda', ['key_code' => ''])
+        $this->postJson('/keys/insert-data-venda', ['key_code' => ''])
             ->assertStatus(404);
     });
 
@@ -67,45 +67,45 @@ describe('POST /venda-chave-troca/insert-data-venda', function () {
     it('sets listed_at to today and returns 200', function () {
         insertKey('AAAAA-11111-BBBBB');
 
-        $this->postJson('/venda-chave-troca/insert-data-venda', [
+        $this->postJson('/keys/insert-data-venda', [
             'key_code' => 'AAAAA-11111-BBBBB',
         ])->assertOk();
 
-        $row = DB::table('venda_chave_trocas')->where('key_code', 'AAAAA-11111-BBBBB')->first();
+        $row = DB::table('keys')->where('key_code', 'AAAAA-11111-BBBBB')->first();
 
         expect($row->listed_at)->toBe(now()->toDateString());
     });
 
-    it('resets minApiGamivo to FLOOR by default', function () {
+    it('resets min_api to FLOOR by default', function () {
         insertKey('BBBBB-22222-CCCCC');
 
-        $this->postJson('/venda-chave-troca/insert-data-venda', [
+        $this->postJson('/keys/insert-data-venda', [
             'key_code' => 'BBBBB-22222-CCCCC',
         ])->assertOk();
 
-        $row = DB::table('venda_chave_trocas')->where('key_code', 'BBBBB-22222-CCCCC')->first();
+        $row = DB::table('keys')->where('key_code', 'BBBBB-22222-CCCCC')->first();
 
-        expect((float) $row->minApiGamivo)->toBe(MinMaxPriceCalculator::FLOOR);
+        expect((float) $row->min_api)->toBe(MinMaxPriceCalculator::FLOOR);
     });
 
-    it('does NOT reset minApiGamivo when updateMinApiGamivo is false', function () {
-        insertKey('CCCCC-33333-DDDDD', ['minApiGamivo' => 1.50]);
+    it('does NOT reset min_api when updateMinApiGamivo is false', function () {
+        insertKey('CCCCC-33333-DDDDD', ['min_api' => 1.50]);
 
-        $this->postJson('/venda-chave-troca/insert-data-venda', [
+        $this->postJson('/keys/insert-data-venda', [
             'key_code' => 'CCCCC-33333-DDDDD',
             'updateMinApiGamivo' => false,
         ])->assertOk();
 
-        $row = DB::table('venda_chave_trocas')->where('key_code', 'CCCCC-33333-DDDDD')->first();
+        $row = DB::table('keys')->where('key_code', 'CCCCC-33333-DDDDD')->first();
 
-        // minApiGamivo não deve ter sido alterado
-        expect((float) $row->minApiGamivo)->toBe(1.50);
+        // min_api não deve ter sido alterado
+        expect((float) $row->min_api)->toBe(1.50);
     });
 
     // ── Exclusion rules ───────────────────────────────────────────────────────
 
     it('returns 404 when the key does not exist', function () {
-        $this->postJson('/venda-chave-troca/insert-data-venda', [
+        $this->postJson('/keys/insert-data-venda', [
             'key_code' => 'XXXXX-99999-YYYYY',
         ])->assertStatus(404);
     });
@@ -113,7 +113,7 @@ describe('POST /venda-chave-troca/insert-data-venda', function () {
     it('returns 404 when the key already has a listed_at set', function () {
         insertKey('DDDDD-44444-EEEEE', ['listed_at' => now()->subDays(3)->toDateString()]);
 
-        $this->postJson('/venda-chave-troca/insert-data-venda', [
+        $this->postJson('/keys/insert-data-venda', [
             'key_code' => 'DDDDD-44444-EEEEE',
         ])->assertStatus(404);
     });
@@ -123,11 +123,11 @@ describe('POST /venda-chave-troca/insert-data-venda', function () {
         insertKey('EEEEE-55555-FFFFF', ['listed_at' => now()->subDays(5)->toDateString()]);
         insertKey('EEEEE-55555-FFFFF', ['listed_at' => null]);
 
-        $this->postJson('/venda-chave-troca/insert-data-venda', [
+        $this->postJson('/keys/insert-data-venda', [
             'key_code' => 'EEEEE-55555-FFFFF',
         ])->assertOk();
 
-        $rows = DB::table('venda_chave_trocas')->where('key_code', 'EEEEE-55555-FFFFF')->get();
+        $rows = DB::table('keys')->where('key_code', 'EEEEE-55555-FFFFF')->get();
 
         // Um registro tinha listed_at antes — deve permanecer inalterado (mesma data anterior)
         $alreadyListed = $rows->firstWhere('listed_at', now()->subDays(5)->toDateString());

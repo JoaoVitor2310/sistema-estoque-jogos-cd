@@ -12,14 +12,13 @@ export type SellPlatform = 'Nenhuma' | 'G2A' | 'Gamivo' | 'Kinguin';
 export type GameLine = {
     id: number;
     color: string;
-    steamId: string;
+    steam_id: string;
     gamivo_id: string;
     key_code: string;
     is_duplicate: boolean;
     identified_platform: string;
     game_name: string;
-    precoJogo: number | null;
-    observacao: string;
+    notes: string;
     key_format: KeyFormat | null;
     claim_type: ClaimType | null;
     sell_platform: SellPlatform | null;
@@ -38,8 +37,8 @@ export type GameLine = {
     sold_at: string;
     supplier_url: string;
     email: string;
-    minApiGamivo: number;
-    maxApiGamivo: number;
+    min_api: number;
+    max_api: number;
 
     // Relacionamentos
     fornecedor: Fornecedor;

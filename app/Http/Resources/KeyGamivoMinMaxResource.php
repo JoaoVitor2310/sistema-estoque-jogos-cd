@@ -14,8 +14,8 @@ class KeyGamivoMinMaxResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'minApiGamivo' => $this->minApiGamivo,
-            'maxApiGamivo' => $this->maxApiGamivo,
+            'min_api' => $this->min_api,
+            'max_api' => $this->max_api,
         ];
     }
 }

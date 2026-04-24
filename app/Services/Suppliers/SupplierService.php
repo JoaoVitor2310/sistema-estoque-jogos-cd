@@ -2,7 +2,7 @@
 
 namespace App\Services\Suppliers;
 
-use App\Models\Fornecedor;
+use App\Models\Supplier;
 
 /**
  * Infraestrutura de fornecedores — busca e criação no banco.
@@ -16,6 +16,6 @@ class SupplierService
      */
     public function findOrCreate(string $supplierUrl): int
     {
-        return Fornecedor::firstOrCreate(['supplier_url' => $supplierUrl])->id;
+        return Supplier::firstOrCreate(['supplier_url' => $supplierUrl])->id;
     }
 }

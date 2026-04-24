@@ -17,7 +17,7 @@
 |   gamivoFixoMenor       = 0.110  (€ 0.11)
 |   gamivoPercentualMaior = 0.102  (10.2 %)
 |   gamivoFixoMaior       = 0.550  (€ 0.55)
-|   TF2 preco_euro        = 2.000  (€ 2.00 por TF2 key)
+|   TF2 price_euro        = 2.000  (€ 2.00 por TF2 key)
 |
 */
 
@@ -30,15 +30,15 @@ use Illuminate\Support\Facades\DB;
 
 function seedRegisterFks(): void
 {
-    DB::table('taxas')->insert([
+    DB::table('fees')->insert([
         ['name' => 'gamivoPercentualMenor', 'preco' => 0.072, 'created_at' => now(), 'updated_at' => now()],
         ['name' => 'gamivoFixoMenor',       'preco' => 0.110, 'created_at' => now(), 'updated_at' => now()],
         ['name' => 'gamivoPercentualMaior', 'preco' => 0.102, 'created_at' => now(), 'updated_at' => now()],
         ['name' => 'gamivoFixoMaior',       'preco' => 0.550, 'created_at' => now(), 'updated_at' => now()],
     ]);
 
-    DB::table('recursos')->insert([
-        ['name' => 'TF2', 'preco_euro' => 2.0, 'preco_dolar' => 2.2, 'preco_real' => 10.0, 'created_at' => now(), 'updated_at' => now()],
+    DB::table('assets')->insert([
+        ['name' => 'TF2', 'price_euro' => 2.0, 'price_dollar' => 2.2, 'price_brl' => 10.0, 'created_at' => now(), 'updated_at' => now()],
     ]);
 }
 
@@ -57,17 +57,16 @@ function makeGameInput(array $overrides = []): array
         'region' => null,
         'acquired_at' => now()->toDateString(),
         'gamivo_id' => null,
-        'steamId' => null,
-        'precoJogo' => null,
+        'steam_id' => null,
         'minimum_sale_price' => null,
-        'minApiGamivo' => null,
-        'maxApiGamivo' => null,
+        'min_api' => null,
+        'max_api' => null,
         'claim_type' => 'Nenhuma',
         'key_format' => 'RK',
         'sell_platform' => 'Gamivo',
         'listed_at' => null,
         'sold_at' => null,
-        'observacao' => null,
+        'notes' => null,
         'total_paid' => null,
         'sold_price' => null,
         'email' => null,
@@ -126,20 +125,20 @@ describe('RegisterKeyUseCase', function () {
             ->and($result['games'][1]->total_paid)->toBe('3.5x TF2 Keys / 2');
     });
 
-    it('populates minApiGamivo and maxApiGamivo', function () {
+    it('populates min_api and max_api', function () {
         $result = app(RegisterKeyUseCase::class)->execute([makeGameInput()]);
 
         $game = $result['games'][0];
-        expect((float) $game->minApiGamivo)->toBeGreaterThan(0)
-            ->and((float) $game->maxApiGamivo)->toBeGreaterThan((float) $game->minApiGamivo);
+        expect((float) $game->min_api)->toBeGreaterThan(0)
+            ->and((float) $game->max_api)->toBeGreaterThan((float) $game->min_api);
     });
 
     // ── Duplicate detection ───────────────────────────────────────────────────
 
     it('marks is_duplicate=true when the key code already exists in the database', function () {
         // Insere uma key com a mesma chave no banco antes do execute
-        DB::table('venda_chave_trocas')->insert(array_merge(makeGameInput(), [
-            'id_fornecedor' => DB::table('fornecedor')->insertGetId(['supplier_url' => 'https://steamcommunity.com/id/seed']),
+        DB::table('keys')->insert(array_merge(makeGameInput(), [
+            'supplier_id' => DB::table('suppliers')->insertGetId(['supplier_url' => 'https://steamcommunity.com/id/seed']),
             'created_at' => now(),
             'updated_at' => now(),
         ]));
@@ -187,7 +186,7 @@ describe('RegisterKeyUseCase', function () {
         $profile = 'https://steamcommunity.com/id/newvendor';
         app(RegisterKeyUseCase::class)->execute([makeGameInput(['supplier_url' => $profile])]);
 
-        expect(DB::table('fornecedor')->where('supplier_url', $profile)->exists())->toBeTrue();
+        expect(DB::table('suppliers')->where('supplier_url', $profile)->exists())->toBeTrue();
     });
 
     it('reuses the same supplier when two keys share the same supplier_url', function () {
@@ -198,9 +197,9 @@ describe('RegisterKeyUseCase', function () {
             makeGameInput(['key_code' => 'KEY-X-22222', 'supplier_url' => $profile]),
         ]);
 
-        $keys = DB::table('venda_chave_trocas')
+        $keys = DB::table('keys')
             ->whereIn('key_code', ['KEY-X-11111', 'KEY-X-22222'])
-            ->pluck('id_fornecedor')
+            ->pluck('supplier_id')
             ->unique();
 
         // Ambas as keys devem referenciar o mesmo fornecedor

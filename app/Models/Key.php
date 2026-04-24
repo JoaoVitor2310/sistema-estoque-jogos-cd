@@ -6,31 +6,30 @@ use App\Domain\Enums\ClaimType;
 use App\Domain\Enums\KeyFormat;
 use App\Domain\Enums\SellPlatform;
 use Carbon\Carbon;
-use Database\Factories\VendaChaveTrocaFactory;
+use Database\Factories\KeyFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Venda_chave_troca extends Model
+class Key extends Model
 {
     use HasFactory;
 
-    protected $table = 'venda_chave_trocas';
+    protected $table = 'keys';
 
     protected $fillable = [
         'id',
         'color',
-        'id_fornecedor',
+        'supplier_id',
         'claim_type',
-        'steamId',
+        'steam_id',
         'gamivo_id',
         'key_code',
         'is_duplicate',
         'identified_platform',
         'game_name',
         'region',
-        'precoJogo',
-        'observacao',
+        'notes',
         'key_format',
         'sell_platform',
         'market_price',
@@ -49,20 +48,20 @@ class Venda_chave_troca extends Model
         'sold_at',
         'expires_at',
         'supplier_url',
-        'minApiGamivo',
-        'maxApiGamivo',
+        'min_api',
+        'max_api',
         'email',
     ];
 
     protected $casts = [
         'key_format'    => KeyFormat::class,
-        'claim_type' => ClaimType::class,
+        'claim_type'    => ClaimType::class,
         'sell_platform' => SellPlatform::class,
     ];
 
-    public function fornecedor()
+    public function supplier()
     {
-        return $this->belongsTo(Fornecedor::class, 'id_fornecedor');
+        return $this->belongsTo(Supplier::class);
     }
 
     public function game()
@@ -101,6 +100,6 @@ class Venda_chave_troca extends Model
 
     protected static function newFactory()
     {
-        return VendaChaveTrocaFactory::new();
+        return KeyFactory::new();
     }
 }

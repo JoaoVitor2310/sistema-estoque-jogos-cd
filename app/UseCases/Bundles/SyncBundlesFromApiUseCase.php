@@ -5,7 +5,7 @@ namespace App\UseCases\Bundles;
 use App\Domain\Bundles\BundleTypeResolver;
 use App\Models\Bundle;
 use App\Models\Game;
-use App\Models\Recursos;
+use App\Models\Asset;
 use App\Services\APIService;
 use App\Services\External\CurrencyConversionService;
 use Illuminate\Support\Facades\DB;
@@ -143,7 +143,7 @@ class SyncBundlesFromApiUseCase
             }
         }
 
-        $tf2PriceDolar = Recursos::where('name', 'TF2')->value('preco_dolar');
+        $tf2PriceDolar = Asset::where('name', 'TF2')->value('price_dollar');
 
         $bundle->price_dolar = $priceDolar;
         $bundle->minimum_price_tf2 = $priceDolar / $tf2PriceDolar;

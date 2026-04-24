@@ -6,8 +6,8 @@ use App\Domain\Pricing\IncomeCalculator;
 use App\Domain\Pricing\MinMaxPriceCalculator;
 use App\Domain\Pricing\ProfitCalculator;
 use App\Domain\Pricing\ValueObjects\MarketplaceFee;
-use App\Models\Recursos;
-use App\Models\Taxas;
+use App\Models\Asset;
+use App\Models\Fee;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -36,7 +36,7 @@ class KeyCalculationService
     public function getMarketplaceFee(): MarketplaceFee
     {
         return Cache::remember(self::FEES_CACHE_KEY, self::CACHE_TTL, function () {
-            $rows = Taxas::whereIn('name', [
+            $rows = Fee::whereIn('name', [
                 'gamivoPercentualMenor',
                 'gamivoFixoMenor',
                 'gamivoPercentualMaior',
@@ -53,7 +53,7 @@ class KeyCalculationService
     public function getTf2EuroPrice(): float
     {
         return Cache::remember(self::TF2_CACHE_KEY, self::CACHE_TTL, function () {
-            return (float) Recursos::where('name', 'TF2')->value('preco_euro');
+            return (float) Asset::where('name', 'TF2')->value('price_euro');
         });
     }
 
@@ -135,8 +135,8 @@ class KeyCalculationService
             clientPrice: (float) $game['market_price'],
         );
 
-        $game['minApiGamivo'] = $result['min'];
-        $game['maxApiGamivo'] = $result['max'];
+        $game['min_api'] = $result['min'];
+        $game['max_api'] = $result['max'];
 
         return $game;
     }

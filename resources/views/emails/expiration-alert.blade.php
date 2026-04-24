@@ -81,7 +81,7 @@
         <tbody>
             @foreach($jogos as $jogo)
                 @php
-                    $diasRestantes = floor(\Carbon\Carbon::now()->diffInDays(\Carbon\Carbon::parse($jogo->dataExpiracao)));
+                    $diasRestantes = floor(\Carbon\Carbon::now()->diffInDays(\Carbon\Carbon::parse($jogo->expires_at)));
                     $classeCor = '';
                     if ($diasRestantes <= 7) {
                         $classeCor = 'urgent';
@@ -90,9 +90,9 @@
                     }
                 @endphp
                 <tr class="{{ $classeCor }}">
-                    <td>{{ $jogo->nomeJogo ?? 'N/A' }}</td>
-                    <td>{{ $jogo->chaveRecebida ?? 'N/A' }}</td>
-                    <td>{{ $jogo->dataExpiracao ? \Carbon\Carbon::parse($jogo->dataExpiracao)->format('d/m/Y') : 'N/A' }}</td>
+                    <td>{{ $jogo->game_name ?? 'N/A' }}</td>
+                    <td>{{ $jogo->key_code ?? 'N/A' }}</td>
+                    <td>{{ $jogo->expires_at ? \Carbon\Carbon::parse($jogo->expires_at)->format('d/m/Y') : 'N/A' }}</td>
                     <td>
                         {{ $diasRestantes }} dia{{ $diasRestantes != 1 ? 's' : '' }}
                         @if($diasRestantes <= 3)
@@ -101,7 +101,7 @@
                             ⚠️
                         @endif
                     </td>
-                    <td>{{ $jogo->fornecedor->perfilOrigem ?? 'Não encontrado' }}</td>
+                    <td>{{ $jogo->fornecedor->supplier_url ?? 'Não encontrado' }}</td>
                 </tr>
             @endforeach
         </tbody>

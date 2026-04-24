@@ -9,7 +9,7 @@
 |   - findByKeyCode: busca por código de ativação (com e sem excludeId)
 |   - findEligibleForAutoSell: aplica as regras de elegibilidade para venda
 |
-| As regras de elegibilidade espelham os scopes do model Venda_chave_troca
+| As regras de elegibilidade espelham os scopes do model Key
 | e a constante BUNDLE_EXCLUSION_DAYS de KeyEligibility (21 dias).
 |
 */
@@ -22,12 +22,12 @@ use Illuminate\Support\Facades\DB;
 
 function seedRepoFks(): void
 {
-    DB::table('fornecedor')->insertOrIgnore(['id' => 1, 'supplier_url' => 'https://steamcommunity.com/id/seed']);
+    DB::table('suppliers')->insertOrIgnore(['id' => 1, 'supplier_url' => 'https://steamcommunity.com/id/seed']);
 }
 
 function insertRepoKey(array $overrides = []): int
 {
-    return DB::table('venda_chave_trocas')->insertGetId(array_merge([
+    return DB::table('keys')->insertGetId(array_merge([
         'game_name' => 'Repo Test Game',
         'gamivo_id' => 'gam-'.uniqid(),
         'key_code' => 'REPO-KEY-'.uniqid(),
@@ -35,7 +35,7 @@ function insertRepoKey(array $overrides = []): int
         'individual_cost' => 2.00,
         'purchase_profit_percent' => 25.00,
         'supplier_url' => 'https://steamcommunity.com/id/test',
-        'id_fornecedor' => 1,
+        'supplier_id' => 1,
         'claim_type' => 'Nenhuma',
         'key_format' => 'RK',
         'sell_platform' => 'Gamivo',

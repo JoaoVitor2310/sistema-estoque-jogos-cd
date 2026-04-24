@@ -9,7 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreGameRequest;
 use App\Http\Requests\StoreGameRequestArray;
 use App\Http\Resources\KeyResource;
-use App\Models\Venda_chave_troca;
+use App\Models\Key;
 use App\Traits\HttpResponses;
 use App\UseCases\Keys\RegisterKeyUseCase;
 use App\UseCases\Keys\UpdateKeyUseCase;
@@ -31,17 +31,17 @@ class KeyController extends Controller
     ) {}
 
     /**
-     * Renderiza a página VendaChaveTroca via Inertia (primeira carga).
+     * Renderiza a página de keys via Inertia (primeira carga).
      */
     public function show(Request $request)
     {
         $limit = $request->query('limit', 100);
 
-        $games = Venda_chave_troca::with(['fornecedor'])
+        $games = Key::with(['supplier'])
             ->orderBy('id', 'desc')
             ->paginate($limit);
 
-        return Inertia::render('VendaChaveTroca', [
+        return Inertia::render('Keys', [
             'games' => $games->items(),
             'totalGames' => $games->total(),
             'pagination' => [
@@ -62,7 +62,7 @@ class KeyController extends Controller
     {
         $limit = $request->query('limit', 100);
 
-        $games = Venda_chave_troca::with(['fornecedor'])
+        $games = Key::with(['supplier'])
             ->orderBy('id', 'desc')
             ->paginate($limit);
 
@@ -84,7 +84,7 @@ class KeyController extends Controller
     {
         $filters = $request->except('page');
 
-        $query = Venda_chave_troca::with(['fornecedor']);
+        $query = Key::with(['supplier']);
 
         foreach ($filters as $key => $value) {
             if (! $value) {
@@ -175,7 +175,7 @@ class KeyController extends Controller
      */
     public function destroy(string $id)
     {
-        $game = Venda_chave_troca::find($id);
+        $game = Key::find($id);
 
         if (! $game) {
             return $this->error(404, 'Jogo não encontrado');
@@ -198,7 +198,7 @@ class KeyController extends Controller
         }
 
         foreach ($games as $game) {
-            $item = Venda_chave_troca::find($game['id']);
+            $item = Key::find($game['id']);
 
             if (! $item) {
                 return $this->error(404, 'Jogo não encontrado');

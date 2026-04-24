@@ -48,32 +48,32 @@ describe('CalculateService::calculateMinMaxApi()', function () {
         it('is valorPago × 1.4 when valorPago is above €10', function () use ($game) {
             $result = $this->service->calculateMinMaxApi($game(15.0, 10.0));
 
-            expect($result['minApiGamivo'])->toEqualWithDelta(21.0, 0.001);
+            expect($result['min_api'])->toEqualWithDelta(21.0, 0.001);
         });
 
         it('is valorPago × 1.5 when valorPago is above €4', function () use ($game) {
             $result = $this->service->calculateMinMaxApi($game(5.0, 5.0));
 
-            expect($result['minApiGamivo'])->toEqualWithDelta(7.5, 0.001);
+            expect($result['min_api'])->toEqualWithDelta(7.5, 0.001);
         });
 
         it('is valorPago × 1.6 for any value at or below €4', function () use ($game) {
             // 4.0 is NOT > 4, falls into default ×1.6
             $result = $this->service->calculateMinMaxApi($game(4.0, 4.0));
 
-            expect($result['minApiGamivo'])->toEqualWithDelta(6.4, 0.001);
+            expect($result['min_api'])->toEqualWithDelta(6.4, 0.001);
         });
 
         it('is valorPago × 1.6 when valorPago is below €4', function () use ($game) {
             $result = $this->service->calculateMinMaxApi($game(2.0, 2.0));
 
-            expect($result['minApiGamivo'])->toEqualWithDelta(3.2, 0.001);
+            expect($result['min_api'])->toEqualWithDelta(3.2, 0.001);
         });
 
         it('is valorPago × 1.6 when valorPago is very low (below €1)', function () use ($game) {
             $result = $this->service->calculateMinMaxApi($game(0.5, 0.3));
 
-            expect($result['minApiGamivo'])->toEqualWithDelta(0.8, 0.001);
+            expect($result['min_api'])->toEqualWithDelta(0.8, 0.001);
         });
     });
 
@@ -81,19 +81,19 @@ describe('CalculateService::calculateMinMaxApi()', function () {
         it('is valorPago × 8 when valorPago is at or above €1', function () use ($game) {
             $result = $this->service->calculateMinMaxApi($game(15.0, 10.0));
 
-            expect($result['maxApiGamivo'])->toEqualWithDelta(120.0, 0.001);
+            expect($result['max_api'])->toEqualWithDelta(120.0, 0.001);
         });
 
         it('is valorPago × 30 when valorPago is below €1', function () use ($game) {
             $result = $this->service->calculateMinMaxApi($game(0.5, 0.3));
 
-            expect($result['maxApiGamivo'])->toEqualWithDelta(15.0, 0.001);
+            expect($result['max_api'])->toEqualWithDelta(15.0, 0.001);
         });
 
         it('is recalculated as precoCliente × 8 when precoCliente reaches or exceeds the initial max', function () use ($game) {
             $result = $this->service->calculateMinMaxApi($game(5.0, 50.0));
 
-            expect($result['maxApiGamivo'])->toEqualWithDelta(400.0, 0.001);
+            expect($result['max_api'])->toEqualWithDelta(400.0, 0.001);
         });
     });
 
@@ -101,13 +101,13 @@ describe('CalculateService::calculateMinMaxApi()', function () {
         it('applies to the minimum when the calculated value would be zero', function () use ($game) {
             $result = $this->service->calculateMinMaxApi($game(0, 0));
 
-            expect($result['minApiGamivo'])->toEqualWithDelta(0.02, 0.001);
+            expect($result['min_api'])->toEqualWithDelta(0.02, 0.001);
         });
 
         it('applies to the maximum when the calculated value would be zero', function () use ($game) {
             $result = $this->service->calculateMinMaxApi($game(0, 0));
 
-            expect($result['maxApiGamivo'])->toEqualWithDelta(0.02, 0.001);
+            expect($result['max_api'])->toEqualWithDelta(0.02, 0.001);
         });
     });
 
@@ -117,8 +117,8 @@ describe('CalculateService::calculateMinMaxApi()', function () {
             function (float $valorPago, float $precoCliente, float $expectedMin, float $expectedMax) use ($game) {
                 $result = $this->service->calculateMinMaxApi($game($valorPago, $precoCliente));
 
-                expect($result['minApiGamivo'])->toEqualWithDelta($expectedMin, 0.001)
-                    ->and($result['maxApiGamivo'])->toEqualWithDelta($expectedMax, 0.001);
+                expect($result['min_api'])->toEqualWithDelta($expectedMin, 0.001)
+                    ->and($result['max_api'])->toEqualWithDelta($expectedMax, 0.001);
             }
         )->with('min/max price scenarios');
     });

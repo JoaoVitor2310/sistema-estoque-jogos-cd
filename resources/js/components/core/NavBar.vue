@@ -27,7 +27,7 @@ const handleLogout = async () => {
   <main>
     <nav class="navbar navbar-expand-lg" style="background-color: #8009EF; color: white;">
       <div class="container-fluid">
-        <Link class="navbar-brand" :href="route('venda-chave-troca')">
+        <Link class="navbar-brand" :href="route('keys')">
         <!-- O erro em "route" é normal, o typescript não reconhece pq ele faz parte do ziggy. -->
         <img src="@\assets\images\logo.jpg" width="45" height="45" alt="logo"></Link>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent"
@@ -42,7 +42,7 @@ const handleLogout = async () => {
               <Link class="nav-link" :href="route('acesso')">Acesso</Link>
             </li>
             <li>
-              <Link class="nav-link" :href="route('venda-chave-troca')">Venda-Chave-Troca</Link>
+              <Link class="nav-link" :href="route('keys')">Venda-Chave-Troca</Link>
             </li>
             <li>
               <Link class="nav-link" :href="route('bundles')">Bundles</Link>
@@ -61,9 +61,6 @@ const handleLogout = async () => {
               <ul class="dropdown-menu">
                 <li>
                   <Link class="dropdown-item" :href="route('fees')">MarketPlaces</Link>
-                </li>
-                <li>
-                  <Link class="dropdown-item" :href="route('ranges-taxa-G2A')">Ranges Taxa G2A</Link>
                 </li>
                 <!-- <li><Link class="dropdown-item" :href="route('fees')">Calculadora</Link></li> -->
               </ul>

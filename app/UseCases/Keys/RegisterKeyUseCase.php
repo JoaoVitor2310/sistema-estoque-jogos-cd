@@ -4,7 +4,7 @@ namespace App\UseCases\Keys;
 
 use App\Domain\Platform\PlatformIdentifier;
 use App\Domain\Pricing\SalePriceCalculator;
-use App\Models\Venda_chave_troca;
+use App\Models\Key;
 use App\Services\Games\GameService;
 use App\Services\Keys\KeyCalculationService;
 use App\Services\Keys\KeyRepository;
@@ -36,7 +36,7 @@ class RegisterKeyUseCase
      * Erros catastróficos (ex: banco indisponível) propagam exceções.
      *
      * @param  array<int, array<string, mixed>>  $games
-     * @return array{games: list<Venda_chave_troca>, message: string, errors: list<array>}
+     * @return array{games: list<Key>, message: string, errors: list<array>}
      */
     public function execute(array $games): array
     {
@@ -53,7 +53,7 @@ class RegisterKeyUseCase
         foreach ($games as $index => $game) {
             try {
                 // Resolve fornecedor (cria se necessário)
-                $game['id_fornecedor'] = $this->supplierService->findOrCreate($game['supplier_url']);
+                $game['supplier_id'] = $this->supplierService->findOrCreate($game['supplier_url']);
 
                 // Calcula lucros de compra
                 $game = $this->calculationService->calculateFormulas($game, $somatorioIncomes, false);
@@ -103,8 +103,8 @@ class RegisterKeyUseCase
                 }
 
                 // Persiste e carrega com relacionamentos
-                $created = Venda_chave_troca::create($game);
-                $fullGames[] = $created->load(['fornecedor']);
+                $created = Key::create($game);
+                $fullGames[] = $created->load(['supplier']);
 
                 Log::info('Key registrada com sucesso', [
                     'id' => $created->id,
@@ -136,7 +136,7 @@ class RegisterKeyUseCase
     /**
      * Constrói a mensagem de retorno com base nos resultados do lote.
      *
-     * @param  list<Venda_chave_troca>  $fullGames
+     * @param  list<Key>  $fullGames
      * @param  list<array>  $errors
      */
     private function buildMessage(array $fullGames, array $errors): string

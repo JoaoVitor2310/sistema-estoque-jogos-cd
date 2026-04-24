@@ -16,7 +16,7 @@
 |   gamivoFixoMenor       = 0.250  (€ 0.25)
 |   gamivoPercentualMaior = 0.080  (8.0 %)
 |   gamivoFixoMaior       = 0.400  (€ 0.40)
-|   TF2 preco_euro        = 1.500  (€ 1.50 per TF2 key)
+|   TF2 price_euro        = 1.500  (€ 1.50 per TF2 key)
 |
 */
 
@@ -26,15 +26,15 @@ use Illuminate\Support\Facades\DB;
 describe('KeyCalculationService', function () {
 
     beforeEach(function () {
-        DB::table('taxas')->insert([
+        DB::table('fees')->insert([
             ['name' => 'gamivoPercentualMenor', 'preco' => 0.060, 'created_at' => now(), 'updated_at' => now()],
             ['name' => 'gamivoFixoMenor',       'preco' => 0.250, 'created_at' => now(), 'updated_at' => now()],
             ['name' => 'gamivoPercentualMaior', 'preco' => 0.080, 'created_at' => now(), 'updated_at' => now()],
             ['name' => 'gamivoFixoMaior',       'preco' => 0.400, 'created_at' => now(), 'updated_at' => now()],
         ]);
 
-        DB::table('recursos')->insert([
-            ['name' => 'TF2', 'preco_euro' => 1.500, 'preco_dolar' => 1.600, 'preco_real' => 8.000, 'created_at' => now(), 'updated_at' => now()],
+        DB::table('assets')->insert([
+            ['name' => 'TF2', 'price_euro' => 1.500, 'price_dollar' => 1.600, 'price_brl' => 8.000, 'created_at' => now(), 'updated_at' => now()],
         ]);
 
         $this->service = new KeyCalculationService;

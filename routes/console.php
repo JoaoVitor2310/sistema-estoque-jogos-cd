@@ -1,7 +1,7 @@
 <?php
 
-use App\Models\Recursos;
-use App\Models\Venda_chave_troca;
+use App\Models\Asset;
+use App\Models\Key;
 use App\Services\Games\GameService;
 use App\Services\KeyService;
 use App\Services\ResourceService;
@@ -19,7 +19,7 @@ Artisan::command('inspire', function () {
 Schedule::call(function () {
     // Buscar chaves que expiram em 14 dias ou menos (mas que ainda não expiraram e nem foram vendidas)
     $dataLimite = now()->addDays(30);
-    $keysAboutToExpire = Venda_chave_troca::where('expires_at', '<=', $dataLimite)
+    $keysAboutToExpire = Key::where('expires_at', '<=', $dataLimite)
         ->where('expires_at', '>', now()) // Ainda não expiradas
         ->whereNull('sold_at') // Não vendidas
         ->get();
@@ -40,17 +40,17 @@ Schedule::call(function () {
 })->cron('0 7 * * *')->timezone('America/Sao_Paulo');
 
 Schedule::call(function () {
-    $tf2 = Recursos::where('name', 'TF2')->first();
+    $tf2 = Asset::where('name', 'TF2')->first();
 
     // Pegar o preço real de TF2
     $data['currentCurrency'] = 'BRL';
-    $data['preco_real'] = $tf2->preco_real;
+    $data['price_brl'] = $tf2->price_brl;
 
     $resourceService = new ResourceService;
     $data = $resourceService->getResourcesCurrency($data);
 
     // Comparar o preço do dolar no sistema com o preço dolar do dia atual
-    if ($data['preco_dolar'] - $tf2->preco_dolar >= 0.20 || $tf2->preco_dolar - $data['preco_dolar'] >= 0.20) {
+    if ($data['price_dollar'] - $tf2->price_dollar >= 0.20 || $tf2->price_dollar - $data['price_dollar'] >= 0.20) {
         try {
             Mail::send('emails.dolar-alert', ['tf2' => $tf2, 'data' => $data], function ($message) {
                 $message->to('carcadeals@gmail.com')

@@ -29,21 +29,21 @@ use Illuminate\Support\Facades\DB;
 
 function seedGameServiceFks(): void
 {
-    DB::table('fornecedor')->insertOrIgnore(['id' => 1, 'supplier_url' => 'https://steamcommunity.com/id/seed']);
+    DB::table('suppliers')->insertOrIgnore(['id' => 1, 'supplier_url' => 'https://steamcommunity.com/id/seed']);
 }
 
 function insertListedKey(array $overrides = []): int
 {
-    return DB::table('venda_chave_trocas')->insertGetId(array_merge([
+    return DB::table('keys')->insertGetId(array_merge([
         'game_name' => 'Listed Game',
         'key_code' => 'LISTED-'.uniqid(),
         'market_price' => 5.00,
         'individual_cost' => 1.00,
         'purchase_profit_percent' => 25.00,
-        'minApiGamivo' => 1.50,
-        'maxApiGamivo' => 10.00,
+        'min_api' => 1.50,
+        'max_api' => 10.00,
         'supplier_url' => 'https://steamcommunity.com/id/seed',
-        'id_fornecedor' => 1,
+        'supplier_id' => 1,
         'claim_type' => 'Nenhuma',
         'key_format' => 'RK',
         'sell_platform' => 'Gamivo',
@@ -64,9 +64,9 @@ describe('GameService', function () {
 
     describe('getIdGamivo()', function () {
 
-        it('finds gamivo_id from venda_chave_trocas first (priority over games table)', function () {
+        it('finds gamivo_id from keys first (priority over games table)', function () {
             // Key tem um gamivo_id — deve ser retornado sem consultar games
-            DB::table('venda_chave_trocas')->insert([
+            DB::table('keys')->insert([
                 'game_name' => 'Priority Game',
                 'key_code' => 'PRIO-KEY-001',
                 'gamivo_id' => 'gam-from-key',
@@ -74,7 +74,7 @@ describe('GameService', function () {
                 'individual_cost' => 2.00,
                 'purchase_profit_percent' => 25.00,
                 'supplier_url' => 'https://steamcommunity.com/id/seed',
-                'id_fornecedor' => 1,
+                'supplier_id' => 1,
                 'claim_type' => 'Nenhuma',
                 'key_format' => 'RK',
                 'sell_platform' => 'Gamivo',
@@ -212,19 +212,19 @@ describe('GameService', function () {
 
     describe('updateMinPrices()', function () {
 
-        it('does not change minApiGamivo for keys listed less than 3 months ago', function () {
+        it('does not change min_api for keys listed less than 3 months ago', function () {
             // 1 mês listada → abaixo do primeiro tier → sem alteração
             insertListedKey([
                 'key_code' => 'RECENT-LISTED-001',
                 'individual_cost' => 1.00,
-                'minApiGamivo' => 1.50,
+                'min_api' => 1.50,
                 'listed_at' => Carbon::now()->subMonths(1)->toDateString(),
             ]);
 
             app(GameService::class)->updateMinPrices();
 
-            $row = DB::table('venda_chave_trocas')->where('key_code', 'RECENT-LISTED-001')->first();
-            expect((float) $row->minApiGamivo)->toBe(1.50); // Sem alteração
+            $row = DB::table('keys')->where('key_code', 'RECENT-LISTED-001')->first();
+            expect((float) $row->min_api)->toBe(1.50); // Sem alteração
         });
 
         it('applies 1.4x multiplier for keys listed between 3 and 6 months', function () {
@@ -232,14 +232,14 @@ describe('GameService', function () {
             insertListedKey([
                 'key_code' => 'MED-LISTED-001',
                 'individual_cost' => 1.00,
-                'minApiGamivo' => 1.50,
+                'min_api' => 1.50,
                 'listed_at' => Carbon::now()->subMonths(4)->toDateString(),
             ]);
 
             app(GameService::class)->updateMinPrices();
 
-            $row = DB::table('venda_chave_trocas')->where('key_code', 'MED-LISTED-001')->first();
-            expect((float) $row->minApiGamivo)->toEqualWithDelta(1.4, 0.001);
+            $row = DB::table('keys')->where('key_code', 'MED-LISTED-001')->first();
+            expect((float) $row->min_api)->toEqualWithDelta(1.4, 0.001);
         });
 
         it('applies 1.3x multiplier for keys listed between 6 and 9 months', function () {
@@ -247,14 +247,14 @@ describe('GameService', function () {
             insertListedKey([
                 'key_code' => 'OLD-LISTED-001',
                 'individual_cost' => 1.00,
-                'minApiGamivo' => 1.50,
+                'min_api' => 1.50,
                 'listed_at' => Carbon::now()->subMonths(7)->toDateString(),
             ]);
 
             app(GameService::class)->updateMinPrices();
 
-            $row = DB::table('venda_chave_trocas')->where('key_code', 'OLD-LISTED-001')->first();
-            expect((float) $row->minApiGamivo)->toEqualWithDelta(1.3, 0.001);
+            $row = DB::table('keys')->where('key_code', 'OLD-LISTED-001')->first();
+            expect((float) $row->min_api)->toEqualWithDelta(1.3, 0.001);
         });
 
         it('applies the price floor for keys listed more than 12 months (clearance sell)', function () {
@@ -262,30 +262,30 @@ describe('GameService', function () {
             insertListedKey([
                 'key_code' => 'ANCIENT-LISTED-001',
                 'individual_cost' => 1.00,
-                'minApiGamivo' => 1.50,
+                'min_api' => 1.50,
                 'listed_at' => Carbon::now()->subMonths(13)->toDateString(),
             ]);
 
             app(GameService::class)->updateMinPrices();
 
-            $row = DB::table('venda_chave_trocas')->where('key_code', 'ANCIENT-LISTED-001')->first();
-            expect((float) $row->minApiGamivo)->toEqualWithDelta(MinMaxPriceCalculator::FLOOR, 0.001);
+            $row = DB::table('keys')->where('key_code', 'ANCIENT-LISTED-001')->first();
+            expect((float) $row->min_api)->toEqualWithDelta(MinMaxPriceCalculator::FLOOR, 0.001);
         });
 
         it('skips keys that are already sold (sold_at set)', function () {
-            // Key vendida não deve ter minApiGamivo alterado
+            // Key vendida não deve ter min_api alterado
             insertListedKey([
                 'key_code' => 'SOLD-OLD-001',
                 'individual_cost' => 1.00,
-                'minApiGamivo' => 1.50,
+                'min_api' => 1.50,
                 'listed_at' => Carbon::now()->subMonths(4)->toDateString(),
                 'sold_at' => Carbon::now()->subDays(2)->toDateString(),
             ]);
 
             app(GameService::class)->updateMinPrices();
 
-            $row = DB::table('venda_chave_trocas')->where('key_code', 'SOLD-OLD-001')->first();
-            expect((float) $row->minApiGamivo)->toBe(1.50); // Sem alteração
+            $row = DB::table('keys')->where('key_code', 'SOLD-OLD-001')->first();
+            expect((float) $row->min_api)->toBe(1.50); // Sem alteração
         });
 
         it('processes at most 10 keys per call', function () {
@@ -294,16 +294,16 @@ describe('GameService', function () {
                 insertListedKey([
                     'key_code' => "BATCH-KEY-{$i}",
                     'individual_cost' => 1.00,
-                    'minApiGamivo' => 1.50, // Valor original
+                    'min_api' => 1.50, // Valor original
                     'listed_at' => Carbon::now()->subMonths(4)->toDateString(),
                 ]);
             }
 
             app(GameService::class)->updateMinPrices();
 
-            // Após 4 meses, minApiGamivo = 1.0 × 1.4 = 1.4
-            $updatedCount = DB::table('venda_chave_trocas')
-                ->where('minApiGamivo', 1.4)
+            // Após 4 meses, min_api = 1.0 × 1.4 = 1.4
+            $updatedCount = DB::table('keys')
+                ->where('min_api', 1.4)
                 ->count();
 
             // No máximo 10 keys devem ter sido atualizadas

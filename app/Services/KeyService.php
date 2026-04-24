@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use App\Domain\Keys\KeyPriceAging;
-use App\Models\Venda_chave_troca;
+use App\Models\Key;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -23,13 +23,13 @@ class KeyService
      */
     public function checkLimboKeys(): void
     {
-        $games = Venda_chave_troca::select([
+        $games = Key::select([
             'id',
             'key_code',
             'gamivo_id',
             'individual_cost',
-            'minApiGamivo',
-            'maxApiGamivo',
+            'min_api',
+            'max_api',
             'listed_at',
         ])
             ->whereNull('sold_at')
@@ -44,7 +44,7 @@ class KeyService
                 continue;
             }
 
-            $game->minApiGamivo = KeyPriceAging::calculateLimboPrice(
+            $game->min_api = KeyPriceAging::calculateLimboPrice(
                 individualCost: (float) $game->individual_cost,
                 actualMarketPrice: (float) $actualPrice['price'],
             );
