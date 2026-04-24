@@ -31,75 +31,42 @@ Atue sempre como arquiteto de software sênior com conhecimento profundo de Lara
 
 ---
 
-## Arquitetura atual
-
-```
-Laravel (Inertia.js + Vue)
-│
-├── app/
-│   ├── Models/           # 16 modelos Eloquent
-│   ├── Http/
-│   │   ├── Controllers/  # 9 controllers (lógica misturada com orquestração)
-│   │   ├── Requests/     # 13 Form Requests (validação de entrada)
-│   │   └── Helpers/
-│   │       └── Formulas.php  # Cálculos por marketplace
-│   ├── Services/         # 9 services (lógica de negócio parcialmente extraída)
-│   └── Observers/
-│       └── GameObserver.php  # Auto-preenche id_gamivo
-│
-├── database/
-│   └── migrations/       # 32 migrações
-│
-└── routes/
-    └── web.php           # Todas as rotas (sem API separada)
-```
-
-
----
-
 ## Domínios do sistema
 
 ### 1. Keys (`Venda_chave_troca`)
 Modelo central. Representa keys compradas e/ou vendidas.
 
 Campos relevantes:
-- PARA REMOVER -> notaMetacritic, isSteam, randomClassificationG2A, randomClassificationKinguin, id_leilao_g2a, id_leilao_gamivo, id_leilao_kinguin, id_plataforma, precoVenda, incomeReal, chaveEntregue, vendido(como tem data de venda, não é necessário), leiloes, quantidade, devolucoes, 
 - `tipo_reclamacao_id` - id do problema que deu na key, é importante para saber qual problema deu e agrupar
-- `notaMetacritic` - REMOVER
 - `steamId` - id na steam, plataforma que vende os jogos oficiais
-- `nomeJogo`, `region`, `plataforma_id` - nome, região que ele está limitado(EU = Europa por exemplo), plataforma que vai ser vendido
-- `valorPagoIndividual` — custo individual da key
-- `qtdTF2` — custo da trade na qual aquela key pertence
-- `precoCliente` — preço no marketplace na data de compra
-- `incomeSimulado` — receita líquida após taxas
-- `lucroRS`, `lucroPercentual` — lucro na compra (valor absoluto e valor percentual)
-- `valorVendido`, `lucroVendaRS`, `lucroVendaPercentual` — valor absoluto na venda e lucro (valor absoluto e valor percentual)
-- `idGamivo`, `idSteamcharts` — IDs externos para automação
-- `chaveRecebida` — código da key para enviar ao cliente
-- `dataAdquirida` — data que adquiriu a key
-- `dataVenda`(data posto a venda) — data que botou o jogo para vender
-- `dataVendida` — data que vendeu a key
-- `dataExpiracao` — data que a key se torna inválida(deve vender antes)
-- `perfilOrigem` — url do fornecedor que vendeu a key
-- `minApiGamivo`, `maxApiGamivo` — valores mínimos e máximos que a API Gamivo pode chegar(já descontando a taxa)
+- `game_name`, `region` - nome do jogo, região que ele está limitado (EU = Europa por exemplo)
+- `individual_cost` — custo individual da key
+- `tf2_quantity` — custo da trade na qual aquela key pertence
+- `market_price` — preço no marketplace na data de compra
+- `simulated_income` — receita líquida após taxas
+- `purchase_profit`, `purchase_profit_percent` — lucro na compra (valor absoluto e percentual)
+- `sold_price`, `sale_profit`, `sale_profit_percent` — valor absoluto na venda e lucro (absoluto e percentual)
+- `gamivo_id`, `idSteamcharts` — IDs externos para automação
+- `key_code` — código da key para enviar ao cliente
+- `acquired_at` — data que adquiriu a key
+- `listed_at` — data que botou o jogo para vender
+- `sold_at` — data que vendeu a key
+- `expires_at` — data que a key se torna inválida (deve vender antes)
+- `supplier_url` — url do fornecedor que vendeu a key
+- `minApiGamivo`, `maxApiGamivo` — valores mínimos e máximos que a API Gamivo pode chegar (já descontando a taxa)
 
 Fluxo principal:
 1. Key é inserida manualmente ou via importação XLSX
-2. `CalculateService` calcula fórmulas de lucro e preço
-3. `autoSell()` sugere keys prontas para listagem/vender (exclui jogos em budles recentes, < 21 dias)
-4. `updateSoldOffers()` atualiza com dados de venda (valorVendido, lucroVendaRS, lucroVendaPercentual, dataVendida)
+2. `KeyCalculationService` calcula fórmulas de lucro e preço
+3. `AutoSellUseCase` sugere keys prontas para listagem/vender (exclui jogos em bundles recentes, < 21 dias)
+4. `UpdateSoldOffersUseCase` atualiza com dados de venda (`sold_price`, `sale_profit`, `sale_profit_percent`, `sold_at`)
 
-### 2. Cálculo de lucro (`CalculateService` + `Formulas`)
-Cada marketplace tem estrutura de taxa diferente:
+### 2. Cálculo de lucro (`KeyCalculationService` + Domain/Pricing)
+Gamivo tem 2 tiers de taxa:
 
 | Marketplace | Fórmula simplificada |
 |-------------|----------------------|
-| G2A         | REMOVER |
-| Gamivo      | `precoCliente × (1 - %fee) - fee_fixo` (2 tiers: < €8 e ≥ €8) |
-| Kinguin     | REMOVER |
-| Troca       | REMOVER |
-
-**Atenção:** `Formulas` faz 4 queries no banco (tabela `taxas`) a cada instância — ou seja, a cada request que envolve cálculo.
+| Gamivo      | `market_price × (1 - %fee) - fee_fixo` (2 tiers: < €8 e ≥ €8) |
 
 ### 3. Bundles
 Agrupamento de jogos (tipo `bundle` ou `choice`). Relacionamento many-to-many com `Game` via `bundle_games`. A tabela pivot armazena `bundle_launch_price`.
@@ -109,39 +76,17 @@ A regra dos 21 dias usa a `bundle_games.created_at` para excluir lançamentos re
 ### 4. VIPs e automação
 - `Vip` representa um cliente VIP com `id_steam`
 - `VipList` representa uma execução de lista para aquele VIP (status: `queued` | `completed` | `failed`)
-- Fluxo: controller chama `VipListExecutionService::queueRunForVip()` → HTTP POST para `price_researcher` → `price_researcher` chama webhook de callback → `applyCallback()` persiste resultado
+- Fluxo: controller chama `ExecuteVipListUseCase` → HTTP POST para `price_researcher` → `price_researcher` chama webhook de callback → `VipListExecutionService::applyCallback()` persiste resultado
 
 ### 5. Autorização
-- Google OAuth via Socialite REMOVER
 - `AuthorizedUsers` — tabela que controla quem pode acessar (`can-edit`)
-- Admin hardcoded: `Gate::define('is-admin', fn($u) => $u->email === 'carcadeals@gmail.com')`
+- Admin via `env('ADMIN_EMAIL')`: `Gate::define('is-admin', fn($u) => $u->email === env('ADMIN_EMAIL'))`
 
 ---
 
 ## Problemas identificados
 
 ### Críticos (risco em produção)
-
-**1. Admin hardcoded no código**
-```php
-// AppServiceProvider.php
-return $user->email === 'carcadeals@gmail.com';
-```
-Se o email mudar, o acesso admin é perdido. Não há outro admin. Sem como gerenciar pelo sistema.
-
-**2. Rotas públicas sem autenticação**
-- `/games/updatePopularity` — qualquer um pode alterar popularidade de jogos
-- `/games/paginated`, `/games/search` — dados expostos sem auth
-- Callback VIP (`/vips/callback/{id}`) sem verificação de origem — qualquer POST externo pode injetar resultados
-
-**3. `Formulas` faz queries no banco no construtor**
-```php
-// Formulas.php __construct()
-$this->taxa_gamivo_1 = Taxas::where(...)->first();
-$this->taxa_gamivo_2 = Taxas::where(...)->first();
-// ... 4x por instância
-```
-Toda request que envolve cálculo abre 4 queries adicionais. Sem cache.
 
 **4. N+1 em `GameService::searchGamesIdSteam()`**
 ```php
@@ -155,17 +100,6 @@ Para muitos jogos, isso trava o processo.
 
 ### Moderados (qualidade e manutenção)
 
-**5. `VendaChaveTrocaController` faz muita coisa**
-Tem 14+ métodos cobrindo CRUD, importação, cálculo automático, consulta de venda, sugestão de listagem. Deveria ser dividido.
-
-**6. Validação fraca em campos críticos**
-- Preços (`valorPagoIndividual`, `precoCliente`) não têm validação de mínimo > 0 nos Form Requests
-- `notaMetacritic` remover
-- Nenhuma validação de unicidade de key antes de inserir
-
-**7. `autoSell()` com query complexa sem teste**
-Query com 4 JOINs + subquery `WHERE EXISTS`. Mudanças aqui são arriscadas sem testes automatizados.
-
 **8. `GameController::store()` busca o game duas vezes**
 ```php
 $created = Game::create($data);
@@ -174,21 +108,10 @@ return Game::select('*')->where('id', $created->id)->with(['bundles'])->first();
 ```
 Poderia usar `$created->load('bundles')`.
 
-**9. Nenhuma verificação da origem do webhook VIP**
-`/vips/callback/{vipListId}` aceita qualquer POST sem token ou assinatura. Se o ID for descoberto, resultados podem ser adulterados.
-
-**10. Importação XLSX loga a key parcialmente**
-```php
-// FileService.php ~linha 188
-Log::info('Chave: ' . substr($key, 0, 10));
-```
-Mesmo parcial, keys em log de produção são risco de segurança.
-
-**11. Nomes de modelo e rota inconsistentes**
-- Modelo: `Venda_chave_troca` (snake_case com maiúscula)
+**11. Nome do modelo inconsistente**
+- Modelo: `Venda_chave_troca` (snake_case com maiúscula, fora do padrão Laravel)
 - Tabela: `venda_chave_trocas`
 - Rota: `/venda-chave-troca`
-- Relações: `tipoReclamacao`, `leilaoG2A`, `leilaoKinguin` — sem padrão
 
 **12. `tipo_reclamacao_id` com validação `min:1 max:4` hardcoded**
 Se novos tipos forem cadastrados, a validação quebra sem alterar o código.
@@ -210,7 +133,7 @@ Solução: adicionar coluna `steamcharts_searched_at TIMESTAMP NULL` na tabela `
 
 ---
 
-## Arquitetura alvo: Laravel Modular + Domain Layer leve
+## Arquitetura: Laravel Modular + Domain Layer leve
 
 ### Contexto de decisão
 
@@ -223,7 +146,7 @@ Este sistema é uma ferramenta **operacional interna** com:
 
 **Clean Architecture completa não é indicada.** Repositories abstratos e Adapters adicionariam ~20-30 arquivos de boilerplate sem benefício real. Nunca vamos trocar o Laravel, e o sistema tem ~10.8k LOC (5k PHP backend + 4.7k Vue frontend + 1k migrations).
 
-**O que adotamos:** Clean Architecture podada — mantém o que importa (domínio isolado e testável, use cases para workflows complexos), descarta o que não interessa(interfaces de repository, adapters). A camada `Domain/` é PHP puro (sem Eloquent, sem framework). Use Cases orquestram workflows multi-step. Services lidam com infraestrutura (banco, APIs, cache). Controllers só recebem HTTP.
+**O que adotamos:** Clean Architecture podada — mantém o que importa (domínio isolado e testável, use cases para workflows complexos), descarta o que não interessa (interfaces de repository, adapters). A camada `Domain/` é PHP puro (sem Eloquent, sem framework). Use Cases orquestram workflows multi-step. Services lidam com infraestrutura (banco, APIs, cache). Controllers só recebem HTTP.
 
 ### Princípio central
 
@@ -260,7 +183,7 @@ ExcelDateConverter::convert($cell->getValue()) ?? now()->toDateString()
 | Operação simples / CRUD | Controller → Service | Deletar key, buscar por ID |
 | Regra de negócio pura | Qualquer camada → Domain | Calcular lucro, verificar elegibilidade |
 
-### Estrutura alvo
+### Estrutura atual
 
 ```
 app/
@@ -268,17 +191,14 @@ app/
 │   ├── Pricing/                               # Cálculos financeiros
 │   │   ├── ProfitCalculator.php               # Lucro real, percentual, venda
 │   │   ├── IncomeCalculator.php               # Income simulado por marketplace
-│   │   ├── SalePriceCalculator.php            # Preço de venda (calcPrecoVenda)
+│   │   ├── SalePriceCalculator.php            # Preço mínimo de venda e rótulo de custo
 │   │   ├── MinMaxPriceCalculator.php          # Min/max API Gamivo
 │   │   └── ValueObjects/
-│   │       ├── MarketplaceFee.php             # VO: taxas por marketplace (gamivo tiers, G2A, Kinguin)
-│   │       ├── KeyPricing.php                 # VO: precoCliente, precoVenda, valorPagoIndividual
-│   │       └── G2ATaxRange.php                # VO: faixa de preço + taxa do ranges_taxa_g2a
+│   │       └── MarketplaceFee.php             # VO: taxas por marketplace (gamivo tiers)
 │   │
 │   ├── Keys/                                  # Regras do ciclo de vida das keys
 │   │   ├── KeyEligibility.php                 # Regra dos 21 dias, elegibilidade para venda
-│   │   ├── KeyPriceAging.php                  # Degradação de preço por idade (limbo, 12/9/6/3 meses)
-│   │   └── DuplicateKeyChecker.php            # Validação de unicidade de chave
+│   │   └── KeyPriceAging.php                  # Degradação de preço por idade (limbo, 12/9/6/3 meses)
 │   │
 │   ├── Platform/                              # Identificação de plataforma
 │   │   └── PlatformIdentifier.php             # Regex para Steam, EA, EGS, GOG, Xbox, PSN
@@ -292,7 +212,7 @@ app/
 │   │   └── BundleTypeResolver.php             # Determina se é "choice" ou "bundle"
 │   │
 │   └── Enums/                                 # Enums compartilhados
-│       ├── Marketplace.php                    # G2A(2), Gamivo(3), Kinguin(4), Troca(7)
+│       ├── Marketplace.php                    # Gamivo(3) — G2A e Kinguin removidos
 │       └── KeyPlatform.php                    # Steam, EA, EGS, GOG, Xbox, PSN, Desconhecido
 │
 ├── UseCases/                                  # ORQUESTRAÇÃO de workflows complexos
@@ -300,10 +220,10 @@ app/
 │   │   ├── RegisterKeyUseCase.php             # store(): cálculos + fornecedor + plataforma + persistência
 │   │   ├── UpdateKeyUseCase.php               # update(): recalcula + atualiza fornecedor
 │   │   ├── ImportKeysFromXlsxUseCase.php      # Validação XLSX + registro em batch
-│   │   ├── AutoSellUseCase.php                # Busca keys elegíveis + regras de elegibilidade
+│   │   ├── AutoSellUseCase.php                # Busca keys elegíveis para listagem
 │   │   └── UpdateSoldOffersUseCase.php        # Atualiza keys vendidas + cálculo de lucro de venda
 │   ├── Bundles/
-│   │   └── SyncBundlesFromApiUseCase.php      # Fetch API + criar bundles + preços + associar jogos
+│   │   └── SyncBundlesFromApiUseCase.php      # Fetch API GGDeals + criar bundles + associar jogos
 │   └── Vips/
 │       └── ExecuteVipListUseCase.php          # Validar + criar VipList + chamar price_researcher
 │
@@ -314,27 +234,27 @@ app/
 │   ├── Games/
 │   │   └── GameService.php                    # Lookup Gamivo, Steam ID, popularity, CRUD
 │   ├── Bundles/
-│   │   └── BundleService.php                  # CRUD bundles, associação de jogos, preços
+│   │   └── BundleService.php                  # Consulta/filtros de bundles
 │   ├── Suppliers/
-│   │   └── SupplierService.php                # CRUD fornecedor
+│   │   └── SupplierService.php                # findOrCreate de fornecedor
 │   ├── Vips/
-│   │   └── VipListExecutionService.php        # Já bem estruturado — manter
+│   │   └── VipListExecutionService.php        # applyCallback() — persiste resultado do webhook
 │   └── External/
-│       └── CurrencyConversionService.php      # API AwesomeAPI (atual APIService)
+│       └── CurrencyConversionService.php      # API AwesomeAPI
 │
 ├── Http/
-│   ├── Controllers/                           # SÓ HTTP — request → use case/service → response
+│   ├── Controllers/
 │   │   ├── Keys/
-│   │   │   ├── KeyController.php              # CRUD (store → RegisterKeyUseCase, destroy direto)
-│   │   │   ├── KeyImportController.php        # import → ImportKeysFromXlsxUseCase
-│   │   │   └── KeySaleController.php          # autoSell → AutoSellUseCase, etc.
+│   │   │   ├── KeyController.php              # CRUD
+│   │   │   ├── KeyImportController.php        # import XLSX, downloadExample
+│   │   │   └── KeySaleController.php          # autoSell, whenToSell, updateSoldOffers, etc.
 │   │   ├── Games/
 │   │   │   └── GameController.php
 │   │   ├── Bundles/
 │   │   │   └── BundleController.php
 │   │   └── Vips/
 │   │       └── VipController.php
-│   └── Requests/                              # Manter e fortalecer validações
+│   └── Requests/
 │
 └── Models/                                    # Eloquent puro — sem lógica de negócio
 ```
@@ -352,7 +272,6 @@ Controller                          UseCase                              Domain
     │                                  │         │                         │
     │                                  │         ▼                         │
     │                                  │  MarketplaceFee::fromArray([...]) │
-    │                                  │  KeyPricing(preco, venda, pago)   │
     │                                  │         │                         │
     │                                  │         │  VOs + primitivos       │
     │                                  │         ├─────────────────────────►│
@@ -370,174 +289,18 @@ Controller                          UseCase                              Domain
 ### Value Objects — quando usar
 
 Value Objects agrupam dados relacionados e se validam no construtor. Usar quando:
-- Uma função receberia 3+ parâmetros do mesmo conceito (ex: precoCliente, precoVenda, valorPagoIndividual → `KeyPricing`)
+- Uma função receberia 3+ parâmetros do mesmo conceito
 - Os dados vêm de uma fonte externa e precisam de validação (ex: taxas do banco → `MarketplaceFee`)
 
 NÃO usar quando:
 - São 1-2 parâmetros simples (float, string) — primitivos bastam
 - O dado já é representado por um Enum (Marketplace, KeyPlatform)
 
-| Value Object | O que agrupa | Validação no construtor |
-|-------------|-------------|------------------------|
-| `MarketplaceFee` | Taxas percentuais e fixas por tier (Gamivo), G2A, Kinguin | Taxas ≥ 0, percentuais entre 0 e 1 |
-| `KeyPricing` | precoCliente, precoVenda, valorPagoIndividual | Valores > 0 |
-| `G2ATaxRange` | Faixa min/max de preço + taxa associada | Min < max, taxa ≥ 0 |
-
-### Mapa de migração: de onde → para onde
-
-Este mapa mostra onde cada pedaço de lógica está hoje e para onde vai.
-
-#### Pricing (Cálculos financeiros)
-
-| Lógica | Onde está HOJE | Para onde vai (o que é) |
-|--------|---------------|---------------|
-| `calcPrecoVenda()` | `Formulas.php:22-47` | `Domain/Pricing/SalePriceCalculator` |
-| `calcIncomeSimulado()` | `Formulas.php:79-105` | `Domain/Pricing/IncomeCalculator` |
-| `calcIncomeReal()` | `Formulas.php:49-77` | REMOVER |
-| `calcValorPagoIndividual()` | `Formulas.php:107-122` | `Domain/Pricing/ProfitCalculator` (valor que pago individualmente nesse jogo) |
-| `calcLucroReal()` | `Formulas.php:124-131` | `Domain/Pricing/ProfitCalculator` (lucro absoluto esperado ao comprar) |
-| `calcLucroPercentual()` | `Formulas.php:133-141` | `Domain/Pricing/ProfitCalculator` (lucro percentual esperado ao comprar) |
-| `calcLucroVendaReal()` | `Formulas.php:143-150` | `Domain/Pricing/ProfitCalculator` (lucro absoluto ao vender) |
-| `calcLucroVendaPercentual()` | `Formulas.php:152-159` | `Domain/Pricing/ProfitCalculator` (lucro percentual ao vender) |
-| `calculateMinMaxApi()` | `CalculateService.php:27-61` | `Domain/Pricing/MinMaxPriceCalculator` (valores mínimos e máximos que a API Gamivo pode chegar) |
-| Queries de taxas no construtor | `Formulas.php:__construct` | `Services/Keys/KeyCalculationService` (com cache) → passa `MarketplaceFee` VO para Domain |
-| `calculateFormulas()` (DUPLICADA) | `VendaChaveTrocaController:580-601` + `CalculateService:66-107` | Versão única em `Services/Keys/KeyCalculationService` |
-| Orquestração do `store()` (10+ passos) | `VendaChaveTrocaController::store():191-268` | `UseCases/Keys/RegisterKeyUseCase` |
-| Orquestração do `update()` | `VendaChaveTrocaController::update():273-330` | `UseCases/Keys/UpdateKeyUseCase` |
-| Orquestração do `autoSell()` | `VendaChaveTrocaController::autoSell():369-417` | `UseCases/Keys/AutoSellUseCase` (buscar jogos elegíveis para serem vendidos) |
-| Orquestração do `updateSoldOffers()` | `VendaChaveTrocaController::updateSoldOffers():428-461` | `UseCases/Keys/UpdateSoldOffersUseCase` (recebe POST da API Gamivo com os dados de venda dos jogos) |
-| Orquestração importação XLSX | `FileService::validateAndProcess()/storeKeys()` | `UseCases/Keys/ImportKeysFromXlsxUseCase` (importação de jogos novos) |
-| Sync bundles da API | `BundleService::createBundlesFromAPI():50-92` | `UseCases/Bundles/SyncBundlesFromApiUseCase` (busca dados de bundles na API GG deals e armazena) |
-| Execução lista VIP | `VipListExecutionService::queueRunForVip()` | `UseCases/Vips/ExecuteVipListUseCase` (busca lista de jogos de fornecedores e manda para o PRICE buscar o preço) |
-
-#### Classification (REMOVIDO)
-
-As classificações G2A (`classificacaoRandomG2A()` em `Formulas.php:161-182`) e Kinguin (`classificacaoRandomKinguin()` em `Formulas.php:184-197`) serão **removidas do sistema**, não migradas. Deletar o código na refatoração.
-
-#### Keys (Regras de ciclo de vida)
-
-| Lógica | Onde está HOJE | Para onde vai |
-|--------|---------------|---------------|
-| Regra dos 21 dias (bundle recente) | `VendaChaveTrocaController::autoSell():384` (inline na query) | `Domain/Keys/KeyEligibility::isEligibleForSale()` |
-| Regra "não pode ser gift link" | `VendaChaveTrocaController::autoSell()` (inline na query) | `Domain/Keys/KeyEligibility::isEligibleForSale()` |
-| Regra "deve ter idGamivo" | `VendaChaveTrocaController::autoSell()` (inline na query) | `Domain/Keys/KeyEligibility::isEligibleForSale()` |
-| Degradação de preço por idade | `GameService::updateMinPrices():111-130` | `Domain/Keys/KeyPriceAging::calculateAgedPrice()` |
-| Detecção de keys em limbo | `KeyService::checkLimboKeys():20-55` | `Domain/Keys/KeyPriceAging::calculateLimboPrice()` |
-| Verificação de key duplicada | `VendaChaveTrocaController::store()` (inline) | `Domain/Keys/DuplicateKeyChecker` |
-
-#### Suppliers (Fornecedores)
-
-| Lógica | Onde está HOJE | Para onde vai |
-|--------|---------------|---------------|
-| Máquina de estado de reclamações | `VendaChaveTrocaController::editarFornecedor():543-578` | **REMOVIDO** — contagem de reclamações será eliminada do sistema |
-| Criação/atualização de fornecedor | `GameService::criarAdicionarFornecedor():159-181` | `Services/Suppliers/SupplierService` (CRUD simples, sem lógica de reclamações) |
-
-#### Platform (Identificação)
-
-| Lógica | Onde está HOJE | Para onde vai |
-|--------|---------------|---------------|
-| Regex de plataforma por formato de key | `GameService::identifyPlatform():135-154` | `Domain/Platform/PlatformIdentifier` |
-
-#### Import (Importação XLSX)
-
-| Lógica | Onde está HOJE | Para onde vai |
-|--------|---------------|---------------|
-| Conversão de datas do Excel | `FileService::convertExcelDate():363-406` | `Domain/Import/ExcelDateConverter` |
-| Validação de cabeçalhos | `FileService::validateHeaders():86-103` | `Domain/Import/ImportHeaderValidator` |
-| Validação de linhas | `FileService::validateRow():330-346` | `Domain/Import/ImportRowValidator` |
-| Orquestração da importação | `FileService::validateAndProcess()/storeKeys()` | `Services/Keys/KeyImportService` |
-
-#### Bundles
-
-| Lógica | Onde está HOJE | Para onde vai |
-|--------|---------------|---------------|
-| Determinar tipo (choice vs bundle) | `BundleService::createBundlesFromAPI():50-92` (inline) | `Domain/Bundles/BundleTypeResolver` |
-
-#### Enums (IDs hardcoded → tipagem forte)
-
-| Valor hardcoded | Onde aparece | Substituído por |
-|-----------------|-------------|-----------------|
-| `id_plataforma = 2` (G2A) | `Formulas.php`, `CalculateService`, controllers | `Marketplace::G2A` REMOVER |
-| `id_plataforma = 3` (Gamivo) | `Formulas.php`, `FileService`, controllers | `Marketplace::Gamivo` |
-| `id_plataforma = 4` (Kinguin) | `Formulas.php`, controllers | `Marketplace::Kinguin` REMOVER |
-| `tipo_formato_id = 7` (Troca) | `Formulas.php` | `Marketplace::Troca` REMOVER |
-| Regexes de plataforma | `GameService.php` | `KeyPlatform` enum com método `fromKeyFormat()` |
-
 ---
 
 ## Roadmap de refatoração
 
-### Estratégia de migração de dados
-
-**Regra: nunca migrar código e dados ao mesmo tempo.** As Fases 0-5 refatoram o código SEM tocar no banco. O Eloquent desacopla o nome do model do nome da tabela/coluna via `$table` e `Attribute` accessors.
-
-Quando o código estiver refatorado e testado, migrar o schema usando **Expand-Contract Pattern**:
-1. **EXPAND** — migration adiciona coluna/tabela nova (antiga permanece)
-2. **MIGRATE** — migration copia dados da antiga para nova
-3. **SWITCH** — código passa a usar a nova
-4. **CONTRACT** — migration remove a antiga (só após validação em produção)
-
-Cada step é uma migration separada e reversível. Se der errado em qualquer ponto, a coluna/tabela antiga ainda existe com dados intactos.
-
-### Fase 5 — Criar UseCases e reorganizar Services
-> Objetivo: separar orquestração (UseCases) de infraestrutura (Services). Controllers magros.
-
-- [x] **5.1** Criar `KeyRepository` com método `findByKeyCode(string $keyCode, ?int $excludeId = null): ?Venda_chave_troca` — substitui a verificação de duplicata inline nos controllers
-- [x] **5.2** Criar `UseCases/Keys/RegisterKeyUseCase` — extrair `store()` do controller e `storeKeys()` do FileService
-  - Orquestra: KeyCalculationService + SupplierService + GameService + KeyRepository (duplicata) + Domain (PlatformIdentifier, MinMaxPriceCalculator)
-- [x] **5.3** Criar `UseCases/Keys/UpdateKeyUseCase` — extrair `update()` do controller
-  - Orquestra: KeyCalculationService + SupplierService + GameService
-- [x] **5.4** Criar `UseCases/Keys/AutoSellUseCase` — extrair `autoSell()` do controller
-  - Orquestra: KeyRepository (query com local scopes no model) + `KeyEligibility::BUNDLE_EXCLUSION_DAYS`
-  - Formatação para o frontend movida para o controller (não pertence ao UseCase)
-- [x] **5.5** Criar `UseCases/Keys/UpdateSoldOffersUseCase` — extrair `updateSoldOffers()` do controller
-  - Orquestra: KeyRepository (busca) + KeyCalculationService (cálculos de venda)
-- [x] **5.6** Criar `UseCases/Keys/ImportKeysFromXlsxUseCase` — extrair de `FileService`
-  - Orquestra: Domain/Import (validação de cabeçalhos e linhas) + RegisterKeyUseCase (registro do lote)
-- [x] **5.7** Criar `UseCases/Bundles/SyncBundlesFromApiUseCase` — extrair de `BundleService`
-  - Orquestra: APIService (GGDeals + conversão de moeda) + BundleTypeResolver (Domain) + Bundle/Game (Eloquent) + price_researcher (HTTP)
-  - `BundleService` mantém apenas `getBundlesWithFilters()` (consulta/filtros)
-  - `routes/console.php` usa `app(SyncBundlesFromApiUseCase::class)->execute()` em vez de `new BundleService()`
-- [x] **5.8** Criar `UseCases/Vips/ExecuteVipListUseCase` — extrair de `VipListExecutionService`
-  - `VipListExecutionService` mantém apenas `applyCallback()` (infraestrutura simples)
-  - `VipController::runVipList()` injeta e usa `ExecuteVipListUseCase`
-- [x] **5.9** Refatorar Services para serem infraestrutura pura:
-  - `KeyCalculationService` ✅ já era infra pura (cache + VOs)
-  - `KeyRepository` ✅ já era infra pura (queries complexas)
-  - `SupplierService` ✅ criado na Fase 3 — `findOrCreate(string $perfilOrigem): int`
-  - `GameService` → movido para `Services/Games/`, removido wrapper `identifyPlatform()` (callers chamam `PlatformIdentifier::identify()` direto), corrigido bug em `searchGamesIdSteam()`, removido construtor vazio
-  - `BundleService` ✅ limpo na Fase 5.7 (só consulta/filtros)
-  - `CurrencyConversionService` → extraído de `APIService` para `Services/External/`; `APIService` ficou apenas com `getBundles()` (GGDeals); `ResourceService` atualizado para usar `CurrencyConversionService`
-- [x] **5.10** Dividir `VendaChaveTrocaController` em `KeyController`, `KeyImportController`, `KeySaleController`
-  - `KeyController` — CRUD (show/Inertia, paginated, search, store, update, destroy, destroyArray)
-  - `KeyImportController` — import XLSX, downloadExample
-  - `KeySaleController` — autoSell, whenToSell, updateSoldOffers, searchByIdGamivo, insertDataVenda
-  - Resources criados: `KeyResource` (CRUD), `KeyWhenToSellResource`, `KeyGamivoMinMaxResource` (além do `KeyAutoSellResource` já existente)
-  - `VendaChaveTrocaController.php` deletado
-- [x] **5.11** Atualizar `routes/web.php` para apontar para novos controllers
-  - URLs e nomes de rotas idênticos — nenhum frontend quebrado
-- [x] **5.12** Deletar `FileService.php` — toda lógica migrada em 5.6
-- [x] **5.13** Rodar testes completos — 189 passed, 0 failures
-
-### Fase 6 — Segurança e infraestrutura
-> Objetivo: corrigir vulnerabilidades identificadas.
-
-- [ ] **6.1** Mover admin para env ou campo `is_admin` na tabela
-- [ ] **6.2** Proteger webhook VIP com token secreto
-- [ ] **6.3** Adicionar auth às rotas públicas (`updatePopularity`, `paginated`, `search`)
-- [ ] **6.4** Remover log parcial de keys (`FileService ~linha 188`)
-- [ ] **6.5** Fortalecer validações de preço nos Form Requests
-- [ ] **6.6** Substituir `min:1 max:4` por `exists:tipo_reclamacoes,id`
-
-### Fase 7 — Docker Compose para desenvolvimento ✅
-> Objetivo: ambiente reproduzível com um comando.
-
-- [x] **7.1** `Dockerfile` (PHP 8.3-FPM + extensões: pgsql, redis, node)
-- [x] **7.2** `docker-compose.yml` com `app-cd`, `web-cd` (Nginx), `postgres-cd`, `redis-cd`
-- [x] **7.3** `docker/nginx/default.conf` — proxy PHP-FPM, upload 50 MB, timeout 300 s
-- [x] **7.4** `entrypoint.sh` — split dev (`npm run dev &`) / prod (`npm run build` + cache)
-- [x] **7.5** `Makefile` — `make up/down/build/shell/test/lint/format/fresh/migrate`
-- [x] **7.6** `.env.example` documentado com todas as variáveis do projeto
+### Fase 6 — Segurança e infraestrutura ✅
 
 ### Fase 8 — CI/CD com GitHub Actions
 > Objetivo: pipeline automatizado que valida qualidade a cada push.
@@ -551,68 +314,7 @@ Cada step é uma migration separada e reversível. Se der errado em qualquer pon
 - [ ] **8.2** Instalar PHPStan + `larastan` (`composer require --dev nunomaduro/larastan`)
 - [ ] **8.3** Adicionar `phpstan.neon` configurado para `app/Domain/` nível 8, resto nível 5
 - [ ] **8.4** Adicionar badge de CI no README
-- [ ] **9.5** Migrar queue driver de `database` para `redis` (já disponível via Docker)
-
-### Fase Futura 0 — Rename de colunas para inglês
-> Objetivo: eliminar nomes em português do banco e do código, completando a padronização iniciada na Fase 1.
-> **Pré-requisito**: todas as fases anteriores concluídas (código já refatorado facilita o rename).
-> **Estratégia**: `RENAME COLUMN` no PostgreSQL é atômico (operação de metadados, sem rewrite). Uma migration por grupo lógico para facilitar reversão individual.
-
-#### Mapa de renomes — tabela `venda_chave_trocas`
-
-**Campos financeiros**
-| Coluna atual | Nova coluna | Descrição |
-|---|---|---|
-| `lucroRS` | `purchaseProfit` | lucro absoluto esperado na compra |
-| `lucroPercentual` | `purchaseProfitPercent` | lucro percentual esperado na compra |
-| `lucroVendaRS` | `saleProfit` | lucro absoluto realizado na venda |
-| `lucroVendaPercentual` | `saleProfitPercent` | lucro percentual realizado na venda |
-| `valorVendido` | `soldPrice` | preço pelo qual a key foi vendida |
-| `valorPagoIndividual` | `individualCost` | custo individual da key no lote |
-| `valorPagoTotal` | `totalPaid` | descrição do lote ex: `"2x TF2 Keys / 5"` |
-| `precoCliente` | `marketPrice` | preço no marketplace na data de compra |
-| `minimoParaVenda` | `minimumSalePrice` | preço mínimo aceitável para listar |
-| `incomeSimulado` | `simulatedIncome` | receita líquida estimada após taxas Gamivo |
-
-**Campos de identidade da key**
-| Coluna atual | Nova coluna | Descrição |
-|---|---|---|
-| `nomeJogo` | `gameName` | |
-| `chaveRecebida` | `keyCode` | código de ativação entregue ao cliente |
-| `idGamivo` | `gamivoId` | ID externo no marketplace Gamivo |
-| `plataformaIdentificada` | `identifiedPlatform` | plataforma detectada pelo formato da key |
-| `repetido` | `isDuplicate` | boolean — key duplicada detectada na importação |
-| `perfilOrigem` | `supplierProfile` | URL do perfil Steam do fornecedor |
-| `qtdTF2` | `tf2Quantity` | quantidade de keys TF2 do lote de compra |
-
-**Campos de data**
-| Coluna atual | Nova coluna | Descrição |
-|---|---|---|
-| `dataVenda` | `listedAt` | data em que a key foi listada para venda |
-| `dataVendida` | `soldAt` | data em que a key foi vendida |
-| `dataAdquirida` | `acquiredAt` | data de compra da key |
-| `dataExpiracao` | `expiresAt` | data de expiração da key |
-
-**Tabela `fornecedor`**
-| Coluna atual | Nova coluna |
-|---|---|
-| `perfilOrigem` | `supplierProfile` |
-
-#### Sequência de execução
-- [ ] Migration grupo 1: renomear campos financeiros (`purchaseProfit`, `saleProfit`, etc.)
-- [ ] Migration grupo 2: renomear campos de identidade (`gameName`, `keyCode`, `gamivoId`, etc.)
-- [ ] Migration grupo 3: renomear campos de data (`listedAt`, `soldAt`, `acquiredAt`, `expiresAt`)
-- [ ] Migration grupo 4: renomear coluna em `fornecedor` (`supplierProfile`)
-- [ ] Atualizar `app/Models/Venda_chave_troca.php` e `Fornecedor.php` — fillable + casts
-- [ ] Atualizar `app/Http/Requests/` — 2 Form Requests
-- [ ] Atualizar `app/Http/Controllers/VendaChaveTrocaController.php`
-- [ ] Atualizar `app/Services/Keys/KeyCalculationService.php`, `FileService.php`, `GameService.php`
-- [ ] Atualizar `app/Domain/Pricing/ProfitCalculator.php` — nomes de parâmetros
-- [ ] Atualizar `resources/js/types/GameLine.ts` e `VendaChaveTroca.vue`
-- [ ] Atualizar todos os testes
-- [ ] Variável calculada (sem coluna): `somatorioIncomes` → `incomeSum`
-
----
+- [ ] **8.5** Migrar queue driver de `database` para `redis` (já disponível via Docker)
 
 ### Fase Futura 1 — API REST + Documentação (ignorar por enquanto)
 > Objetivo: expor o sistema via API versionada e documentada — demonstra domínio de APIs para portfólio.
@@ -631,58 +333,42 @@ Cada step é uma migration separada e reversível. Se der errado em qualquer pon
 - [ ] **7.7** Rodar testes de API (Feature Tests com `actingAs` + Sanctum)
 
 ### Fase Futura 2 — Normalizar FK entre keys e games
-> Objetivo: substituir o link por string `idGamivo` (ID externo do marketplace) por uma FK integer adequada (`game_id`) entre `venda_chave_trocas` e `games`.
-> **Pré-requisito**: Fase 5 concluída — `RegisterKeyUseCase` já garante criação do `Game` correspondente.
+> Objetivo: substituir o vínculo por string `gamivo_id` (ID externo do marketplace) por uma FK integer adequada (`game_id`) entre `venda_chave_trocas` e `games`.
+> **Pré-requisito**: `RegisterKeyUseCase` já garante criação do `Game` correspondente.
 
 #### Contexto do problema
 
 Hoje `venda_chave_trocas` se liga a `games` indiretamente, via string:
 
 ```
-venda_chave_trocas.idGamivo (varchar) ←→ games.id_gamivo (varchar)
+venda_chave_trocas.gamivo_id (varchar) ←→ games.id_gamivo (varchar)
 ```
 
 Isso é um acoplamento ao ID externo do Gamivo, não uma FK real. Consequências:
 
-1. **Sem integridade referencial** — uma key pode ter `idGamivo` apontando para um game que não existe na tabela `games`
+1. **Sem integridade referencial** — uma key pode ter `gamivo_id` apontando para um game que não existe na tabela `games`
 2. **JOINs em varchar indexado** — mais lentos que em integer (FK)
-3. **Dados duplicados** — `nomeJogo` e `region` vivem em `venda_chave_trocas` E em `games`, podendo divergir
-4. **Frágil a mudanças externas** — se o Gamivo mudar o formato do ID, ou se o jogo for re-registrado no marketplace com outro ID, o link quebra silenciosamente
-5. **Relationship `game()` depende da string** — `belongsTo(Game, 'idGamivo', 'id_gamivo')` funciona mas não é o padrão Laravel
+3. **Dados duplicados** — `game_name` e `region` vivem em `venda_chave_trocas` E em `games`, podendo divergir
+4. **Frágil a mudanças externas** — se o Gamivo mudar o formato do ID, o link quebra silenciosamente
+5. **Relationship `game()` depende da string** — `belongsTo(Game, 'gamivo_id', 'id_gamivo')` funciona mas não é o padrão Laravel
 
 #### Estratégia (Expand-Contract)
 
 - [ ] **F2.1** Migration **EXPAND** — adicionar `game_id` (bigint nullable) em `venda_chave_trocas` com FK para `games.id`
-- [ ] **F2.2** Migration **MIGRATE** — backfill: para cada key, localizar `games.id` via `idGamivo → id_gamivo` e popular `game_id`
-- [ ] **F2.3** Ajustar `RegisterKeyUseCase` para persistir `game_id` após criar/localizar o game (já tem referência ao objeto)
-- [ ] **F2.4** Migration: tornar `game_id` NOT NULL após validação em produção (garante invariante — toda key tem jogo)
+- [ ] **F2.2** Migration **MIGRATE** — backfill: para cada key, localizar `games.id` via `gamivo_id → id_gamivo` e popular `game_id`
+- [ ] **F2.3** Ajustar `RegisterKeyUseCase` para persistir `game_id` após criar/localizar o game
+- [ ] **F2.4** Migration: tornar `game_id` NOT NULL após validação em produção
 - [ ] **F2.5** Reescrever relationship `game()` em `Venda_chave_troca` para FK padrão: `belongsTo(Game::class)`
-- [ ] **F2.6** Reescrever `scopeWithoutRecentBundle` — `whereDoesntHave` continua funcionando, agora com FK integer (mais rápido)
-- [ ] **F2.7** Avaliar remoção de `nomeJogo` e `region` de `venda_chave_trocas` — se forem sempre iguais aos do `Game`, viram dados denormalizados desnecessários; acessar via `$key->game->name`
-- [ ] **F2.8** Migration **CONTRACT** — remover coluna `idGamivo` de `venda_chave_trocas` (mantém apenas em `games.id_gamivo`, que é o local correto para o ID externo)
+- [ ] **F2.6** Reescrever `scopeWithoutRecentBundle` — `whereDoesntHave` com FK integer (mais rápido)
+- [ ] **F2.7** Avaliar remoção de `game_name` e `region` de `venda_chave_trocas` — se sempre iguais ao `Game`, são dados denormalizados desnecessários
+- [ ] **F2.8** Migration **CONTRACT** — remover coluna `gamivo_id` de `venda_chave_trocas`
 
 #### Pontos de atenção
 
-- **Keys órfãs**: antes de aplicar NOT NULL (F2.4), rodar auditoria para identificar keys cujo `idGamivo` não corresponde a nenhum `Game`. Decisão: criar o `Game` faltante ou marcar a key como inválida
-- **`region` em duas tabelas**: hoje existem em ambas. Se o jogo tem region global mas uma key específica é regional, a coluna em `venda_chave_trocas` tem valor diferente. Verificar na auditoria antes de remover (F2.7)
-- **Quebra do contrato externo**: se há integrações externas (ex: API Gamivo, webhooks) que dependem de `idGamivo` em respostas JSON, API Resources devem continuar expondo via `$key->game->id_gamivo`
-- **Tempo entre EXPAND e CONTRACT**: manter as duas colunas (`idGamivo` e `game_id`) conviventes por pelo menos um ciclo de validação em produção antes de aplicar F2.8
-
-#### Benefícios esperados
-
-- Integridade referencial garantida pelo banco (impossível ter key com game inexistente)
-- Queries autoSell, whenToSell etc. mais rápidas — FK integer indexada
-- Fim da possibilidade de divergência entre `nomeJogo`/`region` da key vs. do game
-- Código mais idiomático Laravel — relationships seguem o padrão `foreign_key` → `primary_key`
-
-### Notas sobre o roadmap
-
-- **Cada fase termina com "rodar testes"** — nunca avançar sem verde.
-- **Fase 0 é obrigatória** — sem testes de caracterização, qualquer refatoração é arriscada.
-- **Fases 1-4 são independentes entre si** — podem ser reordenadas, mas Fase 1 tem maior impacto financeiro.
-- **Fase 5 depende das Fases 1-4** — os UseCases consomem as classes Domain criadas antes.
-- **Fase 6 é independente** — pode ser feita em paralelo com qualquer fase.
-- **Fases 7-9 são de infraestrutura/portfólio** — independentes entre si e das fases anteriores (exceto que testes devem existir antes do CI/CD).
+- **Keys órfãs**: antes de aplicar NOT NULL (F2.4), auditar keys cujo `gamivo_id` não corresponde a nenhum `Game`
+- **`region` em duas tabelas**: verificar divergências antes de remover (F2.7)
+- **Quebra do contrato externo**: API Resources devem continuar expondo via `$key->game->id_gamivo`
+- **Tempo entre EXPAND e CONTRACT**: manter as duas colunas conviventes por pelo menos um ciclo de validação em produção
 
 ---
 
@@ -693,7 +379,7 @@ Isso é um acoplamento ao ID externo do Gamivo, não uma FK real. Consequências
 - **Min/Max API Gamivo**: preço mínimo = 1.4×–1.6× do pago; máximo = 8×–30× (quanto mais barato o jogo, maior o múltiplo máximo).
 - **Classificação de marketplace**: ~~G2A e Kinguin tinham categorias (VIP, Diamond, Gold...) baseadas em preço e nota Metacritic.~~ **REMOVIDO** — funcionalidade descontinuada.
 - **Contagem de reclamações de fornecedor**: ~~Máquina de estado que rastreava reclamações por fornecedor.~~ **REMOVIDO** — funcionalidade descontinuada.
-- **Importação XLSX**: cabeçalho obrigatório com 11 colunas específicas; datas em formato serial do Excel são convertidas.
+- **Importação XLSX**: cabeçalho obrigatório com 10 colunas (A=Data, B=Gamivo, C=URL perfil, D=Qtd. TF2, E=Bundle, F=Data expiração, G=Popularidade, H=Region Lock, I=Chave, J=Nome do Jogo); datas em formato serial do Excel são convertidas; `tf2_quantity` vazia (0) é rejeitada com erro.
 
 ---
 
@@ -712,7 +398,7 @@ GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 GOOGLE_REDIRECT_URI=
 
-# Admin (sugerido — ainda não implementado)
+# Admin
 ADMIN_EMAIL=carcadeals@gmail.com
 EXTERNAL_SECRET=
 ```
