@@ -4,9 +4,9 @@ namespace App\Services;
 
 use App\Services\External\CurrencyConversionService;
 
-class ResourceService
+class AssetService
 {
-    public function getResourcesCurrency($data)
+    public function getAssetsCurrency($data)
     {
         $currencyService = new CurrencyConversionService;
 

@@ -4,7 +4,7 @@ use App\Models\Asset;
 use App\Models\Key;
 use App\Services\Games\GameService;
 use App\Services\KeyService;
-use App\Services\ResourceService;
+use App\Services\AssetService;
 use App\UseCases\Bundles\SyncBundlesFromApiUseCase;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -46,8 +46,8 @@ Schedule::call(function () {
     $data['currentCurrency'] = 'BRL';
     $data['price_brl'] = $tf2->price_brl;
 
-    $resourceService = new ResourceService;
-    $data = $resourceService->getResourcesCurrency($data);
+    $assetService = new AssetService;
+    $data = $assetService->getAssetsCurrency($data);
 
     // Comparar o preço do dolar no sistema com o preço dolar do dia atual
     if ($data['price_dollar'] - $tf2->price_dollar >= 0.20 || $tf2->price_dollar - $data['price_dollar'] >= 0.20) {

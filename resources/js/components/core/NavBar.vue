@@ -66,7 +66,7 @@ const handleLogout = async () => {
               </ul>
             </li>
             <li>
-              <Link class="nav-link" :href="route('resources')">Recursos</Link>
+              <Link class="nav-link" :href="route('assets')">Recursos</Link>
             </li>
           </ul>
         </div>

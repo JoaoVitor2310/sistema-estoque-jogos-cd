@@ -25,7 +25,7 @@ Route::fallback(function () {
 
 Route::get('/fees', [FeeController::class, 'showMarketPlaceFees'])->name('fees'); // READ all fees
 
-Route::get('/resources', [AssetController::class, 'show'])->name('resources');
+Route::get('/assets', [AssetController::class, 'show'])->name('assets');
 
 Route::get('/bundles', [BundleController::class, 'index'])->name('bundles');
 
@@ -97,14 +97,14 @@ Route::prefix('bundles')
         Route::delete('/{id}/games', 'removeGames')->name('bundles.removeGames');
     });
 
-Route::prefix('resources')
+Route::prefix('assets')
     ->middleware(CheckAdmin::class)
     ->controller(AssetController::class)
     ->group(function () {
-        Route::post('/', 'store')->name('resources.store');
-        Route::put('/{id}', 'update')->name('resources.update');
-        Route::delete('/{id}', 'destroy')->name('resources.destroy');
-        Route::delete('/', 'destroyArray')->name('resources.destroyArray');
+        Route::post('/', 'store')->name('assets.store');
+        Route::put('/{id}', 'update')->name('assets.update');
+        Route::delete('/{id}', 'destroy')->name('assets.destroy');
+        Route::delete('/', 'destroyArray')->name('assets.destroyArray');
     });
 
 Route::prefix('keys')

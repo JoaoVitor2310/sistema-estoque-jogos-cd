@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\StoreResourceRequest;
+use App\Http\Requests\StoreAssetRequest;
 use App\Models\Asset;
-use App\Services\ResourceService;
+use App\Services\AssetService;
 use App\Traits\HttpResponses;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -14,11 +14,11 @@ class AssetController extends Controller
 {
     use HttpResponses;
 
-    private ResourceService $resourceService;
+    private AssetService $assetService;
 
     public function __construct()
     {
-        $this->resourceService = new ResourceService;
+        $this->assetService = new AssetService;
     }
 
     public function show(Request $request)
@@ -27,12 +27,12 @@ class AssetController extends Controller
 
         is_object($assets) ? $assets = $assets->toArray() : $assets;
 
-        return Inertia::render('Resources', [
-            'resources' => $assets,
+        return Inertia::render('Assets', [
+            'assets' => $assets,
         ]);
     }
 
-    public function store(StoreResourceRequest $request)
+    public function store(StoreAssetRequest $request)
     {
         $data = $request->validated();
 
@@ -67,9 +67,9 @@ class AssetController extends Controller
 
     public function destroyArray(Request $request)
     {
-        $assets = $request->input('resources');
+        $assets = $request->input('assets');
         if (! $assets) {
-            return $this->error(404, 'Recursos não enviados', ['resources' => 'Recursos não enviados']);
+            return $this->error(404, 'Recursos não enviados', ['assets' => 'Recursos não enviados']);
         }
 
         foreach ($assets as $asset) {
@@ -87,7 +87,7 @@ class AssetController extends Controller
         return $this->response(200, 'Recursos deletados com sucesso', $assets);
     }
 
-    public function update(StoreResourceRequest $request, string $id)
+    public function update(StoreAssetRequest $request, string $id)
     {
         $asset = Asset::select('*')->where('id', $id)->first();
         if (! $asset) {
@@ -95,7 +95,7 @@ class AssetController extends Controller
         }
 
         $data = $request->validated();
-        $data = $this->resourceService->getResourcesCurrency($data);
+        $data = $this->assetService->getAssetsCurrency($data);
 
         $result = $asset->update($data);
 
