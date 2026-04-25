@@ -37,10 +37,10 @@ class KeyCalculationService
     {
         return Cache::remember(self::FEES_CACHE_KEY, self::CACHE_TTL, function () {
             $rows = Fee::whereIn('name', [
-                'gamivoPercentualMenor',
-                'gamivoFixoMenor',
-                'gamivoPercentualMaior',
-                'gamivoFixoMaior',
+                'gamivo_percent_low',
+                'gamivo_fixed_low',
+                'gamivo_percent_high',
+                'gamivo_fixed_high',
             ])->pluck('preco', 'name');
 
             return MarketplaceFee::fromArray($rows->all());

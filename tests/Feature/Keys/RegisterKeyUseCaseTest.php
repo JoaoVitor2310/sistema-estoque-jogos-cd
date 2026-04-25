@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 /*
 |--------------------------------------------------------------------------
@@ -13,10 +13,10 @@
 |   - Isolamento de erros: falha em uma key não interrompe o lote
 |
 | Taxas semeadas (padrão de produção):
-|   gamivoPercentualMenor = 0.072  (7.2 %)
-|   gamivoFixoMenor       = 0.110  (€ 0.11)
-|   gamivoPercentualMaior = 0.102  (10.2 %)
-|   gamivoFixoMaior       = 0.550  (€ 0.55)
+|   gamivo_percent_low = 0.072  (7.2 %)
+|   gamivo_fixed_low       = 0.110  (€ 0.11)
+|   gamivo_percent_high = 0.102  (10.2 %)
+|   gamivo_fixed_high       = 0.550  (€ 0.55)
 |   TF2 price_euro        = 2.000  (€ 2.00 por TF2 key)
 |
 */
@@ -31,10 +31,10 @@ use Illuminate\Support\Facades\DB;
 function seedRegisterFks(): void
 {
     DB::table('fees')->insert([
-        ['name' => 'gamivoPercentualMenor', 'preco' => 0.072, 'created_at' => now(), 'updated_at' => now()],
-        ['name' => 'gamivoFixoMenor',       'preco' => 0.110, 'created_at' => now(), 'updated_at' => now()],
-        ['name' => 'gamivoPercentualMaior', 'preco' => 0.102, 'created_at' => now(), 'updated_at' => now()],
-        ['name' => 'gamivoFixoMaior',       'preco' => 0.550, 'created_at' => now(), 'updated_at' => now()],
+        ['name' => 'gamivo_percent_low', 'preco' => 0.072, 'created_at' => now(), 'updated_at' => now()],
+        ['name' => 'gamivo_fixed_low',       'preco' => 0.110, 'created_at' => now(), 'updated_at' => now()],
+        ['name' => 'gamivo_percent_high', 'preco' => 0.102, 'created_at' => now(), 'updated_at' => now()],
+        ['name' => 'gamivo_fixed_high',       'preco' => 0.550, 'created_at' => now(), 'updated_at' => now()],
     ]);
 
     DB::table('assets')->insert([

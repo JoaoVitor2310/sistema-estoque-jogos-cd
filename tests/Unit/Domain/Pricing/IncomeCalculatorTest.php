@@ -7,8 +7,8 @@
 |
 | PHP puro — sem DB, sem bootstrap do framework.
 | MarketplaceFee é construído diretamente com valores espelhados da produção:
-|   percentualMenor = 0.060, fixoMenor = 0.250
-|   percentualMaior = 0.080, fixoMaior = 0.400
+|   percentLow  = 0.060, fixedLow  = 0.250
+|   percentHigh = 0.080, fixedHigh = 0.400
 |
 */
 
@@ -19,10 +19,10 @@ describe('IncomeCalculator', function () {
 
     beforeEach(function () {
         $this->fee = new MarketplaceFee(
-            percentualMenor: 0.060,
-            fixoMenor: 0.250,
-            percentualMaior: 0.080,
-            fixoMaior: 0.400,
+            percentLow:  0.060,
+            fixedLow:    0.250,
+            percentHigh: 0.080,
+            fixedHigh:   0.400,
         );
     });
 
@@ -58,17 +58,17 @@ describe('IncomeCalculator', function () {
                 ->toEqualWithDelta(6.96, 0.001);
         });
 
-        it('does not use fixoMenor for the micro tier — micro has its own fixed fee of €0.11', function () {
-            // Mesmo que fixoMenor seja 0.25, abaixo de 0.28 a taxa é 0.11
-            $feeWithDifferentFixo = new MarketplaceFee(
-                percentualMenor: 0.060,
-                fixoMenor: 0.999, // valor diferente para confirmar que não é usado
-                percentualMaior: 0.080,
-                fixoMaior: 0.400,
+        it('does not use fixedLow for the micro tier — micro has its own fixed fee of €0.11', function () {
+            // Mesmo que fixedLow seja 0.999, abaixo de 0.28 a taxa é 0.11
+            $feeWithDifferentFixed = new MarketplaceFee(
+                percentLow:  0.060,
+                fixedLow:    0.999, // valor diferente para confirmar que não é usado
+                percentHigh: 0.080,
+                fixedHigh:   0.400,
             );
 
-            // 0.20 − 0.11 = 0.09 (fixoMenor=0.999 ignorado)
-            expect(IncomeCalculator::forGamivo(0.20, $feeWithDifferentFixo))
+            // 0.20 − 0.11 = 0.09 (fixedLow=0.999 ignorado)
+            expect(IncomeCalculator::forGamivo(0.20, $feeWithDifferentFixed))
                 ->toEqualWithDelta(0.09, 0.001);
         });
 

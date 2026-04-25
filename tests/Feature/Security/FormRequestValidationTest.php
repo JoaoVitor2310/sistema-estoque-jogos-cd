@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 /*
 |--------------------------------------------------------------------------
@@ -27,10 +27,10 @@ use Illuminate\Support\Facades\DB;
 function seedValidationFks(): void
 {
     DB::table('fees')->insertOrIgnore([
-        ['name' => 'gamivoPercentualMenor', 'preco' => 0.072, 'created_at' => now(), 'updated_at' => now()],
-        ['name' => 'gamivoFixoMenor',       'preco' => 0.110, 'created_at' => now(), 'updated_at' => now()],
-        ['name' => 'gamivoPercentualMaior', 'preco' => 0.102, 'created_at' => now(), 'updated_at' => now()],
-        ['name' => 'gamivoFixoMaior',       'preco' => 0.550, 'created_at' => now(), 'updated_at' => now()],
+        ['name' => 'gamivo_percent_low', 'preco' => 0.072, 'created_at' => now(), 'updated_at' => now()],
+        ['name' => 'gamivo_fixed_low',       'preco' => 0.110, 'created_at' => now(), 'updated_at' => now()],
+        ['name' => 'gamivo_percent_high', 'preco' => 0.102, 'created_at' => now(), 'updated_at' => now()],
+        ['name' => 'gamivo_fixed_high',       'preco' => 0.550, 'created_at' => now(), 'updated_at' => now()],
     ]);
     DB::table('assets')->insertOrIgnore(['id' => 1, 'name' => 'TF2', 'price_euro' => 2.0, 'price_dollar' => 2.2, 'price_brl' => 10.0, 'created_at' => now(), 'updated_at' => now()]);
 }

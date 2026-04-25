@@ -12,10 +12,10 @@
 | toEqualWithDelta em vez de toBe('string').
 |
 | Seeded rates (mirror production values):
-|   gamivoPercentualMenor = 0.060  (6.0 %)
-|   gamivoFixoMenor       = 0.250  (€ 0.25)
-|   gamivoPercentualMaior = 0.080  (8.0 %)
-|   gamivoFixoMaior       = 0.400  (€ 0.40)
+|   gamivo_percent_low = 0.060  (6.0 %)
+|   gamivo_fixed_low       = 0.250  (€ 0.25)
+|   gamivo_percent_high = 0.080  (8.0 %)
+|   gamivo_fixed_high       = 0.400  (€ 0.40)
 |   TF2 price_euro        = 1.500  (€ 1.50 per TF2 key)
 |
 */
@@ -27,10 +27,10 @@ describe('KeyCalculationService', function () {
 
     beforeEach(function () {
         DB::table('fees')->insert([
-            ['name' => 'gamivoPercentualMenor', 'preco' => 0.060, 'created_at' => now(), 'updated_at' => now()],
-            ['name' => 'gamivoFixoMenor',       'preco' => 0.250, 'created_at' => now(), 'updated_at' => now()],
-            ['name' => 'gamivoPercentualMaior', 'preco' => 0.080, 'created_at' => now(), 'updated_at' => now()],
-            ['name' => 'gamivoFixoMaior',       'preco' => 0.400, 'created_at' => now(), 'updated_at' => now()],
+            ['name' => 'gamivo_percent_low', 'preco' => 0.060, 'created_at' => now(), 'updated_at' => now()],
+            ['name' => 'gamivo_fixed_low',       'preco' => 0.250, 'created_at' => now(), 'updated_at' => now()],
+            ['name' => 'gamivo_percent_high', 'preco' => 0.080, 'created_at' => now(), 'updated_at' => now()],
+            ['name' => 'gamivo_fixed_high',       'preco' => 0.400, 'created_at' => now(), 'updated_at' => now()],
         ]);
 
         DB::table('assets')->insert([

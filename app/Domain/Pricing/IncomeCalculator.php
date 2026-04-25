@@ -13,8 +13,8 @@ use App\Domain\Pricing\ValueObjects\MarketplaceFee;
  *
  * Tiers Gamivo:
  *  precoCliente < 0.28 → precoCliente − 0.11 (taxa micro, fixa)
- *  precoCliente < 8    → precoCliente × (1 − %menorFee) − fixoMenor
- *  precoCliente >= 8   → precoCliente × (1 − %maiorFee) − fixoMaior
+ *  precoCliente < 8    → precoCliente × (1 − percentLow) − fixedLow
+ *  precoCliente >= 8   → precoCliente × (1 − percentHigh) − fixedHigh
  */
 final class IncomeCalculator
 {
@@ -49,9 +49,9 @@ final class IncomeCalculator
         }
 
         if ($clientPrice < self::TIER_THRESHOLD) {
-            return $clientPrice * (1 - $fee->percentualMenor) - $fee->fixoMenor;
+            return $clientPrice * (1 - $fee->percentLow) - $fee->fixedLow;
         }
 
-        return $clientPrice * (1 - $fee->percentualMaior) - $fee->fixoMaior;
+        return $clientPrice * (1 - $fee->percentHigh) - $fee->fixedHigh;
     }
 }

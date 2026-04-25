@@ -11,31 +11,31 @@ namespace App\Domain\Pricing\ValueObjects;
 final class MarketplaceFee
 {
     /**
-     * @param  float  $percentualMenor  Taxa percentual para preços abaixo de €8 (ex: 0.06 = 6%)
-     * @param  float  $fixoMenor  Taxa fixa para preços abaixo de €8 (ex: 0.25 = €0.25)
-     * @param  float  $percentualMaior  Taxa percentual para preços a partir de €8 (ex: 0.08 = 8%)
-     * @param  float  $fixoMaior  Taxa fixa para preços a partir de €8 (ex: 0.40 = €0.40)
+     * @param  float  $percentLow   Taxa percentual para preços abaixo de €8 (ex: 0.06 = 6%)
+     * @param  float  $fixedLow     Taxa fixa para preços abaixo de €8 (ex: 0.25 = €0.25)
+     * @param  float  $percentHigh  Taxa percentual para preços a partir de €8 (ex: 0.08 = 8%)
+     * @param  float  $fixedHigh    Taxa fixa para preços a partir de €8 (ex: 0.40 = €0.40)
      */
     public function __construct(
-        public readonly float $percentualMenor,
-        public readonly float $fixoMenor,
-        public readonly float $percentualMaior,
-        public readonly float $fixoMaior,
+        public readonly float $percentLow,
+        public readonly float $fixedLow,
+        public readonly float $percentHigh,
+        public readonly float $fixedHigh,
     ) {
-        if ($percentualMenor < 0 || $percentualMenor > 1) {
-            throw new \InvalidArgumentException("percentualMenor must be between 0 and 1, got {$percentualMenor}");
+        if ($percentLow < 0 || $percentLow > 1) {
+            throw new \InvalidArgumentException("percentLow must be between 0 and 1, got {$percentLow}");
         }
 
-        if ($percentualMaior < 0 || $percentualMaior > 1) {
-            throw new \InvalidArgumentException("percentualMaior must be between 0 and 1, got {$percentualMaior}");
+        if ($percentHigh < 0 || $percentHigh > 1) {
+            throw new \InvalidArgumentException("percentHigh must be between 0 and 1, got {$percentHigh}");
         }
 
-        if ($fixoMenor < 0) {
-            throw new \InvalidArgumentException("fixoMenor must be >= 0, got {$fixoMenor}");
+        if ($fixedLow < 0) {
+            throw new \InvalidArgumentException("fixedLow must be >= 0, got {$fixedLow}");
         }
 
-        if ($fixoMaior < 0) {
-            throw new \InvalidArgumentException("fixoMaior must be >= 0, got {$fixoMaior}");
+        if ($fixedHigh < 0) {
+            throw new \InvalidArgumentException("fixedHigh must be >= 0, got {$fixedHigh}");
         }
     }
 
@@ -43,19 +43,19 @@ final class MarketplaceFee
      * Constrói o VO a partir de um array associativo vindo do banco de dados.
      *
      * @param array{
-     *     gamivoPercentualMenor: float,
-     *     gamivoFixoMenor: float,
-     *     gamivoPercentualMaior: float,
-     *     gamivoFixoMaior: float
+     *     gamivo_percent_low: float,
+     *     gamivo_fixed_low: float,
+     *     gamivo_percent_high: float,
+     *     gamivo_fixed_high: float
      * } $rates
      */
     public static function fromArray(array $rates): self
     {
         return new self(
-            percentualMenor: (float) $rates['gamivoPercentualMenor'],
-            fixoMenor: (float) $rates['gamivoFixoMenor'],
-            percentualMaior: (float) $rates['gamivoPercentualMaior'],
-            fixoMaior: (float) $rates['gamivoFixoMaior'],
+            percentLow:  (float) $rates['gamivo_percent_low'],
+            fixedLow:    (float) $rates['gamivo_fixed_low'],
+            percentHigh: (float) $rates['gamivo_percent_high'],
+            fixedHigh:   (float) $rates['gamivo_fixed_high'],
         );
     }
 }

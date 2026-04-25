@@ -13,10 +13,10 @@ class FeeSeeder extends Seeder
     public function run(): void
     {
         DB::table('fees')->insert([
-            ['name' => 'gamivoPercentualMaior', 'preco' => 0.08],
-            ['name' => 'gamivoFixoMaior',       'preco' => 0.40],
-            ['name' => 'gamivoPercentualMenor', 'preco' => 0.06],
-            ['name' => 'gamivoFixoMenor',       'preco' => 0.25],
+            ['name' => 'gamivo_percent_high', 'preco' => 0.08],
+            ['name' => 'gamivo_fixed_high',   'preco' => 0.40],
+            ['name' => 'gamivo_percent_low',  'preco' => 0.06],
+            ['name' => 'gamivo_fixed_low',    'preco' => 0.25],
         ]);
     }
 }
