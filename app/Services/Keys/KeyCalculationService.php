@@ -68,7 +68,7 @@ class KeyCalculationService
         $somatorioIncomes = 0.0;
 
         foreach ($games as &$game) {
-            $income = $this->calculateIncome((float) $game['market_price']);
+            $income = IncomeCalculator::forGamivo((float) $game['market_price'], $this->getMarketplaceFee());
 
             $game['simulated_income'] = $income;
             $somatorioIncomes += $income;
@@ -157,12 +157,4 @@ class KeyCalculationService
         ];
     }
 
-    /**
-     * Calcula o income líquido do Gamivo delegando ao Domain.
-     * Responsabilidade deste Service: carregar o VO do banco (com cache).
-     */
-    private function calculateIncome(float $clientPrice): float
-    {
-        return IncomeCalculator::forGamivo($clientPrice, $this->getMarketplaceFee());
-    }
 }

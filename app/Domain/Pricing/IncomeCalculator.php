@@ -12,9 +12,9 @@ use App\Domain\Pricing\ValueObjects\MarketplaceFee;
  * (quem carrega do banco é o KeyCalculationService).
  *
  * Tiers Gamivo:
- *  precoCliente < 0.28 → precoCliente − 0.11 (taxa micro, fixa)
- *  precoCliente < 8    → precoCliente × (1 − percentLow) − fixedLow
- *  precoCliente >= 8   → precoCliente × (1 − percentHigh) − fixedHigh
+ *  marketPrice < 0.28 → marketPrice − 0.11 (taxa micro, fixa)
+ *  marketPrice < 8    → marketPrice × (1 − percentLow) − fixedLow
+ *  marketPrice >= 8   → marketPrice × (1 − percentHigh) − fixedHigh
  */
 final class IncomeCalculator
 {
@@ -25,7 +25,7 @@ final class IncomeCalculator
     private const MICRO_THRESHOLD = 0.28;
 
     /**
-     * Taxa fixa do tier micro — distinta do fixoMenor convencional (€0.25).
+     * Taxa fixa do tier micro.
      * Para preços abaixo de €0.28 a Gamivo cobra apenas €0.11 fixo.
      */
     private const MICRO_FIXED_FEE = 0.11;
@@ -38,20 +38,20 @@ final class IncomeCalculator
     /**
      * Calcula o income líquido após as taxas da Gamivo.
      *
-     * @param  float  $clientPrice  Preço de venda no marketplace (€)
+     * @param  float  $marketPrice  Preço de venda no marketplace (€)
      * @param  MarketplaceFee  $fee  Taxas vigentes da Gamivo
      * @return float Income líquido (€)
      */
-    public static function forGamivo(float $clientPrice, MarketplaceFee $fee): float
+    public static function forGamivo(float $marketPrice, MarketplaceFee $fee): float
     {
-        if ($clientPrice < self::MICRO_THRESHOLD) {
-            return $clientPrice - self::MICRO_FIXED_FEE;
+        if ($marketPrice < self::MICRO_THRESHOLD) {
+            return $marketPrice - self::MICRO_FIXED_FEE;
         }
 
-        if ($clientPrice < self::TIER_THRESHOLD) {
-            return $clientPrice * (1 - $fee->percentLow) - $fee->fixedLow;
+        if ($marketPrice < self::TIER_THRESHOLD) {
+            return $marketPrice * (1 - $fee->percentLow) - $fee->fixedLow;
         }
 
-        return $clientPrice * (1 - $fee->percentHigh) - $fee->fixedHigh;
+        return $marketPrice * (1 - $fee->percentHigh) - $fee->fixedHigh;
     }
 }

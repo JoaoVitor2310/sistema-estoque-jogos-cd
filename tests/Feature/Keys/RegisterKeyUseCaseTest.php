@@ -13,11 +13,11 @@
 |   - Isolamento de erros: falha em uma key não interrompe o lote
 |
 | Taxas semeadas (padrão de produção):
-|   gamivo_percent_low = 0.072  (7.2 %)
-|   gamivo_fixed_low       = 0.110  (€ 0.11)
-|   gamivo_percent_high = 0.102  (10.2 %)
-|   gamivo_fixed_high       = 0.550  (€ 0.55)
-|   TF2 price_euro        = 2.000  (€ 2.00 por TF2 key)
+|   gamivo_percent_low  = 0.060  (6.0 %)
+|   gamivo_fixed_low    = 0.250  (€ 0.25)
+|   gamivo_percent_high = 0.080  (8.0 %)
+|   gamivo_fixed_high   = 0.400  (€ 0.40)
+|   TF2 price_euro      = 2.000  (€ 2.00 por TF2 key)
 |
 */
 
@@ -31,10 +31,10 @@ use Illuminate\Support\Facades\DB;
 function seedRegisterFks(): void
 {
     DB::table('fees')->insert([
-        ['name' => 'gamivo_percent_low', 'preco' => 0.072, 'created_at' => now(), 'updated_at' => now()],
-        ['name' => 'gamivo_fixed_low',       'preco' => 0.110, 'created_at' => now(), 'updated_at' => now()],
-        ['name' => 'gamivo_percent_high', 'preco' => 0.102, 'created_at' => now(), 'updated_at' => now()],
-        ['name' => 'gamivo_fixed_high',       'preco' => 0.550, 'created_at' => now(), 'updated_at' => now()],
+        ['name' => 'gamivo_percent_low', 'preco' => 0.060, 'created_at' => now(), 'updated_at' => now()],
+        ['name' => 'gamivo_fixed_low',       'preco' => 0.250, 'created_at' => now(), 'updated_at' => now()],
+        ['name' => 'gamivo_percent_high', 'preco' => 0.080, 'created_at' => now(), 'updated_at' => now()],
+        ['name' => 'gamivo_fixed_high',       'preco' => 0.400, 'created_at' => now(), 'updated_at' => now()],
     ]);
 
     DB::table('assets')->insert([
@@ -44,7 +44,7 @@ function seedRegisterFks(): void
 
 /**
  * Monta o array de entrada de uma key no mesmo formato que o XLSX produz.
- * market_price = 5.00 → income ≈ 4.53 (tier baixo: 5×0.928 - 0.11)
+ * market_price = 5.00 → income ≈ 4.45 (tier baixo: 5×0.940 - 0.250)
  */
 function makeGameInput(array $overrides = []): array
 {
@@ -93,10 +93,10 @@ describe('RegisterKeyUseCase', function () {
     });
 
     it('calculates simulated_income based on Gamivo fees', function () {
-        // market_price = 5.00 → tier baixo: 5 × (1 - 0.072) - 0.11 = 4.53
+        // market_price = 5.00 → tier baixo: 5 × (1 - 0.060) - 0.250 = 4.45
         $result = app(RegisterKeyUseCase::class)->execute([makeGameInput()]);
 
-        expect($result['games'][0]->simulated_income)->toEqualWithDelta(4.53, 0.01);
+        expect($result['games'][0]->simulated_income)->toEqualWithDelta(4.45, 0.01);
     });
 
     it('calculates individual_cost proportional to income share', function () {
@@ -235,8 +235,8 @@ describe('RegisterKeyUseCase', function () {
 
     it('distributes cost proportionally across keys in the same batch', function () {
         // Dois jogos com preços diferentes num mesmo lote de 2.0 TF2 keys
-        // income game1 = 5×0.928 - 0.11 ≈ 4.53 ; income game2 = 10×0.898 - 0.55 ≈ 8.43
-        // somatorio ≈ 12.96 ; custo total do lote = 2.0 × 2.0 = 4.0
+        // income game1 = 5×0.940 - 0.250 = 4.45 ; income game2 = 10×0.920 - 0.400 = 8.80
+        // somatorio = 13.25 ; custo total do lote = 2.0 × 2.0 = 4.0
         $result = app(RegisterKeyUseCase::class)->execute([
             makeGameInput(['key_code' => 'BATCH-KEY-001', 'market_price' => 5.00]),
             makeGameInput(['key_code' => 'BATCH-KEY-002', 'market_price' => 10.00]),
