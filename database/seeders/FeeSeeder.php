@@ -12,11 +12,17 @@ class FeeSeeder extends Seeder
      */
     public function run(): void
     {
-        DB::table('fees')->insert([
-            ['name' => 'gamivo_percent_high', 'preco' => 0.08],
-            ['name' => 'gamivo_fixed_high',   'preco' => 0.40],
-            ['name' => 'gamivo_percent_low',  'preco' => 0.06],
-            ['name' => 'gamivo_fixed_low',    'preco' => 0.25],
-        ]);
+        // upsert() garante idempotência: rodar o seeder duas vezes não gera duplicatas.
+        // O UNIQUE em fees.name (migration 000014) reforça isso no banco.
+        DB::table('fees')->upsert(
+            [
+                ['name' => 'gamivo_percent_high', 'preco' => 0.08],
+                ['name' => 'gamivo_fixed_high',   'preco' => 0.40],
+                ['name' => 'gamivo_percent_low',  'preco' => 0.06],
+                ['name' => 'gamivo_fixed_low',    'preco' => 0.25],
+            ],
+            uniqueBy: ['name'],
+            update:   ['preco'],
+        );
     }
 }
