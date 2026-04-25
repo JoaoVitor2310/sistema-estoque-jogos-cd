@@ -71,8 +71,8 @@ class GameController extends Controller
     {
         $limit = $request->query('limit', 200);
 
-        $games = Game::select('id', 'name', 'steamcharts_id', 'popularity')
-            ->whereNotNull('steamcharts_id')
+        $games = Game::select('id', 'name', 'steam_id', 'popularity')
+            ->whereNotNull('steam_id')
             ->paginate($limit);
 
         return $this->response(200, 'Jogos encontrados com sucesso', $games);

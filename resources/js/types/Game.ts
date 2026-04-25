@@ -3,7 +3,7 @@ export type Game = {
     name: string;
     region: string;
     gamivo_id: string;
-    id_steamcharts: string;
+    steam_id: string;
     release_date: string;
     price_tf2: number;
     price_euro: number;

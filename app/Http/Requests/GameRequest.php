@@ -27,7 +27,7 @@ class GameRequest extends FormRequest
             'name' => 'required|string',
             'region' => ['string', 'nullable'],
             'gamivo_id' => ['string', 'nullable'],
-            'steamcharts_id' => ['string', 'nullable'],
+            'steam_id' => ['string', 'nullable'],
             'popularity' => ['integer', 'nullable'],
             'price_tf2' => ['decimal:0,2', 'nullable'],
             'price_euro' => ['decimal:0,2', 'nullable'],

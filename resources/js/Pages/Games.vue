@@ -76,7 +76,7 @@ const selectedNewObject: Game = {
   name: '',
   region: '',
   gamivo_id: '',
-  id_steamcharts: '',
+  steam_id: '',
   popularity: null,
   price_tf2: null,
   price_euro: null,
@@ -91,7 +91,7 @@ const searchFilter = reactive({
   name: '',
   region: '',
   gamivo_id: '',
-  id_steamcharts: '',
+  steam_id: '',
 });
 const isSearching = ref(false);
 
@@ -169,7 +169,7 @@ async function onEdit(selected: any) {
       name: selected.name,
       region: selected.region,
       gamivo_id: selected.gamivo_id,
-      id_steamcharts: selected.id_steamcharts,
+      steam_id: selected.steam_id,
       release_date: selected.release_date,
       price_tf2: selected.price_tf2,
       price_euro: selected.price_euro,
@@ -316,7 +316,7 @@ function addOrRemove(add: boolean) {
       name: '',
       region: '',
       gamivo_id: '',
-      id_steamcharts: '',
+      steam_id: '',
       popularity: null,
       price_tf2: null,
       price_euro: null,
@@ -427,8 +427,8 @@ async function onCreateBundle(bundleFormData: any) {
       </div>
 
       <div class="d-flex flex-column items-center gap-3 mb-3">
-        <label :for="`id_steamchart_${index}`" class="fw-semibold w-32">ID SteamCharts</label>
-        <InputText :id="`id_steamcharts_${index}`" class="flex-auto" v-model="item.id_steamcharts" />
+        <label :for="`steam_id_${index}`" class="fw-semibold w-32">ID Steam</label>
+        <InputText :id="`steam_id_${index}`" class="flex-auto" v-model="item.steam_id" />
       </div>
 
       <!-- Campo Preço TF2 -->
@@ -563,14 +563,14 @@ async function onCreateBundle(bundleFormData: any) {
         </template>
       </Column>
 
-      <!-- Coluna ID SteamCharts (editável) -->
-      <Column field="id_steamcharts" header="ID SteamCharts" filterField="searchField" :showFilterMenu="true"
+      <!-- Coluna ID Steam (editável) -->
+      <Column field="steam_id" header="ID Steam" filterField="searchField" :showFilterMenu="true"
         :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false">
         <template #editor="{ data, field }">
           <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
         </template>
         <template #filter>
-          <InputText v-model="searchFilter.id_steamcharts" type="text" placeholder="Pesquisar" />
+          <InputText v-model="searchFilter.steam_id" type="text" placeholder="Pesquisar" />
         </template>
       </Column>
 

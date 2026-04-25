@@ -129,9 +129,9 @@ class GameService
      * Busca IDs do Steamcharts para jogos que ainda não foram pesquisados.
      * Delega a busca ao price_researcher via HTTP.
      *
-     * Distingue dois casos que antes eram indistinguíveis via steamcharts_id IS NULL:
-     *   - Nunca buscado:     steamcharts_id IS NULL AND steamcharts_searched_at IS NULL
-     *   - Buscado, não achou: steamcharts_id IS NULL AND steamcharts_searched_at NOT NULL
+     * Distingue dois casos que antes eram indistinguíveis via steam_id IS NULL:
+     *   - Nunca buscado:     steam_id IS NULL AND steamcharts_searched_at IS NULL
+     *   - Buscado, não achou: steam_id IS NULL AND steamcharts_searched_at NOT NULL
      *
      * Ao concluir com sucesso, marca todos os jogos enviados com steamcharts_searched_at,
      * evitando que o cron reprocesse indefinidamente jogos ausentes no Steamcharts.
@@ -139,7 +139,7 @@ class GameService
      */
     public function searchGamesIdSteam(): void
     {
-        $games = Game::whereNull('steamcharts_id')
+        $games = Game::whereNull('steam_id')
             ->whereNull('steamcharts_searched_at')
             ->select('id', 'name')
             ->get()
@@ -173,12 +173,12 @@ class GameService
 
         $updates = collect($data['data']['games'])
             ->filter(fn ($game) => isset($game['id_steam']))
-            ->map(fn ($game) => ['id' => $game['id'], 'steamcharts_id' => $game['id_steam']])
+            ->map(fn ($game) => ['id' => $game['id'], 'steam_id' => $game['id_steam']])
             ->values()
             ->all();
 
         if (! empty($updates)) {
-            Game::upsert($updates, uniqueBy: ['id'], update: ['steamcharts_id']);
+            Game::upsert($updates, uniqueBy: ['id'], update: ['steam_id']);
         }
 
         Log::info('Id Steam dos jogos atualizados com sucesso: '.count($updates));
