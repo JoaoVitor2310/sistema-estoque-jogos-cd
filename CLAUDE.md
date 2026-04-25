@@ -63,8 +63,8 @@ Gamivo tem 2 tiers de taxa:
 
 | Tier | Condição | Fórmula |
 |------|----------|---------|
-| Baixo | `market_price < €8` | `price × (1 - 0.072) - 0.11` |
-| Alto | `market_price ≥ €8` | `price × (1 - 0.102) - 0.55` |
+| Baixo | `market_price < €8` | `price × (1 - 0.060) - 0.25` |
+| Alto | `market_price ≥ €8` | `price × (1 - 0.080) - 0.40` |
 
 `min_api` = `individual_cost × 1.4–1.6` (tier por faixa de preço); `max_api` = `individual_cost × 8–30`.
 

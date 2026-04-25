@@ -24,7 +24,6 @@ class KeyResource extends JsonResource
             'is_duplicate' => $this->is_duplicate,
             'color' => $this->color,
             'notes' => $this->notes,
-            'email' => $this->email,
 
             // Formato, reclamação e plataforma de venda (enums como string)
             'key_format' => $this->key_format,

@@ -49,7 +49,6 @@ class StoreGameRequest extends FormRequest
             'sold_at' => ['nullable', 'string'],
             'expires_at' => ['nullable', 'string'],
             'supplier_url' => ['required', 'string'],
-            'email' => ['nullable', 'string'],
             'tf2_quantity' => ['nullable', 'decimal:0,2', 'gt:0'],
         ];
     }

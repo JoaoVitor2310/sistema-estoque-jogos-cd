@@ -50,7 +50,6 @@ class Key extends Model
         'supplier_url',
         'min_api',
         'max_api',
-        'email',
     ];
 
     protected $casts = [

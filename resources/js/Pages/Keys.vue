@@ -91,7 +91,6 @@ const selectedNewObject = {
   listed_at: '',
   sold_at: '',
   supplier_url: '',
-  email: '',
   tf2_quantity: null,
 };
 
@@ -100,7 +99,6 @@ const selected = reactive([selectedNewObject]);
 const sharedQtdTF2 = ref(null);
 const sharedDataAdquirida = ref(null);
 const sharedPerfilOrigem = ref('');
-const sharedEmail = ref('');
 const sharedValorPagoTotal = ref('');
 
 // Sincroniza o valor de tf2_quantity em todos os itens
@@ -122,12 +120,6 @@ watch(sharedPerfilOrigem, (newValue) => {
   });
 });
 
-watch(sharedEmail, (newValue) => {
-  selected.forEach(item => {
-    item.email = newValue;
-  });
-});
-
 watch(sharedValorPagoTotal, (newValue) => {
   selected.forEach(item => {
     item.total_paid = newValue;
@@ -141,7 +133,6 @@ const handleEditButton = (data: any) => {
   sharedDataAdquirida.value = data[0].acquired_at;
   sharedPerfilOrigem.value = data[0].supplier_url;
   sharedValorPagoTotal.value = data[0].total_paid;
-  sharedEmail.value = data[0].email;
 };
 
 const onEdit = async (selected: any) => {
@@ -154,9 +145,6 @@ const onEdit = async (selected: any) => {
     }
     if (sharedPerfilOrigem.value !== '') {
       product.supplier_url = sharedPerfilOrigem.value;
-    }
-    if (sharedEmail.value !== '') {
-      product.email = sharedEmail.value;
     }
     if (sharedValorPagoTotal.value !== '') {
       product.total_paid = sharedValorPagoTotal.value;
@@ -225,7 +213,6 @@ const handleAddButton = async (): Promise<void> => { // Mostra o dialog com o el
   sharedQtdTF2.value = null;
   sharedDataAdquirida.value = new Date().toLocaleDateString('pt-BR');
   sharedPerfilOrigem.value = '';
-  sharedEmail.value = '';
   sharedValorPagoTotal.value = '';
   DialogVisible.value = true;
 }
@@ -349,7 +336,6 @@ const searchFilter = reactive({
   sold_at: '',
   expires_at: '',
   supplier_url: '',
-  email: '',
 })
 
 const handlePageChange = (event: PageState) => { // Teve que ser criada por que o evento não pode ser passado com outro argumento junto
@@ -864,7 +850,7 @@ const handleImportSubmit = async (): Promise<void> => {
             € {{ slotProps.data.individual_cost }}
           </template>
         </Column>
-        <Column field="min_api" header="Min. API Gamivo" sortable class="text-center p-0">
+        <Column field="min_api" header="Min. API" sortable class="text-center p-0">
           <template #body="slotProps">
             € {{ slotProps.data.min_api }}
           </template>
@@ -873,7 +859,7 @@ const handleImportSubmit = async (): Promise<void> => {
               :maxFractionDigits="2" useGrouping autofocus fluid />
           </template>
         </Column>
-        <Column field="max_api" header="Max. API Gamivo" sortable class="text-center p-0">
+        <Column field="max_api" header="Max. API" sortable class="text-center p-0">
           <template #body="slotProps">
             € {{ slotProps.data.max_api }}
           </template>

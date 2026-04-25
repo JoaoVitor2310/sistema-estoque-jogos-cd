@@ -36,7 +36,6 @@ export type GameLine = {
     listed_at: string;
     sold_at: string;
     supplier_url: string;
-    email: string;
     min_api: number;
     max_api: number;
 

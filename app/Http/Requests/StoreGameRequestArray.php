@@ -50,7 +50,6 @@ class StoreGameRequestArray extends FormRequest
             'games.*.sold_at' => ['nullable', 'string'],
             'games.*.expires_at' => ['nullable', 'string'],
             'games.*.supplier_url' => ['required', 'string'],
-            'games.*.email' => ['nullable', 'string'],
             'games.*.tf2_quantity' => ['required', 'decimal:0,2', 'gt:0'],
         ];
     }

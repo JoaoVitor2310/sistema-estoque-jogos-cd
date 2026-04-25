@@ -69,7 +69,6 @@ function makeGameInput(array $overrides = []): array
         'notes' => null,
         'total_paid' => null,
         'sold_price' => null,
-        'email' => null,
         'color' => null,
     ], $overrides);
 }
