@@ -112,14 +112,17 @@ class GameService
 
         $data = $response->json();
 
-        foreach ($data['data']['games'] as $foundGame) {
-            if (! isset($foundGame['id_steam'])) {
-                continue;
-            }
-            Game::where('id', $foundGame['id'])->update(['steamcharts_id' => $foundGame['id_steam']]);
+        $updates = collect($data['data']['games'])
+            ->filter(fn ($game) => isset($game['id_steam']))
+            ->map(fn ($game) => ['id' => $game['id'], 'steamcharts_id' => $game['id_steam']])
+            ->values()
+            ->all();
+
+        if (! empty($updates)) {
+            Game::upsert($updates, uniqueBy: ['id'], update: ['steamcharts_id']);
         }
 
-        Log::info('Id Steam dos jogos atualizados com sucesso: '.count($data['data']['games']));
+        Log::info('Id Steam dos jogos atualizados com sucesso: '.count($updates));
     }
 
     /**

@@ -210,16 +210,6 @@ app/
 
 ## Problemas conhecidos
 
-### Crítico
-
-**N+1 em `GameService::searchGamesIdSteam()`**
-```php
-$games = Game::whereNull('steamcharts_id')->get(); // todos de uma vez
-foreach ($games as $game) {
-    // 1 HTTP + 1 UPDATE por jogo — trava sob volume
-}
-```
-
 ### Moderados
 
 - **`GameController::store()` faz duas queries**: usa `Game::create()` e depois `Game::where('id', ...)->with('bundles')->first()`. Corrigir para `$created->load('bundles')`.
