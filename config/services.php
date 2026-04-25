@@ -60,7 +60,5 @@ return [
         'dev_base_url' => env('DEV_CARCA_API_GAMIVO_URL'),
     ],
 
-    'vip_webhook' => [
-        'secret' => env('EXTERNAL_SECRET'),
-    ],
+    'external_secret' => env('EXTERNAL_SECRET'),
 ];

@@ -83,7 +83,7 @@ Route::prefix('games')
         Route::put('/{id}', 'update')->name('games.update');
         Route::delete('/{id}', 'destroy')->name('games.destroy');
         Route::delete('/', 'destroyArray')->name('games.destroyArray');
-        Route::get('/search-popularity', 'searchPopularity')->name('games.searchPopularity');
+        Route::get('/search-popularity', 'searchPopularity')->name('games.searchPopularity')->middleware(VerifySecret::class);
         Route::post('/update-popularity', 'updatePopularity')->name('games.updatePopularity')->middleware(VerifySecret::class);
     });
 
@@ -119,11 +119,11 @@ Route::prefix('keys')
         Route::delete('/', [KeyController::class, 'destroyArray'])->name('keys.destroyArray');
 
         // KeySaleController — operações de venda
-        Route::get('/auto-sell', [KeySaleController::class, 'autoSell'])->name('keys.auto-sell')->withoutMiddleware([CheckPermission::class]);
-        Route::get('/when-to-sell', [KeySaleController::class, 'whenToSell'])->name('keys.when-to-sell')->withoutMiddleware([CheckPermission::class]);
-        Route::post('/update-sold-offers', [KeySaleController::class, 'updateSoldOffers'])->name('keys.update-sold-offers')->withoutMiddleware([CheckPermission::class]);
-        Route::get('/search-by-id-gamivo/{idGamivo}', [KeySaleController::class, 'searchByIdGamivo'])->name('keys.search-by-id-gamivo')->withoutMiddleware([CheckPermission::class]);
-        Route::post('/insert-data-venda', [KeySaleController::class, 'insertDataVenda'])->name('keys.insert-data-venda')->withoutMiddleware([CheckPermission::class]);
+        Route::get('/auto-sell', [KeySaleController::class, 'autoSell'])->name('keys.auto-sell')->withoutMiddleware([CheckPermission::class])->middleware(VerifySecret::class);
+        Route::get('/when-to-sell', [KeySaleController::class, 'whenToSell'])->name('keys.when-to-sell')->withoutMiddleware([CheckPermission::class])->middleware(VerifySecret::class);
+        Route::post('/update-sold-offers', [KeySaleController::class, 'updateSoldOffers'])->name('keys.update-sold-offers')->withoutMiddleware([CheckPermission::class])->middleware(VerifySecret::class);
+        Route::get('/search-by-id-gamivo/{idGamivo}', [KeySaleController::class, 'searchByIdGamivo'])->name('keys.search-by-id-gamivo')->withoutMiddleware([CheckPermission::class])->middleware(VerifySecret::class);
+        Route::post('/insert-data-venda', [KeySaleController::class, 'insertDataVenda'])->name('keys.insert-data-venda')->withoutMiddleware([CheckPermission::class])->middleware(VerifySecret::class);
 
         // KeyImportController — importação XLSX
         Route::post('/import', [KeyImportController::class, 'import'])->name('keys.import');

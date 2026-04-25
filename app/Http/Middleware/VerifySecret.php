@@ -15,7 +15,7 @@ class VerifySecret
 {
     public function handle(Request $request, Closure $next): Response
     {
-        $expected = config('services.vip_webhook.secret');
+        $expected = config('services.external_secret');
         $provided = $request->bearerToken();
 
         if (empty($expected) || empty($provided) || ! hash_equals($expected, $provided)) {
