@@ -227,7 +227,7 @@ describe('RegisterKeyUseCase', function () {
             makeGameInput(['gamivo_id' => 'gam-test-99', 'game_name' => 'Game With Id']),
         ]);
 
-        expect(DB::table('games')->where('id_gamivo', 'gam-test-99')->exists())->toBeTrue();
+        expect(DB::table('games')->where('gamivo_id', 'gam-test-99')->exists())->toBeTrue();
     });
 
     // ── Batch cost distribution ───────────────────────────────────────────────

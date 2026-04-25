@@ -75,7 +75,7 @@ const selectedNewObject: Game = {
   id: 0,
   name: '',
   region: '',
-  id_gamivo: '',
+  gamivo_id: '',
   id_steamcharts: '',
   popularity: null,
   price_tf2: null,
@@ -90,7 +90,7 @@ const selected = reactive([selectedNewObject]);
 const searchFilter = reactive({
   name: '',
   region: '',
-  id_gamivo: '',
+  gamivo_id: '',
   id_steamcharts: '',
 });
 const isSearching = ref(false);
@@ -168,7 +168,7 @@ async function onEdit(selected: any) {
     const res = await axiosInstance.put(`/games/${selected.id}`, {
       name: selected.name,
       region: selected.region,
-      id_gamivo: selected.id_gamivo,
+      gamivo_id: selected.gamivo_id,
       id_steamcharts: selected.id_steamcharts,
       release_date: selected.release_date,
       price_tf2: selected.price_tf2,
@@ -315,7 +315,7 @@ function addOrRemove(add: boolean) {
       id: 0,
       name: '',
       region: '',
-      id_gamivo: '',
+      gamivo_id: '',
       id_steamcharts: '',
       popularity: null,
       price_tf2: null,
@@ -422,8 +422,8 @@ async function onCreateBundle(bundleFormData: any) {
 
       <!-- Campo ID Gamivo -->
       <div class="d-flex flex-column items-center gap-3 mb-3">
-        <label :for="`id_gamivo_${index}`" class="fw-semibold w-32">ID Gamivo</label>
-        <InputText :id="`id_gamivo_${index}`" class="flex-auto" v-model="item.id_gamivo" />
+        <label :for="`gamivo_id_${index}`" class="fw-semibold w-32">ID Gamivo</label>
+        <InputText :id="`gamivo_id_${index}`" class="flex-auto" v-model="item.gamivo_id" />
       </div>
 
       <div class="d-flex flex-column items-center gap-3 mb-3">
@@ -553,13 +553,13 @@ async function onCreateBundle(bundleFormData: any) {
       </Column>
 
       <!-- Coluna ID Gamivo (editável) -->
-      <Column field="id_gamivo" header="ID Gamivo" filterField="searchField" :showFilterMenu="true"
+      <Column field="gamivo_id" header="ID Gamivo" filterField="searchField" :showFilterMenu="true"
         :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false">
         <template #editor="{ data, field }">
           <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
         </template>
         <template #filter>
-          <InputText v-model="searchFilter.id_gamivo" type="text" placeholder="Pesquisar" />
+          <InputText v-model="searchFilter.gamivo_id" type="text" placeholder="Pesquisar" />
         </template>
       </Column>
 

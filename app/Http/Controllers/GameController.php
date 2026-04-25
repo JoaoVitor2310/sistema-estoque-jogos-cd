@@ -123,10 +123,10 @@ class GameController extends Controller
                 }
 
                 // Busca idGamivo nas keys existentes quando não veio na request
-                if (empty($game['id_gamivo'])) {
+                if (empty($game['gamivo_id'])) {
                     $idGamivo = $this->gameService->getIdGamivo($game['name'], $game['region']);
                     if ($idGamivo) {
-                        $game['id_gamivo'] = $idGamivo;
+                        $game['gamivo_id'] = $idGamivo;
                     }
                 }
 
@@ -232,13 +232,13 @@ class GameController extends Controller
 
             $updatedGame = $request->validated();
 
-            if (empty($updatedGame['id_gamivo'])) {
+            if (empty($updatedGame['gamivo_id'])) {
                 $idGamivo = $this->gameService->getIdGamivo(
                     $updatedGame['name'] ?? $game->name,
                     $updatedGame['region'] ?? $game->region,
                 );
                 if ($idGamivo) {
-                    $updatedGame['id_gamivo'] = $idGamivo;
+                    $updatedGame['gamivo_id'] = $idGamivo;
                 }
             }
 

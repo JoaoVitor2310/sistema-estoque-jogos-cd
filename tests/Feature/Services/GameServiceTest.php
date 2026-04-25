@@ -7,7 +7,7 @@
 |
 | Cobre as operações de infraestrutura de jogos:
 |   - getIdGamivo: busca prioritária nas keys, fallback nos games
-|   - fillIdGamivo: preenche id_gamivo nulo em game existente
+|   - fillIdGamivo: preenche gamivo_id nulo em game existente
 |   - createGameIfDontExists: find-or-create case-insensitive
 |   - updateMinPrices: degradação de preço por tempo (delega ao Domain)
 |
@@ -85,7 +85,7 @@ describe('GameService', function () {
             ]);
 
             // Game com id diferente — não deve ser retornado
-            DB::table('games')->insert(['name' => 'Priority Game', 'region' => null, 'id_gamivo' => 'gam-from-game', 'created_at' => now(), 'updated_at' => now()]);
+            DB::table('games')->insert(['name' => 'Priority Game', 'region' => null, 'gamivo_id' => 'gam-from-game', 'created_at' => now(), 'updated_at' => now()]);
 
             $result = app(GameService::class)->getIdGamivo('Priority Game', null);
 
@@ -93,7 +93,7 @@ describe('GameService', function () {
         });
 
         it('falls back to the games table when no key has the gamivo_id', function () {
-            DB::table('games')->insert(['name' => 'Fallback Game', 'region' => null, 'id_gamivo' => 'gam-fallback-001', 'created_at' => now(), 'updated_at' => now()]);
+            DB::table('games')->insert(['name' => 'Fallback Game', 'region' => null, 'gamivo_id' => 'gam-fallback-001', 'created_at' => now(), 'updated_at' => now()]);
 
             $result = app(GameService::class)->getIdGamivo('Fallback Game', null);
 
@@ -107,7 +107,7 @@ describe('GameService', function () {
         });
 
         it('is case-insensitive when matching the game name', function () {
-            DB::table('games')->insert(['name' => 'case sensitive game', 'region' => null, 'id_gamivo' => 'gam-case-001', 'created_at' => now(), 'updated_at' => now()]);
+            DB::table('games')->insert(['name' => 'case sensitive game', 'region' => null, 'gamivo_id' => 'gam-case-001', 'created_at' => now(), 'updated_at' => now()]);
 
             $result = app(GameService::class)->getIdGamivo('Case Sensitive Game', null);
 
@@ -115,8 +115,8 @@ describe('GameService', function () {
         });
 
         it('matches by region — same name in different regions are different games', function () {
-            DB::table('games')->insert(['name' => 'Regional Game', 'region' => 'EU', 'id_gamivo' => 'gam-eu-001', 'created_at' => now(), 'updated_at' => now()]);
-            DB::table('games')->insert(['name' => 'Regional Game', 'region' => 'NA', 'id_gamivo' => 'gam-na-001', 'created_at' => now(), 'updated_at' => now()]);
+            DB::table('games')->insert(['name' => 'Regional Game', 'region' => 'EU', 'gamivo_id' => 'gam-eu-001', 'created_at' => now(), 'updated_at' => now()]);
+            DB::table('games')->insert(['name' => 'Regional Game', 'region' => 'NA', 'gamivo_id' => 'gam-na-001', 'created_at' => now(), 'updated_at' => now()]);
 
             expect(app(GameService::class)->getIdGamivo('Regional Game', 'EU'))->toBe('gam-eu-001')
                 ->and(app(GameService::class)->getIdGamivo('Regional Game', 'NA'))->toBe('gam-na-001');
@@ -127,22 +127,22 @@ describe('GameService', function () {
 
     describe('fillIdGamivo()', function () {
 
-        it('fills id_gamivo on the game when it is currently null', function () {
-            DB::table('games')->insert(['name' => 'Fill Me Game', 'region' => null, 'id_gamivo' => null, 'created_at' => now(), 'updated_at' => now()]);
+        it('fills gamivo_id on the game when it is currently null', function () {
+            DB::table('games')->insert(['name' => 'Fill Me Game', 'region' => null, 'gamivo_id' => null, 'created_at' => now(), 'updated_at' => now()]);
 
             app(GameService::class)->fillIdGamivo('Fill Me Game', null, 'gam-new-id');
 
             $game = DB::table('games')->where('name', 'Fill Me Game')->first();
-            expect($game->id_gamivo)->toBe('gam-new-id');
+            expect($game->gamivo_id)->toBe('gam-new-id');
         });
 
-        it('does not overwrite id_gamivo when it is already set', function () {
-            DB::table('games')->insert(['name' => 'Already Has Id', 'region' => null, 'id_gamivo' => 'gam-original', 'created_at' => now(), 'updated_at' => now()]);
+        it('does not overwrite gamivo_id when it is already set', function () {
+            DB::table('games')->insert(['name' => 'Already Has Id', 'region' => null, 'gamivo_id' => 'gam-original', 'created_at' => now(), 'updated_at' => now()]);
 
             app(GameService::class)->fillIdGamivo('Already Has Id', null, 'gam-should-not-overwrite');
 
             $game = DB::table('games')->where('name', 'Already Has Id')->first();
-            expect($game->id_gamivo)->toBe('gam-original');
+            expect($game->gamivo_id)->toBe('gam-original');
         });
 
         it('does nothing when the game is not found', function () {
@@ -174,7 +174,7 @@ describe('GameService', function () {
             ]);
 
             $game = DB::table('games')->where('name', 'Game With Gamivo Id')->first();
-            expect($game->id_gamivo)->toBe('gam-stored-001');
+            expect($game->gamivo_id)->toBe('gam-stored-001');
         });
 
         it('does not create a duplicate when the game already exists (case-insensitive)', function () {

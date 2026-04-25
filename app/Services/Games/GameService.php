@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Mail;
  *
  * Responsabilidades:
  *  - Lookup de gamivo_id (em keys e games)
- *  - Preenchimento de id_gamivo na tabela games
+ *  - Preenchimento de gamivo_id na tabela games
  *  - Criação de jogo na tabela games (quando não existe)
  *  - Busca de IDs no Steamcharts via price_researcher
  *  - Atualização de preço mínimo da API Gamivo por envelhecimento (delega regra ao Domain)
@@ -38,13 +38,13 @@ class GameService
             return $key->gamivo_id;
         }
 
-        $game = Game::select('id_gamivo')
+        $game = Game::select('gamivo_id')
             ->whereRaw('LOWER("name") = LOWER(?)', [$gameName])
             ->where('region', $region)
-            ->whereNotNull('id_gamivo')
+            ->whereNotNull('gamivo_id')
             ->first();
 
-        return $game?->id_gamivo ?? false;
+        return $game?->gamivo_id ?? false;
     }
 
     /**
@@ -89,17 +89,17 @@ class GameService
     }
 
     /**
-     * Preenche o id_gamivo na tabela games quando ainda não está cadastrado.
+     * Preenche o gamivo_id na tabela games quando ainda não está cadastrado.
      */
     public function fillIdGamivo(string $gameName, ?string $region, string $idGamivo): void
     {
         $game = Game::whereRaw('LOWER("name") = LOWER(?)', [$gameName])
             ->where('region', $region)
-            ->whereNull('id_gamivo')
+            ->whereNull('gamivo_id')
             ->first();
 
         if ($game) {
-            $game->id_gamivo = $idGamivo;
+            $game->gamivo_id = $idGamivo;
             $game->save();
         }
     }
@@ -120,7 +120,7 @@ class GameService
             ->firstOr(fn () => Game::create([
                 'name' => $game['game_name'],
                 'region' => $game['region'],
-                'id_gamivo' => $game['gamivo_id'],
+                'gamivo_id' => $game['gamivo_id'],
                 'steam_id' => $game['steam_id'] ?? null,
             ]));
     }

@@ -138,7 +138,7 @@ describe('GET /keys/auto-sell', function () {
             createKey(['gamivo_id' => $gamivoId]);
 
             $gameId = DB::table('games')->insertGetId([
-                'name' => 'Recent Bundle Game', 'id_gamivo' => $gamivoId,
+                'name' => 'Recent Bundle Game', 'gamivo_id' => $gamivoId,
                 'created_at' => now(), 'updated_at' => now(),
             ]);
             $bundleId = DB::table('bundles')->insertGetId([
@@ -161,7 +161,7 @@ describe('GET /keys/auto-sell', function () {
             createKey(['gamivo_id' => $gamivoId]);
 
             $gameId = DB::table('games')->insertGetId([
-                'name' => 'Old Bundle Game', 'id_gamivo' => $gamivoId,
+                'name' => 'Old Bundle Game', 'gamivo_id' => $gamivoId,
                 'created_at' => now(), 'updated_at' => now(),
             ]);
             $bundleId = DB::table('bundles')->insertGetId([
@@ -186,7 +186,7 @@ describe('GET /keys/auto-sell', function () {
             createKey(['gamivo_id' => $gamivoId]);
 
             $gameId = DB::table('games')->insertGetId([
-                'name' => '20-Day Game', 'id_gamivo' => $gamivoId,
+                'name' => '20-Day Game', 'gamivo_id' => $gamivoId,
                 'created_at' => now(), 'updated_at' => now(),
             ]);
             $bundleId = DB::table('bundles')->insertGetId([

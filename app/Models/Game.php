@@ -16,7 +16,7 @@ class Game extends Model
         'id',
         'name',
         'region',
-        'id_gamivo',
+        'gamivo_id',
         'steam_id',
         'steamcharts_id',
         'popularity',

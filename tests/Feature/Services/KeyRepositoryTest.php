@@ -172,7 +172,7 @@ describe('KeyRepository', function () {
 
             insertRepoKey(['gamivo_id' => $gamivoId, 'key_code' => $keyCode]);
 
-            $gameId = DB::table('games')->insertGetId(['name' => 'Recent Game', 'id_gamivo' => $gamivoId, 'created_at' => now(), 'updated_at' => now()]);
+            $gameId = DB::table('games')->insertGetId(['name' => 'Recent Game', 'gamivo_id' => $gamivoId, 'created_at' => now(), 'updated_at' => now()]);
             $bundleId = DB::table('bundles')->insertGetId(['name' => 'Recent Bundle', 'type' => 'bundle', 'release_date' => Carbon::now()->subDays(10)->toDateString(), 'created_at' => now(), 'updated_at' => now()]);
             DB::table('bundle_games')->insert(['bundle_id' => $bundleId, 'game_id' => $gameId, 'created_at' => now(), 'updated_at' => now()]);
 
@@ -187,7 +187,7 @@ describe('KeyRepository', function () {
 
             insertRepoKey(['gamivo_id' => $gamivoId, 'key_code' => $keyCode]);
 
-            $gameId = DB::table('games')->insertGetId(['name' => 'Old Bundle Game', 'id_gamivo' => $gamivoId, 'created_at' => now(), 'updated_at' => now()]);
+            $gameId = DB::table('games')->insertGetId(['name' => 'Old Bundle Game', 'gamivo_id' => $gamivoId, 'created_at' => now(), 'updated_at' => now()]);
             $bundleId = DB::table('bundles')->insertGetId(['name' => 'Old Bundle', 'type' => 'bundle', 'release_date' => Carbon::now()->subDays(30)->toDateString(), 'created_at' => now(), 'updated_at' => now()]);
             DB::table('bundle_games')->insert(['bundle_id' => $bundleId, 'game_id' => $gameId, 'created_at' => now(), 'updated_at' => now()]);
 

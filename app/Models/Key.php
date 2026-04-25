@@ -65,7 +65,7 @@ class Key extends Model
 
     public function game()
     {
-        return $this->belongsTo(Game::class, 'gamivo_id', 'id_gamivo');
+        return $this->belongsTo(Game::class, 'gamivo_id', 'gamivo_id');
     }
 
     public function scopeRegisteredOnGamivo(Builder $query): void
