@@ -69,7 +69,11 @@ class GameController extends Controller
 
     public function searchPopularity(Request $request)
     {
-        $games = Game::select('*')->whereNotNull('steamcharts_id')->get()->toArray();
+        $limit = $request->query('limit', 200);
+
+        $games = Game::select('id', 'name', 'steamcharts_id', 'popularity')
+            ->whereNotNull('steamcharts_id')
+            ->paginate($limit);
 
         return $this->response(200, 'Jogos encontrados com sucesso', $games);
     }

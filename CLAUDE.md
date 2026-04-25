@@ -208,20 +208,6 @@ app/
 
 ---
 
-## Problemas conhecidos
-
-### Moderados
-
-- **`GameController::store()` faz duas queries**: usa `Game::create()` e depois `Game::where('id', ...)->with('bundles')->first()`. Corrigir para `$created->load('bundles')`.
-- **`searchGamesIdSteam()` não distingue "nunca buscado" de "não encontrado"**: `steamcharts_id IS NULL` cobre os dois casos. O cron reprocessa indefinidamente jogos que não existem no Steamcharts. Solução: adicionar coluna `steamcharts_searched_at TIMESTAMP NULL` e filtrar `whereNull('steamcharts_id')->whereNull('steamcharts_searched_at')`.
-- **Sem paginação em `searchPopularity()`**: carrega todos os jogos com `steamcharts_id` de uma vez.
-
-### Menor
-
-- **Queue driver `database`**: sob carga pode gerar lock contention. Redis (já disponível no Docker) seria mais robusto.
-
----
-
 ## Roadmap
 
 ### Próximo — CI/CD com GitHub Actions
@@ -229,7 +215,6 @@ app/
 - [ ] Criar `.github/workflows/ci.yml`: PHP 8.3, `composer install`, Pint, PHPStan, Pest, Codecov
 - [ ] Instalar PHPStan + Larastan (`composer require --dev nunomaduro/larastan`)
 - [ ] `phpstan.neon`: `app/Domain/` nível 8, restante nível 5
-- [ ] Migrar queue driver para Redis
 
 ### Futura — Normalizar FK entre `keys` e `games`
 

@@ -84,16 +84,29 @@ class GameService
     }
 
     /**
-     * Busca IDs do Steamcharts para jogos que ainda não possuem o campo preenchido.
+     * Busca IDs do Steamcharts para jogos que ainda não foram pesquisados.
      * Delega a busca ao price_researcher via HTTP.
+     *
+     * Distingue dois casos que antes eram indistinguíveis via steamcharts_id IS NULL:
+     *   - Nunca buscado:     steamcharts_id IS NULL AND steamcharts_searched_at IS NULL
+     *   - Buscado, não achou: steamcharts_id IS NULL AND steamcharts_searched_at NOT NULL
+     *
+     * Ao concluir com sucesso, marca todos os jogos enviados com steamcharts_searched_at,
+     * evitando que o cron reprocesse indefinidamente jogos ausentes no Steamcharts.
+     * Em caso de falha HTTP, não marca — não sabemos o resultado da busca.
      */
     public function searchGamesIdSteam(): void
     {
         $games = Game::whereNull('steamcharts_id')
+            ->whereNull('steamcharts_searched_at')
             ->select('id', 'name')
             ->get()
             ->map(fn ($game) => ['id' => $game->id, 'name' => $game->name])
             ->all();
+
+        if (empty($games)) {
+            return;
+        }
 
         $response = Http::timeout(3200)->post(
             config('services.price_researcher.base_url').'/api/games/search-id-steam',
@@ -111,6 +124,10 @@ class GameService
         }
 
         $data = $response->json();
+
+        // Marca todos os jogos enviados como pesquisados, independente de terem sido encontrados
+        $sentIds = array_column($games, 'id');
+        Game::whereIn('id', $sentIds)->update(['steamcharts_searched_at' => now()]);
 
         $updates = collect($data['data']['games'])
             ->filter(fn ($game) => isset($game['id_steam']))
