@@ -17,6 +17,7 @@ class Game extends Model
         'name',
         'region',
         'id_gamivo',
+        'steam_id',
         'steamcharts_id',
         'popularity',
         'price_tf2',

@@ -20,7 +20,7 @@ describe('VerifySecret middleware', function () {
 
     // Cria Vip + VipList via DB (VipList não usa HasFactory)
     beforeEach(function () {
-        Config::set('services.vip_webhook.secret', 'test-secret-token-abc123');
+        Config::set('services.external_secret', 'test-secret-token-abc123');
 
         $vipId = DB::table('vips')->insertGetId(['name' => 'Test VIP', 'created_at' => now(), 'updated_at' => now()]);
         $this->vipListId = DB::table('vip_lists')->insertGetId(['vip_id' => $vipId, 'status' => 'queued', 'created_at' => now(), 'updated_at' => now()]);
@@ -52,7 +52,7 @@ describe('VerifySecret middleware', function () {
     });
 
     it('returns 401 when EXTERNAL_SECRET is not configured', function () {
-        Config::set('services.vip_webhook.secret', null);
+        Config::set('services.external_secret', null);
 
         $this->withToken('any-token')
             ->postJson("/vips/callback/{$this->vipListId}", [])

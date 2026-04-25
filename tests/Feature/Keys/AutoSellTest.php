@@ -12,6 +12,7 @@
 */
 
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -51,6 +52,8 @@ function idGamivoList(array $data): array
 describe('GET /keys/auto-sell', function () {
 
     beforeEach(function () {
+        Config::set('services.external_secret', 'test-secret');
+
         // Formulas is injected into the controller constructor and queries taxas
         DB::table('fees')->insert([
             ['name' => 'gamivo_percent_low', 'preco' => 0.060, 'created_at' => now(), 'updated_at' => now()],
@@ -67,7 +70,7 @@ describe('GET /keys/auto-sell', function () {
     it('returns an eligible key in the listing', function () {
         createKey(['gamivo_id' => 'gam-eligible-001']);
 
-        $data = $this->getJson('/keys/auto-sell')->assertOk()->json('data');
+        $data = $this->withToken('test-secret')->getJson('/keys/auto-sell')->assertOk()->json('data');
 
         expect(idGamivoList($data))->toContain('gam-eligible-001');
     });
@@ -79,7 +82,7 @@ describe('GET /keys/auto-sell', function () {
         it('gamivo_id is null', function () {
             createKey(['gamivo_id' => null]);
 
-            $data = $this->getJson('/keys/auto-sell')->assertOk()->json('data');
+            $data = $this->withToken('test-secret')->getJson('/keys/auto-sell')->assertOk()->json('data');
 
             expect($data)->toHaveCount(0);
         });
@@ -87,7 +90,7 @@ describe('GET /keys/auto-sell', function () {
         it('gamivo_id is an empty string', function () {
             createKey(['gamivo_id' => '']);
 
-            $data = $this->getJson('/keys/auto-sell')->assertOk()->json('data');
+            $data = $this->withToken('test-secret')->getJson('/keys/auto-sell')->assertOk()->json('data');
 
             expect($data)->toHaveCount(0);
         });
@@ -98,7 +101,7 @@ describe('GET /keys/auto-sell', function () {
                 'listed_at' => Carbon::now()->subDays(5)->toDateString(),
             ]);
 
-            $data = $this->getJson('/keys/auto-sell')->assertOk()->json('data');
+            $data = $this->withToken('test-secret')->getJson('/keys/auto-sell')->assertOk()->json('data');
 
             expect(idGamivoList($data))->not->toContain('gam-listed');
         });
@@ -109,7 +112,7 @@ describe('GET /keys/auto-sell', function () {
                 'sold_at' => Carbon::now()->subDays(10)->toDateString(),
             ]);
 
-            $data = $this->getJson('/keys/auto-sell')->assertOk()->json('data');
+            $data = $this->withToken('test-secret')->getJson('/keys/auto-sell')->assertOk()->json('data');
 
             expect(idGamivoList($data))->not->toContain('gam-sold');
         });
@@ -120,7 +123,7 @@ describe('GET /keys/auto-sell', function () {
                 'key_code' => 'https://store.steampowered.com/gift/abc123',
             ]);
 
-            $data = $this->getJson('/keys/auto-sell')->assertOk()->json('data');
+            $data = $this->withToken('test-secret')->getJson('/keys/auto-sell')->assertOk()->json('data');
 
             expect(idGamivoList($data))->not->toContain('gam-gift');
         });
@@ -148,7 +151,7 @@ describe('GET /keys/auto-sell', function () {
                 'created_at' => now(), 'updated_at' => now(),
             ]);
 
-            $data = $this->getJson('/keys/auto-sell')->assertOk()->json('data');
+            $data = $this->withToken('test-secret')->getJson('/keys/auto-sell')->assertOk()->json('data');
 
             expect(idGamivoList($data))->not->toContain($gamivoId);
         });
@@ -171,7 +174,7 @@ describe('GET /keys/auto-sell', function () {
                 'created_at' => now(), 'updated_at' => now(),
             ]);
 
-            $data = $this->getJson('/keys/auto-sell')->assertOk()->json('data');
+            $data = $this->withToken('test-secret')->getJson('/keys/auto-sell')->assertOk()->json('data');
 
             expect(idGamivoList($data))->toContain($gamivoId);
         });
@@ -196,7 +199,7 @@ describe('GET /keys/auto-sell', function () {
                 'created_at' => now(), 'updated_at' => now(),
             ]);
 
-            $data = $this->getJson('/keys/auto-sell')->assertOk()->json('data');
+            $data = $this->withToken('test-secret')->getJson('/keys/auto-sell')->assertOk()->json('data');
 
             expect(idGamivoList($data))->not->toContain($gamivoId);
         });
@@ -210,7 +213,7 @@ describe('GET /keys/auto-sell', function () {
         createKey(['gamivo_id' => 'gam-sold', 'sold_at' => Carbon::now()->subDays(1)->toDateString()]);
         createKey(['gamivo_id' => 'gam-ok-2']);
 
-        $data = $this->getJson('/keys/auto-sell')->assertOk()->json('data');
+        $data = $this->withToken('test-secret')->getJson('/keys/auto-sell')->assertOk()->json('data');
 
         expect($data)->toHaveCount(2)
             ->and(idGamivoList($data))->toContain('gam-ok-1')

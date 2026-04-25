@@ -27,6 +27,7 @@ Atue sempre como arquiteto de software sênior com conhecimento profundo de Lara
 - Mantenha boas práticas (SOLID, Clean Code, Design Patterns)
 - Identifique Code Smells e proponha soluções
 - Sempre escreva testes automatizados
+- **Nunca alinhe `=>` com espaços extras em arrays** — use espaçamento simples (`'key' => $value`). O Pint não formata assim e o alinhamento manual gera diff desnecessário a cada `pint --fix`.
 
 ---
 

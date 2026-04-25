@@ -85,6 +85,19 @@ class RegisterKeyUseCase
                     $this->gameService->fillIdGamivo($game['game_name'], $game['region'], $game['gamivo_id']);
                 }
 
+                // Busca steam_id existente se ainda não tiver
+                if (empty($game['steam_id'])) {
+                    $steamId = $this->gameService->getSteamId($game['game_name'], $game['region']);
+                    if ($steamId) {
+                        $game['steam_id'] = $steamId;
+                    }
+                }
+
+                // Propaga steam_id para a tabela games
+                if (! empty($game['steam_id'])) {
+                    $this->gameService->fillSteamId($game['game_name'], $game['region'], $game['steam_id']);
+                }
+
                 // Cadastra o jogo na tabela games se ainda não existir
                 $this->gameService->createGameIfDontExists($game);
 

@@ -48,6 +48,47 @@ class GameService
     }
 
     /**
+     * Procura o steam_id pelo nome do jogo e região.
+     * Busca primeiro nas keys existentes, depois na tabela games.
+     */
+    public function getSteamId(string $gameName, ?string $region): string|false
+    {
+        $key = Key::select('steam_id')
+            ->whereRaw('LOWER("game_name") = LOWER(?)', [$gameName])
+            ->where('region', $region)
+            ->whereNotNull('steam_id')
+            ->first();
+
+        if ($key) {
+            return $key->steam_id;
+        }
+
+        $game = Game::select('steam_id')
+            ->whereRaw('LOWER("name") = LOWER(?)', [$gameName])
+            ->where('region', $region)
+            ->whereNotNull('steam_id')
+            ->first();
+
+        return $game?->steam_id ?? false;
+    }
+
+    /**
+     * Preenche o steam_id na tabela games quando ainda não está cadastrado.
+     */
+    public function fillSteamId(string $gameName, ?string $region, string $steamId): void
+    {
+        $game = Game::whereRaw('LOWER("name") = LOWER(?)', [$gameName])
+            ->where('region', $region)
+            ->whereNull('steam_id')
+            ->first();
+
+        if ($game) {
+            $game->steam_id = $steamId;
+            $game->save();
+        }
+    }
+
+    /**
      * Preenche o id_gamivo na tabela games quando ainda não está cadastrado.
      */
     public function fillIdGamivo(string $gameName, ?string $region, string $idGamivo): void
@@ -70,7 +111,7 @@ class GameService
      * já que não há garantia de normalização na entrada.
      * firstOrCreate() puro usaria match exato — incorreto aqui.
      *
-     * @param  array{game_name: string, region: string|null, gamivo_id: string|null}  $game
+     * @param  array{game_name: string, region: string|null, gamivo_id: string|null, steam_id: string|null}  $game
      */
     public function createGameIfDontExists(array $game): void
     {
@@ -80,6 +121,7 @@ class GameService
                 'name' => $game['game_name'],
                 'region' => $game['region'],
                 'id_gamivo' => $game['gamivo_id'],
+                'steam_id' => $game['steam_id'] ?? null,
             ]));
     }
 

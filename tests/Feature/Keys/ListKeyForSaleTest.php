@@ -12,6 +12,7 @@
 */
 
 use App\Domain\Pricing\MinMaxPriceCalculator;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -48,17 +49,20 @@ function insertKey(string $keyCode, array $overrides = []): void
 
 describe('POST /keys/insert-data-venda', function () {
 
-    beforeEach(fn () => seedFks());
+    beforeEach(function () {
+        Config::set('services.external_secret', 'test-secret');
+        seedFks();
+    });
 
     // ── Validation ────────────────────────────────────────────────────────────
 
     it('returns 404 when key_code is missing from the request', function () {
-        $this->postJson('/keys/insert-data-venda', [])
+        $this->withToken('test-secret')->postJson('/keys/insert-data-venda', [])
             ->assertStatus(404);
     });
 
     it('returns 404 when key_code is empty string', function () {
-        $this->postJson('/keys/insert-data-venda', ['key_code' => ''])
+        $this->withToken('test-secret')->postJson('/keys/insert-data-venda', ['key_code' => ''])
             ->assertStatus(404);
     });
 
@@ -67,7 +71,7 @@ describe('POST /keys/insert-data-venda', function () {
     it('sets listed_at to today and returns 200', function () {
         insertKey('AAAAA-11111-BBBBB');
 
-        $this->postJson('/keys/insert-data-venda', [
+        $this->withToken('test-secret')->postJson('/keys/insert-data-venda', [
             'key_code' => 'AAAAA-11111-BBBBB',
         ])->assertOk();
 
@@ -79,7 +83,7 @@ describe('POST /keys/insert-data-venda', function () {
     it('resets min_api to FLOOR by default', function () {
         insertKey('BBBBB-22222-CCCCC');
 
-        $this->postJson('/keys/insert-data-venda', [
+        $this->withToken('test-secret')->postJson('/keys/insert-data-venda', [
             'key_code' => 'BBBBB-22222-CCCCC',
         ])->assertOk();
 
@@ -91,7 +95,7 @@ describe('POST /keys/insert-data-venda', function () {
     it('does NOT reset min_api when updateMinApiGamivo is false', function () {
         insertKey('CCCCC-33333-DDDDD', ['min_api' => 1.50]);
 
-        $this->postJson('/keys/insert-data-venda', [
+        $this->withToken('test-secret')->postJson('/keys/insert-data-venda', [
             'key_code' => 'CCCCC-33333-DDDDD',
             'updateMinApiGamivo' => false,
         ])->assertOk();
@@ -105,7 +109,7 @@ describe('POST /keys/insert-data-venda', function () {
     // ── Exclusion rules ───────────────────────────────────────────────────────
 
     it('returns 404 when the key does not exist', function () {
-        $this->postJson('/keys/insert-data-venda', [
+        $this->withToken('test-secret')->postJson('/keys/insert-data-venda', [
             'key_code' => 'XXXXX-99999-YYYYY',
         ])->assertStatus(404);
     });
@@ -113,7 +117,7 @@ describe('POST /keys/insert-data-venda', function () {
     it('returns 404 when the key already has a listed_at set', function () {
         insertKey('DDDDD-44444-EEEEE', ['listed_at' => now()->subDays(3)->toDateString()]);
 
-        $this->postJson('/keys/insert-data-venda', [
+        $this->withToken('test-secret')->postJson('/keys/insert-data-venda', [
             'key_code' => 'DDDDD-44444-EEEEE',
         ])->assertStatus(404);
     });
@@ -123,7 +127,7 @@ describe('POST /keys/insert-data-venda', function () {
         insertKey('EEEEE-55555-FFFFF', ['listed_at' => now()->subDays(5)->toDateString()]);
         insertKey('EEEEE-55555-FFFFF', ['listed_at' => null]);
 
-        $this->postJson('/keys/insert-data-venda', [
+        $this->withToken('test-secret')->postJson('/keys/insert-data-venda', [
             'key_code' => 'EEEEE-55555-FFFFF',
         ])->assertOk();
 

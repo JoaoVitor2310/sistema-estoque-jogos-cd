@@ -65,10 +65,14 @@ describe('Protected routes', function () {
             $this->getJson('/games/search-popularity')->assertStatus(403);
         });
 
-        it('returns 200 for authorized users', function () {
+        it('accepts requests from authorized users', function () {
             $user = makeAuthorizedUser();
 
-            $this->actingAs($user)->getJson('/games/search-popularity')->assertStatus(200);
+            // A rota exige também VerifySecret (token do serviço externo).
+            // O teste cobre apenas que CheckPermission não bloqueia usuários autorizados.
+            $response = $this->actingAs($user)->getJson('/games/search-popularity');
+
+            expect($response->status())->not->toBe(403);
         });
     });
 
