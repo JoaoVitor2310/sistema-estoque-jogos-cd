@@ -18,9 +18,15 @@ final class KeyPriceAging
     /** Preço piso absoluto — usado quando a key precisa ser liquidada. */
     private const FLOOR_PRICE = 0.02;
 
+    /** Meses listada sem venda a partir dos quais a key é considerada em limbo. */
+    public const LIMBO_MONTHS_THRESHOLD = 12;
+
+    /** Percentual do preço de mercado atual aceito para keys em limbo (10%). */
+    public const LIMBO_MARKET_DISCOUNT = 0.10;
+
     /** Multiplicadores de degradação por faixa de meses listada. */
     private const AGING_TIERS = [
-        12 => null,  // >= 12 meses: preço piso (liquidar)
+        self::LIMBO_MONTHS_THRESHOLD => null,  // >= 12 meses: preço piso (liquidar)
         9 => 1.2,   // >= 9 meses:  custo × 1.2
         6 => 1.3,   // >= 6 meses:  custo × 1.3
         3 => 1.4,   // >= 3 meses:  custo × 1.4
@@ -66,6 +72,6 @@ final class KeyPriceAging
             return self::FLOOR_PRICE;
         }
 
-        return $actualMarketPrice * 0.10;
+        return $actualMarketPrice * self::LIMBO_MARKET_DISCOUNT;
     }
 }

@@ -688,9 +688,9 @@ const handleImportSubmit = async (): Promise<void> => {
     </Dialog>
 
     <div class="text-center mb-3 mx-5">
-      <h1>Venda-Chave-Troca</h1>
+      <h1>Keys</h1>
       <div class="w-50 m-auto">
-        <p>Lista de jogos(chaves) vendidos, para vender e para trocar.</p>
+        <p>Gerenciamento de Keys adquiridas.</p>
       </div>
       <DataTable :value="rowData" showGridlines resizableColumns reorderableColumns sortMode="multiple" removableSort
         v-model:filters="filters" filterDisplay="menu" v-model:selection="selectedProduct" selectionMode="multiple"

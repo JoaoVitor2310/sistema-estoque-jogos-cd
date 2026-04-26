@@ -22,7 +22,36 @@ namespace App\Domain\Pricing;
  */
 final class MinMaxPriceCalculator
 {
+    /** Piso absoluto aplicado a min e max. */
     public const FLOOR = 0.02;
+
+    // --- Tiers do mínimo ---
+
+    /** Custo acima deste valor aplica multiplicador MIN_MULTIPLIER_ABOVE_10. */
+    public const MIN_COST_THRESHOLD_HIGH = 10;
+
+    /** Custo acima deste valor aplica multiplicador MIN_MULTIPLIER_ABOVE_4. */
+    public const MIN_COST_THRESHOLD_MID = 4;
+
+    /** Multiplicador do mínimo quando custo > 10 (+40%). */
+    public const MIN_MULTIPLIER_ABOVE_10 = 1.4;
+
+    /** Multiplicador do mínimo quando custo > 4 (+50%). */
+    public const MIN_MULTIPLIER_ABOVE_4 = 1.5;
+
+    /** Multiplicador do mínimo padrão — custo ≤ 4 (+60%). */
+    public const MIN_MULTIPLIER_DEFAULT = 1.6;
+
+    // --- Tiers do máximo ---
+
+    /** Custo abaixo deste valor aplica multiplicador MAX_MULTIPLIER_LOW_COST. */
+    public const MAX_COST_THRESHOLD_LOW = 1;
+
+    /** Multiplicador do máximo para keys de baixo custo (< 1). */
+    public const MAX_MULTIPLIER_LOW_COST = 30;
+
+    /** Multiplicador do máximo padrão — custo ≥ 1 (e para override de mercado). */
+    public const MAX_MULTIPLIER_DEFAULT = 8;
 
     /**
      * @return array{min: float, max: float}
@@ -38,29 +67,29 @@ final class MinMaxPriceCalculator
         ];
     }
 
-    private static function computeMin(float $valorPago): float
+    private static function computeMin(float $individualCost): float
     {
-        if ($valorPago > 10) {
-            return $valorPago * 1.4;
+        if ($individualCost > self::MIN_COST_THRESHOLD_HIGH) {
+            return $individualCost * self::MIN_MULTIPLIER_ABOVE_10;
         }
 
-        if ($valorPago > 4) {
-            return $valorPago * 1.5;
+        if ($individualCost > self::MIN_COST_THRESHOLD_MID) {
+            return $individualCost * self::MIN_MULTIPLIER_ABOVE_4;
         }
 
-        return $valorPago * 1.6;
+        return $individualCost * self::MIN_MULTIPLIER_DEFAULT;
     }
 
-    private static function computeMax(float $valorPago, float $precoCliente): float
+    private static function computeMax(float $individualCost, float $clientPrice): float
     {
-        $max = $valorPago < 1
-            ? $valorPago * 30
-            : $valorPago * 8;
+        $max = $individualCost < self::MAX_COST_THRESHOLD_LOW
+            ? $individualCost * self::MAX_MULTIPLIER_LOW_COST
+            : $individualCost * self::MAX_MULTIPLIER_DEFAULT;
 
         // Quando o preço de mercado já ultrapassou o teto calculado,
         // redefine o máximo com base no preço de mercado atual.
-        if ($precoCliente >= $max) {
-            $max = $precoCliente * 8;
+        if ($clientPrice >= $max) {
+            $max = $clientPrice * self::MAX_MULTIPLIER_DEFAULT;
         }
 
         return $max;

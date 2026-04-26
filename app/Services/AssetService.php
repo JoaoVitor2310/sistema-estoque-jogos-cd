@@ -2,10 +2,48 @@
 
 namespace App\Services;
 
+use App\Domain\Assets\AssetAlert;
+use App\Models\Asset;
 use App\Services\External\CurrencyConversionService;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class AssetService
 {
+    /**
+     * Envia alerta por e-mail quando o preço do dólar do TF2 varia mais de 0.20
+     * em relação ao valor armazenado no sistema.
+     */
+    public function checkDollarAlert(): void
+    {
+        $tf2 = Asset::where('name', 'TF2')->first();
+
+        if (! $tf2) {
+            return;
+        }
+
+        $data = $this->getAssetsCurrency([
+            'currentCurrency' => 'BRL',
+            'price_brl' => $tf2->price_brl,
+        ]);
+
+        if (abs($data['price_dollar'] - $tf2->price_dollar) < AssetAlert::DOLLAR_PRICE_VARIATION_THRESHOLD) {
+            return;
+        }
+
+        try {
+            Mail::send('emails.dolar-alert', ['tf2' => $tf2, 'data' => $data], function ($message) {
+                $message->to('carcadeals@gmail.com')
+                    ->subject('⚠️ Alerta: '.Carbon::now()->format('d/m/Y').' - Dolar variou mais que 0.20');
+            });
+
+            Log::info('Email de alerta de dolar enviado com sucesso. Dolar variou mais que 0.20');
+        } catch (\Exception $e) {
+            Log::error('Erro ao enviar email de alerta de dolar: '.$e->getMessage());
+        }
+    }
+
     public function getAssetsCurrency($data)
     {
         $currencyService = new CurrencyConversionService;

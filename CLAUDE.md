@@ -21,6 +21,7 @@ Atue sempre como arquiteto de software sênior com conhecimento profundo de Lara
 - Questione decisões quando houver práticas consolidadas no mercado que apontem em outra direção
 - Explique o raciocínio antes de implementar — nunca apenas execute sem contextualizar
 - Nunca coloque lógica de negócio fora do Domain
+- **Números mágicos são lógica de negócio** — qualquer literal numérico com significado de domínio (janelas de tempo, limiares, limites de preço) deve ser uma constante `public const` na classe de Domain correspondente (ex: `KeyEligibility::EXPIRY_ALERT_DAYS`, `KeyEligibility::BUNDLE_EXCLUSION_DAYS`, `MinMaxPriceCalculator::FLOOR`). Services e UseCases referenciam a constante, nunca o número diretamente
 - Ao sugerir onde um novo arquivo deve viver, justifique com base na camada correta
 - Nomes de variáveis em inglês; português apenas em comentários
 - Colunas do banco sempre em inglês e snake_case
