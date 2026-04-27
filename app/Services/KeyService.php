@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Domain\Keys\KeyEligibility;
 use App\Domain\Keys\KeyPriceAging;
+use App\Domain\Pricing\MinMaxPriceCalculator;
 use App\Models\Key;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
@@ -44,6 +45,18 @@ class KeyService
         } catch (\Exception $e) {
             Log::error('Erro ao enviar email de expiração: '.$e->getMessage());
         }
+    }
+
+    /**
+     * Reduz o min_api ao piso para keys listadas que vencem nos próximos 30 dias.
+     * Maximiza a chance de venda antes da expiração.
+     */
+    public function reduceExpiringListedKeysPrice(): void
+    {
+        Key::whereNotNull('listed_at')
+            ->whereNull('sold_at')
+            ->whereBetween('expires_at', [now(), now()->addDays(KeyEligibility::EXPIRY_PRICE_FLOOR_DAYS)])
+            ->update(['min_api' => MinMaxPriceCalculator::FLOOR]);
     }
 
     /**

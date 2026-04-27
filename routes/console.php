@@ -29,3 +29,6 @@ Schedule::call(fn () => app(GameService::class)->updateMinPrices())
 
 Schedule::call(fn () => app(KeyService::class)->checkLimboKeys())
     ->cron('0 6 * * *')->timezone('America/Sao_Paulo');
+
+Schedule::call(fn () => app(KeyService::class)->reduceExpiringListedKeysPrice())
+    ->cron('0 6 * * *')->timezone('America/Sao_Paulo');

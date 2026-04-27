@@ -26,6 +26,9 @@ final class KeyEligibility
     /** Antecedência (dias) com que o alerta de expiração de key é disparado. */
     public const EXPIRY_ALERT_DAYS = 30;
 
+    /** Janela (dias) dentro da qual o min_api de keys listadas é reduzido ao piso. */
+    public const EXPIRY_PRICE_FLOOR_DAYS = 30;
+
     /**
      * Avalia se uma key está elegível para listagem automática.
      *
