@@ -30,7 +30,7 @@ class CurrencyConversionService
             $response = Http::withHeaders([
                 'x-api-key' => env('API_KEY_AWESOME_API'),
             ])->withOptions([
-                'verify' => env('APP_ENV') === 'production',
+                'verify' => false,
             ])->get('https://economia.awesomeapi.com.br/json/last/USD-BRL,EUR-BRL');
 
             if (! $response->successful()) {
