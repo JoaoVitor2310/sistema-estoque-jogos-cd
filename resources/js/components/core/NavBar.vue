@@ -42,7 +42,7 @@ const handleLogout = async () => {
               <Link class="nav-link" :href="route('acesso')">Acesso</Link>
             </li>
             <li>
-              <Link class="nav-link" :href="route('keys')">Venda-Chave-Troca</Link>
+              <Link class="nav-link" :href="route('keys')">Keys</Link>
             </li>
             <li>
               <Link class="nav-link" :href="route('bundles')">Bundles</Link>
