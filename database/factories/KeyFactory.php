@@ -41,8 +41,7 @@ class KeyFactory extends Factory
             'acquired_at' => $this->faker->date(),
             'listed_at' => $this->faker->date(),
             'sold_at' => $this->faker->date(),
-            'supplier_url' => $this->faker->word,
-            'email' => $this->faker->safeEmail,
+            'supplier_url' => $this->faker->url,
         ];
     }
 }

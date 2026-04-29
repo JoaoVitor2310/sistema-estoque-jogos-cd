@@ -13,6 +13,8 @@ Consulte quando o contexto for relevante:
 - [`docs/API_GAMIVO.md`](docs/API_GAMIVO.md) — integração com o Marketplace Gamivo
 - [`docs/GG_DEALS.md`](docs/GG_DEALS.md) — integração com API de dados de bundles
 
+**A cada modificação no sistema**, verifique se algum desses arquivos precisa ser atualizado. Se a mudança alterar comportamento, regras de negócio, fluxos, campos ou integrações documentados, atualize a documentação relevante no mesmo passo — nunca deixe para depois.
+
 ---
 
 ## Papel do Claude neste projeto
@@ -23,7 +25,7 @@ Atue sempre como arquiteto de software sênior com conhecimento profundo de Lara
 - Nunca coloque lógica de negócio fora do Domain
 - **Números mágicos são lógica de negócio** — qualquer literal numérico com significado de domínio (janelas de tempo, limiares, limites de preço) deve ser uma constante `public const` na classe de Domain correspondente (ex: `KeyEligibility::EXPIRY_ALERT_DAYS`, `KeyEligibility::BUNDLE_EXCLUSION_DAYS`, `MinMaxPriceCalculator::FLOOR`). Services e UseCases referenciam a constante, nunca o número diretamente
 - Ao sugerir onde um novo arquivo deve viver, justifique com base na camada correta
-- Nomes de variáveis em inglês; português apenas em comentários
+- **Nomes sempre em inglês** — variáveis, classes, arquivos, rotas, nomes de página Vue, métodos e constantes. Português apenas em comentários e em texto visível ao usuário (labels, mensagens). Nunca criar `FinanceiroService`, `financeiro.vue` ou rota `/financeiro` — o correto é `FinancialService`, `Financial.vue`, `/financial`
 - Colunas do banco sempre em inglês e snake_case
 - Mantenha boas práticas (SOLID, Clean Code, Design Patterns)
 - Identifique Code Smells e proponha soluções

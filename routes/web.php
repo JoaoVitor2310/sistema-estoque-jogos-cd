@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AuthorizedUsersController;
 use App\Http\Controllers\BundleController;
+use App\Http\Controllers\FinancialController;
 use App\Http\Controllers\GameController;
 use App\Http\Controllers\Keys\KeyController;
 use App\Http\Controllers\Keys\KeyImportController;
@@ -27,6 +28,8 @@ Route::get('/fees', [FeeController::class, 'showMarketPlaceFees'])->name('fees')
 Route::get('/assets', [AssetController::class, 'show'])->name('assets');
 
 Route::get('/bundles', [BundleController::class, 'index'])->name('bundles');
+
+Route::get('/financial', [FinancialController::class, 'show'])->name('financial')->middleware(CheckPermission::class);
 
 Route::get('/games', [GameController::class, 'index'])->name('games');
 

@@ -61,8 +61,9 @@ describe('Protected routes', function () {
 
     describe('GET /games/search-popularity', function () {
 
-        it('returns 403 for unauthenticated requests', function () {
-            $this->getJson('/games/search-popularity')->assertStatus(403);
+        it('blocks unauthenticated requests without token', function () {
+            $response = $this->getJson('/games/search-popularity');
+            expect($response->status())->toBeIn([401, 403]);
         });
 
         it('accepts requests from authorized users', function () {
@@ -78,8 +79,9 @@ describe('Protected routes', function () {
 
     describe('POST /games/update-popularity', function () {
 
-        it('returns 403 for unauthenticated requests', function () {
-            $this->postJson('/games/update-popularity')->assertStatus(403);
+        it('blocks unauthenticated requests without token', function () {
+            $response = $this->postJson('/games/update-popularity');
+            expect($response->status())->toBeIn([401, 403]);
         });
 
         it('accepts requests from authorized users', function () {

@@ -82,7 +82,41 @@ Quando uma key tem problema, a Gamivo nos dá a opção de reembolsar o cliente 
 
 
 ## Financeiro
-Futuramente queremos ter uma aba somente de análise financeira do CarcaDeals, para vermos médio de lucro do mês, quanto foi gasto, quanto de retorno e dados relevantes para termos uma visão do negócio.
+
+Aba de análise financeira do negócio, acessível em `/financial`. Permite filtrar por mês e ano. Todas as métricas de venda são baseadas em `sold_at` (data de venda); métricas de compra são baseadas em `acquired_at`.
+
+### Cards de KPI (período filtrado)
+
+| Métrica | Origem |
+|---|---|
+| Lucro líquido | `SUM(sale_profit)` das keys com `sold_at` no mês |
+| Receita bruta | `SUM(sold_price)` das keys vendidas no mês |
+| Keys vendidas | `COUNT(*)` where `sold_at` no mês |
+| Margem média | `AVG(sale_profit_percent)` das vendidas no mês |
+| Keys compradas | `COUNT(*)` where `acquired_at` no mês |
+| Investido em compras | `SUM(individual_cost)` where `acquired_at` no mês |
+| TF2 keys gastas | Soma de `tf2_quantity` agrupada por pares únicos `(total_paid, acquired_at)` para não contar a mesma trade múltiplas vezes |
+
+### Estoque atual (snapshot sem filtro de data)
+
+| Métrica | Origem |
+|---|---|
+| Total em estoque | Keys com `sold_at` nulo |
+| Investido | `SUM(individual_cost)` do estoque |
+| Receita simulada | `SUM(simulated_income)` — estimativa de receita se tudo vender |
+| Listadas | Keys com `listed_at` preenchido e `sold_at` nulo |
+| Não listadas | Keys com `listed_at` nulo e `sold_at` nulo |
+| Expirando em 30 dias | Keys com `expires_at` entre hoje e hoje+30 dias |
+
+### Gráfico — Evolução dos últimos 12 meses
+
+Barras agrupadas por mês de `sold_at`:
+- **Receita** — `SUM(sold_price)` por mês
+- **Lucro** — `SUM(sale_profit)` por mês
+
+### Tabela de jogos vendidos
+
+Lista todas as keys vendidas no período (ordenadas por maior lucro), com totais na primeira linha. O total de receita e lucro deve bater com os cards de KPI.
 
 ## Bundles
 
