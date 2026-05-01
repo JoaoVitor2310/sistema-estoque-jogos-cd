@@ -103,12 +103,13 @@ class FinancialService
         return Key::whereNotNull('sold_at')
             ->whereYear('sold_at', $year)
             ->when($month > 0, fn ($q) => $q->whereMonth('sold_at', $month))
-            ->select('game_name', 'region', 'sold_price', 'sale_profit', 'sale_profit_percent', 'sold_at')
+            ->select('game_name', 'region', 'key_code', 'sold_price', 'sale_profit', 'sale_profit_percent', 'sold_at')
             ->orderByDesc('sale_profit')
             ->get()
             ->map(fn ($k) => [
                 'game_name' => $k->game_name,
                 'region' => $k->region,
+                'key_code' => $k->key_code,
                 'sold_price' => round((float) $k->sold_price, 2),
                 'sale_profit' => round((float) $k->sale_profit, 2),
                 'sale_profit_percent' => round((float) $k->sale_profit_percent, 1),

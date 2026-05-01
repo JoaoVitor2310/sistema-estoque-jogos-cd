@@ -2,6 +2,7 @@
 import { router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import Chart from 'primevue/chart';
+import { formatDateToBR } from '@/helpers/formatHelpers';
 
 interface MonthlySales {
   count: number;
@@ -27,6 +28,7 @@ interface Stock {
 interface SoldGame {
   game_name: string;
   region: string | null;
+  key_code: string;
   sold_price: number;
   sale_profit: number;
   sale_profit_percent: number;
@@ -271,6 +273,7 @@ function profitClass(val: number) {
             <tr>
               <th>Jogo</th>
               <th>Região</th>
+              <th>Key</th>
               <th class="text-end">Preço vendido</th>
               <th class="text-end">Lucro</th>
               <th class="text-end">Margem</th>
@@ -279,7 +282,7 @@ function profitClass(val: number) {
           </thead>
           <tbody>
             <tr class="table-light fw-semibold">
-              <td colspan="2">Total</td>
+              <td colspan="3">Total</td>
               <td class="text-end">{{ formatEur(data.monthly_sales.gross_revenue) }}</td>
               <td class="text-end" :class="profitClass(data.monthly_sales.net_profit)">
                 {{ formatEur(data.monthly_sales.net_profit) }}
@@ -290,6 +293,7 @@ function profitClass(val: number) {
             <tr v-for="(game, i) in data.sold_games" :key="i">
               <td>{{ game.game_name }}</td>
               <td>{{ game.region ?? '—' }}</td>
+              <td class="font-monospace small">{{ game.key_code ?? '—' }}</td>
               <td class="text-end">{{ formatEur(game.sold_price) }}</td>
               <td class="text-end fw-semibold" :class="profitClass(game.sale_profit)">
                 {{ formatEur(game.sale_profit) }}
@@ -297,7 +301,7 @@ function profitClass(val: number) {
               <td class="text-end" :class="profitClass(game.sale_profit_percent)">
                 {{ game.sale_profit_percent }}%
               </td>
-              <td class="text-end text-muted">{{ game.sold_at }}</td>
+              <td class="text-end text-muted">{{ formatDateToBR(game.sold_at) }}</td>
             </tr>
           </tbody>
         </table>
