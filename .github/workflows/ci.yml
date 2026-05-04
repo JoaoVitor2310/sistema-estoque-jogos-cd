@@ -70,26 +70,11 @@ jobs:
         run: ./vendor/bin/phpstan analyse --configuration=phpstan.neon --memory-limit=512M
 
   # ── Job 3: Testes ─────────────────────────────────────────────────────────
-  # Sobe um PostgreSQL nativo do GitHub Actions e sobrescreve as variáveis de
-  # conexão do .env (que aponta para "postgres-cd", o hostname do Docker local).
+  # Usa SQLite em memória — sem serviço externo, sem problemas de hostname.
+  # phpunit.xml já configura DB_CONNECTION=sqlite e DB_DATABASE=:memory:
   test:
     name: Pest
     runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_DB: testing
-          POSTGRES_USER: testing
-          POSTGRES_PASSWORD: testing
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
 
     steps:
       - uses: actions/checkout@v4
@@ -98,7 +83,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
-          extensions: pgsql, pdo_pgsql, mbstring, xml, bcmath, zip
+          extensions: pgsql, pdo_pgsql, pdo_sqlite, mbstring, xml, bcmath, zip
           coverage: none
 
       - name: Cache vendor
@@ -116,21 +101,6 @@ jobs:
 
       - name: Generate app key
         run: php artisan key:generate
-
-      - name: Configure CI database
-        run: |
-          # .env — usado pelo artisan (migrate, key:generate, etc.)
-          sed -i '/^DB_HOST=/d; /^DB_PORT=/d; /^DB_DATABASE=/d; /^DB_USERNAME=/d; /^DB_PASSWORD=/d' .env
-          printf '\nDB_HOST=127.0.0.1\nDB_PORT=5432\nDB_DATABASE=testing\nDB_USERNAME=testing\nDB_PASSWORD=testing\n' >> .env
-
-          # phpunit.xml — usado pelo PHPUnit/Pest (sobrescreve .env via putenv)
-          sed -i 's|name="DB_HOST" value="[^"]*"|name="DB_HOST" value="127.0.0.1"|' phpunit.xml
-          sed -i 's|name="DB_DATABASE" value="[^"]*"|name="DB_DATABASE" value="testing"|' phpunit.xml
-          sed -i 's|name="DB_USERNAME" value="[^"]*"|name="DB_USERNAME" value="testing"|' phpunit.xml
-          sed -i 's|name="DB_PASSWORD" value="[^"]*"|name="DB_PASSWORD" value="testing"|' phpunit.xml
-
-      - name: Run migrations
-        run: php artisan migrate --force
 
       - name: Pest
         run: php artisan test --no-coverage
