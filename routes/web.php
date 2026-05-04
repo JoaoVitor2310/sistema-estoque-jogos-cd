@@ -5,6 +5,7 @@ use App\Http\Controllers\AuthorizedUsersController;
 use App\Http\Controllers\BundleController;
 use App\Http\Controllers\FinancialController;
 use App\Http\Controllers\GameController;
+use App\Http\Controllers\TradeController;
 use App\Http\Controllers\Keys\KeyController;
 use App\Http\Controllers\Keys\KeyImportController;
 use App\Http\Controllers\Keys\KeySaleController;
@@ -30,6 +31,17 @@ Route::get('/assets', [AssetController::class, 'show'])->name('assets');
 Route::get('/bundles', [BundleController::class, 'index'])->name('bundles');
 
 Route::get('/financial', [FinancialController::class, 'show'])->name('financial')->middleware(CheckPermission::class);
+
+Route::prefix('trades')
+    ->middleware(CheckPermission::class)
+    ->controller(TradeController::class)
+    ->group(function () {
+        Route::get('/', 'show')->name('trades');
+        Route::post('/', 'store')->name('trades.store');
+        Route::put('/{trade}', 'update')->name('trades.update');
+        Route::delete('/{trade}', 'destroy')->name('trades.destroy');
+        Route::post('/{trade}/import', 'importKeys')->name('trades.import');
+    });
 
 Route::get('/games', [GameController::class, 'index'])->name('games');
 

@@ -580,7 +580,7 @@ const handleImportSubmit = async (): Promise<void> => {
           </div>
         </div>
         <div class="d-flex flex-column">
-          <label class="fw-bold">Preço Cliente*</label>
+          <label class="fw-bold">Preço Mercado*</label>
           <div class="d-flex gap-5 mb-3">
             <InputNumber class="flex-auto" v-model="item.market_price" mode="decimal" showButtons :minFractionDigits="2"
               :maxFractionDigits="2" :min="0" useGrouping />
@@ -818,7 +818,7 @@ const handleImportSubmit = async (): Promise<void> => {
               @change="onEdit(data)" />
           </template>
         </Column>
-        <Column field="market_price" header="Preço Cliente" sortable class="text-center p-0">
+        <Column field="market_price" header="Preço Mercado" sortable class="text-center p-0">
           <template #body="slotProps">
             € {{ slotProps.data.market_price }}
           </template>

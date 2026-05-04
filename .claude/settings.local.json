@@ -82,7 +82,8 @@
       "PowerShell(wsl -d Ubuntu-24.04 -e bash -c 'sed -i \"s|/venda-chave-troca|/keys|g; s|venda-chave-troca|keys|g\" /var/www/sistema-estoque-jogos-cd/tests/Feature/Keys/AutoSellTest.php /var/www/sistema-estoque-jogos-cd/tests/Feature/Keys/ListKeyForSaleTest.php /var/www/sistema-estoque-jogos-cd/tests/Feature/Security/FormRequestValidationTest.php /var/www/sistema-estoque-jogos-cd/tests/Feature/Security/PublicRoutesTest.php && echo done')",
       "PowerShell(wsl -d Ubuntu-24.04 -e bash -c 'cp /var/www/sistema-estoque-jogos-cd/resources/js/Pages/VendaChaveTroca.vue /var/www/sistema-estoque-jogos-cd/resources/js/Pages/Keys.vue && rm /var/www/sistema-estoque-jogos-cd/resources/js/Pages/VendaChaveTroca.vue && echo done')",
       "PowerShell(wsl -d Ubuntu-24.04 -e bash -c \"ls -la /var/www/sistema-estoque-jogos-cd/bootstrap/cache/.gitignore /var/www/sistema-estoque-jogos-cd/storage/logs/.gitignore\")",
-      "PowerShell(wsl -d Ubuntu-24.04 -- docker ps --format \"{{.Names}}\" 2>&1 | Select-Object -First 10)"
+      "PowerShell(wsl -d Ubuntu-24.04 -- docker ps --format \"{{.Names}}\" 2>&1 | Select-Object -First 10)",
+      "PowerShell(wsl -d Ubuntu-24.04 -- bash -c \"docker ps --format '{{.Names}}' 2>&1 | head -20\")"
     ]
   }
 }

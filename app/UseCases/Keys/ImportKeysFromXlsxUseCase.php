@@ -136,21 +136,6 @@ class ImportKeysFromXlsxUseCase
                     : null,
                 'expires_at' => ExcelDateConverter::convert($worksheet->getCell('F'.$row)->getValue()),
 
-                // Defaults — campos não presentes no XLSX recebem valores padrão
-                'gamivo_id' => null,
-                'steam_id' => null,
-                'minimum_sale_price' => null,
-                'min_api' => null,
-                'max_api' => null,
-                'claim_type' => 'Nenhuma',
-                'key_format' => 'RK',
-                'sell_platform' => 'Gamivo',
-                'listed_at' => null,
-                'sold_at' => null,
-                'notes' => null,
-                'total_paid' => null,
-                'sold_price' => null,
-                'color' => null,
             ];
 
             $validator = Validator::make($data, ImportRowValidator::RULES, ImportRowValidator::messages($row));

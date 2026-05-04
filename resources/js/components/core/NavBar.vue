@@ -71,6 +71,9 @@ const handleLogout = async () => {
             <li>
               <Link class="nav-link" :href="route('financial')">Financeiro</Link>
             </li>
+            <li>
+              <Link class="nav-link" :href="route('trades')">Trades</Link>
+            </li>
           </ul>
         </div>
         <ul class="navbar-nav ms-auto mb-2 mb-lg-0">

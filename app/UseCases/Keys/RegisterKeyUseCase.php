@@ -2,6 +2,7 @@
 
 namespace App\UseCases\Keys;
 
+use App\Domain\Keys\KeyDefaults;
 use App\Domain\Platform\PlatformIdentifier;
 use App\Domain\Pricing\SalePriceCalculator;
 use App\Models\Key;
@@ -42,6 +43,13 @@ class RegisterKeyUseCase
     {
         $fullGames = [];
         $errors = [];
+
+        // Aplica defaults de domínio — campos ausentes recebem o valor canônico;
+        // campos explicitamente fornecidos pelo caller prevalecem.
+        $games = array_map(
+            fn (array $game) => array_merge(KeyDefaults::toArray(), $game),
+            $games,
+        );
 
         // Passo 1 — calcula simulated_income por key e acumula o somatório do lote
         $firstFormulas = $this->calculationService->calculateFirstFormulas($games);
