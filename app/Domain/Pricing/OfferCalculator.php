@@ -23,10 +23,10 @@ final class OfferCalculator
     /**
      * Calcula a quantidade de TF2 keys a oferecer para atingir uma margem de lucro alvo.
      *
-     * @param  float  $netIncome     Income líquido após taxas Gamivo (€)
-     * @param  float  $profitPercent Lucro alvo (ex: 100.0 para 100%)
-     * @param  float  $tf2Price      Preço de 1 TF2 key em euros
-     * @return float  Quantidade de TF2 keys a oferecer (pode ser fracionário)
+     * @param  float  $netIncome  Income líquido após taxas Gamivo (€)
+     * @param  float  $profitPercent  Lucro alvo (ex: 100.0 para 100%)
+     * @param  float  $tf2Price  Preço de 1 TF2 key em euros
+     * @return float Quantidade de TF2 keys a oferecer (pode ser fracionário)
      */
     public static function tf2Offer(float $netIncome, float $profitPercent, float $tf2Price): float
     {

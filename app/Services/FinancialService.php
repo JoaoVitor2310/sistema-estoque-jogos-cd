@@ -71,7 +71,7 @@ class FinancialService
             ->get();
 
         return (float) $rows
-            ->unique(fn ($k) => $k->total_paid . '|' . $k->acquired_at)
+            ->unique(fn ($k) => $k->total_paid.'|'.$k->acquired_at)
             ->sum('tf2_quantity');
     }
 

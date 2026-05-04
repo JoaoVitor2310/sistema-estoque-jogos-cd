@@ -1,0 +1,18 @@
+#!/bin/sh
+# Hook executado antes de cada push.
+# Impede push direto na main — abra um Pull Request.
+
+# GUI clients (VS Code, etc.) rodam hooks com PATH mínimo.
+export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
+
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+if [ "$BRANCH" = "main" ]; then
+  echo ""
+  echo "❌ Direct push to main is not allowed."
+  echo "   Create a branch, open a Pull Request and merge from there."
+  echo ""
+  exit 1
+fi
+
+exit 0

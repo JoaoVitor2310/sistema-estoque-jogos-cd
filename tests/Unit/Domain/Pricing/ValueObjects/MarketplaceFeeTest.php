@@ -16,10 +16,10 @@ describe('MarketplaceFee', function () {
     describe('constructor', function () {
         it('stores all fee values as readonly properties', function () {
             $fee = new MarketplaceFee(
-                percentLow:  0.06,
-                fixedLow:    0.25,
+                percentLow: 0.06,
+                fixedLow: 0.25,
                 percentHigh: 0.08,
-                fixedHigh:   0.40,
+                fixedHigh: 0.40,
             );
 
             expect($fee->percentLow)->toBe(0.06)
@@ -71,10 +71,10 @@ describe('MarketplaceFee', function () {
     describe('fromArray()', function () {
         it('builds the VO from an associative array', function () {
             $fee = MarketplaceFee::fromArray([
-                'gamivo_percent_low'  => 0.060,
-                'gamivo_fixed_low'    => 0.250,
+                'gamivo_percent_low' => 0.060,
+                'gamivo_fixed_low' => 0.250,
                 'gamivo_percent_high' => 0.080,
-                'gamivo_fixed_high'   => 0.400,
+                'gamivo_fixed_high' => 0.400,
             ]);
 
             expect($fee->percentLow)->toBe(0.060)
@@ -85,10 +85,10 @@ describe('MarketplaceFee', function () {
 
         it('casts string values to float', function () {
             $fee = MarketplaceFee::fromArray([
-                'gamivo_percent_low'  => '0.06',
-                'gamivo_fixed_low'    => '0.25',
+                'gamivo_percent_low' => '0.06',
+                'gamivo_fixed_low' => '0.25',
                 'gamivo_percent_high' => '0.08',
-                'gamivo_fixed_high'   => '0.40',
+                'gamivo_fixed_high' => '0.40',
             ]);
 
             expect($fee->percentLow)->toBeFloat()

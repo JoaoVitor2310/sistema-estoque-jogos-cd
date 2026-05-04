@@ -25,7 +25,10 @@ Atue sempre como arquiteto de software sênior com conhecimento profundo de Lara
 - Nunca coloque lógica de negócio fora do Domain
 - **Números mágicos são lógica de negócio** — qualquer literal numérico com significado de domínio (janelas de tempo, limiares, limites de preço) deve ser uma constante `public const` na classe de Domain correspondente (ex: `KeyEligibility::EXPIRY_ALERT_DAYS`, `KeyEligibility::BUNDLE_EXCLUSION_DAYS`, `MinMaxPriceCalculator::FLOOR`). Services e UseCases referenciam a constante, nunca o número diretamente
 - Ao sugerir onde um novo arquivo deve viver, justifique com base na camada correta
-- **Nomes sempre em inglês** — variáveis, classes, arquivos, rotas, nomes de página Vue, métodos e constantes. Português apenas em comentários e em texto visível ao usuário (labels, mensagens). Nunca criar `FinanceiroService`, `financeiro.vue` ou rota `/financeiro` — o correto é `FinancialService`, `Financial.vue`, `/financial`
+- **Nomes sempre em inglês** — variáveis, classes, arquivos, rotas, nomes de página Vue, métodos e constantes. Nunca criar `FinanceiroService`, `financeiro.vue` ou rota `/financeiro` — o correto é `FinancialService`, `Financial.vue`, `/financial`
+- **Idioma por camada**:
+  - **Inglês**: todo código (nomes, strings de sistema, mensagens de erro, logs, git hooks, scripts de terminal, textos de CI/CD)
+  - **Português**: comentários no código (para facilitar manutenção) e texto visível ao usuário no frontend (labels, botões, mensagens de validação)
 - Colunas do banco sempre em inglês e snake_case
 - Mantenha boas práticas (SOLID, Clean Code, Design Patterns)
 - Identifique Code Smells e proponha soluções
@@ -212,13 +215,79 @@ app/
 
 ---
 
+## Deploy manual (processo atual)
+
+Após `git push`, executar na VPS **na ordem abaixo**:
+
+```bash
+cd /var/www/sistema-estoque-jogos-cd
+
+git pull origin main
+
+# Dependências PHP — só quando composer.json/lock mudou
+docker exec app-cd composer install --no-dev --optimize-autoloader
+
+# Build do frontend — requer Node.js instalado na VPS (verificar: node -v)
+npm ci
+npm run build
+
+# Migrations pendentes
+docker exec app-cd php artisan migrate --force
+
+# Limpar caches velhos e reconstruir para produção
+docker exec app-cd php artisan optimize:clear
+docker exec app-cd php artisan config:cache
+docker exec app-cd php artisan route:cache
+docker exec app-cd php artisan view:cache
+```
+
+> **Sem Node na VPS?** Alternativa temporária: rodar `npm run build` localmente e commitar `public/build`.
+> Isso deixa de ser necessário quando o pipeline de deploy estiver configurado (ver Roadmap).
+
+---
+
 ## Roadmap
 
-### Próximo — CI/CD com GitHub Actions
+### Próximo — Qualidade de código
 
-- [ ] Criar `.github/workflows/ci.yml`: PHP 8.3, `composer install`, Pint, PHPStan, Pest, Codecov
-- [ ] Instalar PHPStan + Larastan (`composer require --dev nunomaduro/larastan`)
-- [ ] `phpstan.neon`: `app/Domain/` nível 8, restante nível 5
+- [ ] Instalar PHPStan + Larastan: `composer require --dev nunomaduro/larastan`
+- [ ] Configurar `phpstan.neon`: nível 8 em `app/Domain/`, nível 5 no restante
+- [ ] Configurar Pint para rodar no pre-commit ou CI
+
+### Futura — Pipeline de deploy automático (CI/CD)
+
+> ⚠️ **Ideia futura** — não implementada. Documentada aqui para orientar pesquisa e aprendizado.
+
+O objetivo é eliminar o deploy manual: ao fazer `git push origin main`, tudo deve acontecer automaticamente — testes, build e deploy na VPS.
+
+**Tópicos para pesquisar:**
+
+| Tópico | O que estudar |
+|--------|--------------|
+| **GitHub Actions** | Como criar workflows `.yml`; triggers (`on: push`); jobs e steps |
+| **SSH remoto em Actions** | `appleboy/ssh-action` — executar comandos na VPS via Action |
+| **Secrets no GitHub** | Armazenar `SSH_KEY`, `VPS_HOST`, `VPS_USER` sem expor no código |
+| **Build de assets no CI** | Rodar `npm ci && npm run build` no runner do GitHub (Ubuntu), copiar `public/build` para a VPS via `rsync` ou `scp` |
+| **Zero-downtime deploy** | `php artisan down` / `up`; estratégia de deploy com symlinks (Deployer, Envoyer) |
+| **Cache de dependências** | `actions/cache` para `vendor/` e `node_modules/` — acelera o pipeline |
+
+**Esboço do fluxo futuro:**
+
+```
+git push origin main
+  └─ GitHub Actions (runner Ubuntu)
+       ├─ composer install
+       ├─ npm ci && npm run build
+       ├─ Pest (testes)
+       ├─ PHPStan (análise estática)
+       └─ SSH na VPS
+            ├─ git pull
+            ├─ rsync public/build → VPS
+            ├─ php artisan migrate --force
+            └─ php artisan optimize:clear + caches
+```
+
+**Ferramentas alternativas para pesquisar:** Laravel Forge, Envoyer, Deployer PHP.
 
 ### Futura — Normalizar FK entre `keys` e `games`
 

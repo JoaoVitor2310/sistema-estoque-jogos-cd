@@ -22,7 +22,7 @@ class FeeSeeder extends Seeder
                 ['name' => 'gamivo_fixed_low',    'preco' => 0.25],
             ],
             uniqueBy: ['name'],
-            update:   ['preco'],
+            update: ['preco'],
         );
     }
 }

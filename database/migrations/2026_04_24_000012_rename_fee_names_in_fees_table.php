@@ -15,9 +15,9 @@ return new class extends Migration
 {
     private array $renames = [
         'gamivoPercentualMenor' => 'gamivo_percent_low',
-        'gamivoFixoMenor'       => 'gamivo_fixed_low',
+        'gamivoFixoMenor' => 'gamivo_fixed_low',
         'gamivoPercentualMaior' => 'gamivo_percent_high',
-        'gamivoFixoMaior'       => 'gamivo_fixed_high',
+        'gamivoFixoMaior' => 'gamivo_fixed_high',
     ];
 
     public function up(): void

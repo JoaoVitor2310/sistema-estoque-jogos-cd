@@ -3,9 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Domain\Pricing\OfferCalculator;
+use App\Http\Requests\ImportTradeKeysRequest;
 use App\Services\Keys\KeyCalculationService;
 use App\UseCases\Keys\RegisterKeyUseCase;
-use App\Http\Requests\ImportTradeKeysRequest;
 use Illuminate\Http\JsonResponse;
 use Inertia\Inertia;
 use Inertia\Response;

@@ -19,10 +19,10 @@ describe('IncomeCalculator', function () {
 
     beforeEach(function () {
         $this->fee = new MarketplaceFee(
-            percentLow:  0.060,
-            fixedLow:    0.250,
+            percentLow: 0.060,
+            fixedLow: 0.250,
             percentHigh: 0.080,
-            fixedHigh:   0.400,
+            fixedHigh: 0.400,
         );
     });
 
@@ -61,10 +61,10 @@ describe('IncomeCalculator', function () {
         it('does not use fixedLow for the micro tier — micro has its own fixed fee of €0.11', function () {
             // Mesmo que fixedLow seja 0.999, abaixo de 0.28 a taxa é 0.11
             $feeWithDifferentFixed = new MarketplaceFee(
-                percentLow:  0.060,
-                fixedLow:    0.999, // valor diferente para confirmar que não é usado
+                percentLow: 0.060,
+                fixedLow: 0.999, // valor diferente para confirmar que não é usado
                 percentHigh: 0.080,
-                fixedHigh:   0.400,
+                fixedHigh: 0.400,
             );
 
             // 0.20 − 0.11 = 0.09 (fixedLow=0.999 ignorado)

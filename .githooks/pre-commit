@@ -1,0 +1,29 @@
+#!/bin/sh
+# Hook executado antes de cada commit.
+# Verifica se o código está formatado conforme o Pint.
+
+# GUI clients (VS Code, etc.) rodam hooks com PATH mínimo — sem acesso ao PHP.
+# Esta linha garante que os binários do sistema sejam encontrados.
+export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
+
+if [ ! -f "./vendor/bin/pint" ]; then
+  echo "⚠️  Pint not found. Run: composer install"
+  exit 1
+fi
+
+echo "🔍 Checking code formatting with Pint..."
+
+./vendor/bin/pint --test
+PINT_EXIT=$?
+
+if [ $PINT_EXIT -ne 0 ]; then
+  echo ""
+  echo "❌ Code is not properly formatted."
+  echo "   Fix it and commit again:"
+  echo ""
+  echo "     ./vendor/bin/pint"
+  echo ""
+  exit 1
+fi
+
+exit 0

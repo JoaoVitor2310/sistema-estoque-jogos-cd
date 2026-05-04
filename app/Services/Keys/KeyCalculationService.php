@@ -156,5 +156,4 @@ class KeyCalculationService
             'sale_profit_percent' => ProfitCalculator::saleProfitPercent($saleProfit, $individualCost),
         ];
     }
-
 }
