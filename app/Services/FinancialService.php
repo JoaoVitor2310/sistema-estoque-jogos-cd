@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Domain\Keys\KeyEligibility;
 use App\Models\Key;
 use Illuminate\Support\Carbon;
 
@@ -77,15 +78,19 @@ class FinancialService
 
     private function getStockSummary(): array
     {
+        // Datas calculadas no PHP para evitar sintaxe PostgreSQL-only (INTERVAL).
+        $now = Carbon::now();
+        $expiryThreshold = Carbon::now()->addDays(KeyEligibility::EXPIRY_ALERT_DAYS);
+
         $result = Key::whereNull('sold_at')
-            ->selectRaw("
+            ->selectRaw('
                 COUNT(*) as total_count,
                 COALESCE(SUM(individual_cost), 0) as total_invested,
                 COALESCE(SUM(simulated_income), 0) as total_simulated,
                 COUNT(CASE WHEN listed_at IS NOT NULL THEN 1 END) as listed_count,
                 COUNT(CASE WHEN listed_at IS NULL THEN 1 END) as unlisted_count,
-                COUNT(CASE WHEN expires_at <= NOW() + INTERVAL '30 days' AND expires_at > NOW() THEN 1 END) as expiring_count
-            ")
+                COUNT(CASE WHEN expires_at <= ? AND expires_at > ? THEN 1 END) as expiring_count
+            ', [$expiryThreshold, $now])
             ->first();
 
         return [
@@ -121,23 +126,22 @@ class FinancialService
 
     private function getMonthlyTrend(): array
     {
+        // Agrupamento feito no PHP com Carbon::format para evitar TO_CHAR (PostgreSQL-only).
         $rows = Key::whereNotNull('sold_at')
             ->where('sold_at', '>=', Carbon::now()->subMonths(11)->startOfMonth())
-            ->selectRaw("
-                TO_CHAR(sold_at, 'YYYY-MM') as month,
-                COUNT(*) as count,
-                COALESCE(SUM(sold_price), 0) as gross_revenue,
-                COALESCE(SUM(sale_profit), 0) as net_profit
-            ")
-            ->groupByRaw("TO_CHAR(sold_at, 'YYYY-MM')")
-            ->orderByRaw("TO_CHAR(sold_at, 'YYYY-MM') ASC")
+            ->select('sold_at', 'sold_price', 'sale_profit')
             ->get();
 
-        return $rows->map(fn ($r) => [
-            'month' => $r->month,
-            'count' => (int) $r->count,
-            'gross_revenue' => round((float) $r->gross_revenue, 2),
-            'net_profit' => round((float) $r->net_profit, 2),
-        ])->toArray();
+        return $rows
+            ->groupBy(fn ($k) => Carbon::parse($k->sold_at)->format('Y-m'))
+            ->map(fn ($group, $month) => [
+                'month' => $month,
+                'count' => $group->count(),
+                'gross_revenue' => round((float) $group->sum('sold_price'), 2),
+                'net_profit' => round((float) $group->sum('sale_profit'), 2),
+            ])
+            ->sortKeys()
+            ->values()
+            ->toArray();
     }
 }

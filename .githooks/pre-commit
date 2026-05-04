@@ -13,7 +13,17 @@ fi
 
 echo "🔍 Checking code formatting with Pint..."
 
-./vendor/bin/pint --test
+# Se PHP estiver disponível no PATH, usa diretamente (CI, produção, máquinas com PHP nativo).
+# Caso contrário, tenta via container Docker (ambiente de desenvolvimento com PHP no Docker).
+if command -v php > /dev/null 2>&1; then
+  ./vendor/bin/pint --test
+elif docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^app-cd$'; then
+  docker exec app-cd ./vendor/bin/pint --test
+else
+  echo "⚠️  PHP not found and container 'app-cd' is not running. Skipping Pint check."
+  exit 0
+fi
+
 PINT_EXIT=$?
 
 if [ $PINT_EXIT -ne 0 ]; then
@@ -22,6 +32,8 @@ if [ $PINT_EXIT -ne 0 ]; then
   echo "   Fix it and commit again:"
   echo ""
   echo "     ./vendor/bin/pint"
+  echo "     # or, if using Docker:"
+  echo "     docker exec app-cd ./vendor/bin/pint"
   echo ""
   exit 1
 fi
