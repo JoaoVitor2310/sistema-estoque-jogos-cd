@@ -10,5 +10,5 @@ enum KeyFormat: string
     case SG = 'SG';
     case FR = 'FR';
     case CD = 'CD';
-    case T  = 'T';
+    case T = 'T';
 }

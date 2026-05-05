@@ -19,17 +19,17 @@ class ImportTradeKeysRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'games'                => ['required', 'array', 'min:1'],
-            'games.*.acquired_at'  => ['required', 'string'],
+            'games' => ['required', 'array', 'min:1'],
+            'games.*.acquired_at' => ['required', 'string'],
             'games.*.market_price' => ['required', 'numeric', 'gt:0'],
             'games.*.supplier_url' => ['required', 'string'],
             'games.*.tf2_quantity' => ['required', 'numeric', 'gt:0'],
-            'games.*.bundle'       => ['nullable', 'string'],
-            'games.*.expires_at'   => ['nullable', 'string'],
-            'games.*.popularity'   => ['nullable', 'string'],
-            'games.*.region'       => ['nullable', 'string'],
-            'games.*.key_code'     => ['required', 'string'],
-            'games.*.game_name'    => ['required', 'string'],
+            'games.*.bundle' => ['nullable', 'string'],
+            'games.*.expires_at' => ['nullable', 'string'],
+            'games.*.popularity' => ['nullable', 'string'],
+            'games.*.region' => ['nullable', 'string'],
+            'games.*.key_code' => ['required', 'string'],
+            'games.*.game_name' => ['required', 'string'],
         ];
     }
 
@@ -37,9 +37,9 @@ class ImportTradeKeysRequest extends FormRequest
     {
         throw new HttpResponseException(response()->json([
             'statusCode' => 422,
-            'message'    => 'Dados inválidos',
-            'errors'     => $validator->errors(),
-            'data'       => [],
+            'message' => 'Dados inválidos',
+            'errors' => $validator->errors(),
+            'data' => [],
         ], 422));
     }
 }

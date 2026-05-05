@@ -53,8 +53,8 @@ class Key extends Model
     ];
 
     protected $casts = [
-        'key_format'    => KeyFormat::class,
-        'claim_type'    => ClaimType::class,
+        'key_format' => KeyFormat::class,
+        'claim_type' => ClaimType::class,
         'sell_platform' => SellPlatform::class,
     ];
 

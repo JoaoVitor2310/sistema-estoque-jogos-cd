@@ -2,27 +2,62 @@ name: CI
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, ci-improvements]
   pull_request:
-    branches: [main, master]
+    branches: [main]
 
 jobs:
-  test:
-    name: PHP 8.3 — Pint · PHPStan · Pest
+  # ── Job 1: Formatação ──────────────────────────────────────────────────────
+  # Roda em paralelo com os demais — não precisa de extensões nem do .env.
+  lint:
+    name: Pint
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup PHP 8.3
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+
+      - name: Cache vendor
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Pint (format check)
+        run: ./vendor/bin/pint --test
+
+  # ── Job 2: Análise estática ───────────────────────────────────────────────
+  analyse:
+    name: PHPStan
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
           extensions: pgsql, pdo_pgsql, mbstring, xml, bcmath, zip
           coverage: none
 
-      - name: Install Composer dependencies
+      - name: Cache vendor
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+
+      - name: Install dependencies
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
 
       - name: Copy .env
@@ -31,14 +66,41 @@ jobs:
       - name: Generate app key
         run: php artisan key:generate
 
-      # ── Step 1: Formatting ─────────────────────────────────────────────────
-      - name: Laravel Pint (format check)
-        run: ./vendor/bin/pint --test
-
-      # ── Step 2: Static analysis (Domain only, level 7) ────────────────────
       - name: PHPStan
         run: ./vendor/bin/phpstan analyse --configuration=phpstan.neon --memory-limit=512M
 
-      # ── Step 3: Test suite ─────────────────────────────────────────────────
+  # ── Job 3: Testes ─────────────────────────────────────────────────────────
+  # Usa SQLite em memória — sem serviço externo, sem problemas de hostname.
+  # phpunit.xml já configura DB_CONNECTION=sqlite e DB_DATABASE=:memory:
+  test:
+    name: Pest
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pgsql, pdo_pgsql, pdo_sqlite, mbstring, xml, bcmath, zip
+          coverage: none
+
+      - name: Cache vendor
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Copy .env
+        run: cp .env.example .env
+
+      - name: Generate app key
+        run: php artisan key:generate
+
       - name: Pest
         run: php artisan test --no-coverage

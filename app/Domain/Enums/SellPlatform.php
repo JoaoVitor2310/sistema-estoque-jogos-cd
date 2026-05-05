@@ -5,5 +5,5 @@ namespace App\Domain\Enums;
 enum SellPlatform: string
 {
     case Nenhuma = 'Nenhuma';
-    case Gamivo  = 'Gamivo';
+    case Gamivo = 'Gamivo';
 }
