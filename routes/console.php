@@ -5,6 +5,8 @@ use App\Services\Games\GameService;
 use App\Services\KeyService;
 use App\UseCases\Bundles\SyncBundlesFromApiUseCase;
 use App\UseCases\Marketplaces\Gamivo\UpdateOffersUseCase;
+use App\UseCases\Marketplaces\Gamivo\UpdatePopularityUseCase;
+use App\UseCases\Marketplaces\Gamivo\UpdateSoldOffersUseCase;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -37,3 +39,11 @@ Schedule::call(fn () => app(KeyService::class)->reduceExpiringListedKeysPrice())
 // Reprecificação horária de todas as ofertas ativas na Gamivo
 // Schedule::call(fn () => app(UpdateOffersUseCase::class)->execute())
 //     ->cron('5 * * * *')->timezone('America/Sao_Paulo');
+
+// Baixa das keys vendidas na Gamivo (janela de 2 dias para cobrir bordas de fuso)
+// Schedule::call(fn () => app(UpdateSoldOffersUseCase::class)->executeFromGamivo())
+//     ->cron('0 7 * * *')->timezone('America/Sao_Paulo');
+
+// Atualização de popularidade dos jogos via SteamCharts
+// Schedule::call(fn () => app(UpdatePopularityUseCase::class)->execute())
+//     ->cron('0 7 * * *')->timezone('America/Sao_Paulo');

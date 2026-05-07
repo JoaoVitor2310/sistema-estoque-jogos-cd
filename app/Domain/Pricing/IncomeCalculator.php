@@ -35,6 +35,13 @@ final class IncomeCalculator
     private const TIER_THRESHOLD = 8.0;
 
     /**
+     * Taxa de intermediação cobrada por venda concluída.
+     * A Gamivo desconta €0,01 do lucro quando o serviço de mediação com o cliente está ativo.
+     * Desativável nas configurações da conta — manter como constante para facilitar a remoção futura.
+     */
+    public const MEDIATION_FEE = 0.01;
+
+    /**
      * Calcula o income líquido após as taxas da Gamivo.
      *
      * @param  float  $marketPrice  Preço de venda no marketplace (€)

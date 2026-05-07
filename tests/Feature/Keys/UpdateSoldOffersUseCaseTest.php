@@ -18,6 +18,7 @@
 use App\UseCases\Marketplaces\Gamivo\UpdateSoldOffersUseCase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -222,5 +223,189 @@ describe('UpdateSoldOffersUseCase', function () {
 
         // sold_price deve permanecer 3.00 — não sobreescrito
         expect((float) $row->sold_price)->toBe(3.00);
+    });
+});
+
+// ── executeFromGamivo ─────────────────────────────────────────────────────────
+
+describe('UpdateSoldOffersUseCase::executeFromGamivo', function () {
+
+    beforeEach(function () {
+        seedSoldOffersFks();
+        Cache::flush();
+    });
+
+    it('fetches sales from Gamivo API and marks the key as sold', function () {
+        insertUnsoldKey('GAMIVO-KEY-001');
+
+        Http::fake([
+            '*/accounts/sales/history/0/25*' => Http::response([
+                'count' => 1,
+                'data' => [[
+                    'order_id' => 'order-uuid-abc',
+                    'profit' => 2.75,
+                    'seller_tax' => 0.00,
+                    'created_at' => '2025-05-06UTC10:00:000',
+                ]],
+            ], 200),
+            // Segunda página vazia — encerra a paginação
+            '*/accounts/sales/history/25/25*' => Http::response(['count' => 0, 'data' => []], 200),
+            '*/accounts/sales/order-details/order-uuid-abc*' => Http::response([
+                'id' => 'order-uuid-abc',
+                'keys' => [
+                    '9001' => [
+                        'keys' => [['type' => 'TEXT', 'key' => 'GAMIVO-KEY-001']],
+                        'rating' => '-',
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        app(UpdateSoldOffersUseCase::class)->executeFromGamivo();
+
+        $row = DB::table('keys')->where('key_code', 'GAMIVO-KEY-001')->first();
+
+        // profit = 2.75 + 0.00 - 0.01 = 2.74
+        expect($row->sold_at)->toBe('2025-05-06')
+            ->and((float) $row->sold_price)->toEqualWithDelta(2.74, 0.001);
+    });
+
+    it('adds seller_tax to the profit before recording', function () {
+        insertUnsoldKey('GAMIVO-KEY-TAX');
+
+        Http::fake([
+            '*/accounts/sales/history/0/25*' => Http::response([
+                'count' => 1,
+                'data' => [[
+                    'order_id' => 'order-tax-001',
+                    'profit' => 2.00,
+                    'seller_tax' => 0.50,
+                    'created_at' => '2025-05-06UTC10:00:000',
+                ]],
+            ], 200),
+            '*/accounts/sales/history/25/25*' => Http::response(['count' => 0, 'data' => []], 200),
+            '*/accounts/sales/order-details/order-tax-001*' => Http::response([
+                'id' => 'order-tax-001',
+                'keys' => [
+                    '9002' => [
+                        'keys' => [['type' => 'TEXT', 'key' => 'GAMIVO-KEY-TAX']],
+                        'rating' => '-',
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        app(UpdateSoldOffersUseCase::class)->executeFromGamivo();
+
+        $row = DB::table('keys')->where('key_code', 'GAMIVO-KEY-TAX')->first();
+
+        // profit = 2.00 + 0.50 - 0.01 = 2.49
+        expect((float) $row->sold_price)->toEqualWithDelta(2.49, 0.001);
+    });
+
+    it('divides profit equally when an order has multiple keys', function () {
+        insertUnsoldKey('MULTI-GAMIVO-001');
+        insertUnsoldKey('MULTI-GAMIVO-002');
+
+        Http::fake([
+            '*/accounts/sales/history/0/25*' => Http::response([
+                'count' => 1,
+                'data' => [[
+                    'order_id' => 'order-multi-001',
+                    'profit' => 4.00,
+                    'seller_tax' => 0.00,
+                    'created_at' => '2025-05-06UTC10:00:000',
+                ]],
+            ], 200),
+            '*/accounts/sales/history/25/25*' => Http::response(['count' => 0, 'data' => []], 200),
+            '*/accounts/sales/order-details/order-multi-001*' => Http::response([
+                'id' => 'order-multi-001',
+                'keys' => [
+                    '9003' => [
+                        'keys' => [
+                            ['type' => 'TEXT', 'key' => 'MULTI-GAMIVO-001'],
+                            ['type' => 'TEXT', 'key' => 'MULTI-GAMIVO-002'],
+                        ],
+                        'rating' => '-',
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        app(UpdateSoldOffersUseCase::class)->executeFromGamivo();
+
+        // profit total = 4.00 - 0.01 = 3.99; por key = 3.99 / 2 = 2.00 (arredondado)
+        $key1 = DB::table('keys')->where('key_code', 'MULTI-GAMIVO-001')->first();
+        $key2 = DB::table('keys')->where('key_code', 'MULTI-GAMIVO-002')->first();
+
+        expect((float) $key1->sold_price)->toEqualWithDelta(2.00, 0.001)
+            ->and((float) $key2->sold_price)->toEqualWithDelta(2.00, 0.001);
+    });
+
+    it('extracts the sale date from the non-standard created_at format', function () {
+        insertUnsoldKey('GAMIVO-DATE-KEY');
+
+        Http::fake([
+            '*/accounts/sales/history/0/25*' => Http::response([
+                'count' => 1,
+                'data' => [[
+                    'order_id' => 'order-date-001',
+                    'profit' => 3.00,
+                    'seller_tax' => 0.00,
+                    'created_at' => '2025-04-13UTC17:44:480',
+                ]],
+            ], 200),
+            '*/accounts/sales/history/25/25*' => Http::response(['count' => 0, 'data' => []], 200),
+            '*/accounts/sales/order-details/order-date-001*' => Http::response([
+                'id' => 'order-date-001',
+                'keys' => [
+                    '9004' => [
+                        'keys' => [['type' => 'TEXT', 'key' => 'GAMIVO-DATE-KEY']],
+                        'rating' => '-',
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        app(UpdateSoldOffersUseCase::class)->executeFromGamivo();
+
+        $row = DB::table('keys')->where('key_code', 'GAMIVO-DATE-KEY')->first();
+
+        expect($row->sold_at)->toBe('2025-04-13');
+    });
+
+    it('returns an empty array and logs when there are no sales in the period', function () {
+        Http::fake([
+            '*/accounts/sales/history/0/25*' => Http::response(['count' => 0, 'data' => []], 200),
+        ]);
+
+        $result = app(UpdateSoldOffersUseCase::class)->executeFromGamivo();
+
+        expect($result)->toBeEmpty();
+    });
+
+    it('skips a sale when order-details returns null', function () {
+        insertUnsoldKey('GAMIVO-SKIP-KEY');
+
+        Http::fake([
+            '*/accounts/sales/history/0/25*' => Http::response([
+                'count' => 1,
+                'data' => [[
+                    'order_id' => 'order-missing-001',
+                    'profit' => 3.00,
+                    'seller_tax' => 0.00,
+                    'created_at' => '2025-05-06UTC10:00:000',
+                ]],
+            ], 200),
+            '*/accounts/sales/history/25/25*' => Http::response(['count' => 0, 'data' => []], 200),
+            // 404 → getSaleOrderDetails retorna null
+            '*/accounts/sales/order-details/order-missing-001*' => Http::response('', 404),
+        ]);
+
+        app(UpdateSoldOffersUseCase::class)->executeFromGamivo();
+
+        // Key não deve ter sido atualizada
+        $row = DB::table('keys')->where('key_code', 'GAMIVO-SKIP-KEY')->first();
+        expect($row->sold_at)->toBeNull();
     });
 });

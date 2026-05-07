@@ -210,7 +210,12 @@ class GamivoApiService
             ])
         );
 
-        return is_array($result) ? $result : [];
+        // A API retorna { count: N, data: [...] } — extrair apenas o array de vendas
+        if (is_array($result) && isset($result['data'])) {
+            return $result['data'];
+        }
+
+        return [];
     }
 
     /**

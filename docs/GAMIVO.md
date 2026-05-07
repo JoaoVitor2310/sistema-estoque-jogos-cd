@@ -398,108 +398,11 @@ return menorPrecoComTaxa / 1.035
 
 ---
 
-### Algoritmo Principal de Comparação (`compareById` / `searchBestPrice`)
+### Algoritmo Principal de Comparação
 
-Ambas as funções têm a **mesma lógica central**. A diferença é que:
-- `compareById` → retorna `CompareResult { menorPreco }` (número simples, ou código negativo)
-- `searchBestPrice` → retorna `BestPriceResult { status, price, ... }` (com status semântico)
-
-**Entradas:** `productId`, `consideraSamfit` (boolean, padrão true)
-
-**Vendedores ignorados (nunca abaixar preço por causa deles):**
-- `'Buy-n-Play'`, `'Playtime'`, `'Estateium'`
-
-**Passo a passo:**
-
-```
-1. Buscar GET /products/{productId}/offers
-2. Se array vazio → retornar SEM_CONCORRENTES / -5
-
-3. Ordenar por retail_price ASC
-
-4. Checar se NÃO somos o menor preço (offers[0].seller_name != SELLERS_NAME):
-   a. Executar checkOthersAPI(offers) — ver seção abaixo
-      Se retornar preço → retornar priceWithoutFee(preço)
-
-   b. Se consideraSamfit = true → filtrar sellersToIgnore da lista
-
-   c. Separar segundoMenorPreco = offers[1].retail_price (se existir)
-
-   d. Loop em todos os concorrentes (ignorando nós mesmos):
-      - Se completed_orders < 4000 → é "candango": qtdCandango++
-      - Atualizar menorPrecoTotal (todos) e menorPrecoSemCandango (só não-candangos)
-      - Capturar nosso offerId, wholesale_mode, wholesale_price_tier_one/two
-
-   e. Escolher menorPreco:
-      - Se qtdCandango >= 3 → menorPreco = menorPrecoTotal
-      - Senão               → menorPreco = menorPrecoSemCandango
-
-      ATENÇÃO: O código atual SEMPRE usa menorPreco = menorPrecoTotal
-      (a lógica de qtdCandango >= 3 está presente mas é sobrescrita na linha seguinte)
-
-   f. Se único concorrente (ou menorPrecoTotal == MAX) → SEM_CONCORRENTES / -2
-
-   g. Lógica do SAMFITEIRO (só se consideraSamfit = true):
-      - diferenca = segundoMenorPreco - menorPreco
-      - Se segundoMenorPreco > 1: limiar = 10% de segundoMenorPreco
-      - Se segundoMenorPreco <= 1: limiar = 5% de segundoMenorPreco
-      - Se diferenca >= limiar → HÁ SAMFITEIRO:
-        * Se offers[1].seller_name == SELLERS_NAME → já somos 2º: retornar JA_TEM_MELHOR_PRECO / -4
-        * Senão → menorPreco = offers[1].retail_price (mira no 2º colocado)
-
-   h. Calcular preço final:
-      menorPreco = menorPreco - 0.014
-      menorPrecoSemTaxa = priceWithoutFee(menorPreco)
-      retornar round(menorPrecoSemTaxa, 2)
-
-5. Se já SOMOS o menor preço (offers[0].seller_name == SELLERS_NAME):
-   a. Se não há 2º colocado → SEM_CONCORRENTES / -4
-   b. Diferença = 2ºMenor - nossoPreco
-   c. Se diferença < 0.04 → JA_TEM_MELHOR_PRECO / -4 (não mexe)
-   d. Se diferença >= 0.04:
-      menorPreco = 2ºMenor - 0.014
-      menorPrecoSemTaxa = priceWithoutFee(menorPreco)
-      retornar round(menorPrecoSemTaxa, 2)  ← sobe o preço!
-```
-
-**Retornos de `compareById` (valores negativos = sem ação):**
-| Valor | Significado |
-|---|---|
-| `-1` | Erro 404/403 da API ou exceção genérica |
-| `-2` | Único vendedor (sem concorrentes reais) |
-| `-4` | Já temos o melhor preço (ou mudança não compensa) |
-| `-5` | Array de ofertas vazio |
-| `>0` | Novo `seller_price` sem taxa para enviar à Gamivo |
-
-**Status de `searchBestPrice`:**
-| Status | Significado |
-|---|---|
-| `PRECO_INDETERMINADO` | Erro, 404/403, ou array vazio; `price = 150` (fallback) |
-| `SEM_CONCORRENTES` | Único vendedor |
-| `JA_TEM_MELHOR_PRECO` | Preço atual já é ótimo |
-| `ATUALIZAR_PRECO` | Novo preço calculado, deve atualizar |
-
----
-
-### Algoritmo `checkOthersAPI` (Anti-API-competitor)
-
-Detecta quando um concorrente usa bot de precificação automática e evita guerra de preços.
-
-**Condição de disparo:** lista tem ≥ 2 itens, AND `offers[0].seller_name` está em `['Buy-n-Play', 'Playtime']`, AND `offers[1].seller_name == SELLERS_NAME` (somos 2º).
-
-```
-first  = offers[0].retail_price  (concorrente com API)
-second = offers[1].retail_price  (nosso preço)
-third  = offers[2].retail_price  (alvo)
-
-tenPercentOfSecond = second * 0.1
-
-se (second - first) <= tenPercentOfSecond:
-    tenPercentOfThird = third * 0.1
-    se (third - second) >= tenPercentOfThird:
-        retornar third - 0.015
-retornar false
-```
+> ✅ **Migrado para Laravel.** Implementação completa em `app/Domain/Pricing/ComparisonAlgorithm.php` com testes em `tests/Unit/Domain/Pricing/ComparisonAlgorithmTest.php`.
+>
+> O equivalente Node.js são as funções `compareById` / `searchBestPrice` em `comparisonService.ts`. A lógica de "candango" (`completed_orders < 4000`) foi identificada como **dead code** no Node.js (sempre sobrescrita) e **não foi migrada**.
 
 ---
 
@@ -572,11 +475,6 @@ retornar lucro >= lucroMinimo AND lucro > 0.08
 
 ## Conceitos de Negócio (Precificação)
 
-### Candango
-Vendedor com `completed_orders < 4000`. Heurística para identificar vendedores sem reputação estabelecida.
-
-**Regra atual:** o código SEMPRE considera candangos (`menorPreco = menorPrecoTotal` sobrescreve a lógica de `qtdCandango`). Isso porque o próprio CarcaDeals também é considerado candango.
-
 ### Price Dumper
 Concorrente com preço anomalamente baixo — muito abaixo do 2º colocado.
 No código Node.js legado, chamado de "samfiteiro".
@@ -622,25 +520,8 @@ Guard-rails por produto. Impedem o bot de listar por preços absurdos.
 
 ### A. `GET /api/update-offers` — Reprecificação
 
-```
-1. productIds():
-   - Loop: GET /offers?offset=0,100,200,... até array vazio
-   - Coleta product_id de status == 1
-
-2. Para cada productId:
-   a. compareById(id, consideraSamfit=true) → dataToEdit { menorPreco, offerId, ... }
-   b. searchByIdGamivo(id) → games[]
-   c. Se games.length > 0 AND menorPreco > 0:
-      - Clamp menorPreco entre max(min_api, 0.02) e min(max_api, 500)
-   d. editOffer(dataToEdit) → PUT /offers/{offerId}
-   e. Se editou com sucesso → adicionar id a updatedGames
-
-3. Retornar { message, updatedGames: number[] }
-```
-
-**Produtos ignorados (hardcoded em editOffer):**
-- `1767` — Random Game on Gamivo
-- `42931` — Spotify Premium 1 Month US
+> ✅ **Migrado para Laravel.** Ver `app/UseCases/Marketplaces/Gamivo/UpdateOffersUseCase.php`.
+> Scheduler: `cron('5 * * * *')` em `routes/console.php` (atualmente comentado — aguardando validação em produção).
 
 ### B. `GET /api/update-sold-offers` — Baixa de Vendas
 
@@ -974,7 +855,7 @@ src/
 |------|---------|--------------|:------:|
 | **0** | Infra compartilhada: `GamivoApiService`, scheduler, alerta de token | — | ✅ |
 | **1** | `UpdateOffersUseCase` — reprecificação horária | Fase 0 | ✅ |
-| **2** | `UpdatePopularityUseCase` + validar `UpdateSoldOffersUseCase` | Fase 0 | ⬜ |
+| **2** | `UpdatePopularityUseCase` + validar `UpdateSoldOffersUseCase` | Fase 0 | ✅ |
 | **3** | Validar `AutoSellUseCase` contra algoritmo Node.js | Fases 0–2 | ⬜ |
 | **4** | `WhenToSellUseCase` — avaliação diária com regra dos 4 meses | Fases 0–3 | ⬜ |
 | **5** | Desligar `gamivo-carca-deals`; notificações por e-mail | Fases 0–4 | ⬜ |
@@ -984,75 +865,20 @@ src/
 
 ### Fase 1 — UpdateOffersUseCase (Reprecificação Horária) ✅
 
-**Prioridade máxima** — é a funcionalidade de maior impacto financeiro do sistema.
-
-**Arquivos a criar:**
-- `app/UseCases/Keys/UpdateOffersUseCase.php`
-- `app/Domain/Pricing/ComparisonAlgorithm.php` — algoritmo puro (sem Eloquent)
-
-O scheduler usa `Schedule::call()` diretamente — não é necessário criar Artisan command.
-
-**Fluxo em alto nível:**
-```
-1. GamivoApiService::getActiveOffers() → lista de product_ids ativos
-   IMPORTANTE: iterar TODOS os ativos — o algoritmo também sobe preço quando
-   somos 1º e o 2º subiu >= €0,04. GET /products/no-best-price-offers pode
-   PRIORIZAR a ordem da fila, nunca filtrar/reduzir o conjunto.
-
-Para cada product_id:
-  2. GamivoApiService::getOffersForProduct(productId) → array de ofertas
-  3. ComparisonAlgorithm::calculate(offers) → ComparisonResult
-  4. Se ComparisonResult::updatePrice($price):
-     a. Buscar min_api / max_api no banco por gamivo_id
-     b. Aplicar clamp
-     c. GamivoApiService::getMyOfferForProduct(productId) → offerId atual
-     d. Se seller_price mudou: GamivoApiService::updateOffer(offerId, data)
-```
-
-**Domain: `ComparisonAlgorithm`** — PHP puro, sem Eloquent. Recebe array de `OfferData` (VO simples) e retorna `ComparisonResult`.
-
-**Constantes de domínio:**
-```php
-const PRICE_STEP = 0.014;
-const MIN_PRICE_DIFF_TO_ACT = 0.04;
-const SOCIETY_ORDERS_THRESHOLD = 4000;
-const SAMFITEIRO_HIGH_PRICE_RATIO = 0.10;
-const SAMFITEIRO_LOW_PRICE_RATIO  = 0.05;
-const API_COMPETITOR_SELLERS = ['Buy-n-Play', 'Playtime'];
-const SELLERS_TO_IGNORE = ['Buy-n-Play', 'Playtime', 'Estateium'];
-```
-
-**Retornos de `ComparisonResult`:**
-
-| Tipo | Significado |
-|------|-------------|
-| `->noAction(reason: 'no_competitors')` | Array vazio ou único vendedor |
-| `->noAction(reason: 'already_best')` | Preço atual já é ótimo |
-| `->noAction(reason: 'error')` | Erro na API |
-| `->updatePrice(float $sellerPrice)` | Novo `seller_price` sem taxa |
-
-**Wholesale:** ao atualizar com `wholesale_mode != 0`:
-```
-tier_one = priceWithoutFee(menorPrecoComTaxa) / 1.035
-tier_two = tier_one
-seller_price > tier_one (sempre)
-```
-
-**Testes:** `tests/Unit/Domain/Pricing/ComparisonAlgorithmTest.php`  
-Cenários: sem concorrentes, com price dumper, com candango, com API-competitor, já somos 1º com/sem margem.
+> Implementado. Arquivos:
+> - `app/UseCases/Marketplaces/Gamivo/UpdateOffersUseCase.php`
+> - `app/Domain/Pricing/ComparisonAlgorithm.php` + `ComparisonResult.php` + `OfferData.php`
+> - Testes: `tests/Unit/Domain/Pricing/ComparisonAlgorithmTest.php`, `tests/Feature/Keys/UpdateOffersUseCaseTest.php`
 
 ---
 
-### Fase 2 — UpdatePopularityUseCase + Validar UpdateSoldOffersUseCase
+### Fase 2 — UpdatePopularityUseCase + UpdateSoldOffersUseCase ✅
 
-**`UpdatePopularityUseCase`:** scraping do SteamCharts (`https://steamcharts.com/app/{steam_id}`). Usar `Http::get(...)` + parse HTML sem biblioteca. Iterar páginas de `GET /games/search-popularity?page={n}` até `last_page`. Rate limiting obrigatório.
-
-**Validar `UpdateSoldOffersUseCase`** (já existe):
-1. Chama `GET /accounts/sales/history/{offset}/25` com paginação correta
-2. Processa `created_at` no formato `"2025-04-13UTC17:44:480"`
-3. Calcula `profit = offer.profit + offer.seller_tax - 0.01`
-4. Para vendas múltiplas: chama `GET /accounts/sales/order-details/{orderId}` e divide o profit igualmente
-5. Chama `POST /keys/update-sold-offers` com o corpo correto
+> Implementado. Arquivos:
+> - `app/Services/External/SteamChartsService.php`
+> - `app/UseCases/Marketplaces/Gamivo/UpdatePopularityUseCase.php`
+> - `app/UseCases/Marketplaces/Gamivo/UpdateSoldOffersUseCase.php` (método `executeFromGamivo`)
+> - Testes: `tests/Unit/Services/External/SteamChartsServiceTest.php`, `tests/Feature/Keys/UpdatePopularityUseCaseTest.php`, `tests/Feature/Keys/UpdateSoldOffersUseCaseTest.php`
 
 ---
 
@@ -1117,11 +943,7 @@ Modalidade de venda em atacado (divisor `1.035`). Implementar após todas as fas
 
 ### Clamp min/max
 
-```php
-$minPrice = max((float) $key->min_api, 0.02);
-$maxPrice = min((float) $key->max_api, 500.0);
-$price = max($minPrice, min($price, $maxPrice));
-```
+> ✅ Implementado em `MinMaxPriceCalculator::clamp()`. Constantes: `FLOOR = 0.02`, `CEILING = 500.0`.
 
 ### Formato de datas Gamivo
 
@@ -1142,21 +964,9 @@ for ($attempt = 1; $attempt <= 5; $attempt++) {
 
 ### Scheduler (routes/console.php)
 
-Adicionar as entradas abaixo conforme cada fase for implementada:
+Entradas das fases 1 e 2 já estão em `routes/console.php` (comentadas — ativar após validação em produção). Para a Fase 4, adicionar quando implementado:
 
 ```php
-// Fase 1 — reprecificação horária
-Schedule::call(fn () => app(UpdateOffersUseCase::class)->execute())
-    ->cron('5 * * * *')->timezone('America/Sao_Paulo');
-
-// Fase 2 — baixa de vendas
-Schedule::call(fn () => app(UpdateSoldOffersUseCase::class)->executeFromGamivo())
-    ->dailyAt('07:00')->timezone('America/Sao_Paulo');
-
-// Fase 2 — popularidade SteamCharts
-Schedule::call(fn () => app(UpdatePopularityUseCase::class)->execute())
-    ->dailyAt('07:00')->timezone('America/Sao_Paulo');
-
 // Fase 4 — avaliação de venda
 Schedule::call(fn () => app(WhenToSellUseCase::class)->execute())
     ->dailyAt('08:00')->timezone('America/Sao_Paulo');

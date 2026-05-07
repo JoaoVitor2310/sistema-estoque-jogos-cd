@@ -35,8 +35,49 @@ Atue sempre como arquiteto de software sênior com conhecimento profundo de Lara
 - Mantenha boas práticas (SOLID, Clean Code, Design Patterns)
 - Identifique Code Smells e proponha soluções
 - Sempre escreva testes automatizados
-- **Nunca alinhe `=>` com espaços extras em arrays** — use espaçamento simples (`'key' => $value`). O Pint não formata assim e o alinhamento manual gera diff desnecessário a cada `pint --fix`.
 - **Nunca faça commits automáticos** — apenas prepare as alterações e informe o que foi modificado. O commit é sempre feito pelo usuário.
+
+## Code style (Pint — preset Laravel)
+
+O projeto usa o Pint sem `pint.json`, portanto aplica o preset `laravel` padrão. Todo código gerado deve já respeitar essas regras para não gerar diff desnecessário no `pint --fix`.
+
+**Espaçamento e indentação**
+- 4 espaços (sem tabs)
+- Sem trailing whitespace; arquivo termina com `\n`
+- Linha em branco após `namespace` e após o bloco de `use`
+- Linha em branco antes de `return` quando há código acima — exceto quando o corpo do método tem só uma linha
+
+**Chaves e quebras de linha**
+- Chave de abertura de classe e método na **mesma linha** da assinatura (K&R style): `function foo(): void {`
+- `if`, `foreach`, `while` sempre com chaves, mesmo para uma linha
+- Chave de fechamento de classe/método em linha própria
+
+**Arrays**
+- Nunca alinhar `=>` com espaços extras — espaçamento simples: `'key' => $value`
+- Arrays curtos (inline) sem espaço após `[` e antes de `]`: `['a', 'b']`
+- Arrays multilinha: cada item em sua própria linha, vírgula trailing na última entrada
+
+**Tipos e declarações**
+- `declare(strict_types=1)` **não** é usado neste projeto (preset Laravel não o exige)
+- Tipos nativos sempre que possível (`int`, `string`, `float`, `bool`, `array`, `?Type`)
+- `return type` obrigatório em todos os métodos
+- Propriedades de classe sempre tipadas
+
+**Imports**
+- Um `use` por linha, sem grupos
+- Ordenados alfabeticamente dentro de cada bloco (classes, functions, constants)
+- Sem `use` não utilizado
+
+**Visibilidade e modificadores**
+- Sempre declarar visibilidade (`public`, `protected`, `private`) em propriedades e métodos
+- Ordem dos modificadores: `final`/`abstract` → visibilidade → `static` → nome
+
+**Strings**
+- Aspas simples por padrão; aspas duplas só quando há interpolação ou caractere especial que exija
+
+**Operadores**
+- Espaço antes e depois de operadores binários (`===`, `!==`, `+`, `-`, etc.)
+- Sem espaço entre operador unário e operando (`!$flag`, `-$value`)
 - **API Gamivo é produção real — nunca chamar sem autorização explícita.** `API_KEY_GAMIVO` e `API_GAMIVO_URL` apontam para o ambiente de produção. Qualquer chamada real à API Gamivo (criar oferta, atualizar preço, fazer upload de chave, etc.) pode ter efeito imediato no estoque e nas vendas. Regras:
   1. **Nunca executar um endpoint Gamivo sem o usuário autorizar explicitamente** naquela sessão.
   2. **Sempre que precisar de um produto/oferta para testar**, perguntar ao usuário qual pode ser usado — nunca assumir ou inventar.
@@ -206,7 +247,7 @@ app/
 │   │       ├── AutoSellUseCase.php
 │   │       ├── UpdateSoldOffersUseCase.php
 │   │       ├── UpdateOffersUseCase.php
-│   │       ├── UpdatePopularityUseCase.php   # futuro — scraping SteamCharts (migração Gamivo Fase 2)
+│   │       ├── UpdatePopularityUseCase.php   # scraping SteamCharts — migração Gamivo Fase 2
 │   │       └── WhenToSellUseCase.php         # futuro — avaliação de venda (migração Gamivo Fase 4)
 │   ├── Bundles/
 │   │   └── SyncBundlesFromApiUseCase.php
@@ -291,8 +332,8 @@ Fases resumidas:
 | Fase | Entrega | Status |
 |------|---------|--------|
 | 0 | Infra compartilhada: `GamivoApiService`, scheduler, notificação de token expirado | ✅ feito |
-| 1 | `UpdateOffersUseCase` — reprecificação horária (algoritmos candango/samfiteiro) | ✅ feito |
-| 2 | `UpdateSoldOffersUseCase` já existe — validar e `UpdatePopularityUseCase` | ⬜ pendente |
+| 1 | `UpdateOffersUseCase` + `ComparisonAlgorithm` — reprecificação horária | ✅ feito |
+| 2 | `UpdateSoldOffersUseCase::executeFromGamivo()` + `UpdatePopularityUseCase` | ✅ feito |
 | 3 | `AutoSellUseCase` já existe — validar contra algoritmo Node.js | ⬜ pendente |
 | 4 | `WhenToSellUseCase` — avaliação diária de venda com regra dos 4 meses | ⬜ pendente |
 | 5 | Desligar `gamivo-carca-deals`; notificações por e-mail inline | ⬜ pendente |
