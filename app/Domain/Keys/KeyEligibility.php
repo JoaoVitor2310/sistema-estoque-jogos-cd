@@ -7,7 +7,6 @@ use Carbon\Carbon;
 /**
  * Regras de elegibilidade de uma key para listagem automática de venda.
  *
- * PHP puro — recebe apenas primitivos e Carbon.
  * A query de banco (com JOINs em bundle_games/bundles) é responsabilidade
  * do Repository; o Domain recebe os dados já hidratados e decide.
  *

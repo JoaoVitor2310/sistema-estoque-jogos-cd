@@ -5,7 +5,6 @@ namespace App\Domain\Pricing;
 /**
  * Cálculos de lucro de uma key.
  *
- * PHP puro — zero dependência do Laravel ou do banco de dados.
  * Todos os métodos retornam floats (ou null para indicar ausência de venda).
  * A formatação para exibição é responsabilidade da camada de apresentação.
  */

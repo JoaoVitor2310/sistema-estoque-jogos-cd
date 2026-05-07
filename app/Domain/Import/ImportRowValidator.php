@@ -5,7 +5,7 @@ namespace App\Domain\Import;
 /**
  * Define as regras de validação para cada linha da planilha de importação.
  *
- * PHP puro — as REGRAS vivem aqui; a execução da validação usa o Validator
+ * As REGRAS vivem aqui; a execução da validação usa o Validator
  * do Laravel no FileService (infra), pois o framework já faz isso muito bem.
  *
  * Centralizar as regras no Domain garante:

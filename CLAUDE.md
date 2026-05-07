@@ -125,6 +125,13 @@ Chaves usadas: `gamivoPercentualMenor`, `gamivoFixoMenor`, `gamivoPercentualMaio
 
 **Clean Architecture podada** — domínio isolado e testável, sem boilerplate de repositories abstratos ou adapters. Sistema interno com dois usuários; nunca precisaremos trocar o framework.
 
+### Plano multi-marketplace (futuro)
+
+Hoje o sistema opera **exclusivamente na Gamivo**. Ao criar código novo, mantenha isso em mente:
+
+- Use cases de marketplace vivem em `UseCases/Marketplaces/Gamivo/` — quando vier outro marketplace, cria-se `UseCases/Marketplaces/Eneba/` etc., sem tocar nos use cases agnósticos de `UseCases/Keys/`.
+- `Domain/Pricing` ainda está acoplado implicitamente à Gamivo: `IncomeCalculator::forGamivo()`, `MarketplaceFee` com a estrutura de taxas Gamivo, constantes de `ComparisonAlgorithm`. **Não abstrair agora** — só quando houver um segundo marketplace real. Registrado aqui para não surpreender na hora.
+
 ### Princípio central
 
 | Camada | Responsabilidade |
@@ -190,15 +197,17 @@ app/
 │       └── SellPlatform.php
 │
 ├── UseCases/
-│   ├── Keys/
+│   ├── Keys/                             # operações agnósticas de marketplace
 │   │   ├── RegisterKeyUseCase.php
 │   │   ├── UpdateKeyUseCase.php
-│   │   ├── ImportKeysFromXlsxUseCase.php
-│   │   ├── AutoSellUseCase.php
-│   │   ├── UpdateSoldOffersUseCase.php
-│   │   ├── UpdateOffersUseCase.php       # futuro — reprecificação (migração Gamivo Fase 1)
-│   │   ├── UpdatePopularityUseCase.php   # futuro — scraping SteamCharts (migração Gamivo Fase 2)
-│   │   └── WhenToSellUseCase.php         # futuro — avaliação de venda (migração Gamivo Fase 4)
+│   │   └── ImportKeysFromXlsxUseCase.php
+│   ├── Marketplaces/                     # orquestrações específicas por marketplace
+│   │   └── Gamivo/                       # quando vier outro: Eneba/, G2A/, etc.
+│   │       ├── AutoSellUseCase.php
+│   │       ├── UpdateSoldOffersUseCase.php
+│   │       ├── UpdateOffersUseCase.php
+│   │       ├── UpdatePopularityUseCase.php   # futuro — scraping SteamCharts (migração Gamivo Fase 2)
+│   │       └── WhenToSellUseCase.php         # futuro — avaliação de venda (migração Gamivo Fase 4)
 │   ├── Bundles/
 │   │   └── SyncBundlesFromApiUseCase.php
 │   └── Vips/
@@ -282,7 +291,7 @@ Fases resumidas:
 | Fase | Entrega | Status |
 |------|---------|--------|
 | 0 | Infra compartilhada: `GamivoApiService`, scheduler, notificação de token expirado | ✅ feito |
-| 1 | `UpdateOffersUseCase` — reprecificação horária (algoritmos candango/samfiteiro) | ⬜ pendente |
+| 1 | `UpdateOffersUseCase` — reprecificação horária (algoritmos candango/samfiteiro) | ✅ feito |
 | 2 | `UpdateSoldOffersUseCase` já existe — validar e `UpdatePopularityUseCase` | ⬜ pendente |
 | 3 | `AutoSellUseCase` já existe — validar contra algoritmo Node.js | ⬜ pendente |
 | 4 | `WhenToSellUseCase` — avaliação diária de venda com regra dos 4 meses | ⬜ pendente |

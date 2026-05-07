@@ -63,6 +63,7 @@ return [
     'gamivo' => [
         'url' => env('API_GAMIVO_URL', 'https://backend.gamivo.com'),
         'token' => env('API_KEY_GAMIVO'),
+        'seller_name' => env('GAMIVO_SELLER_NAME', 'CarcaDeals'),
     ],
 
     'external_secret' => env('EXTERNAL_SECRET'),

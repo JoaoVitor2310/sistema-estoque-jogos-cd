@@ -12,8 +12,6 @@ namespace App\Domain\Pricing;
  *   100% de lucro → divisor 2.0  (vendemos por 2× o custo)
  *    80% de lucro → divisor 1.8
  *    60% de lucro → divisor 1.6
- *
- * PHP puro — zero dependência do Laravel ou do banco de dados.
  */
 final class OfferCalculator
 {

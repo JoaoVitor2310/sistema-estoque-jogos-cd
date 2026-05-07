@@ -30,6 +30,7 @@
         <env name="API_PRICE_RESEARCHER" value="http://fake-price-researcher" force="true"/>
         <env name="API_GAMIVO_URL" value="http://fake-gamivo" force="true"/>
         <env name="API_KEY_GAMIVO" value="fake-token" force="true"/>
+        <env name="GAMIVO_SELLER_NAME" value="CarcaDeals" force="true"/>
         <env name="SESSION_DRIVER" value="array" force="true"/>
         <env name="TELESCOPE_ENABLED" value="false" force="true"/>
     </php>

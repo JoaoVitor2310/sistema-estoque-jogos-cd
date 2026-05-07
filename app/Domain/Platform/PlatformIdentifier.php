@@ -5,7 +5,6 @@ namespace App\Domain\Platform;
 /**
  * Identifica a plataforma de uma key pelo formato do código.
  *
- * PHP puro — zero dependência do Laravel ou do banco de dados.
  * A ordem dos padrões importa: padrões mais específicos devem vir antes
  * de padrões que possam sobrepor (ex: EA antes de EA/Ubisoft).
  */

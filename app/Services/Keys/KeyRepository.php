@@ -24,6 +24,34 @@ class KeyRepository
     }
 
     /**
+     * Retorna os limites de preço min/max para um produto Gamivo.
+     * Considera apenas keys listadas (listed_at não nulo) e ainda não vendidas (sold_at nulo).
+     * Quando múltiplas keys compartilham o mesmo gamivo_id (cópias do mesmo jogo),
+     * usa min(min_api) como piso e max(max_api) como teto.
+     *
+     * @return array{min_api: float, max_api: float}|null Null se não há keys ativas com esse gamivo_id.
+     */
+    public function findMinMaxByGamivoId(int $productId): ?array
+    {
+        $result = Key::where('gamivo_id', (string) $productId)
+            ->whereNotNull('listed_at')
+            ->whereNull('sold_at')
+            ->whereNotNull('min_api')
+            ->whereNotNull('max_api')
+            ->selectRaw('MIN(min_api) as min_api, MAX(max_api) as max_api')
+            ->first();
+
+        if ($result === null || $result->min_api === null) {
+            return null;
+        }
+
+        return [
+            'min_api' => (float) $result->min_api,
+            'max_api' => (float) $result->max_api,
+        ];
+    }
+
+    /**
      * Retorna keys elegíveis para listagem automática no Gamivo.
      *
      * Regras aplicadas via local scopes (ver Key):

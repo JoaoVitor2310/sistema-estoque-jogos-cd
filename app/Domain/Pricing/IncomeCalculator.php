@@ -7,7 +7,6 @@ use App\Domain\Pricing\ValueObjects\MarketplaceFee;
 /**
  * Calcula o income líquido do Gamivo após as taxas do marketplace.
  *
- * PHP puro — zero dependência do Laravel ou do banco de dados.
  * O VO MarketplaceFee com as taxas deve ser fornecido pelo chamador
  * (quem carrega do banco é o KeyCalculationService).
  *

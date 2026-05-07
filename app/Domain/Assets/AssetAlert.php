@@ -4,8 +4,6 @@ namespace App\Domain\Assets;
 
 /**
  * Regras de alerta para ativos de troca (ex: TF2 key).
- *
- * PHP puro — zero dependência do Laravel ou do banco de dados.
  */
 final class AssetAlert
 {

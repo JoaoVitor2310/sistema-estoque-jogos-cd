@@ -8,9 +8,9 @@ use App\Http\Resources\KeyGamivoMinMaxResource;
 use App\Http\Resources\KeyWhenToSellResource;
 use App\Models\Key;
 use App\Traits\HttpResponses;
-use App\UseCases\Keys\AutoSellUseCase;
 use App\UseCases\Keys\ListKeyForSaleUseCase;
-use App\UseCases\Keys\UpdateSoldOffersUseCase;
+use App\UseCases\Marketplaces\Gamivo\AutoSellUseCase;
+use App\UseCases\Marketplaces\Gamivo\UpdateSoldOffersUseCase;
 use Illuminate\Http\Request;
 
 /**

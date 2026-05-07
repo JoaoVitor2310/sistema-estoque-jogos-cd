@@ -4,6 +4,7 @@ use App\Services\AssetService;
 use App\Services\Games\GameService;
 use App\Services\KeyService;
 use App\UseCases\Bundles\SyncBundlesFromApiUseCase;
+use App\UseCases\Marketplaces\Gamivo\UpdateOffersUseCase;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -32,3 +33,7 @@ Schedule::call(fn () => app(KeyService::class)->checkLimboKeys())
 
 Schedule::call(fn () => app(KeyService::class)->reduceExpiringListedKeysPrice())
     ->cron('0 6 * * *')->timezone('America/Sao_Paulo');
+
+// Reprecificação horária de todas as ofertas ativas na Gamivo
+// Schedule::call(fn () => app(UpdateOffersUseCase::class)->execute())
+//     ->cron('5 * * * *')->timezone('America/Sao_Paulo');

@@ -577,16 +577,17 @@ Vendedor com `completed_orders < 4000`. Heurística para identificar vendedores 
 
 **Regra atual:** o código SEMPRE considera candangos (`menorPreco = menorPrecoTotal` sobrescreve a lógica de `qtdCandango`). Isso porque o próprio CarcaDeals também é considerado candango.
 
-### Samfiteiro
+### Price Dumper
 Concorrente com preço anomalamente baixo — muito abaixo do 2º colocado.
+No código Node.js legado, chamado de "samfiteiro".
 
 **Critério:**
-- Se 2º preço > €1 → diferença ≥ **10%** do 2º = samfiteiro.
-- Se 2º preço ≤ €1 → diferença ≥ **5%** do 2º = samfiteiro.
+- Se 2º preço > €1 → diferença ≥ **10%** do 2º = price dumper.
+- Se 2º preço ≤ €1 → diferença ≥ **5%** do 2º = price dumper.
 
 **Ação:** mira no 2º colocado (protege margem).
 
-**Nota:** em `when-to-sell` e `auto-sell`, samfiteiro é **desativado** (`consideraSamfit = false`).
+**Nota:** em `when-to-sell` e `auto-sell`, proteção contra price dumpers é **desativada** (`consideraSamfit = false` no Node.js / `detectDumpers: false` no Laravel).
 
 ### Wholesale Mode
 - `0` → só varejo (retail).
@@ -946,7 +947,7 @@ src/
 ├── services/
 │   ├── productService.ts      # Integração com Gamivo e Sistema Estoque
 │   ├── offerService.ts        # editOffer, createOffer, insertOfferKey, fetchSalesHistory
-│   ├── comparisonService.ts   # compareById, searchBestPrice, candango/samfiteiro
+│   ├── comparisonService.ts   # compareById, searchBestPrice, candango/price-dumper
 │   ├── browserService.ts      # scraping SteamCharts
 │   └── emailService.ts        # sendEmail2 (Gmail)
 ├── helpers/
@@ -972,7 +973,7 @@ src/
 | Fase | Entrega | Pré-requisito | Status |
 |------|---------|--------------|:------:|
 | **0** | Infra compartilhada: `GamivoApiService`, scheduler, alerta de token | — | ✅ |
-| **1** | `UpdateOffersUseCase` — reprecificação horária | Fase 0 | ⬜ |
+| **1** | `UpdateOffersUseCase` — reprecificação horária | Fase 0 | ✅ |
 | **2** | `UpdatePopularityUseCase` + validar `UpdateSoldOffersUseCase` | Fase 0 | ⬜ |
 | **3** | Validar `AutoSellUseCase` contra algoritmo Node.js | Fases 0–2 | ⬜ |
 | **4** | `WhenToSellUseCase` — avaliação diária com regra dos 4 meses | Fases 0–3 | ⬜ |
@@ -981,7 +982,7 @@ src/
 
 ---
 
-### Fase 1 — UpdateOffersUseCase (Reprecificação Horária)
+### Fase 1 — UpdateOffersUseCase (Reprecificação Horária) ✅
 
 **Prioridade máxima** — é a funcionalidade de maior impacto financeiro do sistema.
 
@@ -1038,7 +1039,7 @@ seller_price > tier_one (sempre)
 ```
 
 **Testes:** `tests/Unit/Domain/Pricing/ComparisonAlgorithmTest.php`  
-Cenários: sem concorrentes, com samfiteiro, com candango, com API-competitor, já somos 1º com/sem margem.
+Cenários: sem concorrentes, com price dumper, com candango, com API-competitor, já somos 1º com/sem margem.
 
 ---
 
@@ -1061,7 +1062,7 @@ O `AutoSellUseCase` já existe. Validar contra a lógica do Node.js:
 
 - [ ] Busca keys não listadas (`listed_at IS NULL`, `sold_at IS NULL`)
 - [ ] Exclui keys de jogos em bundles com < 21 dias (`BUNDLE_EXCLUSION_DAYS`)
-- [ ] Executa algoritmo com `consideraSamfit = false`
+- [ ] Executa algoritmo com `detectDumpers: false`
 - [ ] Aplica clamp min_api / max_api
 - [ ] Cria/reativa oferta via `GamivoApiService`
 - [ ] Upload da key com retry (até 5 tentativas, 1s de delay)
@@ -1085,12 +1086,12 @@ O `AutoSellUseCase` já existe. Validar contra a lógica do Node.js:
 |---------|----------------|-------------------|
 | Gatilho | On-demand / manual | Diário (scheduler 8h) |
 | Bundle | Exclui < 21 dias | Aguarda >= 120 dias |
-| Samfiteiro | Desativado | Desativado |
+| Price Dumper | Desativado (`detectDumpers: false`) | Desativado (`detectDumpers: false`) |
 | Update min_api | Não | Sim (se key com >= 10 meses) |
 
 **Implementação:**
 - `app/UseCases/Keys/WhenToSellUseCase.php`
-- Reusar `ComparisonAlgorithm` da Fase 1 com `consideraSamfit = false`
+- Reusar `ComparisonAlgorithm` da Fase 1 com `detectDumpers: false`
 - Novo scope em `Key`: `scopeEligibleForWhenToSell()`
 
 ---

@@ -5,7 +5,6 @@ namespace App\Domain\Keys;
 /**
  * Regras de degradação de preço mínimo para keys que não estão vendendo.
  *
- * PHP puro — zero dependência do Laravel ou do banco de dados.
  * Quem consulta a API externa (preço atual do mercado) e persiste
  * o resultado é o Service — o Domain só recebe os valores e decide.
  *

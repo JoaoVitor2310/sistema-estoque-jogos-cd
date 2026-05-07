@@ -15,7 +15,7 @@
 |
 */
 
-use App\UseCases\Keys\UpdateSoldOffersUseCase;
+use App\UseCases\Marketplaces\Gamivo\UpdateSoldOffersUseCase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
