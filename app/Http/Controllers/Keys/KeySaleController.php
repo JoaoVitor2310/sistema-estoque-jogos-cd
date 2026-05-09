@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Keys;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\KeyAutoSellResource;
 use App\Http\Resources\KeyGamivoMinMaxResource;
 use App\Http\Resources\KeyWhenToSellResource;
 use App\Models\Key;
@@ -28,20 +27,21 @@ class KeySaleController extends Controller
     ) {}
 
     /**
-     * Retorna keys elegíveis para listagem automática no Gamivo.
+     * Lista automaticamente keys elegíveis na Gamivo.
+     * Retorna os IDs das keys listadas com sucesso.
      */
     public function autoSell(Request $request)
     {
         try {
-            $keys = $this->autoSellUseCase->execute();
+            $listed = $this->autoSellUseCase->execute();
         } catch (\Exception $e) {
             return $this->error(500, 'Erro interno ao listar jogos para venda automaticamente', [$e->getMessage()]);
         }
 
         return $this->response(
             200,
-            'Jogos para listar a venda automaticamente encontrados com sucesso',
-            KeyAutoSellResource::collection($keys)
+            count($listed).' key(s) listada(s) com sucesso',
+            $listed,
         );
     }
 

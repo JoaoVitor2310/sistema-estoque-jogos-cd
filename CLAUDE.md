@@ -334,7 +334,7 @@ Fases resumidas:
 | 0 | Infra compartilhada: `GamivoApiService`, scheduler, notificação de token expirado | ✅ feito |
 | 1 | `UpdateOffersUseCase` + `ComparisonAlgorithm` — reprecificação horária | ✅ feito |
 | 2 | `UpdateSoldOffersUseCase::executeFromGamivo()` + `UpdatePopularityUseCase` | ✅ feito |
-| 3 | `AutoSellUseCase` já existe — validar contra algoritmo Node.js | ⬜ pendente |
+| 3 | `AutoSellUseCase` — listagem automática completa | ✅ feito |
 | 4 | `WhenToSellUseCase` — avaliação diária de venda com regra dos 4 meses | ⬜ pendente |
 | 5 | Desligar `gamivo-carca-deals`; notificações por e-mail inline | ⬜ pendente |
 

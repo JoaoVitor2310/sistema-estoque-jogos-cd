@@ -68,7 +68,7 @@ class Key extends Model
         return $this->belongsTo(Game::class, 'gamivo_id', 'gamivo_id');
     }
 
-    public function scopeRegisteredOnGamivo(Builder $query): void
+    public function scopeWithGamivoId(Builder $query): void
     {
         $query->whereNotNull('gamivo_id')->where('gamivo_id', '!=', '');
     }

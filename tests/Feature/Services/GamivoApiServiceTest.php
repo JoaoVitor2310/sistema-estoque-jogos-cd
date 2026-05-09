@@ -208,7 +208,8 @@ describe('GamivoApiService', function () {
                 ['product_id' => 123, 'order_id' => 'uuid-1', 'profit' => 2.99, 'seller_tax' => 0.0, 'quantity' => 1, 'created_at' => '2025-04-13UTC17:44:480'],
             ];
 
-            Http::fake(['*/api/public/v1/accounts/sales/history/0/25*' => Http::response($sales, 200)]);
+            // A API retorna { count: N, data: [...] } — o serviço extrai apenas o array de vendas
+            Http::fake(['*/api/public/v1/accounts/sales/history/0/25*' => Http::response(['count' => 1, 'data' => $sales], 200)]);
 
             expect((new GamivoApiService)->getSalesHistory(['statuses' => ['COMPLETED']]))->toEqual($sales);
         });

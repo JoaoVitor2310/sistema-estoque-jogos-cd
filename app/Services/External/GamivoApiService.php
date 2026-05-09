@@ -156,6 +156,28 @@ class GamivoApiService
     }
 
     /**
+     * Verifica se uma key de texto está ativa na oferta após o upload assíncrono.
+     * Filtra pelo código exato da key para confirmar que foi processada com sucesso.
+     *
+     * Usado em AutoSellUseCase após waitForUpload() para só marcar listed_at
+     * quando a key estiver realmente disponível na oferta.
+     */
+    public function isKeyListed(int $offerId, string $keyCode): bool
+    {
+        try {
+            $result = $this->handleResponse(
+                $this->http()->get("/api/public/v1/offers/{$offerId}/keys/active/0/1", [
+                    'filters' => json_encode(['keys' => [$keyCode], 'type' => 1]),
+                ])
+            );
+
+            return is_array($result) && ($result['count'] ?? 0) > 0;
+        } catch (\RuntimeException) {
+            return false;
+        }
+    }
+
+    /**
      * Aguarda a conclusão de um upload de chaves via polling do job assíncrono.
      * Faz polling a cada 1 segundo até o job concluir, falhar ou atingir o limite.
      *

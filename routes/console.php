@@ -4,6 +4,7 @@ use App\Services\AssetService;
 use App\Services\Games\GameService;
 use App\Services\KeyService;
 use App\UseCases\Bundles\SyncBundlesFromApiUseCase;
+use App\UseCases\Marketplaces\Gamivo\AutoSellUseCase;
 use App\UseCases\Marketplaces\Gamivo\UpdateOffersUseCase;
 use App\UseCases\Marketplaces\Gamivo\UpdatePopularityUseCase;
 use App\UseCases\Marketplaces\Gamivo\UpdateSoldOffersUseCase;
@@ -35,6 +36,10 @@ Schedule::call(fn () => app(KeyService::class)->checkLimboKeys())
 
 Schedule::call(fn () => app(KeyService::class)->reduceExpiringListedKeysPrice())
     ->cron('0 6 * * *')->timezone('America/Sao_Paulo');
+
+// Listagem automática de keys elegíveis na Gamivo
+// Schedule::call(fn () => app(AutoSellUseCase::class)->execute())
+//     ->cron('0 8 * * *')->timezone('America/Sao_Paulo');
 
 // Reprecificação horária de todas as ofertas ativas na Gamivo
 // Schedule::call(fn () => app(UpdateOffersUseCase::class)->execute())

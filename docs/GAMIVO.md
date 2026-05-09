@@ -856,7 +856,7 @@ src/
 | **0** | Infra compartilhada: `GamivoApiService`, scheduler, alerta de token | — | ✅ |
 | **1** | `UpdateOffersUseCase` — reprecificação horária | Fase 0 | ✅ |
 | **2** | `UpdatePopularityUseCase` + validar `UpdateSoldOffersUseCase` | Fase 0 | ✅ |
-| **3** | Validar `AutoSellUseCase` contra algoritmo Node.js | Fases 0–2 | ⬜ |
+| **3** | `AutoSellUseCase` — listagem automática completa | Fases 0–2 | ✅ |
 | **4** | `WhenToSellUseCase` — avaliação diária com regra dos 4 meses | Fases 0–3 | ⬜ |
 | **5** | Desligar `gamivo-carca-deals`; notificações por e-mail | Fases 0–4 | ⬜ |
 | **Futura** | `PriceWholesaleUseCase` — wholesale/B2B | Fase 5 | ⬜ |
@@ -882,19 +882,11 @@ src/
 
 ---
 
-### Fase 3 — Validar AutoSellUseCase
+### Fase 3 — AutoSellUseCase ✅
 
-O `AutoSellUseCase` já existe. Validar contra a lógica do Node.js:
-
-- [ ] Busca keys não listadas (`listed_at IS NULL`, `sold_at IS NULL`)
-- [ ] Exclui keys de jogos em bundles com < 21 dias (`BUNDLE_EXCLUSION_DAYS`)
-- [ ] Executa algoritmo com `detectDumpers: false`
-- [ ] Aplica clamp min_api / max_api
-- [ ] Cria/reativa oferta via `GamivoApiService`
-- [ ] Upload da key com retry (até 5 tentativas, 1s de delay)
-- [ ] Marca `listed_at` no banco
-
-**Inconsistência a resolver:** padronizar `minApiGamivo`/`maxApiGamivo` → `min_api`/`max_api` (ver seção Gotchas #4).
+> Implementado. Arquivos:
+> - `app/UseCases/Marketplaces/Gamivo/AutoSellUseCase.php`
+> - Testes: `tests/Feature/Keys/AutoSellTest.php`
 
 ---
 

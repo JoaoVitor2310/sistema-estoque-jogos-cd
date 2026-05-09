@@ -55,7 +55,7 @@ class KeyRepository
      * Retorna keys elegíveis para listagem automática no Gamivo.
      *
      * Regras aplicadas via local scopes (ver Key):
-     *  - registeredOnGamivo: gamivo_id preenchido
+     *  - withGamivoId: gamivo_id preenchido
      *  - notYetListed: listed_at e sold_at nulas
      *  - notGiftLink: key_code sem URL
      *  - withoutRecentBundle: jogo fora de bundles dos últimos N dias
@@ -68,7 +68,7 @@ class KeyRepository
     public function findEligibleForAutoSell(): Collection
     {
         return Key::query()
-            ->registeredOnGamivo()
+            ->withGamivoId()
             ->notYetListed()
             ->notGiftLink()
             ->withoutRecentBundle(KeyEligibility::BUNDLE_EXCLUSION_DAYS)
