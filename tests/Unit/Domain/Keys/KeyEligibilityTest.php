@@ -163,4 +163,21 @@ describe('KeyEligibility', function () {
             ))->toBeTrue();
         });
     });
+
+    // ── Constantes de aging ───────────────────────────────────────────────────
+
+    describe('aging constants', function () {
+
+        it('exposes OLD_KEY_MONTHS as 10', function () {
+            expect(KeyEligibility::OLD_KEY_MONTHS)->toBe(10);
+        });
+
+        it('exposes AGING_KEY_MONTHS as 7', function () {
+            expect(KeyEligibility::AGING_KEY_MONTHS)->toBe(7);
+        });
+
+        it('exposes AGING_KEY_MIN_API_MULTIPLIER as 1.2', function () {
+            expect(KeyEligibility::AGING_KEY_MIN_API_MULTIPLIER)->toBe(1.2);
+        });
+    });
 });

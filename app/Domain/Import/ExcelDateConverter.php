@@ -5,7 +5,6 @@ namespace App\Domain\Import;
 /**
  * Converte valores de data do Excel para o formato Y-m-d.
  *
- * PHP puro — zero dependência do Laravel ou de bibliotecas de planilha.
  * O chamador é responsável por extrair o valor da célula antes de passar.
  *
  * Formatos suportados:

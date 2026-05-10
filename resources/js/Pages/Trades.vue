@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick } from 'vue';
+import { ref, nextTick } from 'vue';
 import axiosInstance from '@/axios';
 
 const props = defineProps<{
@@ -198,8 +198,8 @@ async function handlePaste(e: ClipboardEvent) {
   }
 }
 
-onMounted(() => window.addEventListener('paste', handlePaste));
-onUnmounted(() => window.removeEventListener('paste', handlePaste));
+// Paste escopado na zona de colagem — sem listener global.
+// Ver @paste na div.paste-zone no template.
 
 // ─── Autosave (debounce por trade) ────────────────────────────────────────────
 
@@ -256,8 +256,13 @@ const hasMissingKeyCodes = (trade: TradeEntry) =>
   trade.rows.some(r => isRowMeaningful(r) && !(r.keyCode ?? '').trim());
 const hasMissingTf2 = (trade: TradeEntry) =>
   trade.rows.some(r => isRowMeaningful(r) && !(parseFloat((r.tf2Qty ?? '').replace(',', '.')) > 0));
+const hasMissingSupplierUrl = (trade: TradeEntry) =>
+  trade.rows.some(r => isRowMeaningful(r) && !(r.supplierUrl ?? '').trim());
 const canImport = (trade: TradeEntry) =>
-  trade.rows.some(isRowMeaningful) && !hasMissingKeyCodes(trade) && !hasMissingTf2(trade);
+  trade.rows.some(isRowMeaningful)
+  && !hasMissingKeyCodes(trade)
+  && !hasMissingTf2(trade)
+  && !hasMissingSupplierUrl(trade);
 
 async function importTrade(trade: TradeEntry) {
   if (!canImport(trade)) return;
@@ -265,7 +270,14 @@ async function importTrade(trade: TradeEntry) {
   trade.importing = true;
   trade.rows.forEach(r => { r.status = 'pending'; r.errorMsg = ''; });
 
-  const games = trade.rows.filter(isRowMeaningful).map(row => ({
+  // Preserva o mapeamento: índice em `games` (enviado ao backend) → índice original em trade.rows.
+  // Necessário porque trade.rows pode conter linhas em branco que são filtradas antes do envio,
+  // deslocando os índices e fazendo as mensagens de erro do backend caírem na linha errada.
+  const meaningfulEntries = trade.rows
+    .map((row, originalIdx) => ({ row, originalIdx }))
+    .filter(({ row }) => isRowMeaningful(row));
+
+  const games = meaningfulEntries.map(({ row }) => ({
     game_name: row.name ?? '',
     market_price: getMarketPrice(row),
     tf2_quantity: parseFloat((row.tf2Qty ?? '').replace(',', '.')) || 0,
@@ -283,12 +295,13 @@ async function importTrade(trade: TradeEntry) {
     );
 
     const errors: { linha: number; erro: string }[] = res.data.errors ?? [];
-    const errorsByIndex = new Map(errors.map(e => [e.linha - 1, e.erro]));
+    const errorsByGameIdx = new Map(errors.map(e => [e.linha - 1, e.erro]));
 
-    trade.rows.forEach((row, i) => {
-      if (errorsByIndex.has(i)) {
+    meaningfulEntries.forEach(({ originalIdx }, gameIdx) => {
+      const row = trade.rows[originalIdx];
+      if (errorsByGameIdx.has(gameIdx)) {
         row.status = 'error';
-        row.errorMsg = errorsByIndex.get(i)!;
+        row.errorMsg = errorsByGameIdx.get(gameIdx)!;
       } else {
         row.status = 'success';
       }
@@ -305,11 +318,12 @@ async function importTrade(trade: TradeEntry) {
         acquired_at: 'Data',
       };
 
-      trade.rows.forEach((row, i) => {
+      meaningfulEntries.forEach(({ originalIdx }, gameIdx) => {
+        const row = trade.rows[originalIdx];
         const msgs = Object.entries(validationErrors)
-          .filter(([key]) => key.startsWith(`games.${i}.`))
+          .filter(([key]) => key.startsWith(`games.${gameIdx}.`))
           .map(([key, errs]) => {
-            const field = key.replace(`games.${i}.`, '');
+            const field = key.replace(`games.${gameIdx}.`, '');
             const label = fieldLabels[field] ?? field;
             return `${label}: ${errs[0]}`;
           });
@@ -420,10 +434,13 @@ function rowClass(row: Row): string {
       </div>
     </div>
 
-    <!-- Zona de colagem -->
+    <!-- Zona de colagem (escopada — clique para focar, depois Ctrl+V) -->
     <div
       :class="tradeList.length === 0 ? 'paste-zone-full' : 'paste-zone-compact'"
       class="paste-zone d-flex align-items-center justify-content-center gap-3 rounded mb-4"
+      tabindex="0"
+      @paste="handlePaste"
+      @click="($event.currentTarget as HTMLElement).focus()"
     >
       <i class="pi pi-clipboard" :style="tradeList.length === 0 ? 'font-size: 2.5rem; color: #8009EF;' : 'color: #8009EF;'" />
       <div :class="tradeList.length === 0 ? 'text-center' : ''">
@@ -477,6 +494,9 @@ function rowClass(row: Row): string {
           </span>
           <span v-if="hasMissingTf2(trade)" class="badge bg-warning text-dark">
             <i class="pi pi-exclamation-triangle me-1" />Qtd TF2 em falta
+          </span>
+          <span v-if="hasMissingSupplierUrl(trade)" class="badge bg-warning text-dark">
+            <i class="pi pi-exclamation-triangle me-1" />URL Fornecedor em falta
           </span>
         </div>
         <div class="d-flex gap-2">

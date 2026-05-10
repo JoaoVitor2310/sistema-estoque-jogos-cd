@@ -5,7 +5,6 @@ namespace App\Domain\Import;
 /**
  * Valida os cabeçalhos de uma planilha de importação de keys.
  *
- * PHP puro — zero dependência do Laravel ou de bibliotecas de planilha.
  * O chamador extrai os valores das células e passa como array antes de chamar.
  *
  * As colunas esperadas são regra de negócio (formato do arquivo de importação),

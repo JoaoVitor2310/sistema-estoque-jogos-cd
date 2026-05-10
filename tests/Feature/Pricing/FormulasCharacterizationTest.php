@@ -95,30 +95,30 @@ describe('KeyCalculationService', function () {
     describe('calculateFormulas() — individual cost and profit', function () {
 
         it('calculates individualCost proportional to the simulated income', function () {
-            // 2 × 1.50 / 5.00 × 2.67 = 1.602
+            // 2 × 1.50 / 5.00 × 2.67 = 1.602 → arredondado para 1.60
             $game = ['tf2_quantity' => 2, 'simulated_income' => 2.67, 'individual_cost' => null, 'sold_price' => 0];
 
             $result = $this->service->calculateFormulas($game, somatorioIncomes: 5.00, isEdit: false);
 
-            expect($result['individual_cost'])->toEqualWithDelta(1.602, 0.001);
+            expect($result['individual_cost'])->toEqualWithDelta(1.60, 0.001);
         });
 
         it('calculates purchaseProfit (purchase_profit)', function () {
-            // 2.67 - 1.602 = 1.068
+            // individualCost arredondado = 1.60 → 2.67 - 1.60 = 1.07
             $game = ['tf2_quantity' => 2, 'simulated_income' => 2.67, 'individual_cost' => null, 'sold_price' => 0];
 
             $result = $this->service->calculateFormulas($game, somatorioIncomes: 5.00, isEdit: false);
 
-            expect($result['purchase_profit'])->toEqualWithDelta(1.068, 0.001);
+            expect($result['purchase_profit'])->toEqualWithDelta(1.07, 0.001);
         });
 
         it('calculates purchaseProfitPercent (purchase_profit_percent)', function () {
-            // (1.068 / 1.602) × 100 = 66.67
+            // individualCost = 1.60, purchaseProfit = 1.07 → (1.07 / 1.60) × 100 = 66.88
             $game = ['tf2_quantity' => 2, 'simulated_income' => 2.67, 'individual_cost' => null, 'sold_price' => 0];
 
             $result = $this->service->calculateFormulas($game, somatorioIncomes: 5.00, isEdit: false);
 
-            expect($result['purchase_profit_percent'])->toEqualWithDelta(66.67, 0.01);
+            expect($result['purchase_profit_percent'])->toEqualWithDelta(66.88, 0.01);
         });
 
         it('calculates saleProfit (sale_profit)', function () {

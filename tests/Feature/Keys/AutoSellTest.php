@@ -2,33 +2,43 @@
 
 /*
 |--------------------------------------------------------------------------
-| AutoSell — characterization tests
+| AutoSellUseCase — feature tests
 |--------------------------------------------------------------------------
 |
-| Covers KeySaleController::autoSell()
-| Route: GET /keys/auto-sell  (no auth — withoutMiddleware)
-| Response shape: { "statusCode": 200, "message": "...", "data": [...] }
+| Cobre o fluxo completo de listagem automática de keys na Gamivo:
+|  1. Filtragem de elegibilidade (gamivo_id, listed_at, sold_at, gift link, bundle)
+|  2. Cálculo de preço via ComparisonAlgorithm
+|  3. Criação de oferta via GamivoApiService
+|  4. Upload da key com retry
+|  5. Marcação de listed_at no banco
+|  6. Age override: keys >= 10 meses ignoram min_api e têm min_api atualizado
+|
+| Todos os requests HTTP são interceptados via Http::fake().
 |
 */
 
+use App\UseCases\Marketplaces\Gamivo\AutoSellUseCase;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /**
- * Insert a key that is eligible by default.
- * Pass $overrides to break specific eligibility rules.
+ * Insere uma key elegível para auto-sell e retorna o ID gerado.
+ * Usa gamivo_id numérico para compatibilidade com (int) cast no UseCase.
  */
-function createKey(array $overrides = []): void
+function insertAutoSellKey(string $gamivoId = '440', array $overrides = []): int
 {
-    DB::table('keys')->insert(array_merge([
+    return DB::table('keys')->insertGetId(array_merge([
         'game_name' => 'Test Game',
-        'gamivo_id' => 'gam-'.uniqid(),
-        'key_code' => 'ABCDE-12345-FGHIJ',
+        'gamivo_id' => $gamivoId,
+        'key_code' => 'ABCDE-'.uniqid(),
         'market_price' => 5.00,
         'individual_cost' => 2.00,
+        'min_api' => 2.00,
+        'max_api' => 20.00,
         'purchase_profit_percent' => 25.00,
         'supplier_url' => 'https://steamcommunity.com/id/test',
         'supplier_id' => 1,
@@ -42,90 +52,288 @@ function createKey(array $overrides = []): void
     ], $overrides));
 }
 
-function idGamivoList(array $data): array
+/**
+ * Http::fake() padrão para o fluxo completo de uma key:
+ * sem concorrentes → cria oferta → upload → job concluído → key verificada como ativa.
+ */
+function fakeGamivoAutoSell(): void
 {
-    return array_column($data, 'idGamivo');
+    Http::fake([
+        '*/products/*/offers' => Http::response([], 200),
+        '*/v1/offers' => Http::response(12345, 200),
+        '*/offers/12345/keys/upload' => Http::response(999, 200),
+        '*/offers/12345/jobs/999/result' => Http::response('"Done"', 200),
+        '*/offers/12345/keys/active/0/1*' => Http::response(['count' => 1, 'data' => []], 200),
+    ]);
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-describe('GET /keys/auto-sell', function () {
+describe('AutoSellUseCase', function () {
 
     beforeEach(function () {
-        Config::set('services.external_secret', 'test-secret');
-
-        // Formulas is injected into the controller constructor and queries taxas
         DB::table('fees')->insert([
             ['name' => 'gamivo_percent_low', 'preco' => 0.060, 'created_at' => now(), 'updated_at' => now()],
-            ['name' => 'gamivo_fixed_low',       'preco' => 0.250, 'created_at' => now(), 'updated_at' => now()],
+            ['name' => 'gamivo_fixed_low', 'preco' => 0.250, 'created_at' => now(), 'updated_at' => now()],
             ['name' => 'gamivo_percent_high', 'preco' => 0.080, 'created_at' => now(), 'updated_at' => now()],
-            ['name' => 'gamivo_fixed_high',       'preco' => 0.400, 'created_at' => now(), 'updated_at' => now()],
+            ['name' => 'gamivo_fixed_high', 'preco' => 0.400, 'created_at' => now(), 'updated_at' => now()],
         ]);
 
         DB::table('suppliers')->insert(['id' => 1, 'supplier_url' => 'https://steamcommunity.com/id/seed']);
+
+        Cache::flush();
     });
 
     // ── Happy path ────────────────────────────────────────────────────────────
 
-    it('returns an eligible key in the listing', function () {
-        createKey(['gamivo_id' => 'gam-eligible-001']);
+    it('marks an eligible key as listed today', function () {
+        fakeGamivoAutoSell();
+        insertAutoSellKey('440');
 
-        $data = $this->withToken('test-secret')->getJson('/keys/auto-sell')->assertOk()->json('data');
+        app(AutoSellUseCase::class)->execute();
 
-        expect(idGamivoList($data))->toContain('gam-eligible-001');
+        $listedAt = DB::table('keys')->where('gamivo_id', '440')->value('listed_at');
+
+        expect($listedAt)->toBe(now()->toDateString());
     });
 
-    // ── Exclusion rules ───────────────────────────────────────────────────────
+    it('returns the DB id of each listed key', function () {
+        fakeGamivoAutoSell();
+        $id = insertAutoSellKey('440');
 
-    describe('excludes a key when', function () {
+        $result = app(AutoSellUseCase::class)->execute();
+
+        expect($result)->toContain($id);
+    });
+
+    it('lists all eligible keys in a single run', function () {
+        Http::fake([
+            '*/products/*/offers' => Http::response([], 200),
+            '*/v1/offers' => Http::sequence()->push(11111)->push(22222),
+            '*/offers/11111/keys/upload' => Http::response(991, 200),
+            '*/offers/22222/keys/upload' => Http::response(992, 200),
+            '*/offers/11111/jobs/991/result' => Http::response('"Done"', 200),
+            '*/offers/22222/jobs/992/result' => Http::response('"Done"', 200),
+            '*/offers/11111/keys/active/0/1*' => Http::response(['count' => 1, 'data' => []], 200),
+            '*/offers/22222/keys/active/0/1*' => Http::response(['count' => 1, 'data' => []], 200),
+        ]);
+
+        insertAutoSellKey('440');
+        insertAutoSellKey('730');
+
+        $result = app(AutoSellUseCase::class)->execute();
+
+        expect($result)->toHaveCount(2)
+            ->and(DB::table('keys')->whereNotNull('listed_at')->count())->toBe(2);
+    });
+
+    it('sends the correct product_id in the createOffer request', function () {
+        fakeGamivoAutoSell();
+        insertAutoSellKey('440');
+
+        app(AutoSellUseCase::class)->execute();
+
+        Http::assertSent(function ($request) {
+            if (! (str_contains($request->url(), '/v1/offers') && $request->method() === 'POST')) {
+                return false;
+            }
+            $body = json_decode($request->body(), true);
+
+            return ($body['product_id'] ?? null) === 440;
+        });
+    });
+
+    it('lists at max_api when there are no competitors', function () {
+        // Sem concorrentes → sellerPrice = 0 → entra pelo teto (max_api)
+        fakeGamivoAutoSell();
+        insertAutoSellKey('440', ['min_api' => 3.00, 'max_api' => 25.00]);
+
+        app(AutoSellUseCase::class)->execute();
+
+        Http::assertSent(function ($request) {
+            if (! (str_contains($request->url(), '/v1/offers') && $request->method() === 'POST')) {
+                return false;
+            }
+            $body = json_decode($request->body(), true);
+
+            return (float) ($body['seller_price'] ?? 0) === 25.00;
+        });
+    });
+
+    it('does not mark listed_at when key is not confirmed active after upload', function () {
+        Http::fake([
+            '*/products/*/offers' => Http::response([], 200),
+            '*/v1/offers' => Http::response(12345, 200),
+            '*/offers/12345/keys/upload' => Http::response(999, 200),
+            '*/offers/12345/jobs/999/result' => Http::response('"Done"', 200),
+            // Verificação retorna count = 0 — key não encontrada como ativa
+            '*/offers/12345/keys/active/0/1*' => Http::response(['count' => 0, 'data' => []], 200),
+        ]);
+
+        insertAutoSellKey('440');
+
+        $result = app(AutoSellUseCase::class)->execute();
+
+        expect($result)->toBeEmpty()
+            ->and(DB::table('keys')->where('gamivo_id', '440')->value('listed_at'))->toBeNull();
+    });
+
+    it('skips listing when the competitive price is below min_api', function () {
+        // Concorrente a €1.50, min_api = 3.00 → mercado hostil, não listar
+        Http::fake([
+            '*/products/*/offers' => Http::response([
+                ['id' => 99, 'seller_name' => 'Rival', 'retail_price' => 1.50,
+                    'completed_orders' => 1000, 'wholesale_mode' => 0, 'stock_available' => 5,
+                    'rating' => 4.5, 'invoicable' => false, 'is_preorder' => false],
+            ], 200),
+            '*/v1/offers' => Http::response(12345, 200),
+            '*/offers/12345/keys/upload' => Http::response(999, 200),
+            '*/offers/12345/jobs/999/result' => Http::response('"Done"', 200),
+        ]);
+
+        insertAutoSellKey('440', ['min_api' => 3.00, 'max_api' => 25.00]);
+
+        $result = app(AutoSellUseCase::class)->execute();
+
+        expect($result)->toBeEmpty()
+            ->and(DB::table('keys')->where('gamivo_id', '440')->value('listed_at'))->toBeNull();
+    });
+
+    // ── Age override (>= 10 meses) ────────────────────────────────────────────
+
+    it('lists a key acquired >= 10 months ago even when the market is below min_api', function () {
+        // Concorrente a €1.50, min_api = 10.00 — normalmente seria pulada.
+        // Mas key >= 10 meses → age override → lista mesmo assim.
+        Http::fake([
+            '*/products/*/offers' => Http::response([
+                ['id' => 99, 'seller_name' => 'Rival', 'retail_price' => 1.50,
+                    'completed_orders' => 1000, 'wholesale_mode' => 0, 'stock_available' => 5,
+                    'rating' => 4.5, 'invoicable' => false, 'is_preorder' => false],
+            ], 200),
+            '*/v1/offers' => Http::response(12345, 200),
+            '*/offers/12345/keys/upload' => Http::response(999, 200),
+            '*/offers/12345/jobs/999/result' => Http::response('"Done"', 200),
+            '*/offers/12345/keys/active/0/1*' => Http::response(['count' => 1, 'data' => []], 200),
+        ]);
+
+        insertAutoSellKey('440', [
+            'min_api' => 10.00,
+            'max_api' => 20.00,
+            'acquired_at' => now()->subMonths(11)->toDateString(),
+        ]);
+
+        $result = app(AutoSellUseCase::class)->execute();
+
+        expect($result)->toHaveCount(1)
+            ->and(DB::table('keys')->where('gamivo_id', '440')->value('listed_at'))
+            ->toBe(now()->toDateString());
+    });
+
+    it('sets min_api to FLOOR and max_api to seller price after listing a key acquired >= 10 months ago', function () {
+        // sem concorrentes → sellerPrice = max_api original = 20.00
+        // key >= 10 meses → min_api = FLOOR (0.02) e max_api = 20.00 (sellerPrice)
+        // Isso trava o teto no preço de listagem e impede o UpdateOffersUseCase de subir depois
+        fakeGamivoAutoSell();
+        insertAutoSellKey('440', [
+            'min_api' => 2.00,
+            'max_api' => 20.00,
+            'acquired_at' => now()->subMonths(11)->toDateString(),
+        ]);
+
+        app(AutoSellUseCase::class)->execute();
+
+        $key = DB::table('keys')->where('gamivo_id', '440')->first();
+        expect((float) $key->min_api)->toBe(0.02)
+            ->and((float) $key->max_api)->toBe(20.00);
+    });
+
+    it('does not update min_api or max_api for keys acquired less than 10 months ago', function () {
+        fakeGamivoAutoSell();
+        insertAutoSellKey('440', [
+            'min_api' => 2.00,
+            'max_api' => 20.00,
+            'acquired_at' => now()->subMonths(5)->toDateString(),
+        ]);
+
+        app(AutoSellUseCase::class)->execute();
+
+        $key = DB::table('keys')->where('gamivo_id', '440')->first();
+        expect((float) $key->min_api)->toBe(2.00)
+            ->and((float) $key->max_api)->toBe(20.00);
+    });
+
+    // ── Resiliência ───────────────────────────────────────────────────────────
+
+    it('continues listing subsequent keys when one fails', function () {
+        // Primeira key: createOffer lança exceção
+        // Segunda key: sucesso
+        Http::fake([
+            '*/products/440/offers' => Http::response([], 200),
+            '*/products/730/offers' => Http::response([], 200),
+            '*/v1/offers' => Http::sequence()
+                ->push('error', 500)
+                ->push(12345, 200),
+            '*/offers/12345/keys/upload' => Http::response(999, 200),
+            '*/offers/12345/jobs/999/result' => Http::response('"Done"', 200),
+            '*/offers/12345/keys/active/0/1*' => Http::response(['count' => 1, 'data' => []], 200),
+        ]);
+
+        insertAutoSellKey('440');
+        insertAutoSellKey('730');
+
+        $result = app(AutoSellUseCase::class)->execute();
+
+        expect($result)->toHaveCount(1)
+            ->and(DB::table('keys')->whereNotNull('listed_at')->count())->toBe(1);
+    });
+
+    // ── Eligibility rules ─────────────────────────────────────────────────────
+
+    describe('skips a key when', function () {
 
         it('gamivo_id is null', function () {
-            createKey(['gamivo_id' => null]);
+            fakeGamivoAutoSell();
+            insertAutoSellKey('', ['gamivo_id' => null]);
 
-            $data = $this->withToken('test-secret')->getJson('/keys/auto-sell')->assertOk()->json('data');
+            $result = app(AutoSellUseCase::class)->execute();
 
-            expect($data)->toHaveCount(0);
+            expect($result)->toBeEmpty();
         });
 
         it('gamivo_id is an empty string', function () {
-            createKey(['gamivo_id' => '']);
+            fakeGamivoAutoSell();
+            insertAutoSellKey('', ['gamivo_id' => '']);
 
-            $data = $this->withToken('test-secret')->getJson('/keys/auto-sell')->assertOk()->json('data');
+            $result = app(AutoSellUseCase::class)->execute();
 
-            expect($data)->toHaveCount(0);
+            expect($result)->toBeEmpty();
         });
 
-        it('the key has already been listed for sale (listed_at is set)', function () {
-            createKey([
-                'gamivo_id' => 'gam-listed',
-                'listed_at' => Carbon::now()->subDays(5)->toDateString(),
-            ]);
+        it('the key is already listed (listed_at is set)', function () {
+            fakeGamivoAutoSell();
+            insertAutoSellKey('440', ['listed_at' => now()->subDays(5)->toDateString()]);
 
-            $data = $this->withToken('test-secret')->getJson('/keys/auto-sell')->assertOk()->json('data');
+            $result = app(AutoSellUseCase::class)->execute();
 
-            expect(idGamivoList($data))->not->toContain('gam-listed');
+            expect($result)->toBeEmpty();
         });
 
-        it('the key has already been sold (sold_at is set)', function () {
-            createKey([
-                'gamivo_id' => 'gam-sold',
-                'sold_at' => Carbon::now()->subDays(10)->toDateString(),
-            ]);
+        it('the key was already sold (sold_at is set)', function () {
+            fakeGamivoAutoSell();
+            insertAutoSellKey('440', ['sold_at' => now()->subDays(3)->toDateString()]);
 
-            $data = $this->withToken('test-secret')->getJson('/keys/auto-sell')->assertOk()->json('data');
+            $result = app(AutoSellUseCase::class)->execute();
 
-            expect(idGamivoList($data))->not->toContain('gam-sold');
+            expect($result)->toBeEmpty();
         });
 
         it('key_code contains "http" (gift link)', function () {
-            createKey([
-                'gamivo_id' => 'gam-gift',
-                'key_code' => 'https://store.steampowered.com/gift/abc123',
-            ]);
+            fakeGamivoAutoSell();
+            insertAutoSellKey('440', ['key_code' => 'https://store.steampowered.com/gift/abc']);
 
-            $data = $this->withToken('test-secret')->getJson('/keys/auto-sell')->assertOk()->json('data');
+            $result = app(AutoSellUseCase::class)->execute();
 
-            expect(idGamivoList($data))->not->toContain('gam-gift');
+            expect($result)->toBeEmpty();
         });
     });
 
@@ -133,9 +341,11 @@ describe('GET /keys/auto-sell', function () {
 
     describe('21-day bundle rule', function () {
 
-        it('excludes a key whose game is in a bundle released less than 21 days ago', function () {
-            $gamivoId = 'gam-recent-bundle';
-            createKey(['gamivo_id' => $gamivoId]);
+        it('skips a key whose game is in a bundle released less than 21 days ago', function () {
+            fakeGamivoAutoSell();
+
+            $gamivoId = '440';
+            insertAutoSellKey($gamivoId);
 
             $gameId = DB::table('games')->insertGetId([
                 'name' => 'Recent Bundle Game', 'gamivo_id' => $gamivoId,
@@ -151,14 +361,16 @@ describe('GET /keys/auto-sell', function () {
                 'created_at' => now(), 'updated_at' => now(),
             ]);
 
-            $data = $this->withToken('test-secret')->getJson('/keys/auto-sell')->assertOk()->json('data');
+            $result = app(AutoSellUseCase::class)->execute();
 
-            expect(idGamivoList($data))->not->toContain($gamivoId);
+            expect($result)->toBeEmpty();
         });
 
-        it('includes a key whose game is in a bundle released more than 21 days ago', function () {
-            $gamivoId = 'gam-old-bundle';
-            createKey(['gamivo_id' => $gamivoId]);
+        it('lists a key whose game is in a bundle released more than 21 days ago', function () {
+            fakeGamivoAutoSell();
+
+            $gamivoId = '440';
+            insertAutoSellKey($gamivoId);
 
             $gameId = DB::table('games')->insertGetId([
                 'name' => 'Old Bundle Game', 'gamivo_id' => $gamivoId,
@@ -174,16 +386,16 @@ describe('GET /keys/auto-sell', function () {
                 'created_at' => now(), 'updated_at' => now(),
             ]);
 
-            $data = $this->withToken('test-secret')->getJson('/keys/auto-sell')->assertOk()->json('data');
+            $result = app(AutoSellUseCase::class)->execute();
 
-            expect(idGamivoList($data))->toContain($gamivoId);
+            expect($result)->toHaveCount(1);
         });
 
-        it('still excludes a key when the bundle was released exactly 20 days ago', function () {
-            // The query uses: release_date > now()->subDays(21)
-            // 20 days ago IS inside the window, so the key must be excluded.
-            $gamivoId = 'gam-20-days';
-            createKey(['gamivo_id' => $gamivoId]);
+        it('skips a key when the bundle was released exactly 20 days ago', function () {
+            fakeGamivoAutoSell();
+
+            $gamivoId = '440';
+            insertAutoSellKey($gamivoId);
 
             $gameId = DB::table('games')->insertGetId([
                 'name' => '20-Day Game', 'gamivo_id' => $gamivoId,
@@ -199,25 +411,9 @@ describe('GET /keys/auto-sell', function () {
                 'created_at' => now(), 'updated_at' => now(),
             ]);
 
-            $data = $this->withToken('test-secret')->getJson('/keys/auto-sell')->assertOk()->json('data');
+            $result = app(AutoSellUseCase::class)->execute();
 
-            expect(idGamivoList($data))->not->toContain($gamivoId);
+            expect($result)->toBeEmpty();
         });
-    });
-
-    // ── Combined ──────────────────────────────────────────────────────────────
-
-    it('returns only eligible keys when multiple keys with different statuses exist', function () {
-        createKey(['gamivo_id' => 'gam-ok-1']);
-        createKey(['gamivo_id' => null]);
-        createKey(['gamivo_id' => 'gam-sold', 'sold_at' => Carbon::now()->subDays(1)->toDateString()]);
-        createKey(['gamivo_id' => 'gam-ok-2']);
-
-        $data = $this->withToken('test-secret')->getJson('/keys/auto-sell')->assertOk()->json('data');
-
-        expect($data)->toHaveCount(2)
-            ->and(idGamivoList($data))->toContain('gam-ok-1')
-            ->and(idGamivoList($data))->toContain('gam-ok-2')
-            ->and(idGamivoList($data))->not->toContain('gam-sold');
     });
 });

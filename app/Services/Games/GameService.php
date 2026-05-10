@@ -185,6 +185,24 @@ class GameService
     }
 
     /**
+     * Retorna todos os jogos com steam_id cadastrado, para atualização de popularidade.
+     *
+     * @return \Illuminate\Database\Eloquent\Collection<int, Game>
+     */
+    public function getGamesForPopularityUpdate(): \Illuminate\Database\Eloquent\Collection
+    {
+        return Game::whereNotNull('steam_id')->get(['id', 'steam_id', 'name']);
+    }
+
+    /**
+     * Atualiza a popularidade de um jogo no banco.
+     */
+    public function updatePopularity(int $id, int $popularity): void
+    {
+        Game::where('id', $id)->update(['popularity' => $popularity]);
+    }
+
+    /**
      * Atualiza o preço mínimo da API Gamivo para keys antigas ainda listadas.
      * Processa até 10 keys por chamada para evitar sobrecarga.
      * A regra de degradação por tempo vive em Domain/Keys/KeyPriceAging.

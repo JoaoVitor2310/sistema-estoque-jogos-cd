@@ -10,8 +10,10 @@ Consulte quando o contexto for relevante:
 
 - [`docs/PRODUCT.md`](docs/PRODUCT.md) — regras de negócio e fluxos
 - [`docs/PRICE_RESEARCHER.md`](docs/PRICE_RESEARCHER.md) — integração com buscador de preços próprio
-- [`docs/API_GAMIVO.md`](docs/API_GAMIVO.md) — integração com o Marketplace Gamivo
+- [`docs/API_GAMIVO.md`](docs/API_GAMIVO.md) — visão geral da integração com o Marketplace Gamivo *(legado — será substituído pela migração)*
+- [`docs/GAMIVO.md`](docs/GAMIVO.md) — **referência completa + plano de migração** da `gamivo-carca-deals` para Laravel; contém algoritmos de precificação, fluxos, contratos de API e status das fases
 - [`docs/GG_DEALS.md`](docs/GG_DEALS.md) — integração com API de dados de bundles
+- [`docs/GAMIVO_Merchant-pricing.pdf`](docs/GAMIVO_Merchant-pricing.pdf) — **tabela oficial de taxas Gamivo** (retail, wholesale, payouts); fonte de verdade para todas as fórmulas de precificação
 
 **A cada modificação no sistema**, verifique se algum desses arquivos precisa ser atualizado. Se a mudança alterar comportamento, regras de negócio, fluxos, campos ou integrações documentados, atualize a documentação relevante no mesmo passo — nunca deixe para depois.
 
@@ -33,7 +35,54 @@ Atue sempre como arquiteto de software sênior com conhecimento profundo de Lara
 - Mantenha boas práticas (SOLID, Clean Code, Design Patterns)
 - Identifique Code Smells e proponha soluções
 - Sempre escreva testes automatizados
-- **Nunca alinhe `=>` com espaços extras em arrays** — use espaçamento simples (`'key' => $value`). O Pint não formata assim e o alinhamento manual gera diff desnecessário a cada `pint --fix`.
+- **Nunca faça commits automáticos** — apenas prepare as alterações e informe o que foi modificado. O commit é sempre feito pelo usuário.
+
+## Code style (Pint — preset Laravel)
+
+O projeto usa o Pint sem `pint.json`, portanto aplica o preset `laravel` padrão. Todo código gerado deve já respeitar essas regras para não gerar diff desnecessário no `pint --fix`.
+
+**Espaçamento e indentação**
+- 4 espaços (sem tabs)
+- Sem trailing whitespace; arquivo termina com `\n`
+- Linha em branco após `namespace` e após o bloco de `use`
+- Linha em branco antes de `return` quando há código acima — exceto quando o corpo do método tem só uma linha
+
+**Chaves e quebras de linha**
+- Chave de abertura de classe e método na **mesma linha** da assinatura (K&R style): `function foo(): void {`
+- `if`, `foreach`, `while` sempre com chaves, mesmo para uma linha
+- Chave de fechamento de classe/método em linha própria
+
+**Arrays**
+- Nunca alinhar `=>` com espaços extras — espaçamento simples: `'key' => $value`
+- Arrays curtos (inline) sem espaço após `[` e antes de `]`: `['a', 'b']`
+- Arrays multilinha: cada item em sua própria linha, vírgula trailing na última entrada
+
+**Tipos e declarações**
+- `declare(strict_types=1)` **não** é usado neste projeto (preset Laravel não o exige)
+- Tipos nativos sempre que possível (`int`, `string`, `float`, `bool`, `array`, `?Type`)
+- `return type` obrigatório em todos os métodos
+- Propriedades de classe sempre tipadas
+
+**Imports**
+- Um `use` por linha, sem grupos
+- Ordenados alfabeticamente dentro de cada bloco (classes, functions, constants)
+- Sem `use` não utilizado
+
+**Visibilidade e modificadores**
+- Sempre declarar visibilidade (`public`, `protected`, `private`) em propriedades e métodos
+- Ordem dos modificadores: `final`/`abstract` → visibilidade → `static` → nome
+
+**Strings**
+- Aspas simples por padrão; aspas duplas só quando há interpolação ou caractere especial que exija
+
+**Operadores**
+- Espaço antes e depois de operadores binários (`===`, `!==`, `+`, `-`, etc.)
+- Sem espaço entre operador unário e operando (`!$flag`, `-$value`)
+- **API Gamivo é produção real — nunca chamar sem autorização explícita.** `API_KEY_GAMIVO` e `API_GAMIVO_URL` apontam para o ambiente de produção. Qualquer chamada real à API Gamivo (criar oferta, atualizar preço, fazer upload de chave, etc.) pode ter efeito imediato no estoque e nas vendas. Regras:
+  1. **Nunca executar um endpoint Gamivo sem o usuário autorizar explicitamente** naquela sessão.
+  2. **Sempre que precisar de um produto/oferta para testar**, perguntar ao usuário qual pode ser usado — nunca assumir ou inventar.
+  3. Em testes automatizados, usar sempre `Http::fake()` — jamais permitir que um teste chegue à API real.
+  4. Em desenvolvimento local, preferir o endpoint `calculate-customer-price` / `calculate-seller-price` (somente leitura) para validar cálculos antes de qualquer PUT/POST.
 
 ---
 
@@ -61,24 +110,36 @@ Campos relevantes:
 Fluxo principal:
 1. Key inserida manualmente ou via importação XLSX
 2. `KeyCalculationService` calcula fórmulas de lucro e preço
-3. `AutoSellUseCase` sugere keys elegíveis para listagem (exclui bundles com < 21 dias)
-4. `UpdateSoldOffersUseCase` atualiza com dados de venda da API Gamivo
+3. `ReduceAgingKeysMinPriceUseCase` (scheduler 07:30) — reduz `min_api` de keys com ≥7 meses paradas
+4. `AutoSellUseCase` lista keys elegíveis na Gamivo (exclui bundles com < 21 dias; age override para ≥10 meses)
+5. `UpdateSoldOffersUseCase` atualiza com dados de venda da API Gamivo
+6. `UpdateOffersUseCase` *(futuro)* reprecifica ofertas ativas contra concorrentes
 
 ### 2. Cálculo de lucro (`KeyCalculationService` + `Domain/Pricing`)
 
-Gamivo tem 2 tiers de taxa:
+Gamivo tem 2 tiers de taxa para **game keys** (categoria padrão):
 
-| Tier | Condição | Fórmula |
-|------|----------|---------|
-| Baixo | `market_price < €8` | `price × (1 - 0.060) - 0.25` |
-| Alto | `market_price ≥ €8` | `price × (1 - 0.080) - 0.40` |
+| Tier | Condição | % sobre preço | Taxa fixa | Fórmula `simulated_income` |
+|------|----------|:---:|:---:|---|
+| Baixo | `market_price < €8` | 6% | €0,25 | `price × (1 - 0.060) - 0.25` |
+| Alto | `market_price ≥ €8` | 8% | €0,40 | `price × (1 - 0.080) - 0.40` |
+
+Wholesale (mode 1/2): **3,5%** sem taxa fixa → divisor `1.035`.
+
+> **Fonte oficial:** [`docs/GAMIVO_Merchant-pricing.pdf`](docs/GAMIVO_Merchant-pricing.pdf) — contém a tabela completa incluindo gift cards, software, PSN/Xbox e métodos de payout.
 
 `min_api` = `individual_cost × 1.4–1.6` (tier por faixa de preço); `max_api` = `individual_cost × 8–30`.
 
 ### 3. Bundles
 Agrupamento de jogos (`bundle` ou `choice`). Many-to-many com `Game` via `bundle_games`.
 
-**Regra dos 21 dias**: keys de jogos em bundles lançados há menos de 21 dias são excluídas do `autoSell()`.
+**Janela de exclusão de bundle:**
+
+| Constante | Dias | Significado |
+|-----------|------|-------------|
+| `KeyEligibility::BUNDLE_EXCLUSION_DAYS` | 21 | **Janela de venda inicial do bundle.** Enquanto o bundle está "em cartaz" (< 21 dias desde o lançamento), ninguém comprou a key ainda — o `AutoSellUseCase` exclui essas keys pois o preço ainda está em queda livre. |
+
+A **regra dos 21 dias** está implementada em `AutoSellUseCase` via `scopeWithoutRecentBundle`.
 
 ### 4. Assets (`Asset` → tabela `assets`)
 Representa ativos de troca (ex: TF2 key). Campos: `price_euro`, `price_dollar`, `price_brl`.
@@ -102,6 +163,13 @@ Chaves usadas: `gamivoPercentualMenor`, `gamivoFixoMenor`, `gamivoPercentualMaio
 ## Arquitetura
 
 **Clean Architecture podada** — domínio isolado e testável, sem boilerplate de repositories abstratos ou adapters. Sistema interno com dois usuários; nunca precisaremos trocar o framework.
+
+### Plano multi-marketplace (futuro)
+
+Hoje o sistema opera **exclusivamente na Gamivo**. Ao criar código novo, mantenha isso em mente:
+
+- Use cases de marketplace vivem em `UseCases/Marketplaces/Gamivo/` — quando vier outro marketplace, cria-se `UseCases/Marketplaces/Eneba/` etc., sem tocar nos use cases agnósticos de `UseCases/Keys/`.
+- `Domain/Pricing` ainda está acoplado implicitamente à Gamivo: `IncomeCalculator::forGamivo()`, `MarketplaceFee` com a estrutura de taxas Gamivo, constantes de `ComparisonAlgorithm`. **Não abstrair agora** — só quando houver um segundo marketplace real. Registrado aqui para não surpreender na hora.
 
 ### Princípio central
 
@@ -168,12 +236,17 @@ app/
 │       └── SellPlatform.php
 │
 ├── UseCases/
-│   ├── Keys/
+│   ├── Keys/                             # operações agnósticas de marketplace
 │   │   ├── RegisterKeyUseCase.php
 │   │   ├── UpdateKeyUseCase.php
-│   │   ├── ImportKeysFromXlsxUseCase.php
-│   │   ├── AutoSellUseCase.php
-│   │   └── UpdateSoldOffersUseCase.php
+│   │   └── ImportKeysFromXlsxUseCase.php
+│   ├── Marketplaces/                     # orquestrações específicas por marketplace
+│   │   └── Gamivo/                       # quando vier outro: Eneba/, G2A/, etc.
+│   │       ├── AutoSellUseCase.php           # age override para keys >= 10 meses
+│   │       ├── ReduceAgingKeysMinPriceUseCase.php  # reduz min_api de keys >= 7 meses (07:30)
+│   │       ├── UpdateSoldOffersUseCase.php
+│   │       ├── UpdateOffersUseCase.php
+│   │       └── UpdatePopularityUseCase.php   # scraping SteamCharts — migração Gamivo Fase 2
 │   ├── Bundles/
 │   │   └── SyncBundlesFromApiUseCase.php
 │   └── Vips/
@@ -195,7 +268,7 @@ app/
 │   │   ├── Keys/
 │   │   │   ├── KeyController.php       # CRUD — rota: GET/POST/PUT/DELETE /keys
 │   │   │   ├── KeyImportController.php
-│   │   │   └── KeySaleController.php   # autoSell, whenToSell, updateSoldOffers...
+│   │   │   └── KeySaleController.php   # autoSell, updateSoldOffers...
 │   │   ├── GameController.php
 │   │   ├── BundleController.php
 │   │   ├── AssetController.php
@@ -247,6 +320,21 @@ docker exec app-cd php artisan view:cache
 ---
 
 ## Roadmap
+
+### Em andamento — Migração da API `gamivo-carca-deals` para Laravel
+
+Ver plano completo em [`docs/GAMIVO.md`](docs/GAMIVO.md).
+
+Fases resumidas:
+
+| Fase | Entrega | Status |
+|------|---------|--------|
+| 0 | Infra compartilhada: `GamivoApiService`, scheduler, notificação de token expirado | ✅ feito |
+| 1 | `UpdateOffersUseCase` + `ComparisonAlgorithm` — reprecificação horária | ✅ feito |
+| 2 | `UpdateSoldOffersUseCase::executeFromGamivo()` + `UpdatePopularityUseCase` | ✅ feito |
+| 3 | `AutoSellUseCase` — listagem automática + age override para keys ≥ 10 meses | ✅ feito |
+| 4 | `ReduceAgingKeysMinPriceUseCase` — reduz `min_api` de keys ≥ 7 meses paradas | ✅ feito |
+| 5 | Desligar `gamivo-carca-deals`; notificações por e-mail inline | ⬜ pendente |
 
 ### Próximo — Qualidade de código
 
@@ -307,7 +395,9 @@ Hoje o vínculo é por string: `keys.gamivo_id ←→ games.id_gamivo`. Não há
 
 ## Regras de negócio
 
-- **Regra dos 21 dias**: keys de jogos em bundles com < 21 dias são excluídas do `autoSell()`.
+- **Regra dos 21 dias** (`KeyEligibility::BUNDLE_EXCLUSION_DAYS`): keys de jogos em bundles com < 21 dias são excluídas do `autoSell()` — o bundle ainda está em cartaz e o preço está em queda.
+- **Age override — 10 meses** (`KeyEligibility::OLD_KEY_MONTHS`): keys com ≥ 10 meses no estoque são listadas pelo `AutoSellUseCase` independentemente do preço de mercado (ignora `min_api`). Após listagem, `min_api` é atualizado para o preço praticado.
+- **Redução de min_api — 7 meses** (`KeyEligibility::AGING_KEY_MONTHS`): o `ReduceAgingKeysMinPriceUseCase` (scheduler 07:30) reduz o `min_api` de keys paradas há ≥ 7 meses para `individual_cost × 1.2`, facilitando a listagem pelo AutoSell em mercados que caíram.
 - **Tiers Gamivo**: fee diferente abaixo e acima de €8 (ver tabela na seção Domínios).
 - **`min_api`/`max_api`**: calculados em `MinMaxPriceCalculator` com base no `individual_cost`.
 - **`individual_cost` é imutável após registro**: no `UpdateKeyUseCase` nunca é recalculado.
@@ -318,14 +408,25 @@ Hoje o vínculo é por string: `keys.gamivo_id ←→ games.id_gamivo`. Não há
 ## Variáveis de ambiente
 
 ```env
+# Serviço externo de pesquisa de preços
 API_PRICE_RESEARCHER=
 DEV_API_PRICE_RESEARCHER=
-CARCA_API_GAMIVO=
 
+# API Gamivo — usada diretamente pelo Laravel após migração da gamivo-carca-deals
+# API_GAMIVO_URL = base URL da API (ex: https://backend.gamivo.com)
+# API_KEY_GAMIVO = Bearer JWT (expira — precisa rotacionar manualmente)
+# Quando expirar: o sistema detecta UNAUTHORIZED_EXPIRED_TOKEN e envia e-mail de alerta
+# ⚠️  PRODUÇÃO REAL — ver regras de segurança na seção "Papel do Claude neste projeto"
+API_GAMIVO_URL=https://backend.gamivo.com
+API_KEY_GAMIVO=
+CARCA_API_GAMIVO=           # legado — token usado pelo gamivo-carca-deals (Node.js); remover após migração
+
+# Google OAuth
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 GOOGLE_REDIRECT_URI=
 
+# Sistema
 ADMIN_EMAIL=carcadeals@gmail.com
-EXTERNAL_SECRET=
+EXTERNAL_SECRET=            # Bearer token que o gamivo-carca-deals usa para chamar o Sistema Estoque
 ```

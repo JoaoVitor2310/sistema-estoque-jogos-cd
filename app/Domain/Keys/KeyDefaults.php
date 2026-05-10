@@ -8,8 +8,6 @@ namespace App\Domain\Keys;
  * Centraliza os defaults de domínio para que qualquer ponto de entrada
  * (importação XLSX, TradeCalculator, API futura) receba exatamente os
  * mesmos valores sem duplicação.
- *
- * PHP puro — zero dependência de framework ou infraestrutura.
  */
 final class KeyDefaults
 {

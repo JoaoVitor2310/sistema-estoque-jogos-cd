@@ -5,8 +5,6 @@ namespace App\Domain\Bundles;
 /**
  * Determina o tipo de um bundle pelo título.
  *
- * PHP puro — zero dependência do Laravel ou do banco de dados.
- *
  * Regra: títulos que contêm "Choice" (case-insensitive) são do tipo
  * 'choice' (Humble Choice); todos os demais são 'bundle'.
  */

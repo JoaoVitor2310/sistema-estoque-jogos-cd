@@ -6,8 +6,6 @@ namespace App\Domain\Pricing;
  * Calcula os preços mínimo e máximo que a API do Gamivo pode atingir
  * ao ajustar automaticamente o preço de uma key.
  *
- * PHP puro — zero dependência do Laravel ou do banco de dados.
- *
  * Tiers do mínimo:
  *   valorPago > 10  → valorPago × 1.4  (+40%)
  *   valorPago > 4   → valorPago × 1.5  (+50%)
@@ -22,8 +20,11 @@ namespace App\Domain\Pricing;
  */
 final class MinMaxPriceCalculator
 {
-    /** Piso absoluto aplicado a min e max. */
+    /** Piso absoluto de seller_price (guard-rail inferior). */
     public const FLOOR = 0.02;
+
+    /** Teto absoluto de seller_price (guard-rail superior). */
+    public const CEILING = 500.0;
 
     // --- Tiers do mínimo ---
 
@@ -52,6 +53,20 @@ final class MinMaxPriceCalculator
 
     /** Multiplicador do máximo padrão — custo ≥ 1 (e para override de mercado). */
     public const MAX_MULTIPLIER_DEFAULT = 8;
+
+    /**
+     * Aplica os limites min_api / max_api ao preço calculado.
+     * Quando $limits é null (produto sem key no banco), aplica apenas FLOOR e CEILING.
+     *
+     * @param  array{min_api: float, max_api: float}|null  $limits
+     */
+    public static function clamp(float $price, ?array $limits): float
+    {
+        $min = $limits !== null ? max($limits['min_api'], self::FLOOR) : self::FLOOR;
+        $max = $limits !== null ? min($limits['max_api'], self::CEILING) : self::CEILING;
+
+        return max($min, min($price, $max));
+    }
 
     /**
      * @return array{min: float, max: float}
