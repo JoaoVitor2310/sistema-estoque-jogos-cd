@@ -56,5 +56,5 @@ Schedule::call(fn () => app(KeyService::class)->reduceExpiringListedKeysPrice())
 //     ->cron('0 7 * * *')->timezone('America/Sao_Paulo');
 
 // Atualização de popularidade dos jogos via SteamCharts
-// Schedule::call(fn () => app(UpdatePopularityUseCase::class)->execute())
-//     ->cron('0 7 * * *')->timezone('America/Sao_Paulo');
+Schedule::call(fn () => app(UpdatePopularityUseCase::class)->execute())
+    ->cron('0 7 * * *')->timezone('America/Sao_Paulo');

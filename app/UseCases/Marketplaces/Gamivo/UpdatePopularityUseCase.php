@@ -3,7 +3,7 @@
 namespace App\UseCases\Marketplaces\Gamivo;
 
 use App\Services\External\SteamChartsService;
-use App\Services\Games\GameService;
+use App\Services\Games\GameRepository;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -23,23 +23,36 @@ class UpdatePopularityUseCase
 
     public function __construct(
         private readonly SteamChartsService $steamCharts,
-        private readonly GameService $gameService,
+        private readonly GameRepository $gameRepository,
     ) {}
 
     /**
      * Itera todos os jogos com steam_id e atualiza a popularidade via SteamCharts.
-     * Erros por jogo são logados e não interrompem os demais.
+     * Falhas por jogo (null retornado pelo service) são contadas mas não interrompem os demais.
      *
      * @return int[] IDs dos jogos atualizados com sucesso
      */
     public function execute(): array
     {
-        $games = $this->gameService->getGamesForPopularityUpdate();
+        $games = $this->gameRepository->getGamesForPopularityUpdate();
         $updated = [];
+        $failed = [];
 
         foreach ($games as $game) {
             $popularity = $this->steamCharts->getPopularity((string) $game->steam_id);
-            $this->gameService->updatePopularity($game->id, $popularity);
+
+            // null = falha na requisição (500, timeout, parse inválido) — pula sem alterar o banco
+            if ($popularity === null) {
+                $failed[] = $game->steam_id;
+
+                if (! app()->environment('testing')) {
+                    sleep(self::SCRAPE_DELAY_S);
+                }
+
+                continue;
+            }
+
+            $this->gameRepository->updatePopularity($game->id, $popularity);
             $updated[] = $game->id;
 
             // Delay para evitar banimento por rate limiting do SteamCharts
@@ -48,9 +61,11 @@ class UpdatePopularityUseCase
             }
         }
 
-        Log::info('UpdatePopularityUseCase: concluído', [
+        Log::channel('schedulers')->info('UpdatePopularityUseCase', [
             'total' => count($games),
             'updated' => count($updated),
+            'failed' => count($failed),
+            'failed_steam_ids' => $failed,
         ]);
 
         return $updated;
