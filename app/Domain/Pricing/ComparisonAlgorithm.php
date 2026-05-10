@@ -98,6 +98,8 @@ final class ComparisonAlgorithm
      * Já somos o mais barato — subir preço se o 2º colocado abriu espaço suficiente.
      *
      * Regra: diferença >= MIN_PRICE_DIFF_TO_ACT (€0,04) → novo preço = 2ºPreço - PRICE_STEP.
+     *
+     * @param  OfferData[]  $offers
      */
     private static function handleWeAreLowest(
         array $offers,
@@ -128,6 +130,8 @@ final class ComparisonAlgorithm
      *  2. Filtrar SELLERS_TO_IGNORE (se detectDumpers)
      *  3. Detectar price dumper (se detectDumpers)
      *  4. Calcular preço final = lowestPrice - PRICE_STEP
+     *
+     * @param  OfferData[]  $offers
      */
     private static function handleWeAreNotLowest(
         array $offers,
@@ -203,6 +207,8 @@ final class ComparisonAlgorithm
      * mas o 3º colocado está bem acima de nós → subir para logo abaixo do 3º.
      *
      * Retorna o retail_price alvo (com taxa) ou null se a condição não se aplica.
+     *
+     * @param  OfferData[]  $offers
      */
     private static function checkOthersApi(array $offers): ?float
     {
@@ -231,7 +237,7 @@ final class ComparisonAlgorithm
     private static function buildResult(float $sellerPrice, ?OfferData $ourOffer): ComparisonResult
     {
         if ($ourOffer === null || $ourOffer->wholesaleMode === 0) {
-            return ComparisonResult::updatePrice($sellerPrice, $ourOffer?->id ?? 0, 0);
+            return ComparisonResult::updatePrice($sellerPrice, $ourOffer !== null ? $ourOffer->id : 0, 0);
         }
 
         // tier = sellerPrice / 1.035 (taxa wholesale de 3,5%)
