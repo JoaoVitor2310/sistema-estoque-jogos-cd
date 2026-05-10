@@ -110,10 +110,10 @@ Campos relevantes:
 Fluxo principal:
 1. Key inserida manualmente ou via importação XLSX
 2. `KeyCalculationService` calcula fórmulas de lucro e preço
-3. `AutoSellUseCase` lista keys elegíveis na Gamivo (exclui bundles com < 21 dias)
-4. `UpdateSoldOffersUseCase` atualiza com dados de venda da API Gamivo
-5. `UpdateOffersUseCase` *(futuro)* reprecifica ofertas ativas contra concorrentes
-6. `WhenToSellUseCase` *(futuro)* avalia e lista keys por critério de tempo/lucro
+3. `ReduceAgingKeysMinPriceUseCase` (scheduler 07:30) — reduz `min_api` de keys com ≥7 meses paradas
+4. `AutoSellUseCase` lista keys elegíveis na Gamivo (exclui bundles com < 21 dias; age override para ≥10 meses)
+5. `UpdateSoldOffersUseCase` atualiza com dados de venda da API Gamivo
+6. `UpdateOffersUseCase` *(futuro)* reprecifica ofertas ativas contra concorrentes
 
 ### 2. Cálculo de lucro (`KeyCalculationService` + `Domain/Pricing`)
 
@@ -133,15 +133,13 @@ Wholesale (mode 1/2): **3,5%** sem taxa fixa → divisor `1.035`.
 ### 3. Bundles
 Agrupamento de jogos (`bundle` ou `choice`). Many-to-many com `Game` via `bundle_games`.
 
-**Duas janelas de tempo distintas — não confundir:**
+**Janela de exclusão de bundle:**
 
 | Constante | Dias | Significado |
 |-----------|------|-------------|
-| `KeyEligibility::BUNDLE_EXCLUSION_DAYS` | 21 | **Janela de venda inicial do bundle.** Enquanto o bundle está "em cartaz" (< 21 dias desde o lançamento), ninguém comprou a key ainda — o `autoSell()` exclui essas keys pois o preço ainda está em queda livre. |
-| `KeyEligibility::BUNDLE_MATURATION_DAYS` | 120 (~4 meses) | **Maturação pós-compra.** Após entrar em um bundle, a key costuma valorizar. O `whenToSell` (futuro) aguarda esse período antes de recomendar venda — o preço tende a subir quando o bundle sai de circulação. |
+| `KeyEligibility::BUNDLE_EXCLUSION_DAYS` | 21 | **Janela de venda inicial do bundle.** Enquanto o bundle está "em cartaz" (< 21 dias desde o lançamento), ninguém comprou a key ainda — o `AutoSellUseCase` exclui essas keys pois o preço ainda está em queda livre. |
 
-A **regra dos 21 dias** já está implementada em `AutoSellUseCase` via `scopeWithoutRecentBundle`.
-A **regra dos 4 meses** será implementada no `WhenToSellUseCase` (Fase 4 da migração Gamivo — ver [`docs/MIGRATION_GAMIVO.md`](docs/MIGRATION_GAMIVO.md)).
+A **regra dos 21 dias** está implementada em `AutoSellUseCase` via `scopeWithoutRecentBundle`.
 
 ### 4. Assets (`Asset` → tabela `assets`)
 Representa ativos de troca (ex: TF2 key). Campos: `price_euro`, `price_dollar`, `price_brl`.
@@ -244,11 +242,11 @@ app/
 │   │   └── ImportKeysFromXlsxUseCase.php
 │   ├── Marketplaces/                     # orquestrações específicas por marketplace
 │   │   └── Gamivo/                       # quando vier outro: Eneba/, G2A/, etc.
-│   │       ├── AutoSellUseCase.php
+│   │       ├── AutoSellUseCase.php           # age override para keys >= 10 meses
+│   │       ├── ReduceAgingKeysMinPriceUseCase.php  # reduz min_api de keys >= 7 meses (07:30)
 │   │       ├── UpdateSoldOffersUseCase.php
 │   │       ├── UpdateOffersUseCase.php
-│   │       ├── UpdatePopularityUseCase.php   # scraping SteamCharts — migração Gamivo Fase 2
-│   │       └── WhenToSellUseCase.php         # futuro — avaliação de venda (migração Gamivo Fase 4)
+│   │       └── UpdatePopularityUseCase.php   # scraping SteamCharts — migração Gamivo Fase 2
 │   ├── Bundles/
 │   │   └── SyncBundlesFromApiUseCase.php
 │   └── Vips/
@@ -270,7 +268,7 @@ app/
 │   │   ├── Keys/
 │   │   │   ├── KeyController.php       # CRUD — rota: GET/POST/PUT/DELETE /keys
 │   │   │   ├── KeyImportController.php
-│   │   │   └── KeySaleController.php   # autoSell, whenToSell, updateSoldOffers...
+│   │   │   └── KeySaleController.php   # autoSell, updateSoldOffers...
 │   │   ├── GameController.php
 │   │   ├── BundleController.php
 │   │   ├── AssetController.php
@@ -334,8 +332,8 @@ Fases resumidas:
 | 0 | Infra compartilhada: `GamivoApiService`, scheduler, notificação de token expirado | ✅ feito |
 | 1 | `UpdateOffersUseCase` + `ComparisonAlgorithm` — reprecificação horária | ✅ feito |
 | 2 | `UpdateSoldOffersUseCase::executeFromGamivo()` + `UpdatePopularityUseCase` | ✅ feito |
-| 3 | `AutoSellUseCase` — listagem automática completa | ✅ feito |
-| 4 | `WhenToSellUseCase` — avaliação diária de venda com regra dos 4 meses | ✅ feito |
+| 3 | `AutoSellUseCase` — listagem automática + age override para keys ≥ 10 meses | ✅ feito |
+| 4 | `ReduceAgingKeysMinPriceUseCase` — reduz `min_api` de keys ≥ 7 meses paradas | ✅ feito |
 | 5 | Desligar `gamivo-carca-deals`; notificações por e-mail inline | ⬜ pendente |
 
 ### Próximo — Qualidade de código
@@ -398,7 +396,8 @@ Hoje o vínculo é por string: `keys.gamivo_id ←→ games.id_gamivo`. Não há
 ## Regras de negócio
 
 - **Regra dos 21 dias** (`KeyEligibility::BUNDLE_EXCLUSION_DAYS`): keys de jogos em bundles com < 21 dias são excluídas do `autoSell()` — o bundle ainda está em cartaz e o preço está em queda.
-- **Regra dos 4 meses** (`KeyEligibility::BUNDLE_MATURATION_DAYS = 120`): após entrar em um bundle, a key leva ~4 meses para valorizar. O `WhenToSellUseCase` (futuro) usa esse critério para recomendar o momento de venda.
+- **Age override — 10 meses** (`KeyEligibility::OLD_KEY_MONTHS`): keys com ≥ 10 meses no estoque são listadas pelo `AutoSellUseCase` independentemente do preço de mercado (ignora `min_api`). Após listagem, `min_api` é atualizado para o preço praticado.
+- **Redução de min_api — 7 meses** (`KeyEligibility::AGING_KEY_MONTHS`): o `ReduceAgingKeysMinPriceUseCase` (scheduler 07:30) reduz o `min_api` de keys paradas há ≥ 7 meses para `individual_cost × 1.2`, facilitando a listagem pelo AutoSell em mercados que caíram.
 - **Tiers Gamivo**: fee diferente abaixo e acima de €8 (ver tabela na seção Domínios).
 - **`min_api`/`max_api`**: calculados em `MinMaxPriceCalculator` com base no `individual_cost`.
 - **`individual_cost` é imutável após registro**: no `UpdateKeyUseCase` nunca é recalculado.
