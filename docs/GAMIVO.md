@@ -857,7 +857,7 @@ src/
 | **1** | `UpdateOffersUseCase` — reprecificação horária | Fase 0 | ✅ |
 | **2** | `UpdatePopularityUseCase` + validar `UpdateSoldOffersUseCase` | Fase 0 | ✅ |
 | **3** | `AutoSellUseCase` — listagem automática completa | Fases 0–2 | ✅ |
-| **4** | `WhenToSellUseCase` — avaliação diária com regra dos 4 meses | Fases 0–3 | ⬜ |
+| **4** | `WhenToSellUseCase` — avaliação diária com regra dos 4 meses | Fases 0–3 | ✅ |
 | **5** | Desligar `gamivo-carca-deals`; notificações por e-mail | Fases 0–4 | ⬜ |
 | **Futura** | `PriceWholesaleUseCase` — wholesale/B2B | Fase 5 | ⬜ |
 
@@ -890,13 +890,13 @@ src/
 
 ---
 
-### Fase 4 — WhenToSellUseCase
+### Fase 4 — WhenToSellUseCase ✅
 
-**Critérios de elegibilidade:**
-1. `listed_at IS NULL` e `sold_at IS NULL`
-2. Bundle com `>= 120 dias` desde o lançamento (`BUNDLE_MATURATION_DAYS`)
-3. Lucro percentual mínimo (ver `hasMinimumProfitAutoSell` na seção de algoritmos)
-4. Se `acquired_at >= 10 meses atrás`: `updateMinApiGamivo = true`
+> Implementado. Arquivos:
+> - `app/UseCases/Marketplaces/Gamivo/WhenToSellUseCase.php`
+> - `app/Domain/Keys/KeyEligibility.php` — constante `BUNDLE_MATURATION_DAYS = 120` + método `hasMinimumProfit()`
+> - `app/Services/Keys/KeyRepository.php` — método `findEligibleForWhenToSell()`
+> - Testes: `tests/Unit/Domain/Keys/KeyEligibilityTest.php` (hasMinimumProfit), `tests/Feature/Keys/WhenToSellTest.php`
 
 **Diferença do AutoSell:**
 
@@ -904,13 +904,9 @@ src/
 |---------|----------------|-------------------|
 | Gatilho | On-demand / manual | Diário (scheduler 8h) |
 | Bundle | Exclui < 21 dias | Aguarda >= 120 dias |
+| Lucro mínimo | Não verifica | `hasMinimumProfit()` — escalonado por custo e idade |
 | Price Dumper | Desativado (`detectDumpers: false`) | Desativado (`detectDumpers: false`) |
-| Update min_api | Não | Sim (se key com >= 10 meses) |
-
-**Implementação:**
-- `app/UseCases/Keys/WhenToSellUseCase.php`
-- Reusar `ComparisonAlgorithm` da Fase 1 com `detectDumpers: false`
-- Novo scope em `Key`: `scopeEligibleForWhenToSell()`
+| Age override (>= 10 meses) | Não | Ignora piso min_api + atualiza min_api para preço de listagem |
 
 ---
 

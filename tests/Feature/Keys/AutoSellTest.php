@@ -11,6 +11,7 @@
 |  3. Criação de oferta via GamivoApiService
 |  4. Upload da key com retry
 |  5. Marcação de listed_at no banco
+|  6. Age override: keys >= 10 meses ignoram min_api e têm min_api atualizado
 |
 | Todos os requests HTTP são interceptados via Http::fake().
 |
@@ -190,15 +191,75 @@ describe('AutoSellUseCase', function () {
             '*/offers/12345/jobs/999/result' => Http::response('"Done"', 200),
         ]);
 
-        // sellerPrice = 1.50 - PRICE_STEP = ~1.486, calculado pelo IncomeCalculator
-        // que para retail < 8 retorna price*(1-0.06)-0.25 ≈ 1.486*0.94-0.25 ≈ 1.15
-        // min_api = 3.00 → deve pular
         insertAutoSellKey('440', ['min_api' => 3.00, 'max_api' => 25.00]);
 
         $result = app(AutoSellUseCase::class)->execute();
 
         expect($result)->toBeEmpty()
             ->and(DB::table('keys')->where('gamivo_id', '440')->value('listed_at'))->toBeNull();
+    });
+
+    // ── Age override (>= 10 meses) ────────────────────────────────────────────
+
+    it('lists a key acquired >= 10 months ago even when the market is below min_api', function () {
+        // Concorrente a €1.50, min_api = 10.00 — normalmente seria pulada.
+        // Mas key >= 10 meses → age override → lista mesmo assim.
+        Http::fake([
+            '*/products/*/offers' => Http::response([
+                ['id' => 99, 'seller_name' => 'Rival', 'retail_price' => 1.50,
+                    'completed_orders' => 1000, 'wholesale_mode' => 0, 'stock_available' => 5,
+                    'rating' => 4.5, 'invoicable' => false, 'is_preorder' => false],
+            ], 200),
+            '*/v1/offers' => Http::response(12345, 200),
+            '*/offers/12345/keys/upload' => Http::response(999, 200),
+            '*/offers/12345/jobs/999/result' => Http::response('"Done"', 200),
+            '*/offers/12345/keys/active/0/1*' => Http::response(['count' => 1, 'data' => []], 200),
+        ]);
+
+        insertAutoSellKey('440', [
+            'min_api' => 10.00,
+            'max_api' => 20.00,
+            'acquired_at' => now()->subMonths(11)->toDateString(),
+        ]);
+
+        $result = app(AutoSellUseCase::class)->execute();
+
+        expect($result)->toHaveCount(1)
+            ->and(DB::table('keys')->where('gamivo_id', '440')->value('listed_at'))
+            ->toBe(now()->toDateString());
+    });
+
+    it('sets min_api to FLOOR and max_api to seller price after listing a key acquired >= 10 months ago', function () {
+        // sem concorrentes → sellerPrice = max_api original = 20.00
+        // key >= 10 meses → min_api = FLOOR (0.02) e max_api = 20.00 (sellerPrice)
+        // Isso trava o teto no preço de listagem e impede o UpdateOffersUseCase de subir depois
+        fakeGamivoAutoSell();
+        insertAutoSellKey('440', [
+            'min_api' => 2.00,
+            'max_api' => 20.00,
+            'acquired_at' => now()->subMonths(11)->toDateString(),
+        ]);
+
+        app(AutoSellUseCase::class)->execute();
+
+        $key = DB::table('keys')->where('gamivo_id', '440')->first();
+        expect((float) $key->min_api)->toBe(0.02)
+            ->and((float) $key->max_api)->toBe(20.00);
+    });
+
+    it('does not update min_api or max_api for keys acquired less than 10 months ago', function () {
+        fakeGamivoAutoSell();
+        insertAutoSellKey('440', [
+            'min_api' => 2.00,
+            'max_api' => 20.00,
+            'acquired_at' => now()->subMonths(5)->toDateString(),
+        ]);
+
+        app(AutoSellUseCase::class)->execute();
+
+        $key = DB::table('keys')->where('gamivo_id', '440')->first();
+        expect((float) $key->min_api)->toBe(2.00)
+            ->and((float) $key->max_api)->toBe(20.00);
     });
 
     // ── Resiliência ───────────────────────────────────────────────────────────

@@ -18,7 +18,7 @@ describe('ProfitCalculator', function () {
 
     describe('individualCost()', function () {
         it('is proportional to the simulated income', function () {
-            // 2 × 1.50 / 5.00 × 2.67 = 1.602
+            // 2 × 1.50 / 5.00 × 2.67 = 1.602 → arredondado para 1.60
             $result = ProfitCalculator::individualCost(
                 qtdTF2: 2.0,
                 tf2EuroPrice: 1.50,
@@ -26,7 +26,7 @@ describe('ProfitCalculator', function () {
                 gameIncome: 2.67,
             );
 
-            expect($result)->toEqualWithDelta(1.602, 0.001);
+            expect($result)->toEqualWithDelta(1.60, 0.001);
         });
 
         it('returns 0.0 when somatorioIncomes is zero', function () {
@@ -67,8 +67,8 @@ describe('ProfitCalculator', function () {
 
     describe('purchaseProfitPercent()', function () {
         it('is calculated over individual cost', function () {
-            // (1.07 / 1.60) × 100 = 66.875
-            expect(ProfitCalculator::purchaseProfitPercent(1.07, 1.60))->toEqualWithDelta(66.875, 0.001);
+            // (1.07 / 1.60) × 100 = 66.875 → arredondado para 66.88
+            expect(ProfitCalculator::purchaseProfitPercent(1.07, 1.60))->toEqualWithDelta(66.88, 0.001);
         });
 
         it('returns 0.0 when profit is zero', function () {

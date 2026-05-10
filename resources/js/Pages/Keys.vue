@@ -620,7 +620,7 @@ const handleImportSubmit = async (): Promise<void> => {
           </div>
         </div>
         <div class="d-flex flex-column">
-          <label class="fw-bold">Data posto a Venda</label>
+          <label class="fw-bold">Data Listada</label>
           <div class="d-flex gap-5 mb-3">
             <InputText class="flex-auto" v-model="item.listed_at" />
           </div>
@@ -632,7 +632,7 @@ const handleImportSubmit = async (): Promise<void> => {
           </div>
         </div>
         <div class="d-flex flex-column">
-          <label class="fw-bold text-nowrap">Perfil/Origem*</label>
+          <label class="fw-bold text-nowrap">URL Fornecedor*</label>
           <div class="d-flex gap-5 mb-3">
             <InputText class="flex-auto" v-model="sharedPerfilOrigem" />
           </div>
@@ -806,18 +806,6 @@ const handleImportSubmit = async (): Promise<void> => {
             <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
           </template>
         </Column>
-        <Column field="sell_platform" header="Plataforma" filterField="searchField" :showFilterMenu="true"
-          :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
-          <template #filter>
-            <MultiSelect v-model="searchFilter.sell_platform"
-              :options="props.sellPlatforms" placeholder="Pesquisar" style="min-width: 14rem">
-            </MultiSelect>
-          </template>
-          <template #editor="{ data, field }">
-            <Select v-model="data.sell_platform" :options="props.sellPlatforms"
-              @change="onEdit(data)" />
-          </template>
-        </Column>
         <Column field="market_price" header="Preço Mercado" sortable class="text-center p-0">
           <template #body="slotProps">
             € {{ slotProps.data.market_price }}
@@ -845,7 +833,7 @@ const handleImportSubmit = async (): Promise<void> => {
             <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
           </template>
         </Column>
-        <Column field="individual_cost" header="Valor Pago Indiv." sortable class="text-center p-0">
+        <Column field="individual_cost" header="Custo" sortable class="text-center p-0">
           <template #body="slotProps">
             € {{ slotProps.data.individual_cost }}
           </template>
@@ -915,7 +903,7 @@ const handleImportSubmit = async (): Promise<void> => {
             <InputText class="flex-auto" v-model="data[field]" @change="onEdit(data)" />
           </template>
         </Column>
-        <Column field="listed_at" header="Data posto a Venda" filterField="searchField" :showFilterMenu="true"
+        <Column field="listed_at" header="Data Listada" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
             <Select v-model="searchFilter.listed_at" :options="[
@@ -963,7 +951,7 @@ const handleImportSubmit = async (): Promise<void> => {
             <InputText class="flex-auto" v-model="data[field]" @change="onEdit(data)" />
           </template>
         </Column>
-        <Column field="supplier_url" header="Perfil/Origem" filterField="searchField" :showFilterMenu="true"
+        <Column field="supplier_url" header="URL Fornecedor" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0"
           v-if="user && user.email === 'carcadeals@gmail.com'">
           <template #filter>

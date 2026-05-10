@@ -52,16 +52,13 @@ class KeyRepository
     }
 
     /**
-     * Retorna keys elegíveis para listagem automática no Gamivo.
+     * Retorna keys elegíveis para listagem automática no Gamivo (AutoSellUseCase).
      *
      * Regras aplicadas via local scopes (ver Key):
      *  - withGamivoId: gamivo_id preenchido
      *  - notYetListed: listed_at e sold_at nulas
      *  - notGiftLink: key_code sem URL
-     *  - withoutRecentBundle: jogo fora de bundles dos últimos N dias
-     *
-     * Eager loading traz o jogo e seus bundles ordenados por release_date desc,
-     * permitindo que o UseCase selecione o bundle mais recente (um por key).
+     *  - withoutRecentBundle: jogo fora de bundles dos últimos 21 dias
      *
      * @return Collection<int, Key>
      */

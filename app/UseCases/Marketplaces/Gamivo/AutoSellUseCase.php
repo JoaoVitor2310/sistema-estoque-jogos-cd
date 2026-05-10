@@ -2,6 +2,7 @@
 
 namespace App\UseCases\Marketplaces\Gamivo;
 
+use App\Domain\Keys\KeyEligibility;
 use App\Domain\Pricing\ComparisonAlgorithm;
 use App\Domain\Pricing\MinMaxPriceCalculator;
 use App\Domain\Pricing\OfferData;
@@ -10,6 +11,7 @@ use App\Models\Key;
 use App\Services\External\GamivoApiService;
 use App\Services\Keys\KeyCalculationService;
 use App\Services\Keys\KeyRepository;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -18,10 +20,12 @@ use Illuminate\Support\Facades\Log;
  * Para cada key elegível:
  *  1. Consulta o mercado atual via ComparisonAlgorithm (detectDumpers: false)
  *  2. Calcula o preço alvo e clamba entre min_api e max_api da key
- *  3. Cria/reativa oferta na Gamivo
- *  4. Faz upload da chave com retry (race condition documentada)
- *  5. Aguarda confirmação do job assíncrono
- *  6. Marca listed_at no banco
+ *  3. Keys com >= OLD_KEY_MONTHS meses ignoram o piso min_api (age override)
+ *     e têm o min_api atualizado para o preço de listagem após o upload
+ *  4. Cria/reativa oferta na Gamivo
+ *  5. Faz upload da chave com retry
+ *  6. Aguarda confirmação do job assíncrono
+ *  7. Marca listed_at no banco
  *
  * Migrado de GET /api/auto-sell (gamivo-carca-deals, Node.js).
  * Documentação: docs/GAMIVO.md — seção "Fluxo B: auto-sell".
@@ -77,15 +81,22 @@ class AutoSellUseCase
 
     /**
      * Determina o preço de entrada no mercado dado o preço do concorrente e os limites da key.
-     * Retorna null quando o mercado está abaixo do mínimo aceitável (sinal para pular a key).
+     *
+     * Quando $ignoreMinApi é true (keys com >= OLD_KEY_MONTHS meses), o piso min_api é ignorado
+     * e a key é listada mesmo que o mercado esteja abaixo do mínimo original.
+     * Retorna null apenas quando $ignoreMinApi é false e o mercado está abaixo do mínimo.
      */
-    private function resolveSellerPrice(float $competitorPrice, float $minApi, float $maxApi): ?float
-    {
+    private function resolveSellerPrice(
+        float $competitorPrice,
+        float $minApi,
+        float $maxApi,
+        bool $ignoreMinApi = false,
+    ): ?float {
         if ($competitorPrice === 0.0) {
             return $maxApi; // sem concorrentes → entrar pelo teto
         }
 
-        if ($competitorPrice < $minApi) {
+        if (! $ignoreMinApi && $competitorPrice < $minApi) {
             return null; // mercado abaixo do mínimo — não listar
         }
 
@@ -94,11 +105,18 @@ class AutoSellUseCase
 
     /**
      * Processa uma key: calcula preço alvo, cria oferta, faz upload e marca listed_at.
-     * Retorna false se o mercado estiver abaixo do mínimo aceitável (sem listar).
+     * Keys com >= OLD_KEY_MONTHS meses ignoram o piso min_api e têm min_api atualizado.
+     * Retorna false se o mercado estiver abaixo do mínimo (apenas para keys jovens).
      */
     private function processKey(Key $key, string $sellerName, MarketplaceFee $fee): bool
     {
         $productId = (int) $key->gamivo_id;
+        $acquiredAt = $key->acquired_at !== null
+            ? Carbon::parse($key->acquired_at)
+            : Carbon::now();
+
+        // Keys com >= OLD_KEY_MONTHS meses ignoram o piso min_api (age override)
+        $isOldKey = $acquiredAt->lt(Carbon::now()->subMonths(KeyEligibility::OLD_KEY_MONTHS));
 
         // Consulta o mercado e determina o preço alvo sem exigir nossa oferta listada
         $rawOffers = $this->gamivoApi->getOffersForProduct($productId);
@@ -114,7 +132,7 @@ class AutoSellUseCase
         $minApi = $key->min_api !== null ? (float) $key->min_api : MinMaxPriceCalculator::FLOOR;
         $maxApi = $key->max_api !== null ? (float) $key->max_api : MinMaxPriceCalculator::CEILING;
 
-        $sellerPrice = $this->resolveSellerPrice($result->sellerPrice, $minApi, $maxApi);
+        $sellerPrice = $this->resolveSellerPrice($result->sellerPrice, $minApi, $maxApi, ignoreMinApi: $isOldKey);
 
         if ($sellerPrice === null) {
             Log::info("AutoSellUseCase: mercado abaixo do min_api para gamivo_id={$key->gamivo_id}, pulando", [
@@ -156,8 +174,15 @@ class AutoSellUseCase
             throw new \RuntimeException("Key não aparece como ativa após upload para offer={$offerId}");
         }
 
-        // Marca listed_at no banco
-        $key->update(['listed_at' => now()->toDateString()]);
+        // Marca listed_at; keys velhas têm min/max travados no preço de listagem:
+        //  - max_api = sellerPrice → impede o UpdateOffersUseCase de subir o preço depois
+        //  - min_api = FLOOR      → permite máxima flexibilidade de baixar para competir
+        $updates = ['listed_at' => now()->toDateString()];
+        if ($isOldKey) {
+            $updates['min_api'] = MinMaxPriceCalculator::FLOOR;
+            $updates['max_api'] = $sellerPrice;
+        }
+        $key->update($updates);
 
         return true;
     }

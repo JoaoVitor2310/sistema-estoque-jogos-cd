@@ -5,6 +5,7 @@ use App\Services\Games\GameService;
 use App\Services\KeyService;
 use App\UseCases\Bundles\SyncBundlesFromApiUseCase;
 use App\UseCases\Marketplaces\Gamivo\AutoSellUseCase;
+use App\UseCases\Marketplaces\Gamivo\ReduceAgingKeysMinPriceUseCase;
 use App\UseCases\Marketplaces\Gamivo\UpdateOffersUseCase;
 use App\UseCases\Marketplaces\Gamivo\UpdatePopularityUseCase;
 use App\UseCases\Marketplaces\Gamivo\UpdateSoldOffersUseCase;
@@ -36,6 +37,11 @@ Schedule::call(fn () => app(KeyService::class)->checkLimboKeys())
 
 Schedule::call(fn () => app(KeyService::class)->reduceExpiringListedKeysPrice())
     ->cron('0 6 * * *')->timezone('America/Sao_Paulo');
+
+// Reduz min_api de keys com >= 7 meses no estoque (apenas DB, sem chamadas à API)
+// Deve rodar antes do AutoSell para que o piso já esteja atualizado na listagem.
+// Schedule::call(fn () => app(ReduceAgingKeysMinPriceUseCase::class)->execute())
+//     ->cron('30 7 * * *')->timezone('America/Sao_Paulo');
 
 // Listagem automática de keys elegíveis na Gamivo
 // Schedule::call(fn () => app(AutoSellUseCase::class)->execute())

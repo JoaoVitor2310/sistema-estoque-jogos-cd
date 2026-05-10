@@ -335,7 +335,7 @@ Fases resumidas:
 | 1 | `UpdateOffersUseCase` + `ComparisonAlgorithm` — reprecificação horária | ✅ feito |
 | 2 | `UpdateSoldOffersUseCase::executeFromGamivo()` + `UpdatePopularityUseCase` | ✅ feito |
 | 3 | `AutoSellUseCase` — listagem automática completa | ✅ feito |
-| 4 | `WhenToSellUseCase` — avaliação diária de venda com regra dos 4 meses | ⬜ pendente |
+| 4 | `WhenToSellUseCase` — avaliação diária de venda com regra dos 4 meses | ✅ feito |
 | 5 | Desligar `gamivo-carca-deals`; notificações por e-mail inline | ⬜ pendente |
 
 ### Próximo — Qualidade de código

@@ -39,7 +39,7 @@ final class ProfitCalculator
 
         $result = $qtdTF2 * $tf2EuroPrice / $somatorioIncomes * $gameIncome;
 
-        return $result <= 0 ? self::MINIMUM_COST : $result;
+        return $result <= 0 ? self::MINIMUM_COST : round($result, 2);
     }
 
     /**
@@ -53,7 +53,7 @@ final class ProfitCalculator
             return 0.0;
         }
 
-        return $incomeSimulado - $individualCost;
+        return round($incomeSimulado - $individualCost, 2);
     }
 
     /**
@@ -71,7 +71,7 @@ final class ProfitCalculator
 
         $cost = $individualCost == 0.0 ? self::MINIMUM_COST : $individualCost;
 
-        return ($lucroRS / $cost) * 100;
+        return round(($lucroRS / $cost) * 100, 2);
     }
 
     /**
@@ -86,7 +86,7 @@ final class ProfitCalculator
             return null;
         }
 
-        return $soldPrice - $individualCost;
+        return round($soldPrice - $individualCost, 2);
     }
 
     /**
@@ -109,6 +109,6 @@ final class ProfitCalculator
 
         $cost = $individualCost == 0.0 ? self::MINIMUM_COST : $individualCost;
 
-        return ($saleProfit / $cost) * 100;
+        return round(($saleProfit / $cost) * 100, 2);
     }
 }
