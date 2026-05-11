@@ -59,42 +59,6 @@ describe('Protected routes', function () {
         });
     });
 
-    describe('GET /games/search-popularity', function () {
-
-        it('blocks unauthenticated requests without token', function () {
-            $response = $this->getJson('/games/search-popularity');
-            expect($response->status())->toBeIn([401, 403]);
-        });
-
-        it('accepts requests from authorized users', function () {
-            $user = makeAuthorizedUser();
-
-            // A rota exige também VerifySecret (token do serviço externo).
-            // O teste cobre apenas que CheckPermission não bloqueia usuários autorizados.
-            $response = $this->actingAs($user)->getJson('/games/search-popularity');
-
-            expect($response->status())->not->toBe(403);
-        });
-    });
-
-    describe('POST /games/update-popularity', function () {
-
-        it('blocks unauthenticated requests without token', function () {
-            $response = $this->postJson('/games/update-popularity');
-            expect($response->status())->toBeIn([401, 403]);
-        });
-
-        it('accepts requests from authorized users', function () {
-            $user = makeAuthorizedUser();
-
-            // Envia payload vazio — não queremos testar a lógica, só a camada de auth.
-            // O importante é que a resposta NÃO seja 403 (middleware bloqueando).
-            $response = $this->actingAs($user)->postJson('/games/update-popularity', []);
-
-            expect($response->status())->not->toBe(403);
-        });
-    });
-
     // ── keys routes ───────────────────────────────────────────────
 
     describe('GET /keys/paginated', function () {

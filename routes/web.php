@@ -97,8 +97,6 @@ Route::prefix('games')
         Route::put('/{id}', 'update')->name('games.update');
         Route::delete('/{id}', 'destroy')->name('games.destroy');
         Route::delete('/', 'destroyArray')->name('games.destroyArray');
-        Route::get('/search-popularity', 'searchPopularity')->name('games.searchPopularity')->withoutMiddleware([CheckPermission::class])->middleware(VerifySecret::class);
-        Route::post('/update-popularity', 'updatePopularity')->name('games.updatePopularity')->withoutMiddleware([CheckPermission::class])->middleware(VerifySecret::class);
     });
 
 Route::prefix('bundles')

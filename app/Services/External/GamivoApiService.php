@@ -24,7 +24,8 @@ class GamivoApiService
     // ── Offers ────────────────────────────────────────────────────────────────
 
     /**
-     * Lista TODAS as próprias ofertas, iterando a paginação automaticamente (máx 100/req).
+     * Lista apenas as próprias ofertas ativas (status=1), iterando a paginação automaticamente (máx 100/req).
+     * A API não suporta filtro por status na query — o filtro é aplicado após o fetch.
      *
      * @return array<int, array{id: int, product_id: int, status: int, seller_price: float, ...}>
      */
@@ -42,7 +43,9 @@ class GamivoApiService
             $offset += 100;
         } while (count($page) === 100);
 
-        return $all;
+        $active = array_filter($all, fn (array $offer) => ($offer['status'] ?? 0) === 1);
+
+        return array_values($active);
     }
 
     /**

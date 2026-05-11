@@ -16,9 +16,6 @@ final class ComparisonAlgorithm
     /** Passo subtraído do menor preço concorrente para garantir que somos mais baratos. */
     public const PRICE_STEP = 0.014;
 
-    /** Diferença mínima entre 1º e 2º para valer a pena subir o preço quando já somos o mais barato. */
-    public const MIN_PRICE_DIFF_TO_ACT = 0.04;
-
     /**
      * Ratio para detectar price dumper quando 2º preço > €1.
      * Se diferença >= 10% do 2º preço, o 1º é considerado price dumper.
@@ -95,9 +92,7 @@ final class ComparisonAlgorithm
     // ── Casos principais ──────────────────────────────────────────────────────
 
     /**
-     * Já somos o mais barato — subir preço se o 2º colocado abriu espaço suficiente.
-     *
-     * Regra: diferença >= MIN_PRICE_DIFF_TO_ACT (€0,04) → novo preço = 2ºPreço - PRICE_STEP.
+     * Já somos o mais barato — subir preço para logo abaixo do 2º colocado.
      *
      * @param  OfferData[]  $offers
      */
@@ -110,14 +105,7 @@ final class ComparisonAlgorithm
             return ComparisonResult::noAction('no_competitors');
         }
 
-        $secondPrice = $offers[1]->retailPrice;
-        $diff = $secondPrice - $offers[0]->retailPrice;
-
-        if ($diff < self::MIN_PRICE_DIFF_TO_ACT) {
-            return ComparisonResult::noAction('already_best');
-        }
-
-        $targetRetail = $secondPrice - self::PRICE_STEP;
+        $targetRetail = $offers[1]->retailPrice - self::PRICE_STEP;
 
         return self::buildResult(round(IncomeCalculator::forGamivo($targetRetail, $fee), 2), $ourOffer);
     }

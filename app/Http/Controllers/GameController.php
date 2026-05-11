@@ -67,40 +67,6 @@ class GameController extends Controller
         ]);
     }
 
-    public function searchPopularity(Request $request)
-    {
-        $limit = $request->query('limit', 200);
-
-        $games = Game::select('id', 'name', 'steam_id', 'popularity')
-            ->whereNotNull('steam_id')
-            ->paginate($limit);
-
-        return $this->response(200, 'Jogos encontrados com sucesso', $games);
-    }
-
-    public function updatePopularity(Request $request)
-    {
-        $games = $request->input('games');
-
-        foreach ($games as $gameData) {
-            $game = Game::find($gameData['id']);
-            if ($game) {
-                $game->popularity = $gameData['popularity'];
-                $game->save();
-            }
-        }
-
-        return $this->response(200, 'Jogos atualizados com sucesso', $games);
-    }
-
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        //
-    }
-
     /**
      * Store a newly created resource in storage.
      */
@@ -199,22 +165,6 @@ class GameController extends Controller
                 'per_page' => $games->perPage(),
             ],
         ]);
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
-    {
-        //
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(string $id)
-    {
-        //
     }
 
     /**
