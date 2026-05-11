@@ -41,6 +41,7 @@ class UpdateSoldOffersUseCase
         ];
 
         $soldGames = [];
+        $noDetails = 0;
         $offset = 0;
 
         do {
@@ -51,41 +52,51 @@ class UpdateSoldOffersUseCase
 
                 if ($processed !== null) {
                     $soldGames[] = $processed;
+                } else {
+                    $noDetails++;
                 }
             }
 
             $offset += 25;
         } while (count($page) === 25);
 
-        if (empty($soldGames)) {
-            Log::info('UpdateSoldOffersUseCase: nenhuma venda encontrada no período', $filters);
+        $result = $this->execute($soldGames);
 
-            return [];
-        }
+        Log::channel('schedulers')->info('UpdateSoldOffersUseCase', [
+            'lookback_days' => $lookbackDays,
+            'sales_found' => count($soldGames),
+            'no_details' => $noDetails,
+            'keys_updated' => $result['updated'],
+            'keys_failed' => count($result['failed']),
+            'keys_skipped' => $result['skipped'],
+        ]);
 
-        Log::info('UpdateSoldOffersUseCase: vendas encontradas', ['total' => count($soldGames)]);
-
-        return $this->execute($soldGames);
+        return $result['failed'];
     }
 
     // ── Modo externo (legado Node.js via HTTP) ────────────────────────────────
 
     /**
      * Recebe vendas já processadas e dá baixa nas keys correspondentes.
-     * Chamado diretamente pelo endpoint POST /keys/update-sold-offers.
+     * Chamado diretamente pelo endpoint POST /keys/update-sold-offers (legado Node.js).
      *
      * @param  array<int, array{keys: string[], profit: numeric, saleDate: string}>  $soldGames
-     * @return array<int, mixed> Keys que falharam na atualização
+     * @return array{updated: int, skipped: int, failed: array<int, mixed>}
      */
     public function execute(array $soldGames): array
     {
-        $notUpdated = [];
+        $updated = 0;
+        $skipped = 0;
+        $failed = [];
 
         foreach ($soldGames as $game) {
             foreach ($game['keys'] as $keyCode) {
                 $key = $this->keyRepository->findByKeyCode($keyCode);
 
+                // Key não encontrada ou já registrada como vendida (idempotência)
                 if (! $key || $key->sold_price) {
+                    $skipped++;
+
                     continue;
                 }
 
@@ -94,20 +105,22 @@ class UpdateSoldOffersUseCase
                     (float) $key->individual_cost,
                 );
 
-                $updated = $key->update([
+                $wasUpdated = $key->update([
                     'sold_at' => $game['saleDate'],
                     'sold_price' => $game['profit'],
                     'sale_profit' => $saleFormulas['sale_profit'],
                     'sale_profit_percent' => $saleFormulas['sale_profit_percent'],
                 ]);
 
-                if (! $updated) {
-                    $notUpdated[] = $key;
+                if ($wasUpdated) {
+                    $updated++;
+                } else {
+                    $failed[] = $key;
                 }
             }
         }
 
-        return $notUpdated;
+        return compact('updated', 'skipped', 'failed');
     }
 
     // ── Privados ──────────────────────────────────────────────────────────────

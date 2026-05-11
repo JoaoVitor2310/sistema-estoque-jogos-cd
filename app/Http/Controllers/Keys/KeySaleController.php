@@ -9,7 +9,6 @@ use App\Models\Key;
 use App\Traits\HttpResponses;
 use App\UseCases\Keys\ListKeyForSaleUseCase;
 use App\UseCases\Marketplaces\Gamivo\AutoSellUseCase;
-use App\UseCases\Marketplaces\Gamivo\UpdateSoldOffersUseCase;
 use Illuminate\Http\Request;
 
 /**
@@ -22,7 +21,6 @@ class KeySaleController extends Controller
 
     public function __construct(
         private readonly AutoSellUseCase $autoSellUseCase,
-        private readonly UpdateSoldOffersUseCase $updateSoldOffersUseCase,
         private readonly ListKeyForSaleUseCase $listKeyForSaleUseCase,
     ) {}
 
@@ -66,16 +64,6 @@ class KeySaleController extends Controller
             'Jogos para listar encontrados com sucesso',
             KeyWhenToSellResource::collection($keys)
         );
-    }
-
-    /**
-     * Recebe dados de venda da API Gamivo e atualiza as keys correspondentes.
-     */
-    public function updateSoldOffers(Request $request)
-    {
-        $notUpdated = $this->updateSoldOffersUseCase->execute($request->all());
-
-        return $this->response(200, 'Jogos atualizados com sucesso', $notUpdated);
     }
 
     /**
