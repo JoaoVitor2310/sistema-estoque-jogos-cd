@@ -69,6 +69,7 @@ class UpdateSoldOffersUseCase
             'keys_updated' => $result['updated'],
             'keys_failed' => count($result['failed']),
             'keys_skipped' => $result['skipped'],
+            'failed_details' => $result['failed'],
         ]);
 
         return $result['failed'];
@@ -115,7 +116,10 @@ class UpdateSoldOffersUseCase
                 if ($wasUpdated) {
                     $updated++;
                 } else {
-                    $failed[] = $key;
+                    $failed[] = [
+                        'key_code' => $key->key_code,
+                        'game_name' => $key->game_name,
+                    ];
                 }
             }
         }

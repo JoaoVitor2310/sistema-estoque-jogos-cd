@@ -69,7 +69,7 @@ class KeyRepository
             ->notYetListed()
             ->notGiftLink()
             ->withoutRecentBundle(KeyEligibility::BUNDLE_EXCLUSION_DAYS)
-            ->with(['game.bundles' => fn ($q) => $q->latest('release_date')])
+            ->with('game.latestBundle')
             ->get();
     }
 }
