@@ -3,17 +3,13 @@
 namespace App\Http\Controllers\Keys;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\KeyGamivoMinMaxResource;
-use App\Http\Resources\KeyWhenToSellResource;
-use App\Models\Key;
 use App\Traits\HttpResponses;
-use App\UseCases\Keys\ListKeyForSaleUseCase;
 use App\UseCases\Marketplaces\Gamivo\AutoSellUseCase;
 use Illuminate\Http\Request;
 
 /**
- * Operações de venda de keys: sugestão de listagem, atualização de vendas e consultas Gamivo.
- * Responsabilidade: HTTP only — recebe request, delega ao UseCase/Model, retorna response.
+ * Operações de venda de keys na Gamivo.
+ * Responsabilidade: HTTP only — recebe request, delega ao UseCase, retorna response.
  */
 class KeySaleController extends Controller
 {
@@ -21,7 +17,6 @@ class KeySaleController extends Controller
 
     public function __construct(
         private readonly AutoSellUseCase $autoSellUseCase,
-        private readonly ListKeyForSaleUseCase $listKeyForSaleUseCase,
     ) {}
 
     /**
@@ -41,64 +36,5 @@ class KeySaleController extends Controller
             count($listed).' key(s) listada(s) com sucesso',
             $listed,
         );
-    }
-
-    /**
-     * Retorna keys que já possuem gamivo_id e preço mínimo definido, mas ainda não foram listadas.
-     */
-    public function whenToSell(Request $request)
-    {
-        $keys = Key::select([
-            'gamivo_id', 'minimum_sale_price', 'individual_cost',
-            'key_code', 'game_name', 'region',
-            'acquired_at', 'listed_at', 'sold_at', 'expires_at',
-        ])
-            ->whereNotNull('gamivo_id')
-            ->whereNotNull('minimum_sale_price')
-            ->whereNull('listed_at')
-            ->whereNull('sold_at')
-            ->get();
-
-        return $this->response(
-            200,
-            'Jogos para listar encontrados com sucesso',
-            KeyWhenToSellResource::collection($keys)
-        );
-    }
-
-    /**
-     * Retorna os preços mínimo e máximo da API Gamivo para keys de um jogo específico.
-     */
-    public function searchByIdGamivo(Request $request, string $idGamivo)
-    {
-        $keys = Key::select(['min_api', 'max_api'])
-            ->where('gamivo_id', $idGamivo)
-            ->whereNull('sold_at')
-            ->whereNotNull('listed_at')
-            ->get();
-
-        return $this->response(200, 'Jogos encontrados com sucesso', KeyGamivoMinMaxResource::collection($keys));
-    }
-
-    /**
-     * Registra a data em que a key foi colocada à venda (listed_at = hoje).
-     * Opcionalmente reseta min_api para o piso de listagem pública do Gamivo.
-     */
-    public function insertDataVenda(Request $request)
-    {
-        $keyCode = $request->input('key_code');
-        $resetMinApiGamivo = $request->input('updateMinApiGamivo', true);
-
-        if (! $keyCode) {
-            return $this->error(404, 'Chave não encontrada', ['key_code' => 'Chave não encontrada']);
-        }
-
-        $result = $this->listKeyForSaleUseCase->execute($keyCode, $resetMinApiGamivo);
-
-        if (! $result['success']) {
-            return $this->error(404, $result['message']);
-        }
-
-        return $this->response(200, $result['message'], []);
     }
 }
