@@ -66,7 +66,9 @@ final class ExcelDateConverter
 
         $timestamp = (int) (($serial - self::EXCEL_UNIX_EPOCH_DIFF_DAYS) * self::SECONDS_PER_DAY);
 
-        return date('Y-m-d', $timestamp);
+        // gmdate garante que o serial é interpretado como data UTC, independente do timezone
+        // da aplicação — seriais Excel representam datas de calendário, não instantes no tempo.
+        return gmdate('Y-m-d', $timestamp);
     }
 
     /**

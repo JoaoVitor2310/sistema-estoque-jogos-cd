@@ -3,7 +3,6 @@
 namespace App\Services\External;
 
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 
 /**
  * Scraping de popularidade do SteamCharts.
@@ -16,9 +15,10 @@ class SteamChartsService
 {
     /**
      * Retorna o pico de jogadores simultâneos nas últimas 24h para um jogo.
-     * Retorna 0 em caso de erro, timeout ou ausência dos dados esperados.
+     * Retorna null em caso de erro, timeout ou resposta inesperada do SteamCharts —
+     * diferenciando falha de um jogo com popularidade genuinamente zero.
      */
-    public function getPopularity(string $steamId): int
+    public function getPopularity(string $steamId): ?int
     {
         try {
             $response = Http::timeout(10)
@@ -26,16 +26,12 @@ class SteamChartsService
                 ->get("https://steamcharts.com/app/{$steamId}");
 
             if ($response->failed()) {
-                Log::warning("SteamCharts: request falhou para steam_id={$steamId} status={$response->status()}");
-
-                return 0;
+                return null;
             }
 
             return $this->parsePopularity($response->body());
         } catch (\Throwable $e) {
-            Log::warning("SteamCharts: exceção para steam_id={$steamId}: {$e->getMessage()}");
-
-            return 0;
+            return null;
         }
     }
 

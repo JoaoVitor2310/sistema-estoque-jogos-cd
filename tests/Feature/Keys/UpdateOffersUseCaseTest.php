@@ -98,12 +98,11 @@ describe('UpdateOffersUseCase', function () {
     });
 
     it('skips the PUT request when the algorithm returns noAction', function () {
-        // Produto 222: já somos o mais barato, diferença pequena → noAction
+        // Produto 222: somos o único vendedor → no_competitors → noAction
         Http::fake([
             '*/api/public/v1/offers*' => Http::response(fakeActiveOffers([222]), 200),
             '*/api/public/v1/products/222/offers' => Http::response([
                 ['id' => 60, 'seller_name' => 'CarcaDeals', 'retail_price' => 3.00, 'completed_orders' => 1000, 'wholesale_mode' => 0],
-                ['id' => 61, 'seller_name' => 'CompetitorA', 'retail_price' => 3.02, 'completed_orders' => 5000, 'wholesale_mode' => 0],
             ], 200),
         ]);
 

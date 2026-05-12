@@ -346,8 +346,31 @@ async function importTrade(trade: TradeEntry) {
 
 // ─── Cópia ────────────────────────────────────────────────────────────────────
 
+/**
+ * Copia texto para a área de transferência.
+ * navigator.clipboard só existe em contextos seguros (HTTPS/localhost).
+ * Em HTTP, usa o fallback via execCommand para manter compatibilidade.
+ */
+async function copyToClipboard(text: string): Promise<void> {
+  if (navigator.clipboard) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  // Fallback para HTTP
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+  document.execCommand('copy');
+  document.body.removeChild(textarea);
+}
+
 async function copyCell(trade: TradeEntry, name: string, value: number, cellKey: string) {
-  await navigator.clipboard.writeText(`${name}\t${formatTf2(value)}`);
+  await copyToClipboard(`${name}\t${formatTf2(value)}`);
   trade.copiedKey = cellKey;
   setTimeout(() => { trade.copiedKey = null; }, 1500);
 }
@@ -356,7 +379,7 @@ async function copyTier(trade: TradeEntry, tier: number) {
   const text = trade.rows
     .map(row => `${row.name}\t${formatTf2(getOffer(row, tier))}`)
     .join('\n');
-  await navigator.clipboard.writeText(text);
+  await copyToClipboard(text);
   trade.copiedKey = `tier-${tier}`;
   setTimeout(() => { trade.copiedKey = null; }, 1500);
 }
@@ -366,7 +389,7 @@ async function copyCustomTier(trade: TradeEntry) {
   const text = trade.rows
     .map(row => `${row.name}\t${formatTf2(getOffer(row, customTier.value!))}`)
     .join('\n');
-  await navigator.clipboard.writeText(text);
+  await copyToClipboard(text);
   trade.copiedKey = 'tier-custom';
   setTimeout(() => { trade.copiedKey = null; }, 1500);
 }

@@ -69,23 +69,23 @@ describe('SteamChartsService', function () {
 
     // ── Resiliência ───────────────────────────────────────────────────────────
 
-    it('returns 0 when the HTTP request fails', function () {
+    it('returns null when the HTTP request fails', function () {
         Http::fake([
             'steamcharts.com/*' => Http::response('', 503),
         ]);
 
         $result = app(SteamChartsService::class)->getPopularity('440');
 
-        expect($result)->toBe(0);
+        expect($result)->toBeNull();
     });
 
-    it('returns 0 when the HTTP request throws a connection exception', function () {
+    it('returns null when the HTTP request throws a connection exception', function () {
         Http::fake([
             'steamcharts.com/*' => Http::failedConnection(),
         ]);
 
         $result = app(SteamChartsService::class)->getPopularity('440');
 
-        expect($result)->toBe(0);
+        expect($result)->toBeNull();
     });
 });

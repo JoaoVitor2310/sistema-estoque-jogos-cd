@@ -24,9 +24,8 @@ class UpdateOffersUseCase
     /**
      * Produtos ignorados na reprecificação (hardcoded — replicado do Node.js).
      *  1767  = Random Game on Gamivo
-     *  42931 = Spotify Premium 1 Month US
      */
-    private const IGNORED_PRODUCT_IDS = [1767, 42931];
+    private const IGNORED_PRODUCT_IDS = [1767];
 
     public function __construct(
         private readonly GamivoApiService $gamivoApi,
@@ -46,9 +45,11 @@ class UpdateOffersUseCase
         $sellerName = config('services.gamivo.seller_name');
 
         $activeOffers = $this->gamivoApi->getActiveOffers();
+
         $productIds = array_unique(array_column($activeOffers, 'product_id'));
 
         $updated = [];
+        $errors = [];
 
         foreach ($productIds as $productId) {
             $productId = (int) $productId;
@@ -64,13 +65,16 @@ class UpdateOffersUseCase
                     $updated[] = $productId;
                 }
             } catch (\Throwable $e) {
+                $errors[$productId] = $e->getMessage();
                 Log::error("UpdateOffersUseCase: erro ao processar produto {$productId}: {$e->getMessage()}");
             }
         }
 
-        Log::info('UpdateOffersUseCase: concluído', [
+        Log::channel('schedulers')->info('UpdateOffersUseCase', [
             'total_products' => count($productIds),
             'updated' => count($updated),
+            'errors' => count($errors),
+            'error_products' => $errors,
         ]);
 
         return $updated;

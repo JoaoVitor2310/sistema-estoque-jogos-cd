@@ -127,7 +127,7 @@ describe('AutoSellUseCase', function () {
             ->and(DB::table('keys')->whereNotNull('listed_at')->count())->toBe(2);
     });
 
-    it('sends the correct product_id in the createOffer request', function () {
+    it('sends the correct product in the createOffer request', function () {
         fakeGamivoAutoSell();
         insertAutoSellKey('440');
 
@@ -139,7 +139,7 @@ describe('AutoSellUseCase', function () {
             }
             $body = json_decode($request->body(), true);
 
-            return ($body['product_id'] ?? null) === 440;
+            return ($body['product'] ?? null) === 440;
         });
     });
 
@@ -197,6 +197,60 @@ describe('AutoSellUseCase', function () {
 
         expect($result)->toBeEmpty()
             ->and(DB::table('keys')->where('gamivo_id', '440')->value('listed_at'))->toBeNull();
+    });
+
+    // ── Minimum profit check ──────────────────────────────────────────────────
+
+    it('skips a key when market price passes min_api but profit margin is too low', function () {
+        // individual_cost = 2.00 → default tier → exige 78% de margem → lucro mínimo = 1.56
+        // Concorrente a €2.50: passa min_api (2.00), mas lucro = 0.50 < 1.56 → deve pular
+        Http::fake([
+            '*/products/*/offers' => Http::response([
+                ['id' => 99, 'seller_name' => 'Rival', 'retail_price' => 2.50,
+                    'completed_orders' => 1000, 'wholesale_mode' => 0, 'stock_available' => 5,
+                    'rating' => 4.5, 'invoicable' => false, 'is_preorder' => false],
+            ], 200),
+        ]);
+
+        insertAutoSellKey('440', [
+            'individual_cost' => 2.00,
+            'min_api' => 2.00,
+            'max_api' => 20.00,
+            'acquired_at' => now()->subMonths(3)->toDateString(),
+        ]);
+
+        $result = app(AutoSellUseCase::class)->execute();
+
+        expect($result)->toBeEmpty()
+            ->and(DB::table('keys')->where('gamivo_id', '440')->value('listed_at'))->toBeNull();
+    });
+
+    it('lists an old key (>= 10 months) even when the profit margin would fail the check', function () {
+        // Mesma situação: concorrente a €2.50, lucro = 0.50 < 1.56 (78% de €2.00)
+        // Mas key tem 11 meses → age override → profit check ignorado → deve listar
+        Http::fake([
+            '*/products/*/offers' => Http::response([
+                ['id' => 99, 'seller_name' => 'Rival', 'retail_price' => 2.50,
+                    'completed_orders' => 1000, 'wholesale_mode' => 0, 'stock_available' => 5,
+                    'rating' => 4.5, 'invoicable' => false, 'is_preorder' => false],
+            ], 200),
+            '*/v1/offers' => Http::response(12345, 200),
+            '*/offers/12345/keys/upload' => Http::response(999, 200),
+            '*/offers/12345/keys/active/0/1*' => Http::response(['count' => 1, 'data' => []], 200),
+        ]);
+
+        insertAutoSellKey('440', [
+            'individual_cost' => 2.00,
+            'min_api' => 2.00,
+            'max_api' => 20.00,
+            'acquired_at' => now()->subMonths(11)->toDateString(),
+        ]);
+
+        $result = app(AutoSellUseCase::class)->execute();
+
+        expect($result)->toHaveCount(1)
+            ->and(DB::table('keys')->where('gamivo_id', '440')->value('listed_at'))
+            ->toBe(now()->toDateString());
     });
 
     // ── Age override (>= 10 meses) ────────────────────────────────────────────

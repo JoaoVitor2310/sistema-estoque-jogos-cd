@@ -23,8 +23,8 @@ use Illuminate\Support\Facades\Log;
  *  3. Keys com >= OLD_KEY_MONTHS meses ignoram o piso min_api (age override)
  *     e têm o min_api atualizado para o preço de listagem após o upload
  *  4. Cria/reativa oferta na Gamivo
- *  5. Faz upload da chave com retry
- *  6. Aguarda confirmação do job assíncrono
+ *  5. Faz upload da chave
+ *  6. Verifica diretamente na oferta se a key apareceu
  *  7. Marca listed_at no banco
  *
  * Migrado de GET /api/auto-sell (gamivo-carca-deals, Node.js).
@@ -39,6 +39,12 @@ class AutoSellUseCase
      * A Gamivo precisa de tempo para registrar a oferta antes de aceitar keys.
      */
     public const OFFER_CREATION_DELAY_S = 1;
+
+    /**
+     * Tentativas de verificação da key na oferta após o upload assíncrono.
+     * Intervalo de 1 segundo entre cada tentativa (máx KEY_UPLOAD_CHECK_ATTEMPTS segundos de espera).
+     */
+    public const KEY_UPLOAD_CHECK_ATTEMPTS = 5;
 
     public function __construct(
         private readonly GamivoApiService $gamivoApi,
@@ -57,21 +63,52 @@ class AutoSellUseCase
         $keys = $this->keyRepository->findEligibleForAutoSell();
         $fee = $this->keyCalculationService->getMarketplaceFee();
         $sellerName = config('services.gamivo.seller_name');
-        $listed = [];
+
+        $listed = [];        // int[] — IDs retornados pelo método
+        $listedDetails = []; // detalhes para o log do scheduler
+        $skipped = [];
+        $errors = [];
 
         foreach ($keys as $key) {
             try {
                 if ($this->processKey($key, $sellerName, $fee)) {
                     $listed[] = $key->id;
+                    $listedDetails[] = [
+                        'key_id' => $key->id,
+                        'key_code' => $key->key_code,
+                        'game_name' => $key->game_name,
+                        'gamivo_id' => $key->gamivo_id,
+                    ];
+                } else {
+                    // Mercado abaixo do min_api — pulou sem tentar listar
+                    $skipped[] = [
+                        'key_id' => $key->id,
+                        'key_code' => $key->key_code,
+                        'game_name' => $key->game_name,
+                        'gamivo_id' => $key->gamivo_id,
+                        'min_api' => $key->min_api,
+                    ];
                 }
             } catch (\Throwable $e) {
-                Log::error("AutoSellUseCase: erro ao listar key id={$key->id} gamivo_id={$key->gamivo_id}: {$e->getMessage()}");
+                // Erro durante criação de oferta ou upload — mensagem inclui offer/job id
+                $errors[] = [
+                    'key_id' => $key->id,
+                    'key_code' => $key->key_code,
+                    'game_name' => $key->game_name,
+                    'gamivo_id' => $key->gamivo_id,
+                    'error' => $e->getMessage(),
+                ];
             }
         }
 
-        Log::info('AutoSellUseCase: concluído', [
+        Log::channel('schedulers')->info('AutoSellUseCase', [
             'eligible' => count($keys),
             'listed' => count($listed),
+            'skipped_below_min' => count($skipped),
+            'errors' => count($errors),
+            'listed_details' => $listedDetails,
+            'skipped_details' => $skipped,
+            'error_details' => $errors,
         ]);
 
         return $listed;
@@ -135,19 +172,24 @@ class AutoSellUseCase
         $sellerPrice = $this->resolveSellerPrice($result->sellerPrice, $minApi, $maxApi, ignoreMinApi: $isOldKey);
 
         if ($sellerPrice === null) {
-            Log::info("AutoSellUseCase: mercado abaixo do min_api para gamivo_id={$key->gamivo_id}, pulando", [
-                'sellerPrice' => $result->sellerPrice,
-                'min_api' => $minApi,
-            ]);
+            return false;
+        }
 
+        // Keys velhas (age override) são listadas para liquidar o estoque — margem mínima não se aplica
+        if (! $isOldKey && ! KeyEligibility::hasMinimumProfitForAutoSell($sellerPrice, (float) $key->individual_cost, $acquiredAt)) {
             return false;
         }
 
         // Cria ou reativa oferta na Gamivo (retail, sem wholesale por padrão no auto-sell)
         $offerId = $this->gamivoApi->createOffer([
-            'product_id' => $productId,
+            'product' => $productId,
             'seller_price' => $sellerPrice,
             'wholesale_mode' => 0,
+            'tier_one_seller_price' => 0,
+            'tier_two_seller_price' => 0,
+            'status' => 1,
+            'keys' => 1,
+            'is_preorder' => false,
         ]);
 
         if ($offerId === null) {
@@ -163,25 +205,41 @@ class AutoSellUseCase
         $jobId = $this->gamivoApi->uploadKeys($offerId, [$key->key_code]);
 
         if ($jobId === null) {
-            throw new \RuntimeException("uploadKeys retornou null para offer={$offerId}");
+            throw new \RuntimeException("uploadKeys retornou null — offer={$offerId}");
         }
 
-        // Aguarda conclusão do job assíncrono
-        $this->gamivoApi->waitForUpload($offerId, $jobId);
+        // Verifica diretamente na oferta se a key apareceu (polling de isKeyListed)
+        // Em vez de consultar o endpoint do job (assíncrono e menos confiável),
+        // entra na oferta e confirma presença da key. job_id fica no erro para inspeção manual.
+        $keyListed = false;
 
-        // Confirma que a key está de fato ativa na oferta antes de marcar listed_at
-        if (! $this->gamivoApi->isKeyListed($offerId, $key->key_code)) {
-            throw new \RuntimeException("Key não aparece como ativa após upload para offer={$offerId}");
+        for ($attempt = 1; $attempt <= self::KEY_UPLOAD_CHECK_ATTEMPTS; $attempt++) {
+            if ($this->gamivoApi->isKeyListed($offerId, $key->key_code)) {
+                $keyListed = true;
+                break;
+            }
+
+            if ($attempt < self::KEY_UPLOAD_CHECK_ATTEMPTS && ! app()->environment('testing')) {
+                sleep(1);
+            }
+        }
+
+        if (! $keyListed) {
+            throw new \RuntimeException(
+                "Key não apareceu na oferta após upload — offer={$offerId} job={$jobId}"
+            );
         }
 
         // Marca listed_at; keys velhas têm min/max travados no preço de listagem:
         //  - max_api = sellerPrice → impede o UpdateOffersUseCase de subir o preço depois
         //  - min_api = FLOOR      → permite máxima flexibilidade de baixar para competir
         $updates = ['listed_at' => now()->toDateString()];
+
         if ($isOldKey) {
             $updates['min_api'] = MinMaxPriceCalculator::FLOOR;
             $updates['max_api'] = $sellerPrice;
         }
+
         $key->update($updates);
 
         return true;

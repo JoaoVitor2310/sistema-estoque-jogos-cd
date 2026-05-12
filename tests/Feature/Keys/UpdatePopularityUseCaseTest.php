@@ -132,10 +132,13 @@ describe('UpdatePopularityUseCase', function () {
 
         $result = app(UpdatePopularityUseCase::class)->execute();
 
-        // Ambos os jogos devem ter sido processados — ID1 com 0, ID2 com 9000
+        // ID1 falhou → popularidade inalterada (0); ID2 atualizado → 9000
+        // execute() retorna apenas os IDs atualizados com sucesso — ID1 não entra
         expect(DB::table('games')->where('id', $id1)->value('popularity'))->toBe(0)
             ->and(DB::table('games')->where('id', $id2)->value('popularity'))->toBe(9000)
-            ->and($result)->toHaveCount(2);
+            ->and($result)->toHaveCount(1)
+            ->and($result)->toContain($id2)
+            ->and($result)->not->toContain($id1);
     });
 
     // ── Exclusion ─────────────────────────────────────────────────────────────

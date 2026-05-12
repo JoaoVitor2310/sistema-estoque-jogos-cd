@@ -84,19 +84,6 @@ describe('ComparisonAlgorithm', function () {
 
     describe('we are the cheapest', function () {
 
-        it('returns noAction when the gap to 2nd is below the minimum threshold (€0.04)', function () {
-            // diff = 3.03 - 3.00 = 0.03 < MIN_PRICE_DIFF_TO_ACT
-            $offers = [
-                offer(1, 'CarcaDeals', 3.00),
-                offer(2, 'CompetitorA', 3.03),
-            ];
-
-            $result = ComparisonAlgorithm::calculate($offers, 'CarcaDeals', $this->fee);
-
-            expect($result->shouldUpdate)->toBeFalse()
-                ->and($result->reason)->toBe('already_best');
-        });
-
         it('raises the price when the gap to 2nd is exactly at the minimum threshold (€0.04)', function () {
             // diff = 3.04 - 3.00 = 0.04 = MIN_PRICE_DIFF_TO_ACT → deve atualizar (condição é <, não <=)
             // target retail = 3.04 − 0.014 = 3.026

@@ -139,14 +139,14 @@ describe('UpdateSoldOffersUseCase', function () {
         expect((float) $row->sale_profit)->toEqualWithDelta(-2.00, 0.001);
     });
 
-    it('returns an empty array when all keys were updated successfully', function () {
+    it('returns an empty failed array when all keys were updated successfully', function () {
         insertUnsoldKey('CLEAN-KEY-001');
 
-        $notUpdated = app(UpdateSoldOffersUseCase::class)->execute([
+        $result = app(UpdateSoldOffersUseCase::class)->execute([
             ['keys' => ['CLEAN-KEY-001'], 'profit' => 5.00, 'saleDate' => '2024-06-01'],
         ]);
 
-        expect($notUpdated)->toBeEmpty();
+        expect($result['failed'])->toBeEmpty();
     });
 
     // ── Multiple keys in one game ─────────────────────────────────────────────
@@ -188,11 +188,11 @@ describe('UpdateSoldOffersUseCase', function () {
 
     it('silently skips a key not found in the database', function () {
         // Não insere nenhuma key — execute deve retornar vazio sem exceção
-        $notUpdated = app(UpdateSoldOffersUseCase::class)->execute([
+        $result = app(UpdateSoldOffersUseCase::class)->execute([
             ['keys' => ['GHOST-KEY-999'], 'profit' => 5.00, 'saleDate' => '2024-06-01'],
         ]);
 
-        expect($notUpdated)->toBeEmpty();
+        expect($result['failed'])->toBeEmpty();
     });
 
     it('does not overwrite a key that was already sold', function () {
