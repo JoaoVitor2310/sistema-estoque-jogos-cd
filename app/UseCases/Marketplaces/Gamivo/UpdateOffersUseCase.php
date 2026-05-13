@@ -2,6 +2,7 @@
 
 namespace App\UseCases\Marketplaces\Gamivo;
 
+use App\Domain\Enums\OffersUpdateMode;
 use App\Domain\Pricing\ComparisonAlgorithm;
 use App\Domain\Pricing\ComparisonResult;
 use App\Domain\Pricing\MinMaxPriceCalculator;
@@ -12,7 +13,11 @@ use App\Services\Keys\KeyRepository;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Reprecifica todas as ofertas ativas na Gamivo — executado a cada hora (minuto 5).
+ * Reprecifica ofertas ativas na Gamivo com frequência variável por posição:
+ *
+ *  - WeAreLowest    : somos o 1º mais barato → roda a cada 5 minutos para subir o preço
+ *  - WeAreNotLowest : não somos o 1º → roda a cada hora para recuperar posição
+ *  - null (padrão)  : processa todos (útil para execução manual via artisan)
  *
  * Migrado de GET /api/update-offers (gamivo-carca-deals, Node.js).
  * Documentação: docs/GAMIVO.md — seção "Fluxo A: update-offers".
@@ -37,9 +42,10 @@ class UpdateOffersUseCase
      * Itera todos os product_ids ativos e reprecifica conforme o algoritmo de comparação.
      * Erros por produto são logados e não interrompem os demais.
      *
+     * @param  OffersUpdateMode|null  $mode  Filtra por posição no ranking; null = processa todos
      * @return int[] product_ids cujo preço foi atualizado com sucesso
      */
-    public function execute(): array
+    public function execute(?OffersUpdateMode $mode = null): array
     {
         $fee = $this->keyCalculationService->getMarketplaceFee();
         $sellerName = config('services.gamivo.seller_name');
@@ -60,7 +66,7 @@ class UpdateOffersUseCase
             }
 
             try {
-                $result = $this->processProduct($productId, $sellerName, $fee);
+                $result = $this->processProduct($productId, $sellerName, $fee, $mode);
 
                 if ($result !== null) {
                     $updated[] = $productId;
@@ -73,6 +79,7 @@ class UpdateOffersUseCase
         }
 
         Log::channel('schedulers')->info('UpdateOffersUseCase', [
+            'mode' => $mode?->name ?? 'all',
             'total_products' => count($productIds),
             'updated' => count($updated),
             'errors' => count($errors),
@@ -86,12 +93,12 @@ class UpdateOffersUseCase
     // ── Privados ──────────────────────────────────────────────────────────────
 
     /**
-     * Processa um produto: compara preços, aplica clamp e envia atualização à Gamivo.
+     * Processa um produto: filtra por modo, compara preços, aplica clamp e envia atualização à Gamivo.
      * Retorna um array com detalhes do update para log, ou null se não houve ação.
      *
      * @return array{game_name: string, old_retail: float, new_retail: float}|null
      */
-    private function processProduct(int $productId, string $sellerName, $fee): ?array
+    private function processProduct(int $productId, string $sellerName, $fee, ?OffersUpdateMode $mode): ?array
     {
         $rawOffers = $this->gamivoApi->getOffersForProduct($productId);
 
@@ -99,14 +106,22 @@ class UpdateOffersUseCase
             return null;
         }
 
-        // Captura nosso retail atual para o log (antes de qualquer alteração)
-        $oldRetail = 0.0;
-        foreach ($rawOffers as $offer) {
-            if (($offer['seller_name'] ?? '') === $sellerName) {
-                $oldRetail = (float) ($offer['retail_price'] ?? 0.0);
-                break;
-            }
+        // Offers chegam ordenadas por retail_price ASC (GamivoApiService garante a ordem).
+        // O 1º elemento é o mais barato — se for nós, somos o lowest.
+        $weAreLowest = ($rawOffers[0]['seller_name'] ?? '') === $sellerName;
+
+        if ($mode === OffersUpdateMode::WeAreLowest && ! $weAreLowest) {
+            return null;
         }
+
+        if ($mode === OffersUpdateMode::WeAreNotLowest && $weAreLowest) {
+            return null;
+        }
+
+        // Captura nosso retail atual para o log (antes de qualquer alteração)
+        $oldRetail = $weAreLowest
+            ? (float) ($rawOffers[0]['retail_price'] ?? 0.0)
+            : collect($rawOffers)->first(fn ($o) => ($o['seller_name'] ?? '') === $sellerName)['retail_price'] ?? 0.0;
 
         $offers = array_map(fn ($o) => OfferData::fromArray($o), $rawOffers);
         $result = ComparisonAlgorithm::calculate($offers, $sellerName, $fee);
