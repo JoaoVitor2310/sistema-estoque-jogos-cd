@@ -21,6 +21,7 @@ use App\Models\Fee;
 use App\UseCases\Marketplaces\Gamivo\UpdateOffersUseCase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -185,6 +186,40 @@ describe('UpdateOffersUseCase', function () {
 
             return $req->data()['seller_price'] === 2.00;
         });
+    });
+
+    // ── Log de atualização ────────────────────────────────────────────────────
+
+    it('logs game_name, old_retail and new_retail for each updated product', function () {
+        // CarcaDeals é o mais barato (8.79) → handleWeAreLowest
+        // targetRetail = 9.85 - 0.014 = 9.836 → new_retail = 9.84
+        // old_retail = 8.79 (nosso retail atual)
+        insertKeyWithMinMax(888, minApi: 0.50, maxApi: 30.00);
+
+        Http::fake([
+            '*/api/public/v1/offers/201*' => Http::response(201, 200),
+            '*/api/public/v1/products/888/offers' => Http::response([
+                ['id' => 200, 'seller_name' => 'CompetitorA', 'retail_price' => 9.85, 'completed_orders' => 5000, 'wholesale_mode' => 0],
+                ['id' => 201, 'seller_name' => 'CarcaDeals', 'retail_price' => 8.79, 'completed_orders' => 1000, 'wholesale_mode' => 0],
+            ], 200),
+            '*/api/public/v1/offers*' => Http::response(fakeActiveOffers([888]), 200),
+        ]);
+
+        $captured = [];
+        Log::listen(function (\Illuminate\Log\Events\MessageLogged $event) use (&$captured) {
+            if ($event->message === 'UpdateOffersUseCase') {
+                $captured = $event->context;
+            }
+        });
+
+        app(UpdateOffersUseCase::class)->execute();
+
+        $details = $captured['updated_details'][0] ?? null;
+
+        expect($details)->not->toBeNull()
+            ->and($details['game_name'])->toBe('Game 888')
+            ->and($details['old_retail'])->toBe(8.79)
+            ->and($details['new_retail'])->toEqualWithDelta(9.84, 0.01);
     });
 
     // ── Resiliência ───────────────────────────────────────────────────────────

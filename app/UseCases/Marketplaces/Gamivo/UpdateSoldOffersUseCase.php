@@ -69,6 +69,7 @@ class UpdateSoldOffersUseCase
             'keys_updated' => $result['updated'],
             'keys_failed' => count($result['failed']),
             'keys_skipped' => $result['skipped'],
+            'updated_keys' => $result['updatedKeys'],
             'failed_details' => $result['failed'],
         ]);
 
@@ -89,6 +90,7 @@ class UpdateSoldOffersUseCase
         $updated = 0;
         $skipped = 0;
         $failed = [];
+        $updatedKeys = [];
 
         foreach ($soldGames as $game) {
             foreach ($game['keys'] as $keyCode) {
@@ -115,6 +117,10 @@ class UpdateSoldOffersUseCase
 
                 if ($wasUpdated) {
                     $updated++;
+                    $updatedKeys[] = [
+                        'key_code' => $key->key_code,
+                        'game_name' => $key->game_name,
+                    ];
                 } else {
                     $failed[] = [
                         'key_code' => $key->key_code,
@@ -124,7 +130,7 @@ class UpdateSoldOffersUseCase
             }
         }
 
-        return compact('updated', 'skipped', 'failed');
+        return compact('updated', 'skipped', 'failed', 'updatedKeys');
     }
 
     // ── Privados ──────────────────────────────────────────────────────────────
