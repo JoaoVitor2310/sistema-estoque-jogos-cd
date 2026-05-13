@@ -107,7 +107,7 @@ final class ComparisonAlgorithm
 
         $targetRetail = $offers[1]->retailPrice - self::PRICE_STEP;
 
-        return self::buildResult(round(IncomeCalculator::forGamivo($targetRetail, $fee), 2), $ourOffer);
+        return self::buildResult(round(IncomeCalculator::forGamivo($targetRetail, $fee), 2), $ourOffer, $targetRetail);
     }
 
     /**
@@ -135,7 +135,7 @@ final class ComparisonAlgorithm
         ) {
             $checkResult = self::checkOthersApi($offers);
             if ($checkResult !== null) {
-                return self::buildResult(round(IncomeCalculator::forGamivo($checkResult, $fee), 2), $ourOffer);
+                return self::buildResult(round(IncomeCalculator::forGamivo($checkResult, $fee), 2), $ourOffer, $checkResult);
             }
         }
 
@@ -183,7 +183,7 @@ final class ComparisonAlgorithm
 
         $targetRetail = $lowestPrice - self::PRICE_STEP;
 
-        return self::buildResult(round(IncomeCalculator::forGamivo($targetRetail, $fee), 2), $ourOffer);
+        return self::buildResult(round(IncomeCalculator::forGamivo($targetRetail, $fee), 2), $ourOffer, $targetRetail);
     }
 
     // ── Helpers privados ──────────────────────────────────────────────────────
@@ -222,10 +222,10 @@ final class ComparisonAlgorithm
      * Monta o ComparisonResult com preços wholesale calculados se necessário.
      * Quando $ourOffer é null (requireOurOffer = false), offerId = 0 e wholesaleMode = 0.
      */
-    private static function buildResult(float $sellerPrice, ?OfferData $ourOffer): ComparisonResult
+    private static function buildResult(float $sellerPrice, ?OfferData $ourOffer, float $targetRetail = 0.0): ComparisonResult
     {
         if ($ourOffer === null || $ourOffer->wholesaleMode === 0) {
-            return ComparisonResult::updatePrice($sellerPrice, $ourOffer !== null ? $ourOffer->id : 0, 0);
+            return ComparisonResult::updatePrice($sellerPrice, $ourOffer !== null ? $ourOffer->id : 0, 0, targetRetail: $targetRetail);
         }
 
         // tier = sellerPrice / 1.035 (taxa wholesale de 3,5%)
@@ -238,6 +238,7 @@ final class ComparisonAlgorithm
             $ourOffer->wholesaleMode,
             $tier,
             $tier,
+            $targetRetail,
         );
     }
 }

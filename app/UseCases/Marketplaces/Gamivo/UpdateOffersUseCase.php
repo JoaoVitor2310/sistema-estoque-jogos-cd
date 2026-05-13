@@ -49,6 +49,7 @@ class UpdateOffersUseCase
         $productIds = array_unique(array_column($activeOffers, 'product_id'));
 
         $updated = [];
+        $updatedDetails = [];
         $errors = [];
 
         foreach ($productIds as $productId) {
@@ -59,10 +60,11 @@ class UpdateOffersUseCase
             }
 
             try {
-                $offerId = $this->processProduct($productId, $sellerName, $fee);
+                $result = $this->processProduct($productId, $sellerName, $fee);
 
-                if ($offerId !== null) {
+                if ($result !== null) {
                     $updated[] = $productId;
+                    $updatedDetails[] = $result;
                 }
             } catch (\Throwable $e) {
                 $errors[$productId] = $e->getMessage();
@@ -75,6 +77,7 @@ class UpdateOffersUseCase
             'updated' => count($updated),
             'errors' => count($errors),
             'error_products' => $errors,
+            'updated_details' => $updatedDetails,
         ]);
 
         return $updated;
@@ -84,15 +87,25 @@ class UpdateOffersUseCase
 
     /**
      * Processa um produto: compara preços, aplica clamp e envia atualização à Gamivo.
+     * Retorna um array com detalhes do update para log, ou null se não houve ação.
      *
-     * @return int|null offerId atualizado ou null se nenhuma ação foi necessária
+     * @return array{game_name: string, old_retail: float, new_retail: float}|null
      */
-    private function processProduct(int $productId, string $sellerName, $fee): ?int
+    private function processProduct(int $productId, string $sellerName, $fee): ?array
     {
         $rawOffers = $this->gamivoApi->getOffersForProduct($productId);
 
         if (empty($rawOffers)) {
             return null;
+        }
+
+        // Captura nosso retail atual para o log (antes de qualquer alteração)
+        $oldRetail = 0.0;
+        foreach ($rawOffers as $offer) {
+            if (($offer['seller_name'] ?? '') === $sellerName) {
+                $oldRetail = (float) ($offer['retail_price'] ?? 0.0);
+                break;
+            }
         }
 
         $offers = array_map(fn ($o) => OfferData::fromArray($o), $rawOffers);
@@ -105,7 +118,15 @@ class UpdateOffersUseCase
         $sellerPrice = MinMaxPriceCalculator::clamp($result->sellerPrice, $this->keyRepository->findMinMaxByGamivoId($productId));
         $data = $this->buildUpdatePayload($sellerPrice, $result);
 
-        return $this->gamivoApi->updateOffer($result->offerId, $data);
+        $this->gamivoApi->updateOffer($result->offerId, $data);
+
+        $keyInfo = $this->keyRepository->findFirstListedByGamivoId($productId);
+
+        return [
+            'game_name' => $keyInfo?->game_name ?? 'unknown',
+            'old_retail' => $oldRetail,
+            'new_retail' => round($result->targetRetail, 2),
+        ];
     }
 
     /**

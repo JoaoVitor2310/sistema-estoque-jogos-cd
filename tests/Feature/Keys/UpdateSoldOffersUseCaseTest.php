@@ -149,6 +149,28 @@ describe('UpdateSoldOffersUseCase', function () {
         expect($result['failed'])->toBeEmpty();
     });
 
+    // ── updatedKeys ───────────────────────────────────────────────────────────
+
+    it('includes key_code and game_name in updatedKeys for each updated key', function () {
+        insertUnsoldKey('TRACK-KEY-001');
+
+        $result = app(UpdateSoldOffersUseCase::class)->execute([
+            ['keys' => ['TRACK-KEY-001'], 'profit' => 5.00, 'saleDate' => '2024-06-01'],
+        ]);
+
+        expect($result['updatedKeys'])->toHaveCount(1)
+            ->and($result['updatedKeys'][0]['key_code'])->toBe('TRACK-KEY-001')
+            ->and($result['updatedKeys'][0]['game_name'])->toBe('Test Game');
+    });
+
+    it('does not include skipped keys in updatedKeys', function () {
+        $result = app(UpdateSoldOffersUseCase::class)->execute([
+            ['keys' => ['GHOST-KEY-NOT-IN-DB'], 'profit' => 5.00, 'saleDate' => '2024-06-01'],
+        ]);
+
+        expect($result['updatedKeys'])->toBeEmpty();
+    });
+
     // ── Multiple keys in one game ─────────────────────────────────────────────
 
     it('updates all keys listed in the same game object', function () {

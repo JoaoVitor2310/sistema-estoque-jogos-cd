@@ -33,6 +33,9 @@ final class ComparisonResult
 
         /** tier_two_seller_price (só relevante quando wholesaleMode != 0). */
         public readonly float $tierTwoSellerPrice,
+
+        /** Preço de varejo alvo calculado pelo algoritmo (antes da conversão para income). */
+        public readonly float $targetRetail,
     ) {}
 
     /**
@@ -50,6 +53,7 @@ final class ComparisonResult
             wholesaleMode: 0,
             tierOneSellerPrice: 0.0,
             tierTwoSellerPrice: 0.0,
+            targetRetail: 0.0,
         );
     }
 
@@ -68,6 +72,7 @@ final class ComparisonResult
         int $wholesaleMode,
         float $tierOneSellerPrice = 0.0,
         float $tierTwoSellerPrice = 0.0,
+        float $targetRetail = 0.0,
     ): self {
         return new self(
             shouldUpdate: true,
@@ -77,6 +82,7 @@ final class ComparisonResult
             wholesaleMode: $wholesaleMode,
             tierOneSellerPrice: $tierOneSellerPrice,
             tierTwoSellerPrice: $tierTwoSellerPrice,
+            targetRetail: $targetRetail,
         );
     }
 }

@@ -331,6 +331,55 @@ describe('ComparisonAlgorithm', function () {
         });
     });
 
+    // ── targetRetail ──────────────────────────────────────────────────────────────
+
+    describe('targetRetail', function () {
+
+        it('is set to second offer retail minus PRICE_STEP when we are the cheapest', function () {
+            // handleWeAreLowest: second = 3.50 → targetRetail = 3.50 - 0.014 = 3.486
+            $offers = [
+                offer(10, 'CarcaDeals', 3.00),
+                offer(20, 'CompetitorA', 3.50),
+            ];
+
+            $result = ComparisonAlgorithm::calculate($offers, 'CarcaDeals', $this->fee);
+
+            expect($result->targetRetail)->toEqualWithDelta(3.486, 0.001);
+        });
+
+        it('is set to lowest competitor retail minus PRICE_STEP when we are not the cheapest', function () {
+            // handleWeAreNotLowest: lowestCompetitor = 3.00 → targetRetail = 3.00 - 0.014 = 2.986
+            $offers = [
+                offer(1, 'CompetitorA', 3.00),
+                offer(2, 'CompetitorB', 3.20),
+                offer(3, 'CarcaDeals', 3.30),
+            ];
+
+            $result = ComparisonAlgorithm::calculate($offers, 'CarcaDeals', $this->fee);
+
+            expect($result->targetRetail)->toEqualWithDelta(2.986, 0.001);
+        });
+
+        it('is set to third offer retail minus PRICE_STEP in the checkOthersApi path', function () {
+            // checkOthersApi: third = 4.00 → targetRetail = 4.00 - 0.014 = 3.986
+            $offers = [
+                offer(1, 'Buy-n-Play', 3.00),
+                offer(2, 'CarcaDeals', 3.30),
+                offer(3, 'ThirdComp', 4.00),
+            ];
+
+            $result = ComparisonAlgorithm::calculate($offers, 'CarcaDeals', $this->fee);
+
+            expect($result->targetRetail)->toEqualWithDelta(3.986, 0.001);
+        });
+
+        it('is zero when noAction', function () {
+            $result = ComparisonAlgorithm::calculate([], 'CarcaDeals', $this->fee);
+
+            expect($result->targetRetail)->toBe(0.0);
+        });
+    });
+
     // ── requireOurOffer = false (AutoSell / WhenToSell — key ainda não listada) ─
 
     describe('requireOurOffer = false', function () {

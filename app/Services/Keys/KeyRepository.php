@@ -52,6 +52,18 @@ class KeyRepository
     }
 
     /**
+     * Retorna a primeira key listada e não vendida para um produto Gamivo.
+     * Usada para obter game_name e key_code nos logs do UpdateOffersUseCase.
+     */
+    public function findFirstListedByGamivoId(int $productId): ?Key
+    {
+        return Key::where('gamivo_id', (string) $productId)
+            ->whereNotNull('listed_at')
+            ->whereNull('sold_at')
+            ->first();
+    }
+
+    /**
      * Retorna keys elegíveis para listagem automática no Gamivo (AutoSellUseCase).
      *
      * Regras aplicadas via local scopes (ver Key):
