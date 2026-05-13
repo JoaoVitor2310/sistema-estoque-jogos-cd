@@ -253,6 +253,78 @@ describe('UpdateOffersUseCase', function () {
         expect($updated)->toBeEmpty();
     });
 
+    // ── Modos WeAreLowest / WeAreNotLowest ────────────────────────────────────
+
+    it('skips products where we are not lowest when mode is WeAreLowest', function () {
+        // Produto 501: CarcaDeals é o mais caro → weAreLowest = false → deve ser pulado
+        Http::fake([
+            '*/api/public/v1/offers/111*' => Http::response(111, 200),
+            '*/api/public/v1/products/501/offers' => Http::response([
+                ['id' => 110, 'seller_name' => 'CompetitorA', 'retail_price' => 3.00, 'completed_orders' => 5000, 'wholesale_mode' => 0],
+                ['id' => 111, 'seller_name' => 'CarcaDeals', 'retail_price' => 3.30, 'completed_orders' => 1000, 'wholesale_mode' => 0],
+            ], 200),
+            '*/api/public/v1/offers*' => Http::response(fakeActiveOffers([501]), 200),
+        ]);
+
+        $updated = app(UpdateOffersUseCase::class)->execute(\App\Domain\Enums\OffersUpdateMode::WeAreLowest);
+
+        expect($updated)->not->toContain(501);
+        Http::assertNotSent(fn ($req) => str_contains($req->url(), '/offers/111'));
+    });
+
+    it('processes products where we are lowest when mode is WeAreLowest', function () {
+        // Produto 502: CarcaDeals é o mais barato → weAreLowest = true → deve processar
+        // (offer id=120 pertence ao CarcaDeals → PUT vai para /offers/120)
+        insertKeyWithMinMax(502, minApi: 0.50, maxApi: 30.00);
+
+        Http::fake([
+            '*/api/public/v1/offers/120*' => Http::response(120, 200),
+            '*/api/public/v1/products/502/offers' => Http::response([
+                ['id' => 120, 'seller_name' => 'CarcaDeals', 'retail_price' => 8.79, 'completed_orders' => 1000, 'wholesale_mode' => 0],
+                ['id' => 121, 'seller_name' => 'CompetitorA', 'retail_price' => 9.85, 'completed_orders' => 5000, 'wholesale_mode' => 0],
+            ], 200),
+            '*/api/public/v1/offers*' => Http::response(fakeActiveOffers([502]), 200),
+        ]);
+
+        $updated = app(UpdateOffersUseCase::class)->execute(\App\Domain\Enums\OffersUpdateMode::WeAreLowest);
+
+        expect($updated)->toContain(502);
+        Http::assertSent(fn ($req) => str_contains($req->url(), '/offers/120'));
+    });
+
+    it('skips products where we are lowest when mode is WeAreNotLowest', function () {
+        // Produto 503: CarcaDeals é o mais barato → weAreLowest = true → deve ser pulado
+        Http::fake([
+            '*/api/public/v1/products/503/offers' => Http::response([
+                ['id' => 130, 'seller_name' => 'CarcaDeals', 'retail_price' => 8.79, 'completed_orders' => 1000, 'wholesale_mode' => 0],
+                ['id' => 131, 'seller_name' => 'CompetitorA', 'retail_price' => 9.85, 'completed_orders' => 5000, 'wholesale_mode' => 0],
+            ], 200),
+            '*/api/public/v1/offers*' => Http::response(fakeActiveOffers([503]), 200),
+        ]);
+
+        $updated = app(UpdateOffersUseCase::class)->execute(\App\Domain\Enums\OffersUpdateMode::WeAreNotLowest);
+
+        expect($updated)->not->toContain(503);
+        Http::assertNotSent(fn ($req) => str_contains($req->url(), '/offers/130'));
+    });
+
+    it('processes products where we are not lowest when mode is WeAreNotLowest', function () {
+        // Produto 504: CarcaDeals é o mais caro → weAreLowest = false → deve processar
+        Http::fake([
+            '*/api/public/v1/offers/141*' => Http::response(141, 200),
+            '*/api/public/v1/products/504/offers' => Http::response([
+                ['id' => 140, 'seller_name' => 'CompetitorA', 'retail_price' => 3.00, 'completed_orders' => 5000, 'wholesale_mode' => 0],
+                ['id' => 141, 'seller_name' => 'CarcaDeals', 'retail_price' => 3.30, 'completed_orders' => 1000, 'wholesale_mode' => 0],
+            ], 200),
+            '*/api/public/v1/offers*' => Http::response(fakeActiveOffers([504]), 200),
+        ]);
+
+        $updated = app(UpdateOffersUseCase::class)->execute(\App\Domain\Enums\OffersUpdateMode::WeAreNotLowest);
+
+        expect($updated)->toContain(504);
+        Http::assertSent(fn ($req) => str_contains($req->url(), '/offers/141'));
+    });
+
     // ── Wholesale ─────────────────────────────────────────────────────────────
 
     it('sends tier prices when the offer has wholesale mode 1', function () {
