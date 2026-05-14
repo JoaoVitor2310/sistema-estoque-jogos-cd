@@ -6,40 +6,13 @@
 |--------------------------------------------------------------------------
 |
 | PHP puro — sem DB, sem bootstrap do framework.
-| Testa as duas regras de negócio: preço mínimo de venda (5% de markup)
-| e rótulo padronizado do custo da trade.
+| Testa a regra de negócio: rótulo padronizado do custo da trade.
 |
 */
 
 use App\Domain\Pricing\SalePriceCalculator;
 
 describe('SalePriceCalculator', function () {
-
-    // -----------------------------------------------------------------------
-    // minimumSalePrice
-    // -----------------------------------------------------------------------
-
-    describe('minimumSalePrice', function () {
-
-        it('applies 5% markup over the market price', function () {
-            expect(SalePriceCalculator::minimumSalePrice(10.00))->toEqualWithDelta(10.50, 0.001);
-        });
-
-        it('works with fractional prices common in Gamivo', function () {
-            expect(SalePriceCalculator::minimumSalePrice(3.49))->toEqualWithDelta(3.6645, 0.001);
-            expect(SalePriceCalculator::minimumSalePrice(0.50))->toEqualWithDelta(0.525, 0.001);
-        });
-
-        it('always returns a price higher than the client price', function () {
-            $clientPrice = 7.00;
-            expect(SalePriceCalculator::minimumSalePrice($clientPrice))->toBeGreaterThan($clientPrice);
-        });
-
-        it('keeps precision on very low prices', function () {
-            // Keys de centavos ainda devem ter margem positiva
-            expect(SalePriceCalculator::minimumSalePrice(0.10))->toEqualWithDelta(0.105, 0.0001);
-        });
-    });
 
     // -----------------------------------------------------------------------
     // tradeCostLabel

@@ -127,6 +127,38 @@ function formatEur(val: number) {
 function profitClass(val: number) {
   return val >= 0 ? 'text-success' : 'text-danger';
 }
+
+const sortField = ref<string | null>(null);
+const sortDir = ref<'asc' | 'desc'>('asc');
+
+const sortedSoldGames = computed(() => {
+  if (!sortField.value) return props.data.sold_games;
+
+  return [...props.data.sold_games].sort((a, b) => {
+    const dir = sortDir.value === 'asc' ? 1 : -1;
+    switch (sortField.value) {
+      case 'sold_price':      return (a.sold_price - b.sold_price) * dir;
+      case 'sale_profit':     return (a.sale_profit - b.sale_profit) * dir;
+      case 'sale_profit_percent': return (a.sale_profit_percent - b.sale_profit_percent) * dir;
+      case 'sold_at':         return a.sold_at.localeCompare(b.sold_at) * dir;
+      default:                return 0;
+    }
+  });
+});
+
+function sortBy(field: string) {
+  if (sortField.value === field) {
+    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortField.value = field;
+    sortDir.value = 'asc';
+  }
+}
+
+function sortIcon(field: string): string {
+  if (sortField.value !== field) return 'pi pi-sort-alt';
+  return sortDir.value === 'asc' ? 'pi pi-sort-up' : 'pi pi-sort-down';
+}
 </script>
 
 <template>
@@ -274,10 +306,18 @@ function profitClass(val: number) {
               <th>Jogo</th>
               <th>Região</th>
               <th>Key</th>
-              <th class="text-end">Preço vendido</th>
-              <th class="text-end">Lucro</th>
-              <th class="text-end">Margem</th>
-              <th class="text-end">Data</th>
+              <th class="text-end sort-th" @click="sortBy('sold_price')">
+                Preço vendido <i :class="sortIcon('sold_price')" class="sort-icon" />
+              </th>
+              <th class="text-end sort-th" @click="sortBy('sale_profit')">
+                Lucro <i :class="sortIcon('sale_profit')" class="sort-icon" />
+              </th>
+              <th class="text-end sort-th" @click="sortBy('sale_profit_percent')">
+                Margem <i :class="sortIcon('sale_profit_percent')" class="sort-icon" />
+              </th>
+              <th class="text-end sort-th" @click="sortBy('sold_at')">
+                Data <i :class="sortIcon('sold_at')" class="sort-icon" />
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -290,7 +330,7 @@ function profitClass(val: number) {
               <td class="text-end">{{ data.monthly_sales.avg_margin }}%</td>
               <td></td>
             </tr>
-            <tr v-for="(game, i) in data.sold_games" :key="i">
+            <tr v-for="(game, i) in sortedSoldGames" :key="i">
               <td>{{ game.game_name }}</td>
               <td>{{ game.region ?? '—' }}</td>
               <td class="font-monospace small">{{ game.key_code ?? '—' }}</td>
@@ -310,3 +350,20 @@ function profitClass(val: number) {
 
   </div>
 </template>
+
+<style scoped>
+.sort-th {
+  cursor: pointer;
+  user-select: none;
+}
+
+.sort-th:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.sort-icon {
+  font-size: 0.7rem;
+  opacity: 0.6;
+  margin-left: 3px;
+}
+</style>

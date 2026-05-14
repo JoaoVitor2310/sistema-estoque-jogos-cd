@@ -79,7 +79,6 @@ const selectedNewObject = {
   notes: '',
   sell_platform: 'Gamivo',
   market_price: null,
-  minimum_sale_price: null,
   total_paid: '',
   individual_cost: null,
   min_api: null,
@@ -96,31 +95,31 @@ const selectedNewObject = {
 
 const selected = reactive([selectedNewObject]);
 
-const sharedQtdTF2 = ref(null);
-const sharedDataAdquirida = ref(null);
-const sharedPerfilOrigem = ref('');
-const sharedValorPagoTotal = ref('');
+const sharedTf2Quantity = ref(null);
+const sharedAcquiredAt = ref(null);
+const sharedSupplierUrl = ref('');
+const sharedTotalPaid = ref('');
 
 // Sincroniza o valor de tf2_quantity em todos os itens
-watch(sharedQtdTF2, (newValue) => {
+watch(sharedTf2Quantity, (newValue) => {
   selected.forEach(item => {
     item.tf2_quantity = newValue;
   });
 });
 
-watch(sharedDataAdquirida, (newValue) => {
+watch(sharedAcquiredAt, (newValue) => {
   selected.forEach(item => {
     item.acquired_at = newValue;
   });
 });
 
-watch(sharedPerfilOrigem, (newValue) => {
+watch(sharedSupplierUrl, (newValue) => {
   selected.forEach(item => {
     item.supplier_url = newValue;
   });
 });
 
-watch(sharedValorPagoTotal, (newValue) => {
+watch(sharedTotalPaid, (newValue) => {
   selected.forEach(item => {
     item.total_paid = newValue;
   });
@@ -130,9 +129,9 @@ const handleEditButton = (data: any) => {
   DialogVisible.value = true;
   isEdit.value = true;
   selected.splice(0, selected.length, ...data);
-  sharedDataAdquirida.value = data[0].acquired_at;
-  sharedPerfilOrigem.value = data[0].supplier_url;
-  sharedValorPagoTotal.value = data[0].total_paid;
+  sharedAcquiredAt.value = data[0].acquired_at;
+  sharedSupplierUrl.value = data[0].supplier_url;
+  sharedTotalPaid.value = data[0].total_paid;
 };
 
 const onEdit = async (selected: any) => {
@@ -140,14 +139,14 @@ const onEdit = async (selected: any) => {
   let product;
   if (Array.isArray(selected)) {
     product = { ...selected[0] };
-    if (sharedDataAdquirida.value) {
-      product.acquired_at = sharedDataAdquirida.value;
+    if (sharedAcquiredAt.value) {
+      product.acquired_at = sharedAcquiredAt.value;
     }
-    if (sharedPerfilOrigem.value !== '') {
-      product.supplier_url = sharedPerfilOrigem.value;
+    if (sharedSupplierUrl.value !== '') {
+      product.supplier_url = sharedSupplierUrl.value;
     }
-    if (sharedValorPagoTotal.value !== '') {
-      product.total_paid = sharedValorPagoTotal.value;
+    if (sharedTotalPaid.value !== '') {
+      product.total_paid = sharedTotalPaid.value;
     }
   } else {
     product = { ...selected };
@@ -210,10 +209,10 @@ const handleAddButton = async (): Promise<void> => { // Mostra o dialog com o el
   });
   isEdit.value = false;
   selected.splice(0, selected.length, { ...selectedNewObject }); // Zera o valor para criar um novo
-  sharedQtdTF2.value = null;
-  sharedDataAdquirida.value = new Date().toLocaleDateString('pt-BR');
-  sharedPerfilOrigem.value = '';
-  sharedValorPagoTotal.value = '';
+  sharedTf2Quantity.value = null;
+  sharedAcquiredAt.value = new Date().toLocaleDateString('pt-BR');
+  sharedSupplierUrl.value = '';
+  sharedTotalPaid.value = '';
   DialogVisible.value = true;
 }
 
@@ -328,15 +327,45 @@ const searchFilter = reactive({
   gamivo_id: '',
   hasIdGamivo: '',
   notes: '',
+  notes_filled: '',
   sell_platform: [],
   total_paid: '',
-  acquired_at: '',
+  acquired_at_from: null as Date | null,
+  acquired_at_to: null as Date | null,
   listed_at: '',
-  listed_at_range: null,
+  listed_at_from: null as Date | null,
+  listed_at_to: null as Date | null,
   sold_at: '',
+  sold_at_from: null as Date | null,
+  sold_at_to: null as Date | null,
   expires_at: '',
+  expires_at_from: null as Date | null,
+  expires_at_to: null as Date | null,
   supplier_url: '',
 })
+
+// Converte um objeto Date para o formato YYYY-MM-DD esperado pelo backend.
+// Usa data local (não UTC) para evitar deslocamento de fuso horário.
+const toDbDate = (date: Date | null): string | null => {
+  if (!date) return null;
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
+// Monta o payload de busca convertendo os campos de data (Date → string YYYY-MM-DD).
+const buildSearchPayload = () => ({
+  ...searchFilter,
+  acquired_at_from: toDbDate(searchFilter.acquired_at_from),
+  acquired_at_to: toDbDate(searchFilter.acquired_at_to),
+  listed_at_from: toDbDate(searchFilter.listed_at_from),
+  listed_at_to: toDbDate(searchFilter.listed_at_to),
+  sold_at_from: toDbDate(searchFilter.sold_at_from),
+  sold_at_to: toDbDate(searchFilter.sold_at_to),
+  expires_at_from: toDbDate(searchFilter.expires_at_from),
+  expires_at_to: toDbDate(searchFilter.expires_at_to),
+});
 
 const handlePageChange = (event: PageState) => { // Teve que ser criada por que o evento não pode ser passado com outro argumento junto
   onPageChange(false, event);
@@ -359,7 +388,7 @@ const onPageChange = async (search: boolean, event: PageState | null = null) => 
   try {
     const res = await axiosInstance(url, {
       method,
-      data: method === 'POST' ? searchFilter : null
+      data: method === 'POST' ? buildSearchPayload() : null
     });
     console.log(res.data);
     // return;
@@ -392,7 +421,7 @@ const getRowStyle = (data: GameLine) => {
       : null;
 };
 
-const getChaveRecebidaStyle = (data: GameLine) => {
+const getKeyCodeStyle = (data: GameLine) => {
   if (data.is_duplicate) {
     return {
       backgroundColor: '#ff0000', // Vermelho para duplicado
@@ -403,7 +432,7 @@ const getChaveRecebidaStyle = (data: GameLine) => {
   return {};
 };
 
-const getStyleByPercentual = (data: GameLine, field: keyof GameLine) => {
+const getStyleByPercent = (data: GameLine, field: keyof GameLine) => {
   const value = data[field];
 
   // Verifica se o valor é um número ou uma string que pode ser convertida para número
@@ -586,24 +615,17 @@ const handleImportSubmit = async (): Promise<void> => {
               :maxFractionDigits="2" :min="0" useGrouping />
           </div>
         </div>
-        <div class="d-flex flex-column">
-          <label class="fw-bold">Preço Mínimo para Venda</label>
-          <div class="d-flex gap-5 mb-3">
-            <InputNumber class="flex-auto" v-model="item.minimum_sale_price" mode="decimal" showButtons
-              :minFractionDigits="2" :maxFractionDigits="2" :min="0" useGrouping />
-          </div>
-        </div>
         <div v-if="!isEdit" class="d-flex flex-column">
           <label class="fw-bold">Quantidade de TF2*</label>
           <div class="d-flex gap-5 mb-3">
-            <InputNumber class="flex-auto" v-model="sharedQtdTF2" mode="decimal" showButtons :minFractionDigits="2"
+            <InputNumber class="flex-auto" v-model="sharedTf2Quantity" mode="decimal" showButtons :minFractionDigits="2"
               :maxFractionDigits="2" useGrouping />
           </div>
         </div>
         <div class="d-flex flex-column">
           <label class="fw-bold">Valor Pago Total</label>
           <div class="d-flex gap-5 mb-3">
-            <InputText class="flex-auto" v-model="sharedValorPagoTotal" />
+            <InputText class="flex-auto" v-model="sharedTotalPaid" />
           </div>
         </div>
         <div class="d-flex flex-column">
@@ -616,7 +638,7 @@ const handleImportSubmit = async (): Promise<void> => {
         <div class="d-flex flex-column">
           <label class="fw-bold text-nowrap">Data Adquirida*</label>
           <div class="d-flex gap-5 mb-3">
-            <InputText class="flex-auto" v-model="sharedDataAdquirida" />
+            <InputText class="flex-auto" v-model="sharedAcquiredAt" />
           </div>
         </div>
         <div class="d-flex flex-column">
@@ -634,7 +656,7 @@ const handleImportSubmit = async (): Promise<void> => {
         <div class="d-flex flex-column">
           <label class="fw-bold text-nowrap">URL Fornecedor*</label>
           <div class="d-flex gap-5 mb-3">
-            <InputText class="flex-auto" v-model="sharedPerfilOrigem" />
+            <InputText class="flex-auto" v-model="sharedSupplierUrl" />
           </div>
         </div>
       </div>
@@ -757,7 +779,7 @@ const handleImportSubmit = async (): Promise<void> => {
             <InputText v-model="searchFilter.key_code" type="text" placeholder="Pesquisar" />
           </template>
           <template #body="{ data }">
-            <div :style="getChaveRecebidaStyle(data)" style="width: 100%; height: 100%;">
+            <div :style="getKeyCodeStyle(data)" style="width: 100%; height: 100%;">
               {{ data.key_code }}
             </div>
           </template>
@@ -800,7 +822,14 @@ const handleImportSubmit = async (): Promise<void> => {
         <Column field="notes" header="Observação" filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
-            <InputText v-model="searchFilter.notes" type="text" placeholder="Pesquisar" />
+            <div class="d-flex flex-column gap-1" style="min-width: 14rem">
+              <InputText v-model="searchFilter.notes" type="text" placeholder="Pesquisar" />
+              <Select v-model="searchFilter.notes_filled" :options="[
+                { name: 'Todos', value: '' },
+                { name: 'Sim', value: 'sim' },
+                { name: 'Não', value: 'nao' }
+              ]" placeholder="Preenchido?" optionLabel="name" optionValue="value" />
+            </div>
           </template>
           <template #editor="{ data, field }">
             <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
@@ -809,15 +838,6 @@ const handleImportSubmit = async (): Promise<void> => {
         <Column field="market_price" header="Preço Mercado" sortable class="text-center p-0">
           <template #body="slotProps">
             € {{ slotProps.data.market_price }}
-          </template>
-          <template #editor="{ data, field }">
-            <InputNumber v-model="data[field]" @update:modelValue="onEdit(data)" mode="decimal" :minFractionDigits="2"
-              :maxFractionDigits="2" useGrouping autofocus fluid />
-          </template>
-        </Column>
-        <Column field="minimum_sale_price" header="Preço Min. Venda" sortable class="text-center p-0">
-          <template #body="slotProps">
-            <span v-if="slotProps.data.minimum_sale_price">€ {{ slotProps.data.minimum_sale_price }}</span>
           </template>
           <template #editor="{ data, field }">
             <InputNumber v-model="data[field]" @update:modelValue="onEdit(data)" mode="decimal" :minFractionDigits="2"
@@ -863,7 +883,7 @@ const handleImportSubmit = async (): Promise<void> => {
         </Column>
         <Column field="purchase_profit_percent" header="Lucro Compra(%)" sortable class="text-center p-0">
           <template #body="slotProps">
-            <div :style="getStyleByPercentual(slotProps.data, 'purchase_profit_percent')" style="width: 100%; height: 100%;">
+            <div :style="getStyleByPercent(slotProps.data, 'purchase_profit_percent')" style="width: 100%; height: 100%;">
               {{ slotProps.data.purchase_profit_percent }}%
             </div>
           </template>
@@ -884,17 +904,21 @@ const handleImportSubmit = async (): Promise<void> => {
         </Column>
         <Column field="sale_profit_percent" header="Lucro Venda(%)" sortable class="text-center p-0">
           <template #body="slotProps">
-            <div :style="getStyleByPercentual(slotProps.data, 'sale_profit_percent')"
+            <div :style="getStyleByPercent(slotProps.data, 'sale_profit_percent')"
               style="width: 100%; height: 100%;">
               {{ slotProps.data.sale_profit_percent }}%
             </div>
           </template>
         </Column>
-        <Column field="acquired_at" header="Data Adquirida" filterField="searchField" :showFilterMenu="true"
+        <Column field="acquired_at" header="Data Adquirida" sortable filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
-            <!-- <DatePicker v-model="searchFilter.acquired_at" dateFormat="dd/mm/yy" showIcon fluid :showOnFocus="false"
-              showButtonBar /> -->
+            <div class="d-flex flex-column gap-1" style="min-width: 14rem">
+              <DatePicker v-model="searchFilter.acquired_at_from" dateFormat="dd/mm/yy" placeholder="De"
+                showButtonBar showIcon fluid />
+              <DatePicker v-model="searchFilter.acquired_at_to" dateFormat="dd/mm/yy" placeholder="Até"
+                showButtonBar showIcon fluid />
+            </div>
           </template>
           <template #body="slotProps">
             {{ formatDateToBR(slotProps.data.acquired_at) }}
@@ -903,14 +927,20 @@ const handleImportSubmit = async (): Promise<void> => {
             <InputText class="flex-auto" v-model="data[field]" @change="onEdit(data)" />
           </template>
         </Column>
-        <Column field="listed_at" header="Data Listada" filterField="searchField" :showFilterMenu="true"
+        <Column field="listed_at" header="Data Listada" sortable filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
-            <Select v-model="searchFilter.listed_at" :options="[
-              { name: 'Sim', value: 'sim' },
-              { name: 'Não', value: 'nao' }
-            ]" placeholder="Já posto a venda?" optionLabel="name" optionValue="value" style="min-width: 14rem">
-            </Select>
+            <div class="d-flex flex-column gap-1" style="min-width: 14rem">
+              <Select v-model="searchFilter.listed_at" :options="[
+                { name: 'Todos', value: '' },
+                { name: 'Sim', value: 'sim' },
+                { name: 'Não', value: 'nao' }
+              ]" placeholder="Já posto a venda?" optionLabel="name" optionValue="value" />
+              <DatePicker v-model="searchFilter.listed_at_from" dateFormat="dd/mm/yy" placeholder="De"
+                showButtonBar showIcon fluid />
+              <DatePicker v-model="searchFilter.listed_at_to" dateFormat="dd/mm/yy" placeholder="Até"
+                showButtonBar showIcon fluid />
+            </div>
           </template>
           <template #body="slotProps">
             {{ formatDateToBR(slotProps.data.listed_at) }}
@@ -919,14 +949,20 @@ const handleImportSubmit = async (): Promise<void> => {
             <InputText class="flex-auto" v-model="data[field]" @change="onEdit(data)" />
           </template>
         </Column>
-        <Column field="sold_at" header="Data Vendida" filterField="searchField" :showFilterMenu="true"
+        <Column field="sold_at" header="Data Vendida" sortable filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
-            <Select v-model="searchFilter.sold_at" :options="[
-              { name: 'Sim', value: 'sim' },
-              { name: 'Não', value: 'nao' }
-            ]" placeholder="Já vendido?" optionLabel="name" optionValue="value" style="min-width: 14rem">
-            </Select>
+            <div class="d-flex flex-column gap-1" style="min-width: 14rem">
+              <Select v-model="searchFilter.sold_at" :options="[
+                { name: 'Todos', value: '' },
+                { name: 'Sim', value: 'sim' },
+                { name: 'Não', value: 'nao' }
+              ]" placeholder="Já vendido?" optionLabel="name" optionValue="value" />
+              <DatePicker v-model="searchFilter.sold_at_from" dateFormat="dd/mm/yy" placeholder="De"
+                showButtonBar showIcon fluid />
+              <DatePicker v-model="searchFilter.sold_at_to" dateFormat="dd/mm/yy" placeholder="Até"
+                showButtonBar showIcon fluid />
+            </div>
           </template>
           <template #body="slotProps">
             {{ formatDateToBR(slotProps.data.sold_at) }}
@@ -935,14 +971,20 @@ const handleImportSubmit = async (): Promise<void> => {
             <InputText class="flex-auto" v-model="data[field]" @change="onEdit(data)" />
           </template>
         </Column>
-        <Column field="expires_at" header="Data Expiração" filterField="searchField" :showFilterMenu="true"
+        <Column field="expires_at" header="Data Expiração" sortable filterField="searchField" :showFilterMenu="true"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
-            <Select v-model="searchFilter.expires_at" :options="[
-              { name: 'Sim', value: 'sim' },
-              { name: 'Não', value: 'nao' }
-            ]" placeholder="Expira?" optionLabel="name" optionValue="value" style="min-width: 14rem">
-            </Select>
+            <div class="d-flex flex-column gap-1" style="min-width: 14rem">
+              <Select v-model="searchFilter.expires_at" :options="[
+                { name: 'Todos', value: '' },
+                { name: 'Sim', value: 'sim' },
+                { name: 'Não', value: 'nao' }
+              ]" placeholder="Expira?" optionLabel="name" optionValue="value" />
+              <DatePicker v-model="searchFilter.expires_at_from" dateFormat="dd/mm/yy" placeholder="De"
+                showButtonBar showIcon fluid />
+              <DatePicker v-model="searchFilter.expires_at_to" dateFormat="dd/mm/yy" placeholder="Até"
+                showButtonBar showIcon fluid />
+            </div>
           </template>
           <template #body="slotProps">
             {{ formatDateToBR(slotProps.data.expires_at) }}

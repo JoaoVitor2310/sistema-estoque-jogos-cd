@@ -38,7 +38,6 @@ class KeyResource extends JsonResource
             'simulated_income' => $this->simulated_income,
             'purchase_profit' => $this->purchase_profit,
             'purchase_profit_percent' => $this->purchase_profit_percent,
-            'minimum_sale_price' => $this->minimum_sale_price,
             'min_api' => $this->min_api,
             'max_api' => $this->max_api,
             'sold_price' => $this->sold_price,

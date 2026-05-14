@@ -23,7 +23,6 @@ export type GameLine = {
     claim_type: ClaimType | null;
     sell_platform: SellPlatform | null;
     market_price: number | null;
-    minimum_sale_price: number | null;
     simulated_income: number | null;
     total_paid: string;
     individual_cost: number | null;

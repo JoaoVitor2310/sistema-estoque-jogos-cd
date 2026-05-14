@@ -40,7 +40,6 @@ class StoreGameRequestArray extends FormRequest
             'games.*.notes' => ['string', 'nullable'],
             'games.*.sell_platform' => ['nullable', Rule::enum(SellPlatform::class)],
             'games.*.market_price' => ['required', 'decimal:0,2', 'gt:0'],
-            'games.*.minimum_sale_price' => ['nullable', 'decimal:0,2'],
             'games.*.min_api' => ['nullable', 'decimal:0,2'],
             'games.*.max_api' => ['nullable', 'decimal:0,2'],
             'games.*.total_paid' => ['string', 'nullable'],
