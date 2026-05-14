@@ -33,7 +33,6 @@ class Key extends Model
         'key_format',
         'sell_platform',
         'market_price',
-        'minimum_sale_price',
         'simulated_income',
         'total_paid',
         'tf2_quantity',

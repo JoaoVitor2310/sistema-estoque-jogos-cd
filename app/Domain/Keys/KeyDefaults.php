@@ -39,7 +39,6 @@ final class KeyDefaults
         return [
             'gamivo_id' => null,
             'steam_id' => null,
-            'minimum_sale_price' => null,
             'min_api' => null,
             'max_api' => null,
             'claim_type' => self::CLAIM_TYPE,

@@ -28,7 +28,6 @@ class KeyAutoSellResource extends JsonResource
             'idGamivo' => $this->gamivo_id,
             'precoCliente' => $this->market_price,
             'lucroPercentual' => $this->purchase_profit_percent,
-            'minimoParaVenda' => $this->minimum_sale_price,
             'valorPagoIndividual' => $this->individual_cost,
             'chaveRecebida' => $this->key_code,
             'dataAdquirida' => $this->acquired_at,

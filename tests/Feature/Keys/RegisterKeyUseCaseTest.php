@@ -21,7 +21,6 @@
 |
 */
 
-use App\Domain\Pricing\SalePriceCalculator;
 use App\UseCases\Keys\RegisterKeyUseCase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -58,7 +57,6 @@ function makeGameInput(array $overrides = []): array
         'acquired_at' => now()->toDateString(),
         'gamivo_id' => null,
         'steam_id' => null,
-        'minimum_sale_price' => null,
         'min_api' => null,
         'max_api' => null,
         'claim_type' => 'Nenhuma',
@@ -103,14 +101,6 @@ describe('RegisterKeyUseCase', function () {
         $result = app(RegisterKeyUseCase::class)->execute([makeGameInput()]);
 
         expect((float) $result['games'][0]->individual_cost)->toEqualWithDelta(4.0, 0.01);
-    });
-
-    it('calculates minimum_sale_price as 1.05x market_price', function () {
-        // 1.05 × 5.00 = 5.25
-        $result = app(RegisterKeyUseCase::class)->execute([makeGameInput(['market_price' => 5.00])]);
-
-        expect((float) $result['games'][0]->minimum_sale_price)
-            ->toEqualWithDelta(SalePriceCalculator::minimumSalePrice(5.00), 0.001);
     });
 
     it('formats total_paid as "{tf2_quantity}x TF2 Keys / {count}"', function () {

@@ -98,12 +98,39 @@ class KeyController extends Controller
             }
 
             if (is_string($value)) {
-                // Campos de data: filtro por presença/ausência ou valor
+                // Filtros de range de data: sufixo _from → >= / sufixo _to → <=
+                // Ex: acquired_at_from, listed_at_to, sold_at_from, expires_at_to…
+                if (str_ends_with($key, '_from')) {
+                    $column = substr($key, 0, -5); // remove "_from"
+                    $query->where($column, '>=', $value);
+
+                    continue;
+                }
+
+                if (str_ends_with($key, '_to')) {
+                    $column = substr($key, 0, -3); // remove "_to"
+                    $query->where($column, '<=', $value);
+
+                    continue;
+                }
+
+                // Campos de data: filtro por presença/ausência (sim/nao)
                 if (in_array($key, ['listed_at', 'sold_at', 'expires_at'])) {
                     match ($value) {
                         'sim' => $query->whereNotNull($key),
                         'nao' => $query->whereNull($key),
                         default => $query->where($key, 'ILIKE', "%{$value}%"),
+                    };
+
+                    continue;
+                }
+
+                // Filtro de presença de observação
+                if ($key === 'notes_filled') {
+                    match ($value) {
+                        'sim' => $query->whereNotNull('notes')->where('notes', '!=', ''),
+                        'nao' => $query->where(fn ($q) => $q->whereNull('notes')->orWhere('notes', '')),
+                        default => null,
                     };
 
                     continue;

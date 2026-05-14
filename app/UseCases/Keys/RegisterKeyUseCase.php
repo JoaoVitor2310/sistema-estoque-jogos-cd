@@ -109,8 +109,6 @@ class RegisterKeyUseCase
                 // Cadastra o jogo na tabela games se ainda não existir
                 $this->gameService->createGameIfDontExists($game);
 
-                $game['minimum_sale_price'] = SalePriceCalculator::minimumSalePrice((float) $game['market_price']);
-
                 $game['total_paid'] = SalePriceCalculator::tradeCostLabel((float) $game['tf2_quantity'], $totalGames);
 
                 // Remove campos de lucro de venda nulos antes de persistir.

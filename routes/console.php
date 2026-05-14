@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\Enums\OffersUpdateMode;
 use App\Services\AssetService;
 use App\Services\Games\GameService;
 use App\Services\KeyService;
@@ -43,18 +44,27 @@ Schedule::call(fn () => app(KeyService::class)->reduceExpiringListedKeysPrice())
 Schedule::call(fn () => app(ReduceAgingKeysMinPriceUseCase::class)->execute())
     ->cron('30 7 * * *')->timezone('America/Sao_Paulo');
 
-// Listagem automática de keys elegíveis na Gamivo
-// Schedule::call(fn () => app(AutoSellUseCase::class)->execute())
-//     ->cron('0 8 * * *')->timezone('America/Sao_Paulo');
-
-// Reprecificação horária de todas as ofertas ativas na Gamivo
-Schedule::call(fn () => app(UpdateOffersUseCase::class)->execute())
-    ->cron('5 * * * *')->timezone('America/Sao_Paulo');
-
 // Baixa das keys vendidas na Gamivo (janela de 2 dias para cobrir bordas de fuso)
 Schedule::call(fn () => app(UpdateSoldOffersUseCase::class)->executeFromGamivo())
-    ->cron('0 7 * * *')->timezone('America/Sao_Paulo');
+    ->cron('0 6,18 * * *')->timezone('America/Sao_Paulo');
 
 // Atualização de popularidade dos jogos via SteamCharts
 Schedule::call(fn () => app(UpdatePopularityUseCase::class)->execute())
     ->cron('0 7 * * *')->timezone('America/Sao_Paulo');
+
+// Listagem automática de keys elegíveis na Gamivo
+// Schedule::command('gamivo:auto-sell')
+//     ->cron('0 8 * * *')->timezone('America/Sao_Paulo');
+
+// Reprecificação a cada 5 min para ofertas onde somos o mais barato (subir preço)
+Schedule::call(fn () => app(UpdateOffersUseCase::class)->execute(OffersUpdateMode::WeAreLowest))
+    ->cron('*/5 * * * *')->timezone('America/Sao_Paulo');
+
+// Reprecificação horária para ofertas onde não somos o mais barato (recuperar posição)
+Schedule::call(fn () => app(UpdateOffersUseCase::class)->execute(OffersUpdateMode::WeAreNotLowest))
+    ->cron('5 * * * *')->timezone('America/Sao_Paulo');
+
+Artisan::command('gamivo:auto-sell', function () {
+    $listed = app(AutoSellUseCase::class)->execute();
+    $this->info(count($listed).' key(s) listada(s): '.implode(', ', $listed));
+})->purpose('Lista keys elegíveis na Gamivo (AutoSellUseCase)');

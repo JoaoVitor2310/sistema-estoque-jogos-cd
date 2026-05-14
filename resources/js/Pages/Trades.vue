@@ -426,6 +426,48 @@ function rowClass(row: Row): string {
   if (row.status === 'error') return 'table-danger';
   return '';
 }
+
+// ─── Ordenação ────────────────────────────────────────────────────────────────
+
+const sortField = ref<string | null>(null);
+const sortDir = ref<'asc' | 'desc'>('asc');
+
+function getSortValue(row: Row, field: string): number | string {
+  switch (field) {
+    case 'date':       return row.date ?? '';
+    case 'expiry':     return row.expiry ?? '';
+    case 'marketPrice': return getMarketPrice(row);
+    case 'tf2Qty':     return parseFloat((row.tf2Qty ?? '').replace(',', '.')) || 0;
+    case 'netIncome':  return getNetIncome(row);
+    default:
+      if (field.startsWith('tier-')) {
+        const tier = parseFloat(field.slice(5));
+        return isNaN(tier) ? 0 : getOffer(row, isNaN(tier) ? 0 : tier);
+      }
+      return '';
+  }
+}
+
+function sortBy(field: string) {
+  sortDir.value = sortField.value === field && sortDir.value === 'asc' ? 'desc' : 'asc';
+  sortField.value = field;
+
+  const dir = sortDir.value === 'asc' ? 1 : -1;
+
+  tradeList.value.forEach(trade => {
+    trade.rows.sort((a, b) => {
+      const av = getSortValue(a, field);
+      const bv = getSortValue(b, field);
+      if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
+      return String(av).localeCompare(String(bv)) * dir;
+    });
+  });
+}
+
+function sortIcon(field: string): string {
+  if (sortField.value !== field) return 'pi pi-sort-alt';
+  return sortDir.value === 'asc' ? 'pi pi-sort-up' : 'pi pi-sort-down';
+}
 </script>
 
 <template>
@@ -560,37 +602,50 @@ function rowClass(row: Row): string {
             <thead class="table-light">
               <tr>
                 <th style="width: 36px;"></th>
-                <th class="ps-3" style="min-width: 90px;">Data</th>
-                <th style="min-width: 110px;">Preço Mercado <span class="text-muted fw-normal">(€)</span></th>
+                <th class="ps-3 sort-th" style="min-width: 90px;" @click="sortBy('date')">
+                  Data <i :class="sortIcon('date')" class="sort-icon" />
+                </th>
+                <th class="sort-th" style="min-width: 110px;" @click="sortBy('marketPrice')">
+                  Preço Mercado <span class="text-muted fw-normal">(€)</span>
+                  <i :class="sortIcon('marketPrice')" class="sort-icon" />
+                </th>
                 <th style="min-width: 120px;">URL Fornecedor</th>
-                <th style="min-width: 90px;">Qtd TF2</th>
+                <th class="sort-th" style="min-width: 90px;" @click="sortBy('tf2Qty')">
+                  Qtd TF2 <i :class="sortIcon('tf2Qty')" class="sort-icon" />
+                </th>
                 <th style="min-width: 100px;">Bundle</th>
-                <th style="min-width: 100px;">Expiração</th>
+                <th class="sort-th" style="min-width: 100px;" @click="sortBy('expiry')">
+                  Expiração <i :class="sortIcon('expiry')" class="sort-icon" />
+                </th>
                 <th style="min-width: 90px;">Popularidade</th>
                 <th style="min-width: 90px;">Region</th>
                 <th style="min-width: 200px;">
                   <span class="text-primary fw-bold">Key Code</span>
                 </th>
                 <th style="min-width: 180px;">Nome do Jogo</th>
-                <th class="text-end" style="min-width: 100px;">
+                <th class="text-end sort-th" style="min-width: 100px;" @click="sortBy('netIncome')">
                   Income líq. <span class="text-muted fw-normal">(€)</span>
+                  <i :class="sortIcon('netIncome')" class="sort-icon" />
                 </th>
 
                 <!-- Tiers fixos -->
                 <th
                   v-for="tier in profitTiers"
                   :key="tier"
-                  class="text-center"
+                  class="text-center sort-th"
                   style="min-width: 100px;"
+                  @click="sortBy(`tier-${tier}`)"
                 >
                   <div class="d-flex flex-column align-items-center gap-1">
-                    <span class="badge" :class="tierBadgeClass(tier)">{{ tier }}%</span>
+                    <span class="badge" :class="tierBadgeClass(tier)">
+                      {{ tier }}% <i :class="sortIcon(`tier-${tier}`)" class="sort-icon" />
+                    </span>
                     <button
                       type="button"
                       class="btn btn-sm"
                       :class="trade.copiedKey === `tier-${tier}` ? 'btn-success' : 'btn-outline-secondary'"
                       :title="`Copiar todos (${tier}%)`"
-                      @click="copyTier(trade, tier)"
+                      @click.stop="copyTier(trade, tier)"
                     >
                       <i :class="trade.copiedKey === `tier-${tier}` ? 'pi pi-check' : 'pi pi-copy'" />
                     </button>
@@ -598,11 +653,17 @@ function rowClass(row: Row): string {
                 </th>
 
                 <!-- Tier customizável -->
-                <th class="text-center" style="min-width: 110px;">
+                <th
+                  class="text-center sort-th"
+                  style="min-width: 110px;"
+                  @click="customTier !== null && sortBy('tier-custom')"
+                >
                   <div class="d-flex flex-column align-items-center gap-1">
                     <div class="d-flex align-items-center gap-1">
                       <span class="badge bg-secondary" v-if="customTier === null">—%</span>
-                      <span class="badge bg-secondary" v-else>{{ customTier }}%</span>
+                      <span class="badge bg-secondary" v-else>
+                        {{ customTier }}% <i :class="sortIcon('tier-custom')" class="sort-icon" />
+                      </span>
                     </div>
                     <button
                       type="button"
@@ -610,7 +671,7 @@ function rowClass(row: Row): string {
                       :class="trade.copiedKey === 'tier-custom' ? 'btn-success' : 'btn-outline-secondary'"
                       :disabled="customTier === null"
                       title="Copiar todos"
-                      @click="copyCustomTier(trade)"
+                      @click.stop="copyCustomTier(trade)"
                     >
                       <i :class="trade.copiedKey === 'tier-custom' ? 'pi pi-check' : 'pi pi-copy'" />
                     </button>
@@ -851,6 +912,30 @@ function rowClass(row: Row): string {
 
 .custom-tier-input[type=number] {
   -moz-appearance: textfield;
+}
+
+/* ── Ordenação ───────────────────────────────────────────────────────────────── */
+
+.sort-th {
+  cursor: pointer;
+  user-select: none;
+}
+
+.sort-th:hover {
+  background-color: #e9ecef;
+}
+
+.sort-icon {
+  font-size: 0.65rem;
+  opacity: 0.5;
+  margin-left: 2px;
+  vertical-align: middle;
+}
+
+.sort-th:hover .sort-icon,
+.sort-icon.pi-sort-up,
+.sort-icon.pi-sort-down {
+  opacity: 1;
 }
 
 .btn-outline-purple {
