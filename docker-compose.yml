@@ -48,6 +48,7 @@ services:
     image: nginx:stable-alpine
     restart: always
     ports:
+      - "80:80"
       - "170:80"
     volumes:
       - .:/var/www/html
