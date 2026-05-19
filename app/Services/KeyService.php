@@ -4,10 +4,13 @@ namespace App\Services;
 
 use App\Domain\Keys\KeyEligibility;
 use App\Domain\Keys\KeyPriceAging;
+use App\Domain\Pricing\ComparisonAlgorithm;
 use App\Domain\Pricing\MinMaxPriceCalculator;
+use App\Domain\Pricing\OfferData;
 use App\Models\Key;
+use App\Services\External\GamivoApiService;
+use App\Services\Keys\KeyCalculationService;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
@@ -16,10 +19,10 @@ class KeyService
     /**
      * Create a new class instance.
      */
-    public function __construct()
-    {
-        //
-    }
+    public function __construct(
+        private readonly GamivoApiService $gamivoApi,
+        private readonly KeyCalculationService $keyCalculationService,
+    ) {}
 
     /**
      * Envia alerta por e-mail quando há keys expirando nos próximos 30 dias.
@@ -96,23 +99,42 @@ class KeyService
     }
 
     /**
-     * Get the actual price of the game on Gamivo
+     * Retorna o preço de mercado de referência para o produto na Gamivo.
      *
-     * @param  string  $gamivoId
+     * Usa o ComparisonAlgorithm para obter um preço realista:
+     *  - Filtra price dumpers (detectDumpers = true)
+     *  - Não exige nossa oferta listada (requireOurOffer = false): keys em limbo
+     *    podem ter oferta desativada, mas ainda precisamos do preço de mercado
+     *    para ajustar min_api corretamente
+     *  - Retorna targetRetail (preço de varejo de referência calculado pelo algoritmo)
      */
-    private function getActualPrice($gamivoId): array
+    private function getActualPrice(string $gamivo_id): array
     {
         try {
-            $response = Http::get(config('services.carca_api_gamivo.base_url').'/api/products/'.$gamivoId);
-            if ($response->successful()) {
-                $response = $response->json();
+            $rawOffers = $this->gamivoApi->getOffersForProduct((int) $gamivo_id);
 
-                return ['success' => true, 'price' => $response['actualPrice']['price']];
-            } else {
+            if (empty($rawOffers)) {
                 return ['success' => false, 'price' => null];
             }
+
+            $offers = array_map(fn ($o) => OfferData::fromArray($o), $rawOffers);
+            $fee = $this->keyCalculationService->getMarketplaceFee();
+            $sellerName = config('services.gamivo.seller_name');
+
+            $result = ComparisonAlgorithm::calculate(
+                $offers,
+                $sellerName,
+                $fee,
+                detectDumpers: true,
+                requireOurOffer: false,
+            );
+
+            if (! $result->shouldUpdate || $result->targetRetail <= 0) {
+                return ['success' => false, 'price' => null];
+            }
+
+            return ['success' => true, 'price' => $result->targetRetail];
         } catch (\Throwable $e) {
-            //error log
             Log::error('Error getting actual price of game on Gamivo: '.$e->getMessage().' - '.$e->getLine().' - '.$e->getFile());
 
             return ['success' => false, 'price' => null];

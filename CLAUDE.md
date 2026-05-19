@@ -321,21 +321,6 @@ docker exec app-cd php artisan view:cache
 
 ## Roadmap
 
-### Em andamento — Migração da API `gamivo-carca-deals` para Laravel
-
-Ver plano completo em [`docs/GAMIVO.md`](docs/GAMIVO.md).
-
-Fases resumidas:
-
-| Fase | Entrega | Status |
-|------|---------|--------|
-| 0 | Infra compartilhada: `GamivoApiService`, scheduler, notificação de token expirado | ✅ feito |
-| 1 | `UpdateOffersUseCase` + `ComparisonAlgorithm` — reprecificação horária | ✅ feito |
-| 2 | `UpdateSoldOffersUseCase::executeFromGamivo()` + `UpdatePopularityUseCase` | ✅ feito |
-| 3 | `AutoSellUseCase` — listagem automática + age override para keys ≥ 10 meses | ✅ feito |
-| 4 | `ReduceAgingKeysMinPriceUseCase` — reduz `min_api` de keys ≥ 7 meses paradas | ✅ feito |
-| 5 | Desligar `gamivo-carca-deals`; notificações por e-mail inline | ⬜ pendente |
-
 ### Próximo — Qualidade de código
 
 - [ ] Instalar PHPStan + Larastan: `composer require --dev nunomaduro/larastan`
