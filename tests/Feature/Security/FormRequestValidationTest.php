@@ -139,13 +139,22 @@ describe('StoreGameRequest validation', function () {
 
     describe('sold_price (6.5)', function () {
 
-        it('rejects sold_price = 0 when provided', function () {
+        it('accepts sold_price = 0 (ex: reembolso)', function () {
             $user = requestAuthorizedUser();
 
-            $this->actingAs($user)
-                ->postJson('/keys', gamePayload(['sold_price' => 0]))
-                ->assertStatus(422)
-                ->assertJsonValidationErrors(['games.0.sold_price']);
+            $response = $this->actingAs($user)
+                ->postJson('/keys', gamePayload(['sold_price' => 0]));
+
+            expect($response->status())->not->toBe(422);
+        });
+
+        it('accepts negative sold_price (ex: gamivo fee)', function () {
+            $user = requestAuthorizedUser();
+
+            $response = $this->actingAs($user)
+                ->postJson('/keys', gamePayload(['sold_price' => -1.50]));
+
+            expect($response->status())->not->toBe(422);
         });
 
         it('accepts null sold_price (key ainda não vendida)', function () {

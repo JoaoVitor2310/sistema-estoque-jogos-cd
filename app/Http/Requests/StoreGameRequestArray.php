@@ -43,7 +43,7 @@ class StoreGameRequestArray extends FormRequest
             'games.*.min_api' => ['nullable', 'decimal:0,2'],
             'games.*.max_api' => ['nullable', 'decimal:0,2'],
             'games.*.total_paid' => ['string', 'nullable'],
-            'games.*.sold_price' => ['nullable', 'decimal:0,2', 'gt:0'],
+            'games.*.sold_price' => ['nullable', 'decimal:0,2'],
             'games.*.acquired_at' => ['required', 'string'],
             'games.*.listed_at' => ['nullable', 'string'],
             'games.*.sold_at' => ['nullable', 'string'],
