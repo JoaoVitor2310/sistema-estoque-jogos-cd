@@ -632,7 +632,7 @@ const handleImportSubmit = async (): Promise<void> => {
           <label class="fw-bold">Valor Vendido</label>
           <div class="d-flex gap-5 mb-3">
             <InputNumber class="flex-auto" v-model="item.sold_price" mode="decimal" showButtons :minFractionDigits="2"
-              :maxFractionDigits="2" useGrouping />
+              :maxFractionDigits="2" :min="-Infinity" useGrouping />
           </div>
         </div>
         <div class="d-flex flex-column">
@@ -894,7 +894,7 @@ const handleImportSubmit = async (): Promise<void> => {
           </template>
           <template #editor="{ data, field }">
             <InputNumber v-model="data[field]" @update:modelValue="onEdit(data)" mode="decimal" :minFractionDigits="2"
-              :maxFractionDigits="2" useGrouping autofocus fluid />
+              :maxFractionDigits="2" :min="-Infinity" useGrouping autofocus fluid />
           </template>
         </Column>
         <Column field="sale_profit" header="Lucro Venda(€)" sortable class="text-center p-0">

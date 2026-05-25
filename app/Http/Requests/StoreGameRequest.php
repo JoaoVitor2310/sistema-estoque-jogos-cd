@@ -42,7 +42,7 @@ class StoreGameRequest extends FormRequest
             'min_api' => ['nullable', 'decimal:0,2'],
             'max_api' => ['nullable', 'decimal:0,2'],
             'total_paid' => ['string', 'nullable'],
-            'sold_price' => ['nullable', 'decimal:0,2', 'gt:0'],
+            'sold_price' => ['nullable', 'decimal:0,2'],
             'acquired_at' => ['required', 'string'],
             'listed_at' => ['nullable', 'string'],
             'sold_at' => ['nullable', 'string'],
