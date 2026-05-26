@@ -1,0 +1,72 @@
+# Secrets necessários em Settings → Secrets and variables → Actions:
+#   VPS_HOST     — IP ou domínio da VPS (ex: 11.11.111.111)
+#   VPS_USER     — usuário SSH (ex: root)
+#   VPS_SSH_KEY  — conteúdo da chave privada SSH (par da pública em ~/.ssh/authorized_keys na VPS)
+#   VPS_PORT     — porta SSH (geralmente 22)
+
+name: Deploy
+
+on:
+  # Dispara automaticamente quando o CI (ci.yml) conclui com sucesso na main.
+  # Assim o deploy só acontece se Pint + PHPStan + Pest passarem.
+  workflow_run:
+    workflows: ["CI"]
+    branches: [main]
+    types: [completed]
+  # Mantém disparo manual para emergências / rollback.
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # No workflow_run: só executa se o CI passou. No workflow_dispatch: sempre executa.
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Build frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script: |
+            cd /var/www/sistema-estoque-jogos-cd
+            git pull origin main
+            rm -f public/hot
+            if git diff HEAD~1 HEAD --name-only | grep -q composer.lock; then
+              docker exec app-cd composer install --no-dev --optimize-autoloader
+            fi
+            docker exec app-cd php artisan migrate --force
+            docker exec app-cd php artisan optimize:clear
+            docker exec app-cd php artisan config:cache
+            docker exec app-cd php artisan route:cache
+            docker exec app-cd php artisan view:cache
+
+            # Recarrega o PHP-FPM para limpar o OpCache sem derrubar o container
+            docker exec app-cd kill -USR2 1
+
+      - name: Copy build to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          source: public/build/
+          target: /var/www/sistema-estoque-jogos-cd/

@@ -327,40 +327,33 @@ docker exec app-cd php artisan view:cache
 - [ ] Configurar `phpstan.neon`: nível 8 em `app/Domain/`, nível 5 no restante
 - [ ] Configurar Pint para rodar no pre-commit ou CI
 
-### Futura — Pipeline de deploy automático (CI/CD)
+### CI/CD — Pipeline automático ✅
 
-> ⚠️ **Ideia futura** — não implementada. Documentada aqui para orientar pesquisa e aprendizado.
+Implementado via GitHub Actions em `.github/workflows/`:
 
-O objetivo é eliminar o deploy manual: ao fazer `git push origin main`, tudo deve acontecer automaticamente — testes, build e deploy na VPS.
+| Arquivo | Trigger | Jobs |
+|---------|---------|------|
+| `ci.yml` | push/PR em `main` | Pint → PHPStan → Pest (paralelos) |
+| `deploy.yml` | `ci.yml` conclui com sucesso em `main` | Build frontend → SSH deploy → SCP build |
 
-**Tópicos para pesquisar:**
-
-| Tópico | O que estudar |
-|--------|--------------|
-| **GitHub Actions** | Como criar workflows `.yml`; triggers (`on: push`); jobs e steps |
-| **SSH remoto em Actions** | `appleboy/ssh-action` — executar comandos na VPS via Action |
-| **Secrets no GitHub** | Armazenar `SSH_KEY`, `VPS_HOST`, `VPS_USER` sem expor no código |
-| **Build de assets no CI** | Rodar `npm ci && npm run build` no runner do GitHub (Ubuntu), copiar `public/build` para a VPS via `rsync` ou `scp` |
-| **Zero-downtime deploy** | `php artisan down` / `up`; estratégia de deploy com symlinks (Deployer, Envoyer) |
-| **Cache de dependências** | `actions/cache` para `vendor/` e `node_modules/` — acelera o pipeline |
-
-**Esboço do fluxo futuro:**
-
+**Fluxo:**
 ```
 git push origin main
-  └─ GitHub Actions (runner Ubuntu)
-       ├─ composer install
-       ├─ npm ci && npm run build
-       ├─ Pest (testes)
-       ├─ PHPStan (análise estática)
-       └─ SSH na VPS
-            ├─ git pull
-            ├─ rsync public/build → VPS
-            ├─ php artisan migrate --force
-            └─ php artisan optimize:clear + caches
+  └─ ci.yml (Pint + PHPStan + Pest)
+       └─ deploy.yml (se CI passou)
+            ├─ npm ci && npm run build  (no runner do GitHub)
+            ├─ SSH → git pull + composer install (se lock mudou) + migrate + caches
+            └─ SCP → public/build/ → VPS
 ```
 
-**Ferramentas alternativas para pesquisar:** Laravel Forge, Envoyer, Deployer PHP.
+**Secrets necessários** (GitHub → Settings → Secrets and variables → Actions):
+
+| Secret | Valor |
+|--------|-------|
+| `VPS_HOST` | IP da VPS (ex: `31.97.251.251`) |
+| `VPS_USER` | Usuário SSH (ex: `root`) |
+| `VPS_SSH_KEY` | Conteúdo da chave privada SSH |
+| `VPS_PORT` | Porta SSH (geralmente `22`) |
 
 ### Futura — Normalizar FK entre `keys` e `games`
 
