@@ -79,7 +79,7 @@ jobs:
             docker exec app-cd php artisan view:cache
 
             # Recarrega o PHP-FPM para limpar o OpCache sem derrubar o container
-            docker exec app-cd kill -USR2 1
+            docker kill --signal=USR2 app-cd
 
       - name: Copy build to VPS
         uses: appleboy/scp-action@v0.1.7
