@@ -6,6 +6,7 @@ use App\Domain\Pricing\OfferCalculator;
 use App\Http\Requests\ImportTradeKeysRequest;
 use App\Models\Trade;
 use App\Services\Keys\KeyCalculationService;
+use App\Services\Trades\TradeService;
 use App\UseCases\Keys\RegisterKeyUseCase;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,6 +18,7 @@ class TradeController extends Controller
     public function __construct(
         private readonly KeyCalculationService $calculationService,
         private readonly RegisterKeyUseCase $registerKeyUseCase,
+        private readonly TradeService $tradeService,
     ) {}
 
     /**
@@ -27,7 +29,7 @@ class TradeController extends Controller
         $fee = $this->calculationService->getMarketplaceFee();
 
         return Inertia::render('Trades', [
-            'trades' => Trade::orderBy('created_at')->get(['id', 'title', 'rows', 'created_at']),
+            'trades' => $this->tradeService->allWithStockedStatus(),
             'tf2Price' => $this->calculationService->getTf2EuroPrice(),
             'fees' => [
                 'percentLow' => $fee->percentLow,
@@ -57,12 +59,16 @@ class TradeController extends Controller
      */
     public function update(Request $request, Trade $trade): JsonResponse
     {
+        $rows = $request->input('rows', []);
+
         $trade->update([
             'title' => $request->input('title'),
-            'rows' => $request->input('rows', []),
+            'rows' => $rows,
         ]);
 
-        return response()->json([], 200);
+        return response()->json([
+            'is_stocked' => $this->tradeService->isStocked($rows),
+        ], 200);
     }
 
     /**
