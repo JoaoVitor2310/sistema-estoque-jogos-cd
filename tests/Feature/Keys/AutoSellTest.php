@@ -54,13 +54,14 @@ function insertAutoSellKey(string $gamivoId = '440', array $overrides = []): int
 
 /**
  * Http::fake() padrão para o fluxo completo de uma key:
- * sem concorrentes → cria oferta → upload → job concluído → key verificada como ativa.
+ * sem concorrentes → cria oferta → atualiza preço → upload → key verificada como ativa.
  */
 function fakeGamivoAutoSell(): void
 {
     Http::fake([
         '*/products/*/offers' => Http::response([], 200),
         '*/v1/offers' => Http::response(12345, 200),
+        '*/offers/12345' => Http::response(12345, 200),          // updateOffer (PUT)
         '*/offers/12345/keys/upload' => Http::response(999, 200),
         '*/offers/12345/jobs/999/result' => Http::response('"Done"', 200),
         '*/offers/12345/keys/active/0/1*' => Http::response(['count' => 1, 'data' => []], 200),
@@ -110,6 +111,8 @@ describe('AutoSellUseCase', function () {
         Http::fake([
             '*/products/*/offers' => Http::response([], 200),
             '*/v1/offers' => Http::sequence()->push(11111)->push(22222),
+            '*/offers/11111' => Http::response(11111, 200),      // updateOffer (PUT) key 1
+            '*/offers/22222' => Http::response(22222, 200),      // updateOffer (PUT) key 2
             '*/offers/11111/keys/upload' => Http::response(991, 200),
             '*/offers/22222/keys/upload' => Http::response(992, 200),
             '*/offers/11111/jobs/991/result' => Http::response('"Done"', 200),
@@ -164,6 +167,7 @@ describe('AutoSellUseCase', function () {
         Http::fake([
             '*/products/*/offers' => Http::response([], 200),
             '*/v1/offers' => Http::response(12345, 200),
+            '*/offers/12345' => Http::response(12345, 200),      // updateOffer (PUT)
             '*/offers/12345/keys/upload' => Http::response(999, 200),
             '*/offers/12345/jobs/999/result' => Http::response('"Done"', 200),
             // Verificação retorna count = 0 — key não encontrada como ativa
@@ -235,6 +239,7 @@ describe('AutoSellUseCase', function () {
                     'rating' => 4.5, 'invoicable' => false, 'is_preorder' => false],
             ], 200),
             '*/v1/offers' => Http::response(12345, 200),
+            '*/offers/12345' => Http::response(12345, 200),      // updateOffer (PUT)
             '*/offers/12345/keys/upload' => Http::response(999, 200),
             '*/offers/12345/keys/active/0/1*' => Http::response(['count' => 1, 'data' => []], 200),
         ]);
@@ -265,6 +270,7 @@ describe('AutoSellUseCase', function () {
                     'rating' => 4.5, 'invoicable' => false, 'is_preorder' => false],
             ], 200),
             '*/v1/offers' => Http::response(12345, 200),
+            '*/offers/12345' => Http::response(12345, 200),      // updateOffer (PUT)
             '*/offers/12345/keys/upload' => Http::response(999, 200),
             '*/offers/12345/jobs/999/result' => Http::response('"Done"', 200),
             '*/offers/12345/keys/active/0/1*' => Http::response(['count' => 1, 'data' => []], 200),
@@ -316,6 +322,42 @@ describe('AutoSellUseCase', function () {
             ->and((float) $key->max_api)->toBe(20.00);
     });
 
+    // ── Reativação de oferta existente ───────────────────────────────────────────
+
+    it('applies the new calculated price even when createOffer falls back to reactivation', function () {
+        // Cenário: oferta existia inativa → createOffer retorna 400 "Offer already exists [12345]"
+        // → changeOfferStatus apenas reativa com o preço antigo
+        // → updateOffer deve ser chamado para corrigir o preço
+        //
+        // Sem concorrentes → sellerPrice = max_api = 15.00.
+        // Verificamos que updateOffer (PUT) é chamado com seller_price = 15.00.
+        Http::fake([
+            '*/products/*/offers' => Http::response([], 200),
+            // createOffer retorna 400 com offerId no texto — simula oferta já existente inativa
+            '*/v1/offers' => Http::response(['reason' => 'Offer already exists [12345]'], 400),
+            '*/offers/12345/change-status' => Http::response(12345, 200),
+            '*/offers/12345' => Http::response(12345, 200),      // updateOffer (PUT) — deve receber preço correto
+            '*/offers/12345/keys/upload' => Http::response(999, 200),
+            '*/offers/12345/keys/active/0/1*' => Http::response(['count' => 1, 'data' => []], 200),
+        ]);
+
+        insertAutoSellKey('440', ['min_api' => 3.00, 'max_api' => 15.00]);
+
+        app(AutoSellUseCase::class)->execute();
+
+        // Garante que updateOffer foi chamado com o preço correto (não o preço antigo da oferta)
+        Http::assertSent(function ($request) {
+            if (! (str_contains($request->url(), '/offers/12345') && $request->method() === 'PUT')
+                || str_contains($request->url(), '/change-status')
+            ) {
+                return false;
+            }
+            $body = json_decode($request->body(), true);
+
+            return (float) ($body['seller_price'] ?? 0) === 15.00;
+        });
+    });
+
     // ── Resiliência ───────────────────────────────────────────────────────────
 
     it('continues listing subsequent keys when one fails', function () {
@@ -327,6 +369,7 @@ describe('AutoSellUseCase', function () {
             '*/v1/offers' => Http::sequence()
                 ->push('error', 500)
                 ->push(12345, 200),
+            '*/offers/12345' => Http::response(12345, 200),      // updateOffer (PUT) segunda key
             '*/offers/12345/keys/upload' => Http::response(999, 200),
             '*/offers/12345/jobs/999/result' => Http::response('"Done"', 200),
             '*/offers/12345/keys/active/0/1*' => Http::response(['count' => 1, 'data' => []], 200),
