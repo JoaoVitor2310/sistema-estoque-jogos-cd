@@ -196,6 +196,15 @@ class AutoSellUseCase
             throw new \RuntimeException("createOffer retornou null para product_id={$productId}");
         }
 
+        // Quando a oferta já existia (inativa), createOffer apenas a reativa via changeOfferStatus
+        // sem aplicar o novo seller_price calculado acima — o preço antigo seria mantido.
+        // Chamamos updateOffer para garantir que o preço correto seja sempre aplicado,
+        // independente de ser criação nova ou reativação.
+        $this->gamivoApi->updateOffer($offerId, [
+            'wholesale_mode' => 0,
+            'seller_price' => $sellerPrice,
+        ]);
+
         // Aguarda o registro da oferta antes de enviar a chave (race condition documentada — Gotcha #6)
         if (! app()->environment('testing')) {
             sleep(self::OFFER_CREATION_DELAY_S);
