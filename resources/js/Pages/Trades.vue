@@ -3,7 +3,7 @@ import { ref, nextTick } from 'vue';
 import axiosInstance from '@/axios';
 
 const props = defineProps<{
-  trades: Array<{ id: number; title: string | null; rows: StoredRow[]; created_at: string }>;
+  trades: Array<{ id: number; title: string | null; rows: StoredRow[]; created_at: string; is_stocked: boolean }>;
   tf2Price: number;
   fees: {
     percentLow: number;
@@ -36,6 +36,7 @@ interface StoredRow {
 interface Row extends StoredRow {
   status: RowStatus;
   errorMsg: string;
+  customTf2Override: string;
 }
 
 interface TradeEntry {
@@ -43,6 +44,7 @@ interface TradeEntry {
   title: string;
   rows: Row[];
   createdAt: string;
+  isStocked: boolean;
   // UI-only
   importing: boolean;
   copiedKey: string | null;
@@ -76,6 +78,7 @@ function toRow(r: any): Row {
     supplierUrl: r.supplierUrl ?? '',
     status: 'pending',
     errorMsg: '',
+    customTf2Override: '',
   };
 }
 
@@ -83,19 +86,20 @@ function emptyRow(): Row {
   return toRow({});
 }
 
-function toTradeEntry(t: { id: number; title: string | null; rows: StoredRow[]; created_at: string }): TradeEntry {
+function toTradeEntry(t: { id: number; title: string | null; rows: StoredRow[]; created_at: string; is_stocked: boolean }): TradeEntry {
   return {
     id: t.id,
     title: t.title ?? '',
     rows: (t.rows ?? []).map(toRow),
     createdAt: t.created_at,
+    isStocked: t.is_stocked ?? false,
     importing: false,
     copiedKey: null,
   };
 }
 
 function rowToStored(row: Row): StoredRow {
-  const { status, errorMsg, ...stored } = row;
+  const { status, errorMsg, customTf2Override, ...stored } = row;
   return stored;
 }
 
@@ -134,6 +138,32 @@ function getOffer(row: Row, tier: number): number {
   return calcOffer(getNetIncome(row), tier);
 }
 
+// ─── Override TF2 por linha ───────────────────────────────────────────────────
+
+/**
+ * Valor TF2 efetivo para a coluna personalizada de uma linha:
+ * usa o override digitado pelo usuário se existir, senão calcula pelo customTier global.
+ */
+function getEffectiveCustomTf2(row: Row): number {
+  const override = parseFloat(row.customTf2Override.replace(',', '.'));
+  if (override > 0) return override;
+  if (customTier.value !== null) return getOffer(row, customTier.value);
+  return 0;
+}
+
+/**
+ * Porcentagem de lucro implícita dado o valor TF2 digitado na linha.
+ * Inverte a fórmula: offer = netIncome / (1 + profitPct/100) / tf2Price
+ * → profitPct = (netIncome / (offer × tf2Price) - 1) × 100
+ */
+function getImpliedProfit(row: Row): number | null {
+  const tf2Val = parseFloat(row.customTf2Override.replace(',', '.'));
+  if (!tf2Val || tf2Val <= 0 || props.tf2Price <= 0) return null;
+  const netIncome = getNetIncome(row);
+  if (netIncome <= 0) return null;
+  return (netIncome / (tf2Val * props.tf2Price) - 1) * 100;
+}
+
 // ─── Parse de TSV ─────────────────────────────────────────────────────────────
 
 function parseText(text: string): Row[] {
@@ -164,6 +194,7 @@ function parseText(text: string): Row[] {
         name,
         status: 'pending' as RowStatus,
         errorMsg: '',
+        customTf2Override: '',
       }];
     });
 }
@@ -181,18 +212,19 @@ async function handlePaste(e: ClipboardEvent) {
       rows: rows.map(rowToStored),
     });
 
-    tradeList.value.push({
+    tradeList.value.unshift({
       id: res.data.id,
       title: '',
       rows,
       createdAt: res.data.created_at,
+      isStocked: false,
       importing: false,
       copiedKey: null,
     });
 
-    // Rola até a nova trade
+    // Rola até o topo onde a nova trade foi inserida
     await nextTick();
-    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   } catch (err) {
     console.error('Erro ao salvar trade:', err);
   }
@@ -210,10 +242,11 @@ function scheduleAutosave(trade: TradeEntry) {
   const timer = setTimeout(async () => {
     saveTimers.delete(trade.id);
     try {
-      await axiosInstance.put(route('trades.update', { trade: trade.id }), {
+      const res = await axiosInstance.put(route('trades.update', { trade: trade.id }), {
         title: trade.title,
         rows: trade.rows.map(rowToStored),
       });
+      trade.isStocked = res.data.is_stocked ?? trade.isStocked;
     } catch (err) {
       console.error('Erro ao salvar trade:', err);
     }
@@ -306,6 +339,10 @@ async function importTrade(trade: TradeEntry) {
         row.status = 'success';
       }
     });
+
+    if (trade.rows.some(r => r.status === 'success')) {
+      trade.isStocked = true;
+    }
   } catch (e: any) {
     if (e?.response?.status === 422) {
       const validationErrors: Record<string, string[]> = e.response.data.errors ?? {};
@@ -385,11 +422,14 @@ async function copyTier(trade: TradeEntry, tier: number) {
 }
 
 async function copyCustomTier(trade: TradeEntry) {
-  if (customTier.value === null) return;
-  const text = trade.rows
-    .map(row => `${row.name}\t${formatTf2(getOffer(row, customTier.value!))}`)
-    .join('\n');
-  await copyToClipboard(text);
+  const lines = trade.rows
+    .map(row => {
+      const val = getEffectiveCustomTf2(row);
+      return val > 0 ? `${row.name}\t${formatTf2(val)}` : null;
+    })
+    .filter((line): line is string => line !== null);
+  if (lines.length === 0) return;
+  await copyToClipboard(lines.join('\n'));
   trade.copiedKey = 'tier-custom';
   setTimeout(() => { trade.copiedKey = null; }, 1500);
 }
@@ -532,7 +572,7 @@ function sortIcon(field: string): string {
       </template>
     </div>
 
-    <!-- Lista de trades (mais antigas em cima, mais novas em baixo) -->
+    <!-- Lista de trades (mais novas em cima) -->
     <div
       v-for="(trade, tradeIdx) in tradeList"
       :key="trade.id"
@@ -553,6 +593,9 @@ function sortIcon(field: string): string {
           </span>
           <span class="badge bg-light text-secondary border">
             {{ trade.rows.length }} jogo{{ trade.rows.length !== 1 ? 's' : '' }}
+          </span>
+          <span v-if="trade.isStocked" class="badge bg-success">
+            <i class="pi pi-check-circle me-1" />Inserida no estoque
           </span>
           <span v-if="hasMissingKeyCodes(trade)" class="badge bg-warning text-dark">
             <i class="pi pi-exclamation-triangle me-1" />Key codes em falta
@@ -669,7 +712,7 @@ function sortIcon(field: string): string {
                       type="button"
                       class="btn btn-sm"
                       :class="trade.copiedKey === 'tier-custom' ? 'btn-success' : 'btn-outline-secondary'"
-                      :disabled="customTier === null"
+                      :disabled="customTier === null && !trade.rows.some(r => r.customTf2Override)"
                       title="Copiar todos"
                       @click.stop="copyCustomTier(trade)"
                     >
@@ -774,21 +817,39 @@ function sortIcon(field: string): string {
                   </button>
                 </td>
 
-                <!-- Tier customizável -->
+                <!-- Tier customizável — suporta override TF2 por linha para back-calcular % -->
                 <td class="text-center">
-                  <template v-if="customTier !== null">
-                    <button
-                      type="button"
-                      class="btn btn-sm w-100 btn-outline-purple"
-                      :class="trade.copiedKey === `${rowIdx}-custom` ? 'btn-success' : ''"
-                      :title="`Copiar: ${row.name} + ${formatTf2(getOffer(row, customTier))} TF2`"
-                      @click="copyCell(trade, row.name, getOffer(row, customTier), `${rowIdx}-custom`)"
+                  <div class="d-flex flex-column align-items-center gap-1">
+                    <div class="d-flex align-items-center gap-1">
+                      <input
+                        v-model="row.customTf2Override"
+                        class="custom-tf2-row-input"
+                        :placeholder="customTier !== null ? formatTf2(getOffer(row, customTier)) : '—'"
+                        @click.stop
+                      />
+                      <button
+                        v-if="getEffectiveCustomTf2(row) > 0"
+                        type="button"
+                        class="btn btn-sm px-1"
+                        :class="trade.copiedKey === `${rowIdx}-custom` ? 'btn-success' : 'btn-outline-purple'"
+                        :title="`Copiar: ${row.name} + ${formatTf2(getEffectiveCustomTf2(row))} TF2`"
+                        @click="copyCell(trade, row.name, getEffectiveCustomTf2(row), `${rowIdx}-custom`)"
+                      >
+                        <i
+                          :class="trade.copiedKey === `${rowIdx}-custom` ? 'pi pi-check' : 'pi pi-copy'"
+                          style="font-size: 0.75rem;"
+                        />
+                      </button>
+                    </div>
+                    <!-- Porcentagem implícita: aparece quando o usuário digita um valor TF2 -->
+                    <span
+                      v-if="getImpliedProfit(row) !== null"
+                      class="text-muted"
+                      style="font-size: 0.7rem;"
                     >
-                      <i v-if="trade.copiedKey === `${rowIdx}-custom`" class="pi pi-check me-1" />
-                      {{ formatTf2(getOffer(row, customTier)) }}
-                    </button>
-                  </template>
-                  <span v-else class="text-muted small">—</span>
+                      ≈ {{ getImpliedProfit(row)!.toFixed(1) }}%
+                    </span>
+                  </div>
                 </td>
 
               </tr>
@@ -946,5 +1007,29 @@ function sortIcon(field: string): string {
 .btn-outline-purple:hover {
   background-color: #8009EF;
   color: #fff;
+}
+
+/* ── Override TF2 por linha ──────────────────────────────────────────────────── */
+
+.custom-tf2-row-input {
+  width: 52px;
+  border: none;
+  border-bottom: 1px solid #dee2e6;
+  background: transparent;
+  text-align: center;
+  font-size: 0.85rem;
+  color: #212529;
+  padding: 0 2px;
+}
+
+.custom-tf2-row-input:focus {
+  outline: none;
+  border-bottom: 2px solid #8009EF;
+  background: #f9f4ff;
+}
+
+.custom-tf2-row-input::placeholder {
+  color: #adb5bd;
+  font-size: 0.8rem;
 }
 </style>
