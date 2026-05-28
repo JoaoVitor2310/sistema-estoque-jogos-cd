@@ -14,6 +14,7 @@ use App\Http\Controllers\TradeController;
 use App\Http\Controllers\VipController;
 use App\Http\Middleware\CheckAdmin;
 use App\Http\Middleware\CheckPermission;
+use App\Http\Middleware\RequireAuth;
 use App\Http\Middleware\VerifySecret;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -24,13 +25,13 @@ Route::fallback(function () {
     return redirect()->route('keys');
 });
 
-Route::get('/fees', [FeeController::class, 'showMarketPlaceFees'])->name('fees'); // READ all fees
+Route::get('/fees', [FeeController::class, 'showMarketPlaceFees'])->name('fees')->middleware(RequireAuth::class);
 
-Route::get('/assets', [AssetController::class, 'show'])->name('assets');
+Route::get('/assets', [AssetController::class, 'show'])->name('assets')->middleware(RequireAuth::class);
 
-Route::get('/bundles', [BundleController::class, 'index'])->name('bundles');
+Route::get('/bundles', [BundleController::class, 'index'])->name('bundles'); // público — visitantes podem ver
 
-Route::get('/financial', [FinancialController::class, 'show'])->name('financial')->middleware(CheckPermission::class);
+Route::get('/financial', [FinancialController::class, 'show'])->name('financial')->middleware(RequireAuth::class);
 
 Route::prefix('trades')
     ->middleware(CheckPermission::class)
@@ -43,7 +44,7 @@ Route::prefix('trades')
         Route::post('/{trade}/import', 'importKeys')->name('trades.import');
     });
 
-Route::get('/games', [GameController::class, 'index'])->name('games');
+Route::get('/games', [GameController::class, 'index'])->name('games')->middleware(RequireAuth::class);
 
 Route::prefix('vips')
     ->middleware(CheckPermission::class)->controller(VipController::class)->group(function () {
@@ -60,7 +61,11 @@ Route::prefix('vips')
 
 Route::get('/keys', [KeyController::class, 'show'])->name('keys');
 
-Route::get('/acesso', [AuthorizedUsersController::class, 'index'])->name('acesso');
+// Leitura paginada — acessível a visitantes, mas com campos filtrados no controller
+Route::get('/keys/paginated', [KeyController::class, 'paginated'])->name('keys.paginated');
+Route::post('/keys/search', [KeyController::class, 'search'])->name('keys.search');
+
+Route::get('/acesso', [AuthorizedUsersController::class, 'index'])->name('acesso')->middleware(RequireAuth::class);
 
 Route::get('/login', function () {
     return Inertia::render('Login', [
@@ -122,9 +127,7 @@ Route::prefix('assets')
 Route::prefix('keys')
     ->middleware(CheckPermission::class)
     ->group(function () {
-        // KeyController — CRUD
-        Route::get('/paginated', [KeyController::class, 'paginated'])->name('keys.paginated');
-        Route::post('/search', [KeyController::class, 'search'])->name('keys.search');
+        // KeyController — CRUD (mutações exigem permissão)
         Route::post('/', [KeyController::class, 'store'])->name('keys.store');
         Route::put('/{id}', [KeyController::class, 'update'])->name('keys.update');
         Route::delete('/{id}', [KeyController::class, 'destroy'])->name('keys.destroy');

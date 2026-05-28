@@ -60,11 +60,13 @@ describe('Protected routes', function () {
     });
 
     // ── keys routes ───────────────────────────────────────────────
+    // /keys/paginated e /keys/search são públicas — guests recebem 200 com dados filtrados.
+    // A filtragem de campos sensíveis é coberta em GuestAccessTest.
 
     describe('GET /keys/paginated', function () {
 
-        it('returns 403 for unauthenticated requests', function () {
-            $this->getJson('/keys/paginated')->assertStatus(403);
+        it('returns 200 for unauthenticated requests (public, data is filtered server-side)', function () {
+            $this->getJson('/keys/paginated')->assertStatus(200);
         });
 
         it('returns 200 for authorized users', function () {
@@ -76,8 +78,8 @@ describe('Protected routes', function () {
 
     describe('POST /keys/search', function () {
 
-        it('returns 403 for unauthenticated requests', function () {
-            $this->postJson('/keys/search')->assertStatus(403);
+        it('returns 200 for unauthenticated requests (public, data is filtered server-side)', function () {
+            $this->postJson('/keys/search')->assertStatus(200);
         });
 
         it('returns 200 for authorized users', function () {
