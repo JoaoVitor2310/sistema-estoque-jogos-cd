@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import axiosInstance from '../axios';
 import { GameLine } from '../types/GameLine';
 import { convertToDbDate, formatDateToBR, formatDateToDB, identifyAndFormatDate } from '../helpers/formatHelpers';
@@ -42,6 +42,8 @@ const props = defineProps({
 Object.assign(rowData, props.games);
 // @ts-ignore
 let user = ref(usePage().props.auth.user);
+// @ts-ignore
+const canEdit = computed(() => usePage().props.auth.canEdit as boolean);
 // }
 
 
@@ -720,17 +722,16 @@ const handleImportSubmit = async (): Promise<void> => {
         :rowStyle="getRowStyle" ref="dt">
         <template #header>
           <div class="d-flex justify-content-between">
-            <div class="d-flex gap-2 flex-column flex-md-row">
+            <div class="d-flex gap-2 flex-column flex-md-row" v-if="canEdit">
               <Button label="Novo" aria-label="Novo" icon="pi pi-plus" @click="handleAddButton()" raised />
               <Button label="Importar" aria-label="Importar" icon="pi pi-file-import" @click="handleImportButton()" raised />
               <Button label="Deletar" :disabled="!selectedProduct || selectedProduct.length === 0" aria-label="Deletar"
                 severity="danger" icon="pi pi-plus" @click="handleDeleteButton($event, 2)" raised />
             </div>
-            <div class="d-flex gap-2 flex-column flex-md-row">
+            <div class="d-flex gap-2 flex-column flex-md-row" v-if="canEdit">
               <Button label="Pesquisar" aria-label="Pesquisar" severity="info" icon="pi pi-search"
                 @click="onPageChange(true)" raised />
               <Button icon="pi pi-external-link" label="Exportar CSV" @click="exportCSV()" />
-
             </div>
           </div>
         </template>
@@ -740,8 +741,9 @@ const handleImportSubmit = async (): Promise<void> => {
           </h4>
         </template>
         <!-- <Column selectionMode="multiple" headerStyle="width: 3rem"></Column> -->
-        <Column field="id" header="ID" sortable></Column>
+        <Column field="id" header="ID" sortable v-if="canEdit"></Column>
         <Column field="claim_type" header="Reclamação?" filterField="searchField" :showFilterMenu="true"
+          v-if="canEdit"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
             <MultiSelect placeholder="Pesquisar" v-model="searchFilter.claim_type"
@@ -754,6 +756,7 @@ const handleImportSubmit = async (): Promise<void> => {
           </template>
         </Column>
         <Column field="key_format" header="Formato" filterField="searchField" :showFilterMenu="true"
+          v-if="canEdit"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
             <MultiSelect v-model="searchFilter.key_format" placeholder="Pesquisar"
@@ -806,6 +809,7 @@ const handleImportSubmit = async (): Promise<void> => {
           </template>
         </Column>
         <Column field="gamivo_id" header="Id Gamivo" filterField="searchField" :showFilterMenu="true"
+          v-if="canEdit"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
             <InputText v-model="searchFilter.gamivo_id" type="text" placeholder="Pesquisar por ID" />
@@ -820,6 +824,7 @@ const handleImportSubmit = async (): Promise<void> => {
           </template>
         </Column>
         <Column field="notes" header="Observação" filterField="searchField" :showFilterMenu="true"
+          v-if="canEdit"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
             <div class="d-flex flex-column gap-1" style="min-width: 14rem">
@@ -845,6 +850,7 @@ const handleImportSubmit = async (): Promise<void> => {
           </template>
         </Column>
         <Column field="total_paid" header="Valor Pago Total" filterField="searchField" :showFilterMenu="true"
+          v-if="canEdit"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
             <InputText v-model="searchFilter.total_paid" type="text" placeholder="Pesquisar" />
@@ -888,7 +894,7 @@ const handleImportSubmit = async (): Promise<void> => {
             </div>
           </template>
         </Column>
-        <Column field="sold_price" header="Valor Vendido" sortable class="text-center p-0">
+        <Column field="sold_price" header="Valor Vendido" sortable class="text-center p-0" v-if="canEdit">
           <template #body="slotProps">
             <span v-if="slotProps.data.sold_price">€ {{ slotProps.data.sold_price }}</span>
           </template>
@@ -897,12 +903,12 @@ const handleImportSubmit = async (): Promise<void> => {
               :maxFractionDigits="2" :min="-Infinity" useGrouping autofocus fluid />
           </template>
         </Column>
-        <Column field="sale_profit" header="Lucro Venda(€)" sortable class="text-center p-0">
+        <Column field="sale_profit" header="Lucro Venda(€)" sortable class="text-center p-0" v-if="canEdit">
           <template #body="slotProps">
             <span v-if="slotProps.data.sold_price">€ {{ slotProps.data.sale_profit }}</span>
           </template>
         </Column>
-        <Column field="sale_profit_percent" header="Lucro Venda(%)" sortable class="text-center p-0">
+        <Column field="sale_profit_percent" header="Lucro Venda(%)" sortable class="text-center p-0" v-if="canEdit">
           <template #body="slotProps">
             <div :style="getStyleByPercent(slotProps.data, 'sale_profit_percent')"
               style="width: 100%; height: 100%;">
@@ -928,6 +934,7 @@ const handleImportSubmit = async (): Promise<void> => {
           </template>
         </Column>
         <Column field="listed_at" header="Data Listada" sortable filterField="searchField" :showFilterMenu="true"
+          v-if="canEdit"
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
             <div class="d-flex flex-column gap-1" style="min-width: 14rem">
@@ -1003,7 +1010,7 @@ const handleImportSubmit = async (): Promise<void> => {
             <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
           </template>
         </Column>
-        <Column header="Ação">
+        <Column header="Ação" v-if="canEdit">
           <template #body="slotProps">
             <div class="d-flex gap-1">
               <Button label="Editar" aria-label="Editar" icon="pi pi-pencil" @click="handleEditButton([slotProps.data])"

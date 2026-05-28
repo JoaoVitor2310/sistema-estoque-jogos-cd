@@ -15,6 +15,7 @@ use App\UseCases\Keys\RegisterKeyUseCase;
 use App\UseCases\Keys\UpdateKeyUseCase;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 
 /**
@@ -24,6 +25,25 @@ use Inertia\Inertia;
 class KeyController extends Controller
 {
     use HttpResponses;
+
+    /**
+     * Campos visíveis para visitantes não autenticados na página /keys.
+     * Qualquer outro campo (key_code, gamivo_id, supplier_url, etc.) é ocultado.
+     */
+    private const GUEST_VISIBLE_FIELDS = [
+        'identified_platform',
+        'game_name',
+        'region',
+        'market_price',
+        'individual_cost',
+        'min_api',
+        'max_api',
+        'purchase_profit',
+        'purchase_profit_percent',
+        'acquired_at',
+        'sold_at',
+        'expires_at',
+    ];
 
     public function __construct(
         private readonly RegisterKeyUseCase $registerKeyUseCase,
@@ -36,13 +56,18 @@ class KeyController extends Controller
     public function show(Request $request)
     {
         $limit = $request->query('limit', 100);
+        $canEdit = Gate::allows('can-edit');
 
-        $games = Key::with(['supplier'])
+        $games = Key::when($canEdit, fn ($q) => $q->with(['supplier']))
             ->orderBy('id', 'desc')
             ->paginate($limit);
 
+        $items = $canEdit
+            ? $games->items()
+            : collect($games->items())->map(fn ($k) => $k->only(self::GUEST_VISIBLE_FIELDS))->all();
+
         return Inertia::render('Keys', [
-            'games' => $games->items(),
+            'games' => $items,
             'totalGames' => $games->total(),
             'pagination' => [
                 'current_page' => $games->currentPage(),
@@ -61,13 +86,18 @@ class KeyController extends Controller
     public function paginated(Request $request)
     {
         $limit = $request->query('limit', 100);
+        $canEdit = Gate::allows('can-edit');
 
-        $games = Key::with(['supplier'])
+        $games = Key::when($canEdit, fn ($q) => $q->with(['supplier']))
             ->orderBy('id', 'desc')
             ->paginate($limit);
 
+        $displayGames = $canEdit
+            ? $games
+            : $games->through(fn ($k) => $k->only(self::GUEST_VISIBLE_FIELDS));
+
         return $this->response(200, 'Página de jogos atualizada com sucesso.', [
-            'games' => $games,
+            'games' => $displayGames,
             'totalGames' => $games->total(),
             'pagination' => [
                 'current_page' => $games->currentPage(),
@@ -84,7 +114,7 @@ class KeyController extends Controller
     {
         $filters = $request->except('page');
 
-        $query = Key::with(['supplier']);
+        $query = Key::when(Gate::allows('can-edit'), fn ($q) => $q->with(['supplier']));
 
         foreach ($filters as $key => $value) {
             if (! $value) {
@@ -156,10 +186,15 @@ class KeyController extends Controller
         }
 
         $limit = $filters['limit'] ?? 100;
+        $canEdit = Gate::allows('can-edit');
         $games = $query->orderBy('id', 'desc')->paginate($limit);
 
+        $displayGames = $canEdit
+            ? $games
+            : $games->through(fn ($k) => $k->only(self::GUEST_VISIBLE_FIELDS));
+
         return $this->response(200, 'Pesquisa realizada com sucesso.', [
-            'games' => $games,
+            'games' => $displayGames,
             'totalGames' => $games->total(),
             'pagination' => [
                 'current_page' => $games->currentPage(),

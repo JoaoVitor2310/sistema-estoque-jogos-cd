@@ -35,6 +35,7 @@ Atue sempre como arquiteto de software sênior com conhecimento profundo de Lara
 - Mantenha boas práticas (SOLID, Clean Code, Design Patterns)
 - Identifique Code Smells e proponha soluções
 - **Testes são obrigatórios** — toda classe nova (Service, UseCase, Domain) deve ter testes cobrindo os comportamentos principais. Nunca entregar uma implementação sem os testes correspondentes no mesmo passo. Padrão do projeto: Pest, testes de Feature em `tests/Feature/`, testes de Unit em `tests/Unit/Domain/`. Use `DB::table()` para seeds de teste, nunca Factories quando o dado é simples.
+- **Permissões são obrigatórias** — toda rota nova deve declarar explicitamente quem pode acessá-la. Perguntas a responder antes de registrar qualquer rota: (a) guest pode acessar? (b) requer autenticação (`RequireAuth`)? (c) requer `can-edit` (`CheckPermission`)? (d) requer admin (`CheckAdmin`)? Rotas de página usam `RequireAuth` (redirect para `/login`); rotas de API/mutação usam `CheckPermission` (retorna 403 JSON). Nunca deixar rota sem middleware assumindo que "ninguém vai acessar". Após adicionar rotas, adicionar testes de acesso em `tests/Feature/Security/GuestAccessTest.php` cobrindo: guest bloqueado, usuário autorizado liberado.
 - **Nunca faça commits automáticos** — apenas prepare as alterações e informe o que foi modificado. O commit é sempre feito pelo usuário.
 
 ## Code style (Pint — preset Laravel)

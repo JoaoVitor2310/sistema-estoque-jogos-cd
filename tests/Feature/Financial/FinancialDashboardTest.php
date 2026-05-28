@@ -87,8 +87,8 @@ function stockKey(array $overrides = []): Key
 
 describe('GET /financial', function () {
 
-    it('returns 403 for unauthenticated requests', function () {
-        $this->get('/financial')->assertStatus(403);
+    it('redirects unauthenticated requests to login (RequireAuth middleware)', function () {
+        $this->get('/financial')->assertRedirectToRoute('login');
     });
 
     it('returns 200 for authorized users', function () {

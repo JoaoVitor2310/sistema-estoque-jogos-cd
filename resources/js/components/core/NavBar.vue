@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import axiosInstance from '../../axios';
 import { showResponse } from '../../helpers/showResponse';
 import { useToast } from "primevue/usetoast";
@@ -8,6 +8,8 @@ import { useToast } from "primevue/usetoast";
 const toast = useToast();
 // @ts-ignore
 let user = ref(usePage().props.auth.user);
+// @ts-ignore
+const canEdit = computed(() => usePage().props.auth.canEdit as boolean);
 
 const handleLogout = async () => {
   try {
@@ -38,42 +40,46 @@ const handleLogout = async () => {
           <ul class="navbar-nav me-auto mb-2 mb-lg-0">
             <li class="nav-item">
             </li>
+            <!-- Links visíveis apenas para usuários autenticados com permissão -->
             <li class="nav-item" v-if="user && user.email === 'carcadeals@gmail.com'">
               <Link class="nav-link" :href="route('acesso')">Acesso</Link>
             </li>
+            <!-- Keys e Bundles: visíveis para todos -->
             <li>
               <Link class="nav-link" :href="route('keys')">Keys</Link>
             </li>
             <li>
               <Link class="nav-link" :href="route('bundles')">Bundles</Link>
             </li>
-            <li>
-              <Link class="nav-link" :href="route('games')">Jogos</Link>
-            </li>
-            <li>
-              <Link class="nav-link" :href="route('vips.index')">VIP's</Link>
-            </li>
-            <li class="nav-item dropdown">
-              <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown"
-                aria-expanded="false">
-                Taxas
-              </a>
-              <ul class="dropdown-menu">
-                <li>
-                  <Link class="dropdown-item" :href="route('fees')">MarketPlaces</Link>
-                </li>
-                <!-- <li><Link class="dropdown-item" :href="route('fees')">Calculadora</Link></li> -->
-              </ul>
-            </li>
-            <li>
-              <Link class="nav-link" :href="route('assets')">Recursos</Link>
-            </li>
-            <li>
-              <Link class="nav-link" :href="route('financial')">Financeiro</Link>
-            </li>
-            <li>
-              <Link class="nav-link" :href="route('trades')">Trades</Link>
-            </li>
+            <!-- Demais links: apenas para quem tem can-edit -->
+            <template v-if="canEdit">
+              <li>
+                <Link class="nav-link" :href="route('games')">Jogos</Link>
+              </li>
+              <li>
+                <Link class="nav-link" :href="route('vips.index')">VIP's</Link>
+              </li>
+              <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown"
+                  aria-expanded="false">
+                  Taxas
+                </a>
+                <ul class="dropdown-menu">
+                  <li>
+                    <Link class="dropdown-item" :href="route('fees')">MarketPlaces</Link>
+                  </li>
+                </ul>
+              </li>
+              <li>
+                <Link class="nav-link" :href="route('assets')">Recursos</Link>
+              </li>
+              <li>
+                <Link class="nav-link" :href="route('financial')">Financeiro</Link>
+              </li>
+              <li>
+                <Link class="nav-link" :href="route('trades')">Trades</Link>
+              </li>
+            </template>
           </ul>
         </div>
         <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
