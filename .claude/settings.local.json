@@ -83,7 +83,8 @@
       "PowerShell(wsl -d Ubuntu-24.04 -e bash -c 'cp /var/www/sistema-estoque-jogos-cd/resources/js/Pages/VendaChaveTroca.vue /var/www/sistema-estoque-jogos-cd/resources/js/Pages/Keys.vue && rm /var/www/sistema-estoque-jogos-cd/resources/js/Pages/VendaChaveTroca.vue && echo done')",
       "PowerShell(wsl -d Ubuntu-24.04 -e bash -c \"ls -la /var/www/sistema-estoque-jogos-cd/bootstrap/cache/.gitignore /var/www/sistema-estoque-jogos-cd/storage/logs/.gitignore\")",
       "PowerShell(wsl -d Ubuntu-24.04 -- docker ps --format \"{{.Names}}\" 2>&1 | Select-Object -First 10)",
-      "PowerShell(wsl -d Ubuntu-24.04 -- bash -c \"docker ps --format '{{.Names}}' 2>&1 | head -20\")"
+      "PowerShell(wsl -d Ubuntu-24.04 -- bash -c \"docker ps --format '{{.Names}}' 2>&1 | head -20\")",
+      "PowerShell(docker exec app-cd php artisan test tests/Feature/Suppliers/SupplierEvaluationTest.php --colors=never 2>&1)"
     ]
   }
 }
