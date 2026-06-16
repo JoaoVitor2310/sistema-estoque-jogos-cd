@@ -68,7 +68,7 @@ Route::post('/keys/search', [KeyController::class, 'search'])->name('keys.search
 
 // API externa — Price Researcher
 // Autenticado via Bearer token (EXTERNAL_SECRET). Guest: 401. can-edit: não exigido.
-Route::post('/api/suppliers/evaluate', [SupplierEvaluationController::class, 'evaluate'])
+Route::post('/suppliers/evaluate', [SupplierEvaluationController::class, 'evaluate'])
     ->name('suppliers.evaluate')
     ->middleware(VerifySecret::class);
 

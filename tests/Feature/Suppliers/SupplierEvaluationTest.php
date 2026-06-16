@@ -2,7 +2,7 @@
 
 /*
 |--------------------------------------------------------------------------
-| SupplierEvaluationTest — POST /api/suppliers/evaluate
+| SupplierEvaluationTest — POST /suppliers/evaluate
 |--------------------------------------------------------------------------
 |
 | Cobre o endpoint chamado pelo Price Researcher para saber quais jogos
@@ -55,45 +55,45 @@ function seedEvaluationDeps(float $tf2Price = 0.95): void
 
 // ── Autenticação ──────────────────────────────────────────────────────────────
 
-describe('POST /api/suppliers/evaluate — authentication', function () {
+describe('POST /suppliers/evaluate — authentication', function () {
 
     beforeEach(fn () => Config::set('services.external_secret', EVAL_SECRET));
 
     it('returns 401 with no bearer token', function () {
-        $this->postJson('/api/suppliers/evaluate', ['games' => []])
+        $this->postJson('/suppliers/evaluate', ['games' => []])
             ->assertStatus(401);
     });
 
     it('returns 401 with wrong bearer token', function () {
         $this->withToken('wrong-secret')
-            ->postJson('/api/suppliers/evaluate', ['games' => []])
+            ->postJson('/suppliers/evaluate', ['games' => []])
             ->assertStatus(401);
     });
 });
 
 // ── Validação ─────────────────────────────────────────────────────────────────
 
-describe('POST /api/suppliers/evaluate — validation', function () {
+describe('POST /suppliers/evaluate — validation', function () {
 
     beforeEach(fn () => Config::set('services.external_secret', EVAL_SECRET));
 
     it('returns 422 when games is missing', function () {
         $this->withToken(EVAL_SECRET)
-            ->postJson('/api/suppliers/evaluate', [])
+            ->postJson('/suppliers/evaluate', [])
             ->assertStatus(422)
             ->assertJsonValidationErrors(['games']);
     });
 
     it('returns 422 when games is empty array', function () {
         $this->withToken(EVAL_SECRET)
-            ->postJson('/api/suppliers/evaluate', ['games' => []])
+            ->postJson('/suppliers/evaluate', ['games' => []])
             ->assertStatus(422)
             ->assertJsonValidationErrors(['games']);
     });
 
     it('returns 422 when price_euro is missing', function () {
         $this->withToken(EVAL_SECRET)
-            ->postJson('/api/suppliers/evaluate', [
+            ->postJson('/suppliers/evaluate', [
                 'games' => [[
                     'name' => 'Half-Life',
                     'popularity' => 500,
@@ -107,7 +107,7 @@ describe('POST /api/suppliers/evaluate — validation', function () {
 
 // ── Cálculo de rentabilidade ──────────────────────────────────────────────────
 
-describe('POST /api/suppliers/evaluate — profitability calculation', function () {
+describe('POST /suppliers/evaluate — profitability calculation', function () {
 
     beforeEach(function () {
         Config::set('services.external_secret', EVAL_SECRET);
@@ -118,7 +118,7 @@ describe('POST /api/suppliers/evaluate — profitability calculation', function 
         // price_euro = 4.50 → netIncome = 4.50 × 0.94 − 0.25 = 3.98
         // tf2_offer = 3.98 / 2 / 0.95 ≈ 2.09
         $response = $this->withToken(EVAL_SECRET)
-            ->postJson('/api/suppliers/evaluate', [
+            ->postJson('/suppliers/evaluate', [
                 'games' => [
                     ['name' => 'Half-Life', 'price_euro' => 4.50, 'popularity' => 500, 'region' => 'global'],
                     ['name' => 'Terraformers', 'price_euro' => 3.00, 'popularity' => 155, 'region' => 'eu'],
@@ -133,7 +133,7 @@ describe('POST /api/suppliers/evaluate — profitability calculation', function 
     it('returns empty array when no game is profitable', function () {
         // price_euro = 0.10 → netIncome = 0.10 − 0.11 = −0.01 → tf2Offer < 0 → descartado
         $response = $this->withToken(EVAL_SECRET)
-            ->postJson('/api/suppliers/evaluate', [
+            ->postJson('/suppliers/evaluate', [
                 'games' => [
                     ['name' => 'Junk Game', 'price_euro' => 0.10, 'popularity' => 5, 'region' => 'global'],
                 ],
@@ -145,7 +145,7 @@ describe('POST /api/suppliers/evaluate — profitability calculation', function 
 
     it('returns only profitable games from a mixed list', function () {
         $response = $this->withToken(EVAL_SECRET)
-            ->postJson('/api/suppliers/evaluate', [
+            ->postJson('/suppliers/evaluate', [
                 'games' => [
                     ['name' => 'Half-Life', 'price_euro' => 4.50, 'popularity' => 500, 'region' => 'global'],
                     ['name' => 'Junk Game', 'price_euro' => 0.10, 'popularity' => 5, 'region' => 'global'],
@@ -164,7 +164,7 @@ describe('POST /api/suppliers/evaluate — profitability calculation', function 
         // tf2_offer = 0.09 / 2 / 0.95 ≈ 0.047 → rentável (> 0)
         // price_euro = 0.05 → netIncome = 0.05 − 0.11 = −0.06 → descartado
         $response = $this->withToken(EVAL_SECRET)
-            ->postJson('/api/suppliers/evaluate', [
+            ->postJson('/suppliers/evaluate', [
                 'games' => [
                     ['name' => 'Cheap Game', 'price_euro' => 0.20, 'popularity' => 10, 'region' => 'global'],
                     ['name' => 'Too Cheap', 'price_euro' => 0.05, 'popularity' => 2, 'region' => 'global'],
@@ -183,7 +183,7 @@ describe('POST /api/suppliers/evaluate — profitability calculation', function 
         DB::table('assets')->where('name', 'TF2')->update(['price_euro' => 0]);
 
         $this->withToken(EVAL_SECRET)
-            ->postJson('/api/suppliers/evaluate', [
+            ->postJson('/suppliers/evaluate', [
                 'games' => [
                     ['name' => 'Half-Life', 'price_euro' => 4.50, 'popularity' => 500, 'region' => 'global'],
                 ],
@@ -195,7 +195,7 @@ describe('POST /api/suppliers/evaluate — profitability calculation', function 
 
 // ── Forma da resposta ─────────────────────────────────────────────────────────
 
-describe('POST /api/suppliers/evaluate — response shape', function () {
+describe('POST /suppliers/evaluate — response shape', function () {
 
     beforeEach(function () {
         Config::set('services.external_secret', EVAL_SECRET);
@@ -204,7 +204,7 @@ describe('POST /api/suppliers/evaluate — response shape', function () {
 
     it('echoes back name, price_euro, popularity and region unchanged', function () {
         $response = $this->withToken(EVAL_SECRET)
-            ->postJson('/api/suppliers/evaluate', [
+            ->postJson('/suppliers/evaluate', [
                 'games' => [
                     ['name' => 'Half-Life', 'price_euro' => 4.50, 'popularity' => 500, 'region' => 'eu'],
                 ],
@@ -221,7 +221,7 @@ describe('POST /api/suppliers/evaluate — response shape', function () {
 
     it('returns tf2_price rounded to 2 decimal places', function () {
         $response = $this->withToken(EVAL_SECRET)
-            ->postJson('/api/suppliers/evaluate', [
+            ->postJson('/suppliers/evaluate', [
                 'games' => [
                     ['name' => 'Half-Life', 'price_euro' => 4.50, 'popularity' => 500, 'region' => 'global'],
                 ],
@@ -240,7 +240,7 @@ describe('POST /api/suppliers/evaluate — response shape', function () {
         // netIncome = 4.50 × (1 − 0.06) − 0.25 = 4.23 − 0.25 = 3.98
         // tf2Offer  = 3.98 / (1 + 1.0) / 0.95 = 3.98 / 2 / 0.95 ≈ 2.09
         $response = $this->withToken(EVAL_SECRET)
-            ->postJson('/api/suppliers/evaluate', [
+            ->postJson('/suppliers/evaluate', [
                 'games' => [
                     ['name' => 'Half-Life', 'price_euro' => 4.50, 'popularity' => 500, 'region' => 'global'],
                 ],
