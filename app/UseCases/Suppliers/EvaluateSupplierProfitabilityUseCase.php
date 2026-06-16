@@ -22,8 +22,8 @@ class EvaluateSupplierProfitabilityUseCase
     ) {}
 
     /**
-     * @param  array<int, array{name: string, price_euro: float, popularity: int, region: string}>  $games
-     * @return array<int, array{name: string, price_euro: float, popularity: int, region: string, tf2_price: float}>
+     * @param  array<int, array{name: string, price_euro: float, popularity: int, region: string|null}>  $games
+     * @return array<int, array{name: string, price_euro: float, popularity: int, region: string|null, tf2_price: float}>
      */
     public function execute(array $games): array
     {
@@ -44,7 +44,7 @@ class EvaluateSupplierProfitabilityUseCase
                 'name' => $game['name'],
                 'price_euro' => (float) $game['price_euro'],
                 'popularity' => (int) $game['popularity'],
-                'region' => $game['region'],
+                'region' => $game['region'] ?? null,
                 'tf2_price' => round($tf2Offer, 2),
             ];
         }

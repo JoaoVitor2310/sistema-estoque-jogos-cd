@@ -21,7 +21,7 @@ class EvaluateSuppliersRequest extends FormRequest
             'games.*.name' => ['required', 'string', 'max:255'],
             'games.*.price_euro' => ['required', 'numeric', 'min:0'],
             'games.*.popularity' => ['required', 'integer', 'min:0'],
-            'games.*.region' => ['required', 'string'],
+            'games.*.region' => ['nullable', 'string'],
         ];
     }
 }
