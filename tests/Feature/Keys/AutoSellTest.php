@@ -163,6 +163,24 @@ describe('AutoSellUseCase', function () {
         });
     });
 
+    it('always sends status 1 in the updateOffer call', function () {
+        fakeGamivoAutoSell();
+        insertAutoSellKey('440');
+
+        app(AutoSellUseCase::class)->execute();
+
+        Http::assertSent(function ($request) {
+            if (! (str_contains($request->url(), '/offers/12345') && $request->method() === 'PUT')
+                || str_contains($request->url(), '/change-status')
+            ) {
+                return false;
+            }
+            $body = json_decode($request->body(), true);
+
+            return ($body['status'] ?? null) === 1;
+        });
+    });
+
     it('does not mark listed_at when key is not confirmed active after upload', function () {
         Http::fake([
             '*/products/*/offers' => Http::response([], 200),
