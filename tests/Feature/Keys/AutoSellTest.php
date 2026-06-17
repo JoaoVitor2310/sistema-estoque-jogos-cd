@@ -61,6 +61,7 @@ function fakeGamivoAutoSell(): void
     Http::fake([
         '*/products/*/offers' => Http::response([], 200),
         '*/v1/offers' => Http::response(12345, 200),
+        '*/offers/12345/change-status' => Http::response(12345, 200),
         '*/offers/12345' => Http::response(12345, 200),          // updateOffer (PUT)
         '*/offers/12345/keys/upload' => Http::response(999, 200),
         '*/offers/12345/jobs/999/result' => Http::response('"Done"', 200),
@@ -111,6 +112,8 @@ describe('AutoSellUseCase', function () {
         Http::fake([
             '*/products/*/offers' => Http::response([], 200),
             '*/v1/offers' => Http::sequence()->push(11111)->push(22222),
+            '*/offers/11111/change-status' => Http::response(11111, 200),
+            '*/offers/22222/change-status' => Http::response(22222, 200),
             '*/offers/11111' => Http::response(11111, 200),      // updateOffer (PUT) key 1
             '*/offers/22222' => Http::response(22222, 200),      // updateOffer (PUT) key 2
             '*/offers/11111/keys/upload' => Http::response(991, 200),
@@ -257,6 +260,7 @@ describe('AutoSellUseCase', function () {
                     'rating' => 4.5, 'invoicable' => false, 'is_preorder' => false],
             ], 200),
             '*/v1/offers' => Http::response(12345, 200),
+            '*/offers/12345/change-status' => Http::response(12345, 200),
             '*/offers/12345' => Http::response(12345, 200),      // updateOffer (PUT)
             '*/offers/12345/keys/upload' => Http::response(999, 200),
             '*/offers/12345/keys/active/0/1*' => Http::response(['count' => 1, 'data' => []], 200),
@@ -288,6 +292,7 @@ describe('AutoSellUseCase', function () {
                     'rating' => 4.5, 'invoicable' => false, 'is_preorder' => false],
             ], 200),
             '*/v1/offers' => Http::response(12345, 200),
+            '*/offers/12345/change-status' => Http::response(12345, 200),
             '*/offers/12345' => Http::response(12345, 200),      // updateOffer (PUT)
             '*/offers/12345/keys/upload' => Http::response(999, 200),
             '*/offers/12345/jobs/999/result' => Http::response('"Done"', 200),
@@ -387,6 +392,7 @@ describe('AutoSellUseCase', function () {
             '*/v1/offers' => Http::sequence()
                 ->push('error', 500)
                 ->push(12345, 200),
+            '*/offers/12345/change-status' => Http::response(12345, 200),
             '*/offers/12345' => Http::response(12345, 200),      // updateOffer (PUT) segunda key
             '*/offers/12345/keys/upload' => Http::response(999, 200),
             '*/offers/12345/jobs/999/result' => Http::response('"Done"', 200),
