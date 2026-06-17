@@ -203,6 +203,7 @@ class AutoSellUseCase
         $this->gamivoApi->updateOffer($offerId, [
             'wholesale_mode' => 0,
             'seller_price' => $sellerPrice,
+            'status' => 1,
         ]);
 
         // Aguarda o registro da oferta antes de enviar a chave (race condition documentada — Gotcha #6)
