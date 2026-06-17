@@ -240,6 +240,10 @@ class AutoSellUseCase
             );
         }
 
+        // uploadKeys pode fazer a Gamivo setar o status da oferta para 0 durante o processamento.
+        // Reativa explicitamente após confirmar que a key foi listada.
+        $this->gamivoApi->changeOfferStatus($offerId, 1);
+
         // Marca listed_at; keys velhas têm min/max travados no preço de listagem:
         //  - max_api = sellerPrice → impede o UpdateOffersUseCase de subir o preço depois
         //  - min_api = FLOOR      → permite máxima flexibilidade de baixar para competir
