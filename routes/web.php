@@ -10,7 +10,7 @@ use App\Http\Controllers\GameController;
 use App\Http\Controllers\Keys\KeyController;
 use App\Http\Controllers\Keys\KeyImportController;
 use App\Http\Controllers\Keys\KeySaleController;
-use App\Http\Controllers\Suppliers\SupplierEvaluationController;
+use App\Http\Controllers\Suppliers\SupplierController;
 use App\Http\Controllers\TradeController;
 use App\Http\Controllers\VipController;
 use App\Http\Middleware\CheckAdmin;
@@ -68,8 +68,8 @@ Route::post('/keys/search', [KeyController::class, 'search'])->name('keys.search
 
 // API externa — Price Researcher
 // Autenticado via Bearer token (EXTERNAL_SECRET). Guest: 401. can-edit: não exigido.
-Route::post('/suppliers/evaluate', [SupplierEvaluationController::class, 'evaluate'])
-    ->name('suppliers.evaluate')
+Route::post('/suppliers/prospect', [SupplierController::class, 'prospect'])
+    ->name('suppliers.prospect')
     ->middleware(VerifySecret::class);
 
 Route::get('/acesso', [AuthorizedUsersController::class, 'index'])->name('acesso')->middleware(RequireAuth::class);

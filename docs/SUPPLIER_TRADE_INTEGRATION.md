@@ -108,4 +108,4 @@ Lógica:
 
 - [x] Fase 1 — Schema
 - [x] Fase 2 — Models
-- [ ] Fase 3 — Endpoint + testes
+- [x] Fase 3 — Endpoint + testes
