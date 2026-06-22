@@ -29,7 +29,7 @@ use Illuminate\Support\Facades\DB;
 function seedSupplier(): int
 {
     return DB::table('suppliers')->insertGetId([
-        'supplier_url' => 'https://steamtrades.com/user/test',
+        'url' => 'https://steamtrades.com/user/test',
         'created_at' => now(),
         'updated_at' => now(),
     ]);

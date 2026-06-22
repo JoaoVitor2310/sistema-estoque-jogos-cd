@@ -32,7 +32,7 @@ function seedGuestKey(): void
 {
     DB::table('suppliers')->insertOrIgnore([
         'id' => 1,
-        'supplier_url' => 'https://steamcommunity.com/id/seed',
+        'url' => 'https://steamcommunity.com/id/seed',
         'created_at' => now(),
         'updated_at' => now(),
     ]);

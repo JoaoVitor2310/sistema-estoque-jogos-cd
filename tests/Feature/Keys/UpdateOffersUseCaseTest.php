@@ -39,7 +39,7 @@ function insertKeyWithMinMax(int $gamivoId, float $minApi, float $maxApi): void
 {
     DB::table('suppliers')->insertOrIgnore([
         'id' => 99,
-        'supplier_url' => 'https://steamcommunity.com/id/update-offers-test',
+        'url' => 'https://steamcommunity.com/id/update-offers-test',
     ]);
 
     DB::table('keys')->insertOrIgnore([

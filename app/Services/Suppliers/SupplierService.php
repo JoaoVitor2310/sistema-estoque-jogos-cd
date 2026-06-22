@@ -8,7 +8,7 @@ class SupplierService
 {
     public function findOrCreate(string $supplierUrl): int
     {
-        return Supplier::firstOrCreate(['supplier_url' => $supplierUrl])->id;
+        return Supplier::firstOrCreate(['url' => $supplierUrl])->id;
     }
 
     /**

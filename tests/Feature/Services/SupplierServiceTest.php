@@ -6,7 +6,7 @@
 |--------------------------------------------------------------------------
 |
 | SupplierService é infraestrutura pura: find-or-create de fornecedores
-| pela supplier_url (URL do perfil Steam).
+| pela url (URL do perfil Steam).
 |
 | A idempotência é crítica porque RegisterKeyUseCase chama findOrCreate
 | para cada key do lote — múltiplas keys do mesmo fornecedor não podem
@@ -26,11 +26,11 @@ describe('SupplierService', function () {
         it('creates a new supplier when the profile does not exist', function () {
             $profile = 'https://steamcommunity.com/id/brandnew';
 
-            expect(DB::table('suppliers')->where('supplier_url', $profile)->exists())->toBeFalse();
+            expect(DB::table('suppliers')->where('url', $profile)->exists())->toBeFalse();
 
             app(SupplierService::class)->findOrCreate($profile);
 
-            expect(DB::table('suppliers')->where('supplier_url', $profile)->exists())->toBeTrue();
+            expect(DB::table('suppliers')->where('url', $profile)->exists())->toBeTrue();
         });
 
         it('returns the ID of the newly created supplier', function () {
@@ -42,7 +42,7 @@ describe('SupplierService', function () {
         it('returns the existing supplier ID when the profile already exists', function () {
             // Pré-cria o fornecedor
             $existingId = DB::table('suppliers')->insertGetId([
-                'supplier_url' => 'https://steamcommunity.com/id/existing',
+                'url' => 'https://steamcommunity.com/id/existing',
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -68,7 +68,7 @@ describe('SupplierService', function () {
             app(SupplierService::class)->findOrCreate($profile);
             app(SupplierService::class)->findOrCreate($profile);
 
-            $count = DB::table('suppliers')->where('supplier_url', $profile)->count();
+            $count = DB::table('suppliers')->where('url', $profile)->count();
 
             expect($count)->toBe(1);
         });

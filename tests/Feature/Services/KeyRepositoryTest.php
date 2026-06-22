@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\DB;
 
 function seedRepoFks(): void
 {
-    DB::table('suppliers')->insertOrIgnore(['id' => 1, 'supplier_url' => 'https://steamcommunity.com/id/seed']);
+    DB::table('suppliers')->insertOrIgnore(['id' => 1, 'url' => 'https://steamcommunity.com/id/seed']);
 }
 
 function insertRepoKey(array $overrides = []): int

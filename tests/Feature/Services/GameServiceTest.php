@@ -30,7 +30,7 @@ use Illuminate\Support\Facades\Http;
 
 function seedGameServiceFks(): void
 {
-    DB::table('suppliers')->insertOrIgnore(['id' => 1, 'supplier_url' => 'https://steamcommunity.com/id/seed']);
+    DB::table('suppliers')->insertOrIgnore(['id' => 1, 'url' => 'https://steamcommunity.com/id/seed']);
 }
 
 function insertListedKey(array $overrides = []): int

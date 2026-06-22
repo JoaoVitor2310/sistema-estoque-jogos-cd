@@ -61,7 +61,7 @@ function insertAgingKey(string $gamivoId = '440', array $overrides = []): int
 describe('ReduceAgingKeysMinPriceUseCase', function () {
 
     beforeEach(function () {
-        DB::table('suppliers')->insert(['id' => 1, 'supplier_url' => 'https://steamcommunity.com/id/seed']);
+        DB::table('suppliers')->insert(['id' => 1, 'url' => 'https://steamcommunity.com/id/seed']);
     });
 
     // ── Tier aging: >= 7 meses → multiplier 1.2 ──────────────────────────────
