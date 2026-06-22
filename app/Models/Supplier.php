@@ -14,7 +14,6 @@ class Supplier extends Model
 
     protected $fillable = [
         'id',
-        'supplier_url',
         'steam_id',
         'url',
         'is_added',

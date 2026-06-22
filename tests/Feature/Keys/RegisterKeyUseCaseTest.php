@@ -127,7 +127,7 @@ describe('RegisterKeyUseCase', function () {
     it('marks is_duplicate=true when the key code already exists in the database', function () {
         // Insere uma key com a mesma chave no banco antes do execute
         DB::table('keys')->insert(array_merge(makeGameInput(), [
-            'supplier_id' => DB::table('suppliers')->insertGetId(['supplier_url' => 'https://steamcommunity.com/id/seed']),
+            'supplier_id' => DB::table('suppliers')->insertGetId(['url' => 'https://steamcommunity.com/id/seed']),
             'created_at' => now(),
             'updated_at' => now(),
         ]));
@@ -175,7 +175,7 @@ describe('RegisterKeyUseCase', function () {
         $profile = 'https://steamcommunity.com/id/newvendor';
         app(RegisterKeyUseCase::class)->execute([makeGameInput(['supplier_url' => $profile])]);
 
-        expect(DB::table('suppliers')->where('supplier_url', $profile)->exists())->toBeTrue();
+        expect(DB::table('suppliers')->where('url', $profile)->exists())->toBeTrue();
     });
 
     it('reuses the same supplier when two keys share the same supplier_url', function () {
