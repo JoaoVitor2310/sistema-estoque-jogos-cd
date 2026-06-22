@@ -24,8 +24,12 @@
 |     10. Supplier existente (mesmo steam_id) é atualizado
 |
 |   Rentabilidade:
-|     11. Todos rentáveis → profitable preenchido, is_tradable = true
-|     12. Nenhum rentável → profitable vazio, is_tradable = false
+|     11. Todos rentáveis → profitable preenchido, is_added reflete o banco
+|     12. Nenhum rentável → profitable vazio
+|
+|   is_added:
+|     13. Novo supplier → is_added = false
+|     14. Supplier existente com is_added = true → retorna true
 |
 */
 
@@ -190,6 +194,40 @@ describe('POST /suppliers/prospect — supplier upsert', function () {
     });
 });
 
+// ── is_added ──────────────────────────────────────────────────────────────────
+
+describe('POST /suppliers/prospect — is_added', function () {
+
+    beforeEach(function () {
+        Config::set('services.external_secret', PROSPECT_SECRET);
+        seedProspectDeps();
+    });
+
+    it('returns is_added false for a new supplier', function () {
+        $response = $this->withToken(PROSPECT_SECRET)
+            ->postJson('/suppliers/prospect', validPayload())
+            ->assertStatus(200);
+
+        expect($response->json('is_added'))->toBeFalse();
+    });
+
+    it('returns is_added true when supplier already exists with is_added = true', function () {
+        DB::table('suppliers')->insert([
+            'steam_id' => '76561198000000001',
+            'url' => 'https://steamcommunity.com/id/exemplo',
+            'is_added' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $response = $this->withToken(PROSPECT_SECRET)
+            ->postJson('/suppliers/prospect', validPayload())
+            ->assertStatus(200);
+
+        expect($response->json('is_added'))->toBeTrue();
+    });
+});
+
 // ── Rentabilidade ─────────────────────────────────────────────────────────────
 
 describe('POST /suppliers/prospect — profitability', function () {
@@ -199,26 +237,25 @@ describe('POST /suppliers/prospect — profitability', function () {
         seedProspectDeps();
     });
 
-    it('returns profitable games and is_tradable true when there are profitable games', function () {
+    it('returns profitable games when there are profitable games', function () {
         $response = $this->withToken(PROSPECT_SECRET)
             ->postJson('/suppliers/prospect', validPayload())
             ->assertStatus(200)
-            ->assertJsonStructure(['profitable', 'is_tradable']);
+            ->assertJsonStructure(['profitable', 'is_added']);
 
         expect($response->json('profitable'))->not->toBeEmpty();
-        expect($response->json('is_tradable'))->toBeTrue();
     });
 
-    it('returns empty profitable and is_tradable false when no games are profitable', function () {
+    it('returns empty profitable when no games are profitable', function () {
         $payload = validPayload(['games' => [
             ['name' => 'Junk Game', 'price_euro' => 0.05, 'popularity' => 1, 'region' => null],
         ]]);
 
         $response = $this->withToken(PROSPECT_SECRET)
             ->postJson('/suppliers/prospect', $payload)
-            ->assertStatus(200);
+            ->assertStatus(200)
+            ->assertJsonStructure(['profitable', 'is_added']);
 
         expect($response->json('profitable'))->toBeEmpty();
-        expect($response->json('is_tradable'))->toBeFalse();
     });
 });

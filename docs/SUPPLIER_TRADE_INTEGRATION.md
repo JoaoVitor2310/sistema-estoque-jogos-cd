@@ -27,9 +27,9 @@ price_researcher
     └─ POST /suppliers/prospect
             ├─ upsert do fornecedor (por steam_id)
             ├─ avalia rentabilidade dos jogos
-            └─ retorna profitable[] + is_tradable
+            └─ retorna profitable[]
                      ↓
-              price reage: comenta no tópico se is_tradable = true
+              price decide se comenta no tópico (responsabilidade dele)
 ```
 
 ---
@@ -82,15 +82,17 @@ Resposta `200`:
   "profitable": [
     { "name": "Game X", "price_euro": 4.99, "popularity": 1200, "region": null, "tf2_price": 0.45 }
   ],
-  "is_tradable": true
+  "is_added": false
 }
 ```
+
+> `is_added` é lido do banco — o price researcher **não envia** esse campo, apenas lê na resposta
+> para saber se precisa adicionar o fornecedor no Steam.
 
 Lógica:
 1. `updateOrCreate` no supplier usando `steam_id` como chave
 2. Rodar `EvaluateSupplierProfitabilityUseCase` com os games
-3. `is_tradable = count(profitable) > 0`
-4. Retornar `profitable` + `is_tradable`
+3. Retornar `profitable` + `is_added` (do registro do supplier)
 
 ---
 

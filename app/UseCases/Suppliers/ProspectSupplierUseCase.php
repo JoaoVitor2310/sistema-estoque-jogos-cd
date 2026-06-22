@@ -12,19 +12,19 @@ class ProspectSupplierUseCase
     ) {}
 
     /**
-     * @param  array{steam_id: string, url: string, is_added: bool}  $supplier
+     * @param  array{steam_id: string, url: string}  $supplier
      * @param  array<int, array{name: string, price_euro: float, popularity: int, region: string|null}>  $games
-     * @return array{profitable: array<int, mixed>, is_tradable: bool}
+     * @return array{profitable: array<int, mixed>, is_added: bool}
      */
     public function execute(array $supplier, array $games): array
     {
-        $this->supplierService->upsert($supplier);
+        $record = $this->supplierService->upsert($supplier);
 
         $profitable = $this->evaluateSupplierProfitabilityUseCase->execute($games);
 
         return [
             'profitable' => $profitable,
-            'is_tradable' => count($profitable) > 0,
+            'is_added' => (bool) $record->is_added,
         ];
     }
 }
