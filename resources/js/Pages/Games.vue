@@ -40,7 +40,6 @@ const props = defineProps({
 
 // Dados reativos dos jogos
 let rowData: Game[] = reactive([]);
-// console.log('Jogos recebidos:', props.games);
 Object.assign(rowData, props.games);
 
 // ====================================

@@ -28,7 +28,6 @@ import Select from 'primevue/select';
 // onMouted {
 let rowData: AuthorizedUsers[] = reactive([]);
 const props = defineProps({ emails: Array as PropType<AuthorizedUsers[]> });
-console.log(props.emails)
 Object.assign(rowData, props.emails);
 // }
 
@@ -63,11 +62,9 @@ const onEdit = async (item: AuthorizedUsers) => {
       email: item.email,
       status: item.status
     });
-    // console.log(res.data.data);
     showResponse(res, toast.add);
     if (res.status === 200) {
       const itemToUpdate = rowData.find(rowItem => rowItem.id === item.id);
-      console.log(itemToUpdate);
       if (itemToUpdate) {
         Object.assign(itemToUpdate, res.data.data);
       }
@@ -80,7 +77,6 @@ const onEdit = async (item: AuthorizedUsers) => {
       detail: error,
       life: 7000
     });
-    console.log(error);
   }
 }
 
@@ -108,7 +104,6 @@ const onAdd = async (newUser: AuthorizedUsers): Promise<void> => { // Faz a req 
       detail: error,
       life: 7000
     });
-    console.log(error);
   }
 }
 
@@ -132,7 +127,6 @@ const handleDeleteButton = (event: any, qtd: number) => {
         showResponse(res, toast.add);
         if (res.status === 200) {
           const itemToDelete = rowData.findIndex(item => item.id === selected.id);
-          console.log(itemToDelete);
           rowData.splice(itemToDelete, 1);
           DialogVisible.value = false;
         }

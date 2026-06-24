@@ -24,7 +24,6 @@ import { showResponse } from '../helpers/showResponse';
 // onMouted {
 let rowData: any[] = reactive([]);
 const props = defineProps({ taxas: Array });
-console.log(props.taxas)
 Object.assign(rowData, props.taxas);
 // }
 
@@ -87,9 +86,7 @@ const onAdd = async (newFee: any): Promise<void> => { // Faz a req pra api add o
     const res = await axiosInstance.post(`/fees`, newFee);
     showResponse(res, toast.add);
     DialogVisible.value = false;
-    console.log(res.data.data)
     rowData.push(res.data.data);
-    console.log(rowData)
   } catch (error) {
     toast.add({
       severity: 'error',
@@ -97,7 +94,6 @@ const onAdd = async (newFee: any): Promise<void> => { // Faz a req pra api add o
       detail: error,
       life: 7000
     });
-    console.log(error);
   }
 }
 
@@ -120,7 +116,6 @@ const handleDeleteButton = (event: any, qtd: number) => {
         const res = await axiosInstance.delete(`/fees/${selected.id}`);
         showResponse(res, toast.add);
         const itemToDelete = rowData.findIndex(item => item.id === selected.id);
-        console.log(itemToDelete);
         rowData.splice(itemToDelete, 1);
         DialogVisible.value = false;
       } else {

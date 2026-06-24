@@ -38,7 +38,6 @@ const props = defineProps({
   claimTypes: Array as () => string[],
   sellPlatforms: Array as () => string[],
 });
-// console.log(props.tiposFormato);
 Object.assign(rowData, props.games);
 // @ts-ignore
 let user = ref(usePage().props.auth.user);
@@ -161,11 +160,9 @@ const onEdit = async (selected: any) => {
     if (selected.sold_at) {
       selected.sold_at = identifyAndFormatDate(selected.sold_at);
     }
-    console.log(selected);
   }
   try {
     const res = await axiosInstance.put(`/keys/${product.id}`, product);
-    // console.log(res.data);
     showResponse(res, toast.add);
 
     if (res.status === 200) {
@@ -189,7 +186,6 @@ const onEdit = async (selected: any) => {
 const handleAddButton = async (): Promise<void> => { // Mostra o dialog com o elemento clicado
   try {
     const res = await axiosInstance.get(`/auth/logged`);
-    // console.log(res.data.data);
     if (res.status === 400 || res.status === 401) {
       showResponse(res, toast.add);
       return;
@@ -232,9 +228,7 @@ const onAdd = async (): Promise<void> => { // Faz a req pra api add o elemento
   });
 
   try {
-    // console.log(selected)
     const res = await axiosInstance.post(`/keys`, { games: selected });
-    // console.log(res.data.data);
     showResponse(res, toast.add);
     if (res.status === 200 || res.status === 201) {
       DialogVisible.value = false;
@@ -272,7 +266,6 @@ const handleDeleteButton = (event: any, qtd: number) => {
           showResponse(res, toast.add);
           if (res.status === 200 || res.status === 201) {
             const itemToDelete = rowData.findIndex(item => item.id === selected[0].id);
-            // console.log(itemToDelete);
             rowData.splice(itemToDelete, 1);
             DialogVisible.value = false;
           }
@@ -392,8 +385,6 @@ const onPageChange = async (search: boolean, event: PageState | null = null) => 
       method,
       data: method === 'POST' ? buildSearchPayload() : null
     });
-    console.log(res.data);
-    // return;
     if (res.status === 200 || res.status === 201) {
       localTotalGames.value = res.data.data.totalGames;
       rowData.splice(0, rowData.length, ...res.data.data.games.data);

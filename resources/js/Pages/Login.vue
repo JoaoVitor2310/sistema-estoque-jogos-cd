@@ -50,7 +50,6 @@ const onRegister = async () => {
 };
 
 const onForgotPassword = async () => {
-    // console.log('a')
     await handleRequest('/forgot-password', {
         email: formData.email,
     });

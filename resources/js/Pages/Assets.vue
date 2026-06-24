@@ -102,7 +102,6 @@ const onAdd = async (newAsset: Resource): Promise<void> => { // Faz a req pra ap
       detail: error,
       life: 7000
     });
-    console.log(error);
   }
 }
 
@@ -125,7 +124,6 @@ const handleDeleteButton = (event: any, qtd: number) => {
         const res = await axiosInstance.delete(`/assets/${selected.id}`);
         showResponse(res, toast.add);
         const itemToDelete = rowData.findIndex(item => item.id === selected.id);
-        console.log(itemToDelete);
         rowData.splice(itemToDelete, 1);
         DialogVisible.value = false;
       } else {

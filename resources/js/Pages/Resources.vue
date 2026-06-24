@@ -26,7 +26,6 @@ import { Resource } from '../types/Resource';
 // onMouted {
 let rowData: Resource[] = reactive([]);
 const props = defineProps({ resources: Array as PropType<Resource[]> });
-// console.log(props.resources)
 Object.assign(rowData, props.resources);
 // }
 
@@ -124,7 +123,6 @@ const handleDeleteButton = (event: any, qtd: number) => {
         const res = await axiosInstance.delete(`/resources/${selected.id}`);
         showResponse(res, toast.add);
         const itemToDelete = rowData.findIndex(item => item.id === selected.id);
-        console.log(itemToDelete);
         rowData.splice(itemToDelete, 1);
         DialogVisible.value = false;
       } else {

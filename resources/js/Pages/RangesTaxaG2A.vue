@@ -24,7 +24,6 @@ import { showResponse } from '../helpers/showResponse';
 // onMouted {
 let rowData: any[] = reactive([]);
 const props = defineProps({ taxas: Array });
-console.log(props.taxas)
 Object.assign(rowData, props.taxas);
 // }
 
@@ -57,15 +56,12 @@ const onEdit = async (product: any) => {
     taxa: product.taxa
   });
   showResponse(res, toast.add);
-  console.log(res.data);
 
   if (res.status === 200) {
     const itemToUpdate = rowData.find(item => item.id === product.id);
-    console.log(itemToUpdate);
     if (itemToUpdate) {
       Object.assign(itemToUpdate, res.data.data);
     }
-    console.log(rowData);
   }
   DialogVisible.value = false;
 
@@ -118,7 +114,6 @@ const handleDeleteButton = (event: any, qtd: number) => {
         const res = await axiosInstance.delete(`/ranges-g2a/${selected.id}`);
         showResponse(res, toast.add);
         const itemToDelete = rowData.findIndex(item => item.id === selected.id);
-        console.log(itemToDelete);
         rowData.splice(itemToDelete, 1);
         DialogVisible.value = false;
       } else {

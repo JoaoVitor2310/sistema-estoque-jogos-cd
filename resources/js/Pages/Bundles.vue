@@ -53,8 +53,6 @@ const paginationData = reactive({
 // Filtros de pesquisa atuais (para manter na paginação)
 const currentSearchParams = ref({});
 
-console.log(props.bundles, props.pagination);
-
 // Inicializa dados
 Object.assign(rowData, props.bundles || []);
 if (props.pagination) {
@@ -176,7 +174,6 @@ const onSaveBundle = async (bundleData: Partial<Bundle>) => {
       detail: error,
       life: 7000
     });
-    console.log(error);
   }
 }
 

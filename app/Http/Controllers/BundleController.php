@@ -128,7 +128,6 @@ class BundleController extends Controller
         try {
             $bundle = Bundle::findOrFail($bundleId);
             $gameIds = $request->input('games');
-            // dd($gameIds, $bundle);
             $bundle->games()->detach($gameIds);
         } catch (\Exception $e) {
             Log::error('Erro ao remover jogos do bundle', [$e->getMessage()]);
@@ -162,7 +161,6 @@ class BundleController extends Controller
         try {
             $data = $request->validated();
             $bundle = Bundle::findOrFail($id);
-            // dd($data, $id, $bundle);
 
             $result = $bundle->update($data);
 
