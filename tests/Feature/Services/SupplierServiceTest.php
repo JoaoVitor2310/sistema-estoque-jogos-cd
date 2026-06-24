@@ -12,6 +12,10 @@
 | para cada key do lote — múltiplas keys do mesmo fornecedor não podem
 | criar registros duplicados.
 |
+| has_traded:
+|   - findOrCreate sempre cria com has_traded = true (fluxo de keys reais)
+|   - upsert nunca altera has_traded (fluxo de prospects)
+|
 */
 
 use App\Services\Suppliers\SupplierService;
@@ -78,6 +82,55 @@ describe('SupplierService', function () {
             $id2 = app(SupplierService::class)->findOrCreate('https://steamcommunity.com/id/sellerB');
 
             expect($id1)->not->toBe($id2);
+        });
+
+        it('sets has_traded = true when creating a new supplier', function () {
+            $id = app(SupplierService::class)->findOrCreate('https://steamcommunity.com/id/trader');
+
+            expect((bool) DB::table('suppliers')->where('id', $id)->value('has_traded'))->toBeTrue();
+        });
+
+        it('does not overwrite has_traded when supplier already exists', function () {
+            // Supplier criado como prospect (has_traded = false)
+            DB::table('suppliers')->insert([
+                'url' => 'https://steamcommunity.com/id/prospect',
+                'has_traded' => false,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            app(SupplierService::class)->findOrCreate('https://steamcommunity.com/id/prospect');
+
+            expect((bool) DB::table('suppliers')->where('url', 'https://steamcommunity.com/id/prospect')->value('has_traded'))->toBeFalse();
+        });
+    });
+
+    describe('upsert()', function () {
+
+        it('creates a new supplier with has_traded = false', function () {
+            app(SupplierService::class)->upsert([
+                'steam_id' => '76561198000000001',
+                'url' => 'https://steamcommunity.com/id/prospect',
+            ]);
+
+            expect((bool) DB::table('suppliers')->where('steam_id', '76561198000000001')->value('has_traded'))->toBeFalse();
+        });
+
+        it('does not change has_traded when upserting an existing supplier', function () {
+            DB::table('suppliers')->insert([
+                'steam_id' => '76561198000000001',
+                'url' => 'https://steamcommunity.com/id/prospect',
+                'has_traded' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            app(SupplierService::class)->upsert([
+                'steam_id' => '76561198000000001',
+                'url' => 'https://steamcommunity.com/id/prospect',
+            ]);
+
+            expect((bool) DB::table('suppliers')->where('steam_id', '76561198000000001')->value('has_traded'))->toBeTrue();
         });
     });
 });

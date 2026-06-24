@@ -31,6 +31,11 @@
 |     13. Novo supplier → is_added = false
 |     14. Supplier existente com is_added = true → retorna true
 |
+|   Trade:
+|     15. Cria trade com supplier_id quando há jogos rentáveis
+|     16. Não cria trade quando nenhum jogo é rentável
+|     17. Rows da trade contêm os campos corretos
+|
 */
 
 use Illuminate\Support\Facades\Cache;
@@ -191,6 +196,53 @@ describe('POST /suppliers/prospect — supplier upsert', function () {
         ]);
 
         $this->assertDatabaseCount('suppliers', 1);
+    });
+});
+
+// ── Trade ─────────────────────────────────────────────────────────────────────
+
+describe('POST /suppliers/prospect — trade creation', function () {
+
+    beforeEach(function () {
+        Config::set('services.external_secret', PROSPECT_SECRET);
+        seedProspectDeps();
+    });
+
+    it('creates a trade associated with the supplier when there are profitable games', function () {
+        $this->withToken(PROSPECT_SECRET)
+            ->postJson('/suppliers/prospect', validPayload())
+            ->assertStatus(200);
+
+        $supplierId = DB::table('suppliers')->where('steam_id', '76561198000000001')->value('id');
+
+        $this->assertDatabaseHas('trades', ['supplier_id' => $supplierId]);
+    });
+
+    it('does not create a trade when no games are profitable', function () {
+        $payload = validPayload(['games' => [
+            ['name' => 'Junk Game', 'price_euro' => 0.05, 'popularity' => 1, 'region' => null],
+        ]]);
+
+        $this->withToken(PROSPECT_SECRET)
+            ->postJson('/suppliers/prospect', $payload)
+            ->assertStatus(200);
+
+        $this->assertDatabaseCount('trades', 0);
+    });
+
+    it('stores correct fields in trade rows', function () {
+        $this->withToken(PROSPECT_SECRET)
+            ->postJson('/suppliers/prospect', validPayload())
+            ->assertStatus(200);
+
+        $rows = DB::table('trades')->latest()->value('rows');
+        $row = json_decode($rows, true)[0];
+
+        expect($row['name'])->toBe('Half-Life')
+            ->and($row['marketPriceRaw'])->toBe('4.5')
+            ->and($row['supplierUrl'])->toBe('https://steamcommunity.com/id/exemplo')
+            ->and($row['popularity'])->toBe('500')
+            ->and($row['keyCode'])->toBeNull();
     });
 });
 
