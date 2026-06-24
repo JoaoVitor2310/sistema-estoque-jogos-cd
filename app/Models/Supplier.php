@@ -17,10 +17,12 @@ class Supplier extends Model
         'steam_id',
         'url',
         'is_added',
+        'has_traded',
     ];
 
     protected $casts = [
         'is_added' => 'boolean',
+        'has_traded' => 'boolean',
     ];
 
     public function trades(): HasMany

@@ -44,6 +44,7 @@ Campos adicionados em `suppliers`:
 - `steam_id` — string, nullable, unique (ID numérico Steam ex: `76561198...`)
 - `url` — string, nullable (perfil Steam do fornecedor)
 - `is_added` — boolean, default `false` (fornecedor adicionado como amigo na Steam)
+- `has_traded` — boolean, default `false` (já negociamos ao menos uma vez; prospects ficam `false`)
 
 Campo adicionado em `trades`:
 - `supplier_id` — FK nullable → `suppliers.id`, `on delete set null`
@@ -98,11 +99,11 @@ Lógica:
 
 ### Fase 4 — Futuro (fora do escopo agora)
 
-- Renomear `supplier_url` para `url` em `suppliers` e atualizar todos os usos no sistema
 - Absorver `vips` em `suppliers` (adicionar campos de VIP ao supplier)
 - Remover `supplier_url` de `keys` (migrar para `keys.supplier_id → suppliers.url`)
 - Tela de gerenciamento de fornecedores (listar, marcar `is_added`, ver histórico de trades)
 - Vincular trades a fornecedores via `supplier_id`
+- **Normalizar `marketPriceRaw` em `trades.rows`**: hoje é string com vírgula (`"5,78"`) por herança do TSV colado pelo usuário. Deveria ser número com ponto (`5.78`) — vírgula é formatação de display e não pertence ao dado armazenado. Migração: ler todos os `rows`, converter vírgula → ponto em `marketPriceRaw` e `tf2Qty`, salvar como string numérica. Frontend já faz `replace(',', '.')` antes de `parseFloat`, então suporta ambos sem quebrar.
 
 ---
 
