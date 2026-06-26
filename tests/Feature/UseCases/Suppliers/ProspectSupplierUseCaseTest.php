@@ -39,6 +39,47 @@ describe('ProspectSupplierUseCase', function () {
 
     beforeEach(fn () => seedUseCaseDeps());
 
+    it('creates trade with last_commented_at set when should_comment is true', function () {
+        $result = app(ProspectSupplierUseCase::class)->execute(
+            supplierPayload(),
+            [profitableGame()],
+            'G0eXM',
+        );
+
+        expect($result['should_comment'])->toBeTrue();
+        expect(DB::table('trades')->where('list_code', 'G0eXM')->whereNotNull('last_commented_at')->exists())->toBeTrue();
+    });
+
+    it('does not create a trade when no games are profitable', function () {
+        $result = app(ProspectSupplierUseCase::class)->execute(
+            supplierPayload(),
+            [['name' => 'Junk Game', 'price_euro' => 0.05, 'popularity' => 1, 'region' => null]],
+            'G0eXM',
+        );
+
+        expect($result['should_comment'])->toBeFalse();
+        expect(DB::table('trades')->count())->toBe(0);
+    });
+
+    it('does not create a trade when within interval and games have not changed', function () {
+        DB::table('trades')->insert([
+            'list_code' => 'G0eXM',
+            'last_commented_at' => now()->subDays(1),
+            'rows' => json_encode([['name' => 'Half-Life']]),
+            'created_at' => now()->subDays(1),
+            'updated_at' => now()->subDays(1),
+        ]);
+
+        $result = app(ProspectSupplierUseCase::class)->execute(
+            supplierPayload(),
+            [profitableGame()],
+            'G0eXM',
+        );
+
+        expect($result['should_comment'])->toBeFalse();
+        expect(DB::table('trades')->count())->toBe(1);
+    });
+
     describe('last_commented_at', function () {
 
         it('returns null when there is no previous commented trade for the list_code', function () {
