@@ -9,10 +9,11 @@ class Trade extends Model
 {
     protected $table = 'trades';
 
-    protected $fillable = ['supplier_id', 'title', 'rows'];
+    protected $fillable = ['supplier_id', 'list_code', 'last_commented_at', 'title', 'rows'];
 
     protected $casts = [
         'rows' => 'array',
+        'last_commented_at' => 'datetime',
     ];
 
     public function supplier(): BelongsTo

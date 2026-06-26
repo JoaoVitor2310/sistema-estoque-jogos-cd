@@ -34,7 +34,20 @@ Atue sempre como arquiteto de software sênior com conhecimento profundo de Lara
 - Colunas do banco sempre em inglês e snake_case
 - Mantenha boas práticas (SOLID, Clean Code, Design Patterns)
 - Identifique Code Smells e proponha soluções
-- **Testes são obrigatórios** — toda classe nova (Service, UseCase, Domain) deve ter testes cobrindo os comportamentos principais. Nunca entregar uma implementação sem os testes correspondentes no mesmo passo. Padrão do projeto: Pest, testes de Feature em `tests/Feature/`, testes de Unit em `tests/Unit/Domain/`. Use `DB::table()` para seeds de teste, nunca Factories quando o dado é simples.
+- **Testes são obrigatórios** — nunca entregar uma implementação sem os testes correspondentes no mesmo passo. O projeto usa três camadas de teste, cada uma com responsabilidade distinta:
+
+  | Camada | Localização | O que testa | Exemplo |
+  |--------|-------------|-------------|---------|
+  | **Unit** | `tests/Unit/Domain/` | Lógica pura de Domain — sem banco, sem framework, sem `app()` | `TradeGameComparison::hasChanged()` com arrays literais |
+  | **Integration** | `tests/Feature/UseCases/` | Orquestração de UseCases — chama `app(UseCase::class)->execute()` direto, com banco real | `ProspectSupplierUseCase` retorna `last_commented_at` e `games_changed` corretos |
+  | **Feature** | `tests/Feature/` | HTTP ponta a ponta — auth, validação, persistência, estrutura da resposta | `POST /suppliers/prospect` retorna 401 sem token |
+
+  **Regras de distribuição:**
+  - Lógica de comparação, cálculo ou decisão que vive no Domain → Unit test
+  - Comportamento do UseCase (o que orquestra, o que persiste, o que retorna) → Integration test via `app()`
+  - Contratos HTTP (status codes, campos da resposta, middleware) → Feature test via HTTP
+  - Não duplicar: se a lógica já está coberta no Unit, o Feature test não precisa repetir todos os casos — só o caminho feliz e o erro principal
+  - Padrão: Pest. Use `DB::table()` para seeds, nunca Factories quando o dado é simples.
 - **Permissões são obrigatórias** — toda rota nova deve declarar explicitamente quem pode acessá-la. Perguntas a responder antes de registrar qualquer rota: (a) guest pode acessar? (b) requer autenticação (`RequireAuth`)? (c) requer `can-edit` (`CheckPermission`)? (d) requer admin (`CheckAdmin`)? Rotas de página usam `RequireAuth` (redirect para `/login`); rotas de API/mutação usam `CheckPermission` (retorna 403 JSON). Nunca deixar rota sem middleware assumindo que "ninguém vai acessar". Após adicionar rotas, adicionar testes de acesso em `tests/Feature/Security/GuestAccessTest.php` cobrindo: guest bloqueado, usuário autorizado liberado.
 - **Nunca faça commits automáticos** — apenas prepare as alterações e informe o que foi modificado. O commit é sempre feito pelo usuário.
 

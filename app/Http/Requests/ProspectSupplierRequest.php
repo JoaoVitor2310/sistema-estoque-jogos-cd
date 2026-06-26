@@ -20,6 +20,7 @@ class ProspectSupplierRequest extends FormRequest
             'supplier' => ['required', 'array'],
             'supplier.steam_id' => ['required', 'string'],
             'supplier.url' => ['required', 'string', 'url'],
+            'list_code' => ['nullable', 'string'],
             'games' => ['required', 'array', 'min:1'],
             'games.*.name' => ['required', 'string', 'max:255'],
             'games.*.price_euro' => ['required', 'numeric', 'min:0'],
