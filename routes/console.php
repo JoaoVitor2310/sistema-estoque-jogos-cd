@@ -19,50 +19,46 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote')->hourly();
 
 Schedule::call(fn () => app(KeyService::class)->checkExpiringKeys())
-    ->cron('0 7 * * *')->timezone('America/Sao_Paulo');
+    ->cron('0 7 * * *')->timezone('America/Sao_Paulo')->environments('production');
 
 Schedule::call(fn () => app(AssetService::class)->checkDollarAlert())
-    ->cron('0 7 * * *')->timezone('America/Sao_Paulo');
+    ->cron('0 7 * * *')->timezone('America/Sao_Paulo')->environments('production');
 
 Schedule::call(fn () => app(SyncBundlesFromApiUseCase::class)->execute())
-    ->cron('5 * * * *')->timezone('UTC');
+    ->cron('5 * * * *')->timezone('UTC')->environments('production');
 
 Schedule::call(fn () => app(GameService::class)->searchGamesIdSteam())
-    ->cron('0 6 * * *')->timezone('America/Sao_Paulo');
+    ->cron('0 6 * * *')->timezone('America/Sao_Paulo')->environments('production');
 
 Schedule::call(fn () => app(GameService::class)->updateMinPrices())
-    ->cron('0 6 * * *')->timezone('America/Sao_Paulo');
+    ->cron('0 6 * * *')->timezone('America/Sao_Paulo')->environments('production');
 
 Schedule::call(fn () => app(KeyService::class)->checkLimboKeys())
-    ->cron('0 6 * * *')->timezone('America/Sao_Paulo');
+    ->cron('0 6 * * *')->timezone('America/Sao_Paulo')->environments('production');
 
 Schedule::call(fn () => app(KeyService::class)->reduceExpiringListedKeysPrice())
-    ->cron('0 6 * * *')->timezone('America/Sao_Paulo');
+    ->cron('0 6 * * *')->timezone('America/Sao_Paulo')->environments('production');
 
 // Reduz min_api de keys com >= 7 meses no estoque (apenas DB, sem chamadas à API)
 // Deve rodar antes do AutoSell para que o piso já esteja atualizado na listagem.
 Schedule::call(fn () => app(ReduceAgingKeysMinPriceUseCase::class)->execute())
-    ->cron('30 7 * * *')->timezone('America/Sao_Paulo');
+    ->cron('30 7 * * *')->timezone('America/Sao_Paulo')->environments('production');
 
 // Baixa das keys vendidas na Gamivo (janela de 2 dias para cobrir bordas de fuso)
 Schedule::call(fn () => app(UpdateSoldOffersUseCase::class)->executeFromGamivo())
-    ->cron('0 6,18 * * *')->timezone('America/Sao_Paulo');
+    ->cron('0 6,18 * * *')->timezone('America/Sao_Paulo')->environments('production');
 
 // Atualização de popularidade dos jogos via SteamCharts
 Schedule::call(fn () => app(UpdatePopularityUseCase::class)->execute())
-    ->cron('0 7 * * *')->timezone('America/Sao_Paulo');
-
-// Listagem automática de keys elegíveis na Gamivo
-// Schedule::command('gamivo:auto-sell')
-//     ->cron('0 8 * * *')->timezone('America/Sao_Paulo');
+    ->cron('0 7 * * *')->timezone('America/Sao_Paulo')->environments('production');
 
 // Reprecificação a cada 5 min para ofertas onde somos o mais barato (subir preço)
 Schedule::call(fn () => app(UpdateOffersUseCase::class)->execute(OffersUpdateMode::WeAreLowest))
-    ->cron('*/5 * * * *')->timezone('America/Sao_Paulo');
+    ->cron('*/5 * * * *')->timezone('America/Sao_Paulo')->environments('production');
 
 // Reprecificação horária para ofertas onde não somos o mais barato (recuperar posição)
 Schedule::call(fn () => app(UpdateOffersUseCase::class)->execute(OffersUpdateMode::WeAreNotLowest))
-    ->cron('5 * * * *')->timezone('America/Sao_Paulo');
+    ->cron('5 * * * *')->timezone('America/Sao_Paulo')->environments('production');
 
 Artisan::command('gamivo:auto-sell', function () {
     $listed = app(AutoSellUseCase::class)->execute();
