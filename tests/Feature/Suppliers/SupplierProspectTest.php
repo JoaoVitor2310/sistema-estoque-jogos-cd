@@ -293,7 +293,7 @@ describe('POST /suppliers/prospect — profitability', function () {
         $response = $this->withToken(PROSPECT_SECRET)
             ->postJson('/suppliers/prospect', validPayload())
             ->assertStatus(200)
-            ->assertJsonStructure(['profitable', 'is_added']);
+            ->assertJsonStructure(['profitable', 'is_added', 'last_commented_at', 'games_changed']);
 
         expect($response->json('profitable'))->not->toBeEmpty();
     });
@@ -306,8 +306,44 @@ describe('POST /suppliers/prospect — profitability', function () {
         $response = $this->withToken(PROSPECT_SECRET)
             ->postJson('/suppliers/prospect', $payload)
             ->assertStatus(200)
-            ->assertJsonStructure(['profitable', 'is_added']);
+            ->assertJsonStructure(['profitable', 'is_added', 'last_commented_at', 'games_changed']);
 
         expect($response->json('profitable'))->toBeEmpty();
+    });
+});
+
+// ── list_code ─────────────────────────────────────────────────────────────────
+
+describe('POST /suppliers/prospect — list_code', function () {
+
+    beforeEach(function () {
+        Config::set('services.external_secret', PROSPECT_SECRET);
+        seedProspectDeps();
+    });
+
+    it('stores list_code in the created trade when provided', function () {
+        $this->withToken(PROSPECT_SECRET)
+            ->postJson('/suppliers/prospect', validPayload(['list_code' => 'G0eXM']))
+            ->assertStatus(200);
+
+        expect(DB::table('trades')->where('list_code', 'G0eXM')->exists())->toBeTrue();
+    });
+
+    it('list_code is optional — trade is created with null list_code', function () {
+        $this->withToken(PROSPECT_SECRET)
+            ->postJson('/suppliers/prospect', validPayload())
+            ->assertStatus(200);
+
+        expect(DB::table('trades')->whereNull('list_code')->exists())->toBeTrue();
+    });
+
+    it('returns last_commented_at and games_changed in the response', function () {
+        $response = $this->withToken(PROSPECT_SECRET)
+            ->postJson('/suppliers/prospect', validPayload(['list_code' => 'G0eXM']))
+            ->assertStatus(200)
+            ->assertJsonStructure(['profitable', 'is_added', 'last_commented_at', 'games_changed']);
+
+        expect($response->json('last_commented_at'))->toBeNull()
+            ->and($response->json('games_changed'))->toBeFalse();
     });
 });

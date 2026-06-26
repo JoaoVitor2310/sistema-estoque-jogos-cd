@@ -15,9 +15,12 @@ class SupplierController extends Controller
 
     public function prospect(ProspectSupplierRequest $request): JsonResponse
     {
+        $data = $request->validated();
+
         $result = $this->prospectSupplierUseCase->execute(
-            $request->validated('supplier'),
-            $request->validated('games'),
+            $data['supplier'],
+            $data['games'],
+            $data['list_code'] ?? null,
         );
 
         return response()->json($result);

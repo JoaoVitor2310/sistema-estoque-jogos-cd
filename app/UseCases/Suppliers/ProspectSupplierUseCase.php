@@ -2,6 +2,7 @@
 
 namespace App\UseCases\Suppliers;
 
+use App\Domain\Trades\TradeGameComparison;
 use App\Models\Trade;
 use App\Services\Suppliers\SupplierService;
 use Carbon\Carbon;
@@ -16,17 +17,28 @@ class ProspectSupplierUseCase
     /**
      * @param  array{steam_id: string, url: string}  $supplier
      * @param  array<int, array{name: string, price_euro: float, popularity: int, region: string|null}>  $games
-     * @return array{profitable: array<int, mixed>, is_added: bool}
+     * @return array{profitable: array<int, mixed>, is_added: bool, last_commented_at: string|null, games_changed: bool}
      */
-    public function execute(array $supplier, array $games): array
+    public function execute(array $supplier, array $games, ?string $listCode = null): array
     {
         $record = $this->supplierService->upsert($supplier);
-
         $profitable = $this->evaluateSupplierProfitabilityUseCase->execute($games);
+
+        $previousTrade = $listCode
+            ? Trade::where('list_code', $listCode)
+                ->whereNotNull('last_commented_at')
+                ->latest('last_commented_at')
+                ->first()
+            : null;
+
+        $lastCommentedAt = $previousTrade?->last_commented_at;
+        $gamesChanged = $previousTrade !== null
+            && TradeGameComparison::hasChanged($games, $previousTrade->rows);
 
         if (! empty($profitable)) {
             Trade::create([
                 'supplier_id' => $record->id,
+                'list_code' => $listCode,
                 'rows' => $this->buildRows($profitable, $supplier['url']),
             ]);
         }
@@ -34,6 +46,8 @@ class ProspectSupplierUseCase
         return [
             'profitable' => $profitable,
             'is_added' => (bool) $record->is_added,
+            'last_commented_at' => $lastCommentedAt,
+            'games_changed' => $gamesChanged,
         ];
     }
 
