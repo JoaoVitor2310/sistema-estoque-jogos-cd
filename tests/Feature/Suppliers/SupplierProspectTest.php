@@ -293,7 +293,7 @@ describe('POST /suppliers/prospect — profitability', function () {
         $response = $this->withToken(PROSPECT_SECRET)
             ->postJson('/suppliers/prospect', validPayload())
             ->assertStatus(200)
-            ->assertJsonStructure(['profitable', 'is_added', 'last_commented_at', 'games_changed']);
+            ->assertJsonStructure(['profitable', 'is_added', 'last_commented_at', 'games_changed', 'should_comment']);
 
         expect($response->json('profitable'))->not->toBeEmpty();
     });
@@ -306,7 +306,7 @@ describe('POST /suppliers/prospect — profitability', function () {
         $response = $this->withToken(PROSPECT_SECRET)
             ->postJson('/suppliers/prospect', $payload)
             ->assertStatus(200)
-            ->assertJsonStructure(['profitable', 'is_added', 'last_commented_at', 'games_changed']);
+            ->assertJsonStructure(['profitable', 'is_added', 'last_commented_at', 'games_changed', 'should_comment']);
 
         expect($response->json('profitable'))->toBeEmpty();
     });
@@ -341,7 +341,7 @@ describe('POST /suppliers/prospect — list_code', function () {
         $response = $this->withToken(PROSPECT_SECRET)
             ->postJson('/suppliers/prospect', validPayload(['list_code' => 'G0eXM']))
             ->assertStatus(200)
-            ->assertJsonStructure(['profitable', 'is_added', 'last_commented_at', 'games_changed']);
+            ->assertJsonStructure(['profitable', 'is_added', 'last_commented_at', 'games_changed', 'should_comment']);
 
         expect($response->json('last_commented_at'))->toBeNull()
             ->and($response->json('games_changed'))->toBeFalse();

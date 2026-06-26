@@ -2,6 +2,7 @@
 
 namespace App\UseCases\Suppliers;
 
+use App\Domain\Trades\CommentPolicy;
 use App\Domain\Trades\TradeGameComparison;
 use App\Models\Trade;
 use App\Services\Suppliers\SupplierService;
@@ -17,7 +18,7 @@ class ProspectSupplierUseCase
     /**
      * @param  array{steam_id: string, url: string}  $supplier
      * @param  array<int, array{name: string, price_euro: float, popularity: int, region: string|null}>  $games
-     * @return array{profitable: array<int, mixed>, is_added: bool, last_commented_at: string|null, games_changed: bool}
+     * @return array{profitable: array<int, mixed>, is_added: bool, last_commented_at: Carbon|null, games_changed: bool, should_comment: bool}
      */
     public function execute(array $supplier, array $games, ?string $listCode = null): array
     {
@@ -35,10 +36,13 @@ class ProspectSupplierUseCase
         $gamesChanged = $previousTrade !== null
             && TradeGameComparison::hasChanged($games, $previousTrade->rows);
 
-        if (! empty($profitable)) {
+        $shouldComment = CommentPolicy::shouldComment($profitable, $gamesChanged, $lastCommentedAt);
+
+        if ($shouldComment) {
             Trade::create([
                 'supplier_id' => $record->id,
                 'list_code' => $listCode,
+                'last_commented_at' => now(),
                 'rows' => $this->buildRows($profitable, $supplier['url']),
             ]);
         }
@@ -48,6 +52,7 @@ class ProspectSupplierUseCase
             'is_added' => (bool) $record->is_added,
             'last_commented_at' => $lastCommentedAt,
             'games_changed' => $gamesChanged,
+            'should_comment' => $shouldComment,
         ];
     }
 

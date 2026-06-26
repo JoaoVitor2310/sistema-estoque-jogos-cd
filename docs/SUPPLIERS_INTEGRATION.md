@@ -102,6 +102,8 @@ Quando o Sistema Estoque implementar os campos acima, o price-cd irá:
 > **Proprietário:** Sistema Estoque
 > Não edite esta seção se você é do price-cd.
 
+> **⚠ Aviso para o price-cd:** o contrato descrito na seção acima está desatualizado em relação ao que foi implementado. Quando for integrar, leia esta seção — ela tem o contrato real — e atualize a seção Price Researcher para refletir o que foi de fato acordado. Diferenças principais: (1) `topic_code` foi renomeado para `list_code`; (2) a resposta agora inclui `should_comment` e a lógica de decisão foi centralizada aqui — o price-cd não precisa mais reimplementá-la.
+
 ---
 
 ### Estado atual do schema
@@ -109,82 +111,47 @@ Quando o Sistema Estoque implementar os campos acima, o price-cd irá:
 | Tabela | Campos relevantes |
 |--------|------------------|
 | `suppliers` | `id`, `steam_id` (nullable, unique), `url` (nullable), `is_added` (bool, default `false`), `has_traded` (bool, default `false`), `timestamps` |
-| `trades` | `id`, `title`, `rows` (JSON), `supplier_id` (FK nullable → `suppliers.id`, on delete set null), `timestamps` |
+| `trades` | `id`, `title`, `rows` (JSON), `supplier_id` (FK nullable → `suppliers.id`, on delete set null), `list_code` (nullable), `last_commented_at` (timestamp nullable), `timestamps` |
 | `keys` | `supplier_id` (FK → `suppliers.id`, NOT NULL), `supplier_url` (redundante — remoção planejada na Fase 6) |
 
-**Endpoint ativo:** `POST /suppliers/prospect` → `SupplierProspectController@store` (Bearer via `EXTERNAL_SECRET`)
+**Endpoint ativo:** `POST /suppliers/prospect` → `SupplierController@prospect` (Bearer via `EXTERNAL_SECRET`)
 
 **Payload atual:**
 ```json
 {
   "supplier": { "steam_id": "76561198xxxxxxxxx", "url": "https://steamcommunity.com/profiles/..." },
+  "list_code": "G0eXM",
   "games": [{ "name": "Game X", "price_euro": 4.99, "popularity": 1200, "region": null }]
 }
 ```
+
+> `list_code` é opcional — código gerado pelo SteamTrades que identifica o tópico de origem. Trades criadas manualmente ficam com `null`.
 
 **Resposta atual:**
 ```json
 {
   "profitable": [{ "name": "Game X", "price_euro": 4.99, "popularity": 1200, "region": null, "tf2_price": 0.45 }],
-  "is_added": false
+  "is_added": false,
+  "last_commented_at": "2026-06-10T14:30:00.000000Z",
+  "games_changed": true,
+  "should_comment": true
 }
 ```
+
+> `should_comment` — **campo principal para o price-cd**. Calculado por `Domain/Trades/CommentPolicy::shouldComment()` com a regra: `profitable.length > 0` AND (`games_changed` OR `last_commented_at === null` OR ≥ 14 dias desde o último comentário). Quando `true`, a trade é criada com `last_commented_at = now()`. Quando `false`, nenhuma trade é criada.
+> `last_commented_at` — valor da trade anterior com o mesmo `list_code` onde `last_commented_at IS NOT NULL`. `null` se nunca comentamos nesse tópico ou `list_code` não foi enviado. Útil para logging no price-cd.
+> `games_changed` — derivado por `Domain/Trades/TradeGameComparison::hasChanged()`; compara nomes do request com rows da trade anterior. Útil para logging no price-cd.
+> **Nota de design:** a regra de "quando comentar" é centralizada no Sistema Estoque (`CommentPolicy`). O price-cd apenas age sobre `should_comment` — não reimplementa a lógica.
 
 ---
 
 ### Fases planejadas
 
-#### Fase 4 — Suporte a `list_code` e `last_commented_at` (próxima entrega)
+#### Fase 5 — Normalizar `marketPriceRaw` em `trades.rows`
 
-O price-cd precisa saber se já comentamos no tópico (`last_commented_at`) e se os jogos mudaram desde então (`games_changed`).
+Rows antigas armazenam `marketPriceRaw` como string com vírgula (`"5,78"`) por herança do TSV colado manualmente. O correto é ponto decimal (`"5.78"`) — vírgula é formatação de display.
 
-**Decisão de modelagem:** dois novos campos em `trades`, nenhuma tabela nova.
-
-- `list_code` — string, nullable. Código gerado pelo SteamTrades que identifica unicamente um tópico de listagem (ex.: `"G0eXM"`). O Sistema Estoque apenas armazena o valor para saber com qual tópico específico uma trade está associada — não o gera nem o interpreta. Nullable porque trades criadas manualmente (jogos avulsos) não têm lista associada. Nome genérico escolhido intencionalmente: cobre tópicos de fornecedor agora e listas VIP quando `VipList` for absorvido em `trades` (Fase 8).
-- `last_commented_at` — timestamp, nullable. Setado **explicitamente** quando o price-cd efetivamente comenta no tópico — distinto do `created_at` da trade (que marca apenas quando a análise foi feita). Trades sem comentário ficam com `null`.
-
-**`games_changed`** não requer coluna: o UseCase busca a trade mais recente com o mesmo `list_code` onde `last_commented_at IS NOT NULL`, compara os nomes dos jogos em `rows` com a lista do request atual e deriva o boolean na hora.
-
-**Migration:** adicionar em `trades`:
-- `list_code` — string, nullable
-- `last_commented_at` — timestamp, nullable
-
-**Mudanças de código:**
-
-1. Migration com `list_code` e `last_commented_at` em `trades`
-2. `Trade`: adicionar os dois campos ao `$fillable`; cast de `last_commented_at` como `datetime`
-3. `EvaluateSupplierProspectRequest`: aceitar `list_code` (string, nullable)
-4. `ProspectSupplierUseCase`:
-   - Antes de criar a trade, buscar a trade mais recente com o mesmo `list_code` onde `last_commented_at IS NOT NULL` → derivar `last_commented_at` (retorno) e `games_changed`
-   - Ao criar a `Trade`, persistir `list_code` se enviado
-5. Atualizar resposta com os dois novos campos
-
-**Payload após implementação:**
-```json
-{
-  "supplier": { "steam_id": "...", "url": "..." },
-  "list_code": "G0eXM",
-  "games": [...]
-}
-```
-
-**Resposta após implementação:**
-```json
-{
-  "profitable": [...],
-  "is_added": false,
-  "last_commented_at": "2026-06-10T14:30:00Z",
-  "games_changed": true
-}
-```
-
----
-
-#### Fase 5 — Tela de gerenciamento de fornecedores (UI)
-
-- Listar suppliers com `has_traded`, `is_added`, última trade associada
-- Permitir marcar `is_added` manualmente (quando o usuário adiciona o fornecedor no Steam)
-- Exibir `supplier_id` no card de Trade na aba Trades (hoje o campo existe no banco mas não é exibido)
+Migration: ler todos os `rows`, converter vírgula → ponto em `marketPriceRaw` e `tf2Qty`, salvar. O frontend já faz `replace(',', '.')` antes de `parseFloat`, então não quebra durante a transição.
 
 ---
 
@@ -199,15 +166,7 @@ Estratégia Expand-Contract:
 
 ---
 
-#### Fase 7 — Normalizar `marketPriceRaw` em `trades.rows`
-
-Rows antigas armazenam `marketPriceRaw` como string com vírgula (`"5,78"`) por herança do TSV colado manualmente. O correto é ponto decimal (`"5.78"`) — vírgula é formatação de display.
-
-Migration: ler todos os `rows`, converter vírgula → ponto em `marketPriceRaw` e `tf2Qty`, salvar. O frontend já faz `replace(',', '.')` antes de `parseFloat`, então não quebra durante a transição.
-
----
-
-#### Fase 8 — Absorver `VipList` em `trades` e `vips` em `suppliers`
+#### Fase 7 — Absorver `VipList` em `trades` e `vips` em `suppliers`
 
 Hoje `Vip`, `VipList` e `Supplier` são entidades separadas, mas representam o mesmo conceito: um fornecedor Steam com uma lista de jogos.
 
@@ -222,3 +181,11 @@ Hoje `Vip`, `VipList` e `Supplier` são entidades separadas, mas representam o m
 - Tabela `vips` removida após migração
 
 Escopo detalhado a definir antes de implementar.
+
+---
+
+#### Fase 8 — Tela de gerenciamento de fornecedores (UI)
+
+- Listar suppliers com `has_traded`, `is_added`, última trade associada
+- Permitir marcar `is_added` manualmente (quando o usuário adiciona o fornecedor no Steam)
+- Exibir supplier no card de Trade na aba Trades (hoje `supplier_id` está no banco mas não é exibido)
