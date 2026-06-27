@@ -29,4 +29,25 @@ class SupplierService
     {
         return Supplier::firstOrCreate(['url' => $url]);
     }
+
+    public function resolveIdByUrl(?string $url): ?int
+    {
+        if (! $url) {
+            return null;
+        }
+
+        return $this->upsertByUrl($url)->id;
+    }
+
+    public function resolveIdBySteamId(?string $steamId): ?int
+    {
+        if (! $steamId) {
+            return null;
+        }
+
+        return $this->upsert([
+            'steam_id' => $steamId,
+            'url' => 'https://steamcommunity.com/profiles/'.$steamId,
+        ])->id;
+    }
 }

@@ -4,11 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Domain\Pricing\OfferCalculator;
 use App\Http\Requests\ImportTradeKeysRequest;
+use App\Http\Requests\StoreListTradeRequest;
 use App\Models\Trade;
 use App\Services\Keys\KeyCalculationService;
 use App\Services\Trades\TradeService;
 use App\UseCases\Keys\RegisterKeyUseCase;
 use App\UseCases\Trades\CreateTradeUseCase;
+use App\UseCases\Trades\StoreListTradeUseCase;
 use App\UseCases\Trades\UpdateTradeUseCase;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -23,6 +25,7 @@ class TradeController extends Controller
         private readonly TradeService $tradeService,
         private readonly CreateTradeUseCase $createTradeUseCase,
         private readonly UpdateTradeUseCase $updateTradeUseCase,
+        private readonly StoreListTradeUseCase $storeListTradeUseCase,
     ) {}
 
     public function show(): Response
@@ -45,6 +48,16 @@ class TradeController extends Controller
     public function store(Request $request): JsonResponse
     {
         $trade = $this->createTradeUseCase->execute($request->all());
+
+        return response()->json([
+            'id' => $trade->id,
+            'created_at' => $trade->created_at,
+        ], 201);
+    }
+
+    public function storeFromPriceResearcher(StoreListTradeRequest $request): JsonResponse
+    {
+        $trade = $this->storeListTradeUseCase->execute($request->validated());
 
         return response()->json([
             'id' => $trade->id,
