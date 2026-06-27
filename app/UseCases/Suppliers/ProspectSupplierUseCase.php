@@ -16,13 +16,15 @@ class ProspectSupplierUseCase
     ) {}
 
     /**
-     * @param  array{steam_id: string, url: string}  $supplier
      * @param  array<int, array{name: string, price_euro: float, popularity: int, region: string|null}>  $games
      * @return array{profitable: array<int, mixed>, is_added: bool, last_commented_at: Carbon|null, games_changed: bool, should_comment: bool}
      */
-    public function execute(array $supplier, array $games, ?string $listCode = null): array
+    public function execute(string $steamId, array $games, ?string $listCode = null): array
     {
-        $record = $this->supplierService->upsert($supplier);
+        $record = $this->supplierService->upsert([
+            'steam_id' => $steamId,
+            'url' => 'https://steamcommunity.com/profiles/'.$steamId,
+        ]);
         $profitable = $this->evaluateSupplierProfitabilityUseCase->execute($games);
 
         $previousTrade = $listCode
@@ -33,8 +35,11 @@ class ProspectSupplierUseCase
             : null;
 
         $lastCommentedAt = $previousTrade?->last_commented_at;
+
+        $previousRows = $previousTrade?->games ?? [];
+
         $gamesChanged = $previousTrade !== null
-            && TradeGameComparison::hasChanged($games, $previousTrade->rows);
+            && TradeGameComparison::hasChanged($games, $previousRows);
 
         $shouldComment = CommentPolicy::shouldComment($profitable, $gamesChanged, $lastCommentedAt);
 
@@ -43,7 +48,8 @@ class ProspectSupplierUseCase
                 'supplier_id' => $record->id,
                 'list_code' => $listCode,
                 'last_commented_at' => now(),
-                'rows' => $this->buildRows($profitable, $supplier['url']),
+                'date' => now()->format('Y-m-d'),
+                'games' => $this->buildGames($profitable),
             ]);
         }
 
@@ -60,18 +66,13 @@ class ProspectSupplierUseCase
      * @param  array<int, array{name: string, price_euro: float, popularity: int, region: string|null, tf2_price: float}>  $profitable
      * @return array<int, array<string, mixed>>
      */
-    private function buildRows(array $profitable, string $supplierUrl): array
+    private function buildGames(array $profitable): array
     {
-        $date = Carbon::now()->format('d/m/Y');
-
-        return array_map(fn ($game) => [
-            'date' => $date,
+        return array_map(fn (array $game) => [
             'name' => $game['name'],
-            'marketPriceRaw' => (string) $game['price_euro'],
-            'tf2Qty' => (string) $game['tf2_price'],
+            'marketPriceRaw' => number_format($game['price_euro'], 2, '.', ''),
             'popularity' => (string) $game['popularity'],
             'regionLock' => $game['region'],
-            'supplierUrl' => $supplierUrl,
             'bundle' => null,
             'expiry' => null,
             'keyCode' => null,

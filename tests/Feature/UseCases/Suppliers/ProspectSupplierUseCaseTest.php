@@ -25,9 +25,9 @@ function seedUseCaseDeps(float $tf2Price = 0.95): void
     ]);
 }
 
-function supplierPayload(): array
+function supplierSteamId(): string
 {
-    return ['steam_id' => '76561198000000001', 'url' => 'https://steamcommunity.com/id/seller'];
+    return '76561198000000001';
 }
 
 function profitableGame(): array
@@ -41,7 +41,7 @@ describe('ProspectSupplierUseCase', function () {
 
     it('creates trade with last_commented_at set when should_comment is true', function () {
         $result = app(ProspectSupplierUseCase::class)->execute(
-            supplierPayload(),
+            supplierSteamId(),
             [profitableGame()],
             'G0eXM',
         );
@@ -52,7 +52,7 @@ describe('ProspectSupplierUseCase', function () {
 
     it('does not create a trade when no games are profitable', function () {
         $result = app(ProspectSupplierUseCase::class)->execute(
-            supplierPayload(),
+            supplierSteamId(),
             [['name' => 'Junk Game', 'price_euro' => 0.05, 'popularity' => 1, 'region' => null]],
             'G0eXM',
         );
@@ -65,13 +65,13 @@ describe('ProspectSupplierUseCase', function () {
         DB::table('trades')->insert([
             'list_code' => 'G0eXM',
             'last_commented_at' => now()->subDays(1),
-            'rows' => json_encode([['name' => 'Half-Life']]),
+            'games' => json_encode([['name' => 'Half-Life']]),
             'created_at' => now()->subDays(1),
             'updated_at' => now()->subDays(1),
         ]);
 
         $result = app(ProspectSupplierUseCase::class)->execute(
-            supplierPayload(),
+            supplierSteamId(),
             [profitableGame()],
             'G0eXM',
         );
@@ -84,7 +84,7 @@ describe('ProspectSupplierUseCase', function () {
 
         it('returns null when there is no previous commented trade for the list_code', function () {
             $result = app(ProspectSupplierUseCase::class)->execute(
-                supplierPayload(),
+                supplierSteamId(),
                 [profitableGame()],
                 'G0eXM',
             );
@@ -98,13 +98,13 @@ describe('ProspectSupplierUseCase', function () {
             DB::table('trades')->insert([
                 'list_code' => 'G0eXM',
                 'last_commented_at' => $commentedAt,
-                'rows' => json_encode([['name' => 'Half-Life']]),
+                'games' => json_encode([['name' => 'Half-Life']]),
                 'created_at' => now()->subWeek(),
                 'updated_at' => now()->subWeek(),
             ]);
 
             $result = app(ProspectSupplierUseCase::class)->execute(
-                supplierPayload(),
+                supplierSteamId(),
                 [profitableGame()],
                 'G0eXM',
             );
@@ -116,13 +116,13 @@ describe('ProspectSupplierUseCase', function () {
             DB::table('trades')->insert([
                 'list_code' => 'G0eXM',
                 'last_commented_at' => null,
-                'rows' => json_encode([['name' => 'Half-Life']]),
+                'games' => json_encode([['name' => 'Half-Life']]),
                 'created_at' => now()->subDay(),
                 'updated_at' => now()->subDay(),
             ]);
 
             $result = app(ProspectSupplierUseCase::class)->execute(
-                supplierPayload(),
+                supplierSteamId(),
                 [profitableGame()],
                 'G0eXM',
             );
@@ -132,7 +132,7 @@ describe('ProspectSupplierUseCase', function () {
 
         it('returns null when list_code is not provided', function () {
             $result = app(ProspectSupplierUseCase::class)->execute(
-                supplierPayload(),
+                supplierSteamId(),
                 [profitableGame()],
             );
 
@@ -144,7 +144,7 @@ describe('ProspectSupplierUseCase', function () {
 
         it('returns false when there is no previous commented trade', function () {
             $result = app(ProspectSupplierUseCase::class)->execute(
-                supplierPayload(),
+                supplierSteamId(),
                 [profitableGame()],
                 'G0eXM',
             );
@@ -156,13 +156,13 @@ describe('ProspectSupplierUseCase', function () {
             DB::table('trades')->insert([
                 'list_code' => 'G0eXM',
                 'last_commented_at' => now()->subWeek(),
-                'rows' => json_encode([['name' => 'Half-Life']]),
+                'games' => json_encode([['name' => 'Half-Life']]),
                 'created_at' => now()->subWeek(),
                 'updated_at' => now()->subWeek(),
             ]);
 
             $result = app(ProspectSupplierUseCase::class)->execute(
-                supplierPayload(),
+                supplierSteamId(),
                 [profitableGame()],
                 'G0eXM',
             );
@@ -174,13 +174,13 @@ describe('ProspectSupplierUseCase', function () {
             DB::table('trades')->insert([
                 'list_code' => 'G0eXM',
                 'last_commented_at' => now()->subWeek(),
-                'rows' => json_encode([['name' => 'Portal'], ['name' => 'Team Fortress 2']]),
+                'games' => json_encode([['name' => 'Portal'], ['name' => 'Team Fortress 2']]),
                 'created_at' => now()->subWeek(),
                 'updated_at' => now()->subWeek(),
             ]);
 
             $result = app(ProspectSupplierUseCase::class)->execute(
-                supplierPayload(),
+                supplierSteamId(),
                 [profitableGame()],
                 'G0eXM',
             );
@@ -190,7 +190,7 @@ describe('ProspectSupplierUseCase', function () {
 
         it('returns false when list_code is not provided', function () {
             $result = app(ProspectSupplierUseCase::class)->execute(
-                supplierPayload(),
+                supplierSteamId(),
                 [profitableGame()],
             );
 

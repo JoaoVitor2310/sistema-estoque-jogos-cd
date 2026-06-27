@@ -369,6 +369,12 @@ git push origin main
 | `VPS_SSH_KEY` | Conteúdo da chave privada SSH |
 | `VPS_PORT` | Porta SSH (geralmente `22`) |
 
+### Pendente — Suppliers e Trades
+
+- [ ] **Remover `supplier_url` de `keys`** — campo redundante; o vínculo real é `keys.supplier_id → suppliers.id → suppliers.url`. Estratégia: garantir que todos os `supplier_id` estejam preenchidos → remover leituras/escritas do campo (`KeyController`, `RegisterKeyUseCase`, `ImportKeysFromXlsxUseCase`) → migration `dropColumn('supplier_url')`.
+- [ ] **Absorver `VipList` em `trades` e `Vip` em `suppliers`** — as duas entidades representam o mesmo conceito de fornecedor Steam com lista de jogos. `VipList` vira `Trade` com `supplier_id` + `list_code`; `Vip.id_steam` é coberto por `suppliers.steam_id`. Remover `vip_lists`, `vips`, `VipListExecutionService` e `ExecuteVipListUseCase` após migração.
+- [ ] **Tela de gerenciamento de suppliers** — listar com `has_traded`, `is_added`, última trade associada; permitir marcar `is_added` manualmente; exibir supplier no card de Trade.
+
 ### Futura — Normalizar FK entre `keys` e `games`
 
 Hoje o vínculo é por string: `keys.gamivo_id ←→ games.id_gamivo`. Não há integridade referencial, JOINs são em varchar e `game_name`/`region` ficam duplicados.

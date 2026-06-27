@@ -52,7 +52,7 @@ function seedKey(string $keyCode): void
 /** Cria uma Trade com um ou mais rows no banco. */
 function makeTrade(array $rows = [], ?string $createdAt = null): Trade
 {
-    $trade = Trade::create(['rows' => $rows]);
+    $trade = Trade::create(['games' => $rows]);
 
     if ($createdAt) {
         $trade->forceFill(['created_at' => $createdAt])->save();
