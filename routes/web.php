@@ -72,6 +72,10 @@ Route::post('/suppliers/prospect', [SupplierController::class, 'prospect'])
     ->name('suppliers.prospect')
     ->middleware(VerifySecret::class);
 
+Route::post('/trades/from-price-researcher', [TradeController::class, 'storeFromPriceResearcher'])
+    ->name('trades.from-price-researcher')
+    ->middleware(VerifySecret::class);
+
 Route::get('/acesso', [AuthorizedUsersController::class, 'index'])->name('acesso')->middleware(RequireAuth::class);
 
 Route::get('/login', function () {

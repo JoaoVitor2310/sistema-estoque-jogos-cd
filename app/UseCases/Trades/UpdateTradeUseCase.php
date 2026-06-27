@@ -19,20 +19,11 @@ class UpdateTradeUseCase
     {
         $trade->update([
             'title' => $data['title'] ?? null,
-            'supplier_id' => $this->resolveSupplier($data['supplierUrl'] ?? null),
+            'supplier_id' => $this->supplierService->resolveIdByUrl($data['supplierUrl'] ?? null),
             'date' => $this->parseDate($data['date'] ?? null),
             'tf2_qty' => ($data['tf2Qty'] ?? null) ?: null,
             'games' => $data['games'] ?? [],
         ]);
-    }
-
-    private function resolveSupplier(?string $url): ?int
-    {
-        if (! $url) {
-            return null;
-        }
-
-        return $this->supplierService->upsertByUrl($url)->id;
     }
 
     private function parseDate(?string $date): ?string
