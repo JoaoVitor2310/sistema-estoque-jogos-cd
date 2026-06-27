@@ -24,4 +24,9 @@ class SupplierService
             ['url' => $data['url']],
         );
     }
+
+    public function upsertByUrl(string $url): Supplier
+    {
+        return Supplier::firstOrCreate(['url' => $url]);
+    }
 }

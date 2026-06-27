@@ -12,29 +12,27 @@
 |     2. Token errado              → 401
 |
 |   Validação:
-|     3. Body vazio                → 422
-|     4. supplier ausente          → 422
-|     5. supplier.steam_id ausente → 422
-|     6. supplier.url inválida     → 422
-|     7. games ausente             → 422
-|     8. games vazio               → 422
+|     3. Body vazio                    → 422
+|     4. supplier_steam_id ausente     → 422
+|     5. games ausente                 → 422
+|     6. games vazio                   → 422
 |
 |   Upsert do supplier:
-|     9.  Novo supplier é criado no banco
-|     10. Supplier existente (mesmo steam_id) é atualizado
+|     8.  Novo supplier é criado com URL derivada do steam_id
+|     9.  Supplier existente (mesmo steam_id) não é duplicado
 |
 |   Rentabilidade:
-|     11. Todos rentáveis → profitable preenchido, is_added reflete o banco
-|     12. Nenhum rentável → profitable vazio
+|     10. Todos rentáveis → profitable preenchido, is_added reflete o banco
+|     11. Nenhum rentável → profitable vazio
 |
 |   is_added:
-|     13. Novo supplier → is_added = false
-|     14. Supplier existente com is_added = true → retorna true
+|     12. Novo supplier → is_added = false
+|     13. Supplier existente com is_added = true → retorna true
 |
 |   Trade:
-|     15. Cria trade com supplier_id quando há jogos rentáveis
-|     16. Não cria trade quando nenhum jogo é rentável
-|     17. Rows da trade contêm os campos corretos
+|     14. Cria trade com supplier_id quando há jogos rentáveis
+|     15. Não cria trade quando nenhum jogo é rentável
+|     16. Games da trade contêm os campos corretos
 |
 */
 
@@ -65,13 +63,13 @@ function seedProspectDeps(float $tf2Price = 0.95): void
     ]);
 }
 
+const SUPPLIER_STEAM_ID = '76561198000000001';
+const SUPPLIER_URL = 'https://steamcommunity.com/profiles/76561198000000001';
+
 function validPayload(array $overrides = []): array
 {
     return array_merge([
-        'supplier' => [
-            'steam_id' => '76561198000000001',
-            'url' => 'https://steamcommunity.com/id/exemplo',
-        ],
+        'supplier_steam_id' => SUPPLIER_STEAM_ID,
         'games' => [
             ['name' => 'Half-Life', 'price_euro' => 4.50, 'popularity' => 500, 'region' => null],
         ],
@@ -106,39 +104,19 @@ describe('POST /suppliers/prospect — validation', function () {
         $this->withToken(PROSPECT_SECRET)
             ->postJson('/suppliers/prospect', [])
             ->assertStatus(422)
-            ->assertJsonValidationErrors(['supplier', 'games']);
+            ->assertJsonValidationErrors(['supplier_steam_id', 'games']);
     });
 
-    it('returns 422 when supplier is missing', function () {
+    it('returns 422 when supplier_steam_id is missing', function () {
         $this->withToken(PROSPECT_SECRET)
             ->postJson('/suppliers/prospect', ['games' => [validPayload()['games'][0]]])
             ->assertStatus(422)
-            ->assertJsonValidationErrors(['supplier']);
-    });
-
-    it('returns 422 when supplier.steam_id is missing', function () {
-        $payload = validPayload();
-        unset($payload['supplier']['steam_id']);
-
-        $this->withToken(PROSPECT_SECRET)
-            ->postJson('/suppliers/prospect', $payload)
-            ->assertStatus(422)
-            ->assertJsonValidationErrors(['supplier.steam_id']);
-    });
-
-    it('returns 422 when supplier.url is not a valid URL', function () {
-        $payload = validPayload();
-        $payload['supplier']['url'] = 'not-a-url';
-
-        $this->withToken(PROSPECT_SECRET)
-            ->postJson('/suppliers/prospect', $payload)
-            ->assertStatus(422)
-            ->assertJsonValidationErrors(['supplier.url']);
+            ->assertJsonValidationErrors(['supplier_steam_id']);
     });
 
     it('returns 422 when games is missing', function () {
         $this->withToken(PROSPECT_SECRET)
-            ->postJson('/suppliers/prospect', ['supplier' => validPayload()['supplier']])
+            ->postJson('/suppliers/prospect', ['supplier_steam_id' => SUPPLIER_STEAM_ID])
             ->assertStatus(422)
             ->assertJsonValidationErrors(['games']);
     });
@@ -162,38 +140,30 @@ describe('POST /suppliers/prospect — supplier upsert', function () {
         seedProspectDeps();
     });
 
-    it('creates a new supplier when steam_id does not exist', function () {
+    it('creates a new supplier with URL derived from steam_id', function () {
         $this->withToken(PROSPECT_SECRET)
             ->postJson('/suppliers/prospect', validPayload())
             ->assertStatus(200);
 
         $this->assertDatabaseHas('suppliers', [
-            'steam_id' => '76561198000000001',
-            'url' => 'https://steamcommunity.com/id/exemplo',
+            'steam_id' => SUPPLIER_STEAM_ID,
+            'url' => SUPPLIER_URL,
             'is_added' => false,
         ]);
     });
 
-    it('updates existing supplier when steam_id already exists', function () {
+    it('does not duplicate supplier when steam_id already exists', function () {
         DB::table('suppliers')->insert([
-            'steam_id' => '76561198000000001',
-            'url' => 'https://steamcommunity.com/id/antigo',
+            'steam_id' => SUPPLIER_STEAM_ID,
+            'url' => SUPPLIER_URL,
             'is_added' => false,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
 
-        $payload = validPayload();
-        $payload['supplier']['url'] = 'https://steamcommunity.com/id/novo';
-
         $this->withToken(PROSPECT_SECRET)
-            ->postJson('/suppliers/prospect', $payload)
+            ->postJson('/suppliers/prospect', validPayload())
             ->assertStatus(200);
-
-        $this->assertDatabaseHas('suppliers', [
-            'steam_id' => '76561198000000001',
-            'url' => 'https://steamcommunity.com/id/novo',
-        ]);
 
         $this->assertDatabaseCount('suppliers', 1);
     });
@@ -230,19 +200,20 @@ describe('POST /suppliers/prospect — trade creation', function () {
         $this->assertDatabaseCount('trades', 0);
     });
 
-    it('stores correct fields in trade rows', function () {
+    it('stores correct fields in trade games', function () {
         $this->withToken(PROSPECT_SECRET)
             ->postJson('/suppliers/prospect', validPayload())
             ->assertStatus(200);
 
-        $rows = DB::table('trades')->latest()->value('rows');
-        $row = json_decode($rows, true)[0];
+        $trade = DB::table('trades')->latest()->first();
+        $game = json_decode($trade->games, true)[0];
 
-        expect($row['name'])->toBe('Half-Life')
-            ->and($row['marketPriceRaw'])->toBe('4.5')
-            ->and($row['supplierUrl'])->toBe('https://steamcommunity.com/id/exemplo')
-            ->and($row['popularity'])->toBe('500')
-            ->and($row['keyCode'])->toBeNull();
+        expect($game['name'])->toBe('Half-Life')
+            ->and($game['marketPriceRaw'])->toBe('4.50')
+            ->and($game['popularity'])->toBe('500')
+            ->and($game['keyCode'])->toBeNull();
+
+        expect($trade->date)->not->toBeNull();
     });
 });
 
@@ -265,8 +236,8 @@ describe('POST /suppliers/prospect — is_added', function () {
 
     it('returns is_added true when supplier already exists with is_added = true', function () {
         DB::table('suppliers')->insert([
-            'steam_id' => '76561198000000001',
-            'url' => 'https://steamcommunity.com/id/exemplo',
+            'steam_id' => SUPPLIER_STEAM_ID,
+            'url' => SUPPLIER_URL,
             'is_added' => true,
             'created_at' => now(),
             'updated_at' => now(),

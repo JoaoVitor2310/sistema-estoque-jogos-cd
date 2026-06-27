@@ -12,17 +12,16 @@ class TradeService
      * Retorna todas as trades em ordem decrescente de criação,
      * com o campo `is_stocked` calculado em uma única query (sem N+1).
      *
-     * `is_stocked = true` quando ao menos um key_code da trade
-     * já existe na tabela `keys`.
-     *
      * @return Collection<int, array<string, mixed>>
      */
     public function allWithStockedStatus(): Collection
     {
-        $trades = Trade::orderBy('created_at', 'desc')->get(['id', 'title', 'rows', 'created_at']);
+        $trades = Trade::with('supplier')
+            ->orderBy('created_at', 'desc')
+            ->get(['id', 'title', 'games', 'date', 'tf2_qty', 'supplier_id', 'created_at']);
 
         $allKeyCodes = $trades
-            ->flatMap(fn ($t) => collect($t->rows)->pluck('keyCode')->filter())
+            ->flatMap(fn ($t) => collect($t->games ?? [])->pluck('keyCode')->filter())
             ->unique()
             ->values()
             ->all();
@@ -32,24 +31,30 @@ class TradeService
             : Key::whereIn('key_code', $allKeyCodes)->pluck('key_code')->flip();
 
         return $trades->map(function ($trade) use ($stockedCodes) {
-            $isStocked = collect($trade->rows)
+            $isStocked = collect($trade->games ?? [])
                 ->some(fn ($r) => isset($r['keyCode']) && $stockedCodes->has($r['keyCode']));
 
-            return array_merge($trade->only(['id', 'title', 'rows', 'created_at']), [
+            return [
+                'id' => $trade->id,
+                'title' => $trade->title,
+                'games' => $trade->games ?? [],
+                'date' => $trade->date?->format('d/m/Y'),
+                'tf2_qty' => $trade->tf2_qty,
+                'supplier' => $trade->supplier ? ['url' => $trade->supplier->url] : null,
+                'created_at' => $trade->created_at,
                 'is_stocked' => $isStocked,
-            ]);
+            ];
         });
     }
 
     /**
-     * Verifica se ao menos um key_code das rows da trade já está no estoque.
-     * Chamado após o autosave para atualizar o indicador visual no frontend.
+     * Verifica se ao menos um key_code dos jogos da trade já está no estoque.
      *
-     * @param  array<int, array<string, mixed>>  $rows
+     * @param  array<int, array<string, mixed>>  $games
      */
-    public function isStocked(array $rows): bool
+    public function isStocked(array $games): bool
     {
-        $keyCodes = collect($rows)->pluck('keyCode')->filter()->values()->all();
+        $keyCodes = collect($games)->pluck('keyCode')->filter()->values()->all();
 
         return ! empty($keyCodes) && Key::whereIn('key_code', $keyCodes)->exists();
     }

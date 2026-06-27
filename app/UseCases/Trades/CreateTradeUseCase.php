@@ -1,0 +1,49 @@
+<?php
+
+namespace App\UseCases\Trades;
+
+use App\Models\Trade;
+use App\Services\Suppliers\SupplierService;
+use Carbon\Carbon;
+
+class CreateTradeUseCase
+{
+    public function __construct(
+        private readonly SupplierService $supplierService,
+    ) {}
+
+    /**
+     * @param  array{supplierUrl?: string|null, date?: string|null, tf2Qty?: string|null, games?: array<int, mixed>}  $data
+     */
+    public function execute(array $data): Trade
+    {
+        return Trade::create([
+            'supplier_id' => $this->resolveSupplier($data['supplierUrl'] ?? null),
+            'date' => $this->parseDate($data['date'] ?? null),
+            'tf2_qty' => ($data['tf2Qty'] ?? null) ?: null,
+            'games' => $data['games'] ?? [],
+        ]);
+    }
+
+    private function resolveSupplier(?string $url): ?int
+    {
+        if (! $url) {
+            return null;
+        }
+
+        return $this->supplierService->upsertByUrl($url)->id;
+    }
+
+    private function parseDate(?string $date): ?string
+    {
+        if (! $date) {
+            return null;
+        }
+
+        try {
+            return Carbon::createFromFormat('d/m/Y', $date)->format('Y-m-d');
+        } catch (\Exception) {
+            return null;
+        }
+    }
+}

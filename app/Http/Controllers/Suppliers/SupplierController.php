@@ -18,7 +18,7 @@ class SupplierController extends Controller
         $data = $request->validated();
 
         $result = $this->prospectSupplierUseCase->execute(
-            $data['supplier'],
+            $data['supplier_steam_id'],
             $data['games'],
             $data['list_code'] ?? null,
         );

@@ -8,6 +8,8 @@ use App\Models\Trade;
 use App\Services\Keys\KeyCalculationService;
 use App\Services\Trades\TradeService;
 use App\UseCases\Keys\RegisterKeyUseCase;
+use App\UseCases\Trades\CreateTradeUseCase;
+use App\UseCases\Trades\UpdateTradeUseCase;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -19,11 +21,10 @@ class TradeController extends Controller
         private readonly KeyCalculationService $calculationService,
         private readonly RegisterKeyUseCase $registerKeyUseCase,
         private readonly TradeService $tradeService,
+        private readonly CreateTradeUseCase $createTradeUseCase,
+        private readonly UpdateTradeUseCase $updateTradeUseCase,
     ) {}
 
-    /**
-     * Página principal — carrega todas as trades persistidas e as props de cálculo.
-     */
     public function show(): Response
     {
         $fee = $this->calculationService->getMarketplaceFee();
@@ -41,12 +42,9 @@ class TradeController extends Controller
         ]);
     }
 
-    /**
-     * Cria uma nova trade a partir das linhas coladas no frontend.
-     */
     public function store(Request $request): JsonResponse
     {
-        $trade = Trade::create(['rows' => $request->input('rows', [])]);
+        $trade = $this->createTradeUseCase->execute($request->all());
 
         return response()->json([
             'id' => $trade->id,
@@ -54,26 +52,15 @@ class TradeController extends Controller
         ], 201);
     }
 
-    /**
-     * Persiste as alterações feitas nas células da tabela (autosave).
-     */
     public function update(Request $request, Trade $trade): JsonResponse
     {
-        $rows = $request->input('rows', []);
-
-        $trade->update([
-            'title' => $request->input('title'),
-            'rows' => $rows,
-        ]);
+        $this->updateTradeUseCase->execute($trade, $request->all());
 
         return response()->json([
-            'is_stocked' => $this->tradeService->isStocked($rows),
+            'is_stocked' => $this->tradeService->isStocked($trade->games ?? []),
         ], 200);
     }
 
-    /**
-     * Remove uma trade do sistema (ação manual do usuário).
-     */
     public function destroy(Trade $trade): JsonResponse
     {
         $trade->delete();
@@ -81,9 +68,6 @@ class TradeController extends Controller
         return response()->json([], 204);
     }
 
-    /**
-     * Importa as keys de uma trade para o estoque.
-     */
     public function importKeys(ImportTradeKeysRequest $request, Trade $trade): JsonResponse
     {
         $result = $this->registerKeyUseCase->execute($request->validated('games'));

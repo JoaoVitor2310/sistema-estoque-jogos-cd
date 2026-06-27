@@ -17,9 +17,7 @@ class ProspectSupplierRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'supplier' => ['required', 'array'],
-            'supplier.steam_id' => ['required', 'string'],
-            'supplier.url' => ['required', 'string', 'url'],
+            'supplier_steam_id' => ['required', 'string'],
             'list_code' => ['nullable', 'string'],
             'games' => ['required', 'array', 'min:1'],
             'games.*.name' => ['required', 'string', 'max:255'],

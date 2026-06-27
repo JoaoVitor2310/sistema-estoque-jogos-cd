@@ -3,7 +3,16 @@ import { ref, nextTick } from 'vue';
 import axiosInstance from '@/axios';
 
 const props = defineProps<{
-  trades: Array<{ id: number; title: string | null; rows: StoredRow[]; created_at: string; is_stocked: boolean }>;
+  trades: Array<{
+    id: number;
+    title: string | null;
+    games: StoredGame[];
+    date: string | null;
+    tf2_qty: string | null;
+    supplier: { url: string } | null;
+    created_at: string;
+    is_stocked: boolean;
+  }>;
   tf2Price: number;
   fees: {
     percentLow: number;
@@ -18,22 +27,19 @@ const props = defineProps<{
 
 type RowStatus = 'pending' | 'success' | 'error';
 
-/** Campos persistidos no banco (sem estado de UI). */
-interface StoredRow {
-  date: string;
+/** Campos de um jogo persistidos no banco. */
+interface StoredGame {
   name: string;
   marketPriceRaw: string;
-  tf2Qty: string;
   bundle: string;
   expiry: string;
   popularity: string;
   regionLock: string;
   keyCode: string;
-  supplierUrl: string;
 }
 
-/** StoredRow + estado de UI (não é enviado ao backend). */
-interface Row extends StoredRow {
+/** StoredGame + estado de UI (não é enviado ao backend). */
+interface Row extends StoredGame {
   status: RowStatus;
   errorMsg: string;
   customTf2Override: string;
@@ -42,6 +48,9 @@ interface Row extends StoredRow {
 interface TradeEntry {
   id: number;
   title: string;
+  date: string;
+  supplierUrl: string;
+  tf2Qty: string;
   rows: Row[];
   createdAt: string;
   isStocked: boolean;
@@ -66,16 +75,13 @@ const saveTimers = new Map<number, ReturnType<typeof setTimeout>>();
 /** Garante que todos os campos de string nunca sejam null (vindo do JSON do banco). */
 function toRow(r: any): Row {
   return {
-    date: r.date ?? '',
     name: r.name ?? '',
     marketPriceRaw: r.marketPriceRaw ?? '',
-    tf2Qty: r.tf2Qty ?? '',
     bundle: r.bundle ?? '',
     expiry: r.expiry ?? '',
     popularity: r.popularity ?? '',
     regionLock: r.regionLock ?? '',
     keyCode: r.keyCode ?? '',
-    supplierUrl: r.supplierUrl ?? '',
     status: 'pending',
     errorMsg: '',
     customTf2Override: '',
@@ -86,11 +92,14 @@ function emptyRow(): Row {
   return toRow({});
 }
 
-function toTradeEntry(t: { id: number; title: string | null; rows: StoredRow[]; created_at: string; is_stocked: boolean }): TradeEntry {
+function toTradeEntry(t: typeof props.trades[number]): TradeEntry {
   return {
     id: t.id,
     title: t.title ?? '',
-    rows: (t.rows ?? []).map(toRow),
+    date: t.date ?? '',
+    supplierUrl: t.supplier?.url ?? '',
+    tf2Qty: t.tf2_qty ?? '',
+    rows: (t.games ?? []).map(toRow),
     createdAt: t.created_at,
     isStocked: t.is_stocked ?? false,
     importing: false,
@@ -98,9 +107,18 @@ function toTradeEntry(t: { id: number; title: string | null; rows: StoredRow[]; 
   };
 }
 
-function rowToStored(row: Row): StoredRow {
-  const { status, errorMsg, customTf2Override, ...stored } = row;
-  return stored;
+function rowToGame(row: Row): StoredGame {
+  const { status, errorMsg, customTf2Override, ...game } = row;
+  return game;
+}
+
+function tradePayload(trade: TradeEntry) {
+  return {
+    supplierUrl: trade.supplierUrl,
+    date: trade.date,
+    tf2Qty: trade.tf2Qty,
+    games: trade.rows.map(rowToGame),
+  };
 }
 
 // ─── Cálculos (projeção client-side — fonte da verdade no Domain PHP) ─────────
@@ -127,7 +145,7 @@ function calcOffer(netIncome: number, profitPct: number): number {
 }
 
 function getMarketPrice(row: Row): number {
-  return parseFloat((row.marketPriceRaw ?? '').replace(',', '.').replace('€', '').trim()) || 0;
+  return parseFloat((row.marketPriceRaw ?? '').replace(',', '.')) || 0;
 }
 
 function getNetIncome(row: Row): number {
@@ -166,7 +184,20 @@ function getImpliedProfit(row: Row): number | null {
 
 // ─── Parse de TSV ─────────────────────────────────────────────────────────────
 
-function parseText(text: string): Row[] {
+interface ParsedLine {
+  date: string;
+  supplierUrl: string;
+  tf2Qty: string;
+  name: string;
+  marketPriceRaw: string;
+  bundle: string;
+  expiry: string;
+  popularity: string;
+  regionLock: string;
+  keyCode: string;
+}
+
+function parseText(text: string): ParsedLine[] {
   return text
     .split('\n')
     .map(l => l.trim())
@@ -183,7 +214,7 @@ function parseText(text: string): Row[] {
 
       return [{
         date: cols[0].trim(),
-        marketPriceRaw: cols[1].trim(),
+        marketPriceRaw: (parseFloat(cols[1].replace('€', '').replace(',', '.').trim()) || 0).toFixed(2),
         supplierUrl: cols[2].trim(),
         tf2Qty: cols[3].trim(),
         bundle: cols[4].trim(),
@@ -192,9 +223,6 @@ function parseText(text: string): Row[] {
         regionLock: cols[7].trim(),
         keyCode: cols[8].trim(),
         name,
-        status: 'pending' as RowStatus,
-        errorMsg: '',
-        customTf2Override: '',
       }];
     });
 }
@@ -204,17 +232,28 @@ function parseText(text: string): Row[] {
 async function handlePaste(e: ClipboardEvent) {
   e.preventDefault();
   const text = e.clipboardData?.getData('text') ?? '';
-  const rows = parseText(text);
-  if (rows.length === 0) return;
+  const parsed = parseText(text);
+  if (parsed.length === 0) return;
+
+  const date = parsed[0].date;
+  const supplierUrl = parsed[0].supplierUrl;
+  const tf2Qty = parsed[0].tf2Qty;
+  const rows: Row[] = parsed.map(toRow);
 
   try {
     const res = await axiosInstance.post(route('trades.store'), {
-      rows: rows.map(rowToStored),
+      supplierUrl,
+      date: date,
+      tf2Qty,
+      games: rows.map(rowToGame),
     });
 
     tradeList.value.unshift({
       id: res.data.id,
       title: '',
+      date,
+      supplierUrl,
+      tf2Qty,
       rows,
       createdAt: res.data.created_at,
       isStocked: false,
@@ -244,7 +283,7 @@ function scheduleAutosave(trade: TradeEntry) {
     try {
       const res = await axiosInstance.put(route('trades.update', { trade: trade.id }), {
         title: trade.title,
-        rows: trade.rows.map(rowToStored),
+        rows: tradePayload(trade),
       });
       trade.isStocked = res.data.is_stocked ?? trade.isStocked;
     } catch (err) {
@@ -288,9 +327,9 @@ const isRowMeaningful = (r: Row) => !!(r.name?.trim() || (r.marketPriceRaw ?? ''
 const hasMissingKeyCodes = (trade: TradeEntry) =>
   trade.rows.some(r => isRowMeaningful(r) && !(r.keyCode ?? '').trim());
 const hasMissingTf2 = (trade: TradeEntry) =>
-  trade.rows.some(r => isRowMeaningful(r) && !(parseFloat((r.tf2Qty ?? '').replace(',', '.')) > 0));
+  !(parseFloat((trade.tf2Qty ?? '').replace(',', '.')) > 0);
 const hasMissingSupplierUrl = (trade: TradeEntry) =>
-  trade.rows.some(r => isRowMeaningful(r) && !(r.supplierUrl ?? '').trim());
+  !(trade.supplierUrl ?? '').trim();
 const canImport = (trade: TradeEntry) =>
   trade.rows.some(isRowMeaningful)
   && !hasMissingKeyCodes(trade)
@@ -310,13 +349,17 @@ async function importTrade(trade: TradeEntry) {
     .map((row, originalIdx) => ({ row, originalIdx }))
     .filter(({ row }) => isRowMeaningful(row));
 
+  const tf2Quantity = parseFloat((trade.tf2Qty ?? '').replace(',', '.')) || 0;
+  const supplierUrl = (trade.supplierUrl ?? '').trim();
+  const date = convertDateToISO(trade.date ?? '');
+
   const games = meaningfulEntries.map(({ row }) => ({
     game_name: row.name ?? '',
     market_price: getMarketPrice(row),
-    tf2_quantity: parseFloat((row.tf2Qty ?? '').replace(',', '.')) || 0,
+    tf2_quantity: tf2Quantity,
     key_code: (row.keyCode ?? '').trim(),
-    supplier_url: (row.supplierUrl ?? '').trim(),
-    acquired_at: convertDateToISO(row.date ?? ''),
+    supplier_url: supplierUrl,
+    date: date,
     region: (row.regionLock ?? '').trim() || null,
     expires_at: (row.expiry ?? '').trim() ? convertDateToISO((row.expiry ?? '').trim()) : null,
   }));
@@ -352,7 +395,7 @@ async function importTrade(trade: TradeEntry) {
         game_name: 'Nome',
         market_price: 'Preço de Mercado',
         supplier_url: 'URL Fornecedor',
-        acquired_at: 'Data',
+        date: 'Data',
       };
 
       meaningfulEntries.forEach(({ originalIdx }, gameIdx) => {
@@ -474,10 +517,8 @@ const sortDir = ref<'asc' | 'desc'>('asc');
 
 function getSortValue(row: Row, field: string): number | string {
   switch (field) {
-    case 'date':       return row.date ?? '';
     case 'expiry':     return row.expiry ?? '';
     case 'marketPrice': return getMarketPrice(row);
-    case 'tf2Qty':     return parseFloat((row.tf2Qty ?? '').replace(',', '.')) || 0;
     case 'netIncome':  return getNetIncome(row);
     default:
       if (field.startsWith('tier-')) {
@@ -581,13 +622,54 @@ function sortIcon(field: string): string {
       <!-- Cabeçalho da trade -->
       <div class="card-header bg-white d-flex align-items-center justify-content-between flex-wrap gap-2 py-2">
         <div class="d-flex align-items-center gap-2 flex-wrap flex-grow-1">
+
+          <!-- Título -->
           <input
             v-model="trade.title"
             class="trade-title-input"
             placeholder="Identificação da trade..."
             @input="scheduleAutosave(trade)"
           />
-          <span class="text-muted" style="font-size: 0.75rem;">|</span>
+
+          <div class="vr opacity-25 align-self-stretch" />
+
+          <!-- Campos da trade -->
+          <div class="d-flex align-items-center gap-3">
+            <div class="trade-meta-field">
+              <span class="trade-meta-label">Data</span>
+              <input
+                v-model="trade.date"
+                class="cell-input trade-meta-input"
+                :class="{ 'is-missing': !(trade.date ?? '').trim() }"
+                placeholder="dd/mm/aaaa"
+                @input="scheduleAutosave(trade)"
+              />
+            </div>
+            <div class="trade-meta-field">
+              <span class="trade-meta-label">Fornecedor</span>
+              <input
+                v-model="trade.supplierUrl"
+                class="cell-input trade-meta-input trade-meta-input--url"
+                :class="{ 'is-missing': hasMissingSupplierUrl(trade) }"
+                placeholder="URL do perfil"
+                @input="scheduleAutosave(trade)"
+              />
+            </div>
+            <div class="trade-meta-field">
+              <span class="trade-meta-label">Qtd TF2</span>
+              <input
+                v-model="trade.tf2Qty"
+                class="cell-input trade-meta-input trade-meta-input--tf2"
+                :class="{ 'is-missing': hasMissingTf2(trade) }"
+                placeholder="0,00"
+                @input="scheduleAutosave(trade)"
+              />
+            </div>
+          </div>
+
+          <div class="vr opacity-25 align-self-stretch" />
+
+          <!-- Meta info -->
           <span class="text-muted small">
             <i class="pi pi-calendar me-1" />{{ formatCreatedAt(trade.createdAt) }}
           </span>
@@ -596,15 +678,6 @@ function sortIcon(field: string): string {
           </span>
           <span v-if="trade.isStocked" class="badge bg-success">
             <i class="pi pi-check-circle me-1" />Inserida no estoque
-          </span>
-          <span v-if="hasMissingKeyCodes(trade)" class="badge bg-warning text-dark">
-            <i class="pi pi-exclamation-triangle me-1" />Key codes em falta
-          </span>
-          <span v-if="hasMissingTf2(trade)" class="badge bg-warning text-dark">
-            <i class="pi pi-exclamation-triangle me-1" />Qtd TF2 em falta
-          </span>
-          <span v-if="hasMissingSupplierUrl(trade)" class="badge bg-warning text-dark">
-            <i class="pi pi-exclamation-triangle me-1" />URL Fornecedor em falta
           </span>
         </div>
         <div class="d-flex gap-2">
@@ -645,16 +718,9 @@ function sortIcon(field: string): string {
             <thead class="table-light">
               <tr>
                 <th style="width: 36px;"></th>
-                <th class="ps-3 sort-th" style="min-width: 90px;" @click="sortBy('date')">
-                  Data <i :class="sortIcon('date')" class="sort-icon" />
-                </th>
                 <th class="sort-th" style="min-width: 110px;" @click="sortBy('marketPrice')">
                   Preço Mercado <span class="text-muted fw-normal">(€)</span>
                   <i :class="sortIcon('marketPrice')" class="sort-icon" />
-                </th>
-                <th style="min-width: 120px;">URL Fornecedor</th>
-                <th class="sort-th" style="min-width: 90px;" @click="sortBy('tf2Qty')">
-                  Qtd TF2 <i :class="sortIcon('tf2Qty')" class="sort-icon" />
                 </th>
                 <th style="min-width: 100px;">Bundle</th>
                 <th class="sort-th" style="min-width: 100px;" @click="sortBy('expiry')">
@@ -736,25 +802,11 @@ function sortIcon(field: string): string {
                   </button>
                 </td>
 
-                <td class="ps-2">
-                  <input v-model="row.date" class="cell-input" @input="scheduleAutosave(trade)" />
-                </td>
-
-                <td>
-                  <input v-model="row.marketPriceRaw" class="cell-input" @input="scheduleAutosave(trade)" />
-                </td>
-
-                <td>
-                  <input v-model="row.supplierUrl" class="cell-input text-muted" style="font-size: 0.75rem;" @input="scheduleAutosave(trade)" />
-                </td>
-
                 <td>
                   <input
-                    v-model="row.tf2Qty"
-                    class="cell-input"
-                    :class="{ 'is-missing': !(parseFloat((row.tf2Qty ?? '').replace(',', '.')) > 0) }"
-                    placeholder="0,00"
-                    @input="scheduleAutosave(trade)"
+                    :value="row.marketPriceRaw.replace('.', ',')"
+                    class="cell-input ps-2"
+                    @change="(e) => { row.marketPriceRaw = (parseFloat((e.target as HTMLInputElement).value.replace(',', '.')) || 0).toFixed(2); scheduleAutosave(trade); }"
                   />
                 </td>
 
@@ -886,6 +938,36 @@ function sortIcon(field: string): string {
 
 .paste-zone-compact {
   padding: 0.6rem 1.2rem;
+}
+
+.trade-meta-field {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.trade-meta-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #8009EF;
+  line-height: 1;
+}
+
+.trade-meta-input {
+  width: auto;
+  font-size: 0.85rem;
+}
+
+.trade-meta-input--url {
+  min-width: 170px;
+  font-size: 0.75rem;
+  color: #6c757d;
+}
+
+.trade-meta-input--tf2 {
+  width: 70px;
 }
 
 /* ── Título da trade ─────────────────────────────────────────────────────────── */
