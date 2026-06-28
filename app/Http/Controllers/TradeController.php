@@ -59,10 +59,7 @@ class TradeController extends Controller
     {
         $trade = $this->storeListTradeUseCase->execute($request->validated());
 
-        return response()->json([
-            'id' => $trade->id,
-            'created_at' => $trade->created_at,
-        ], 201);
+        return response()->json(['created_at' => $trade->created_at], 201);
     }
 
     public function update(Request $request, Trade $trade): JsonResponse

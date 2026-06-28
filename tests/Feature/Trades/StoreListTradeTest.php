@@ -121,14 +121,14 @@ describe('POST /trades/from-price-researcher — trade creation', function () {
 
     beforeEach(fn () => Config::set('services.external_secret', LIST_TRADE_SECRET));
 
-    it('creates trade and returns 201 with id and created_at', function () {
-        $response = $this->withToken(LIST_TRADE_SECRET)
+    it('creates trade and returns 201 with created_at', function () {
+        $this->withToken(LIST_TRADE_SECRET)
             ->postJson('/trades/from-price-researcher', validListPayload())
             ->assertStatus(201)
-            ->assertJsonStructure(['id', 'created_at']);
+            ->assertJsonStructure(['created_at'])
+            ->assertJsonMissingPath('id');
 
         $this->assertDatabaseCount('trades', 1);
-        expect($response->json('id'))->toBeInt();
     });
 
     it('creates supplier and links trade when supplier_steam_id is provided', function () {

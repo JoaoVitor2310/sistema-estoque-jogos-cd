@@ -283,7 +283,7 @@ function scheduleAutosave(trade: TradeEntry) {
     try {
       const res = await axiosInstance.put(route('trades.update', { trade: trade.id }), {
         title: trade.title,
-        rows: tradePayload(trade),
+        ...tradePayload(trade),
       });
       trade.isStocked = res.data.is_stocked ?? trade.isStocked;
     } catch (err) {
@@ -303,6 +303,12 @@ function addRow(trade: TradeEntry) {
 
 function deleteRow(trade: TradeEntry, rowIdx: number) {
   trade.rows.splice(rowIdx, 1);
+  scheduleAutosave(trade);
+}
+
+function duplicateRow(trade: TradeEntry, rowIdx: number) {
+  const duplicate = toRow({ ...rowToGame(trade.rows[rowIdx]), keyCode: '' });
+  trade.rows.splice(rowIdx + 1, 0, duplicate);
   scheduleAutosave(trade);
 }
 
@@ -717,7 +723,6 @@ function sortIcon(field: string): string {
           <table class="table table-hover align-middle mb-0">
             <thead class="table-light">
               <tr>
-                <th style="width: 36px;"></th>
                 <th class="sort-th" style="min-width: 110px;" @click="sortBy('marketPrice')">
                   Preço Mercado <span class="text-muted fw-normal">(€)</span>
                   <i :class="sortIcon('marketPrice')" class="sort-icon" />
@@ -786,21 +791,11 @@ function sortIcon(field: string): string {
                     </button>
                   </div>
                 </th>
+                <th style="width: 36px;"></th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="(row, rowIdx) in trade.rows" :key="rowIdx" :class="rowClass(row)">
-
-                <td class="text-center p-1">
-                  <button
-                    type="button"
-                    class="btn btn-sm btn-link text-danger p-0"
-                    title="Excluir linha"
-                    @click="deleteRow(trade, rowIdx)"
-                  >
-                    <i class="pi pi-times" style="font-size: 0.75rem;" />
-                  </button>
-                </td>
 
                 <td>
                   <input
@@ -901,6 +896,27 @@ function sortIcon(field: string): string {
                     >
                       ≈ {{ getImpliedProfit(row)!.toFixed(1) }}%
                     </span>
+                  </div>
+                </td>
+
+                <td class="text-center p-1">
+                  <div class="d-flex flex-column align-items-center gap-1">
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-link text-secondary p-0"
+                      title="Duplicar linha (sem key code)"
+                      @click="duplicateRow(trade, rowIdx)"
+                    >
+                      <i class="pi pi-clone" style="font-size: 0.75rem;" />
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-link text-danger p-0"
+                      title="Excluir linha"
+                      @click="deleteRow(trade, rowIdx)"
+                    >
+                      <i class="pi pi-times" style="font-size: 0.75rem;" />
+                    </button>
                   </div>
                 </td>
 
