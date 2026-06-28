@@ -49,7 +49,10 @@ createInertiaApp({
             .mixin({ methods: { route } })
             .use(PrimeVue, {
                 theme: {
-                    preset: MyPreset
+                    preset: MyPreset,
+                    options: {
+                        darkModeSelector: false,
+                    }
                 },
                 locale: ptBr
             })

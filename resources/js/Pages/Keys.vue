@@ -20,7 +20,6 @@ import { useToast } from "primevue/usetoast";
 import ConfirmPopup from 'primevue/confirmpopup';
 import { useConfirm } from "primevue/useconfirm";
 import InputNumber from 'primevue/inputnumber';
-import RadioButton from 'primevue/radiobutton';
 import Select from 'primevue/select';
 import DatePicker from 'primevue/datepicker';
 import Paginator, { PageState } from 'primevue/paginator';
@@ -728,10 +727,10 @@ const handleImportSubmit = async (): Promise<void> => {
               <Button label="Deletar" :disabled="!selectedProduct || selectedProduct.length === 0" aria-label="Deletar"
                 severity="danger" icon="pi pi-plus" @click="handleDeleteButton($event, 2)" raised />
             </div>
-            <div class="d-flex gap-2 flex-column flex-md-row" v-if="canEdit">
+            <div class="d-flex gap-2 flex-column flex-md-row ms-auto">
               <Button label="Pesquisar" aria-label="Pesquisar" severity="info" icon="pi pi-search"
                 @click="onPageChange(true)" raised />
-              <Button icon="pi pi-external-link" label="Exportar CSV" @click="exportCSV()" />
+              <Button v-if="canEdit" icon="pi pi-external-link" label="Exportar CSV" @click="exportCSV()" />
             </div>
           </div>
         </template>
@@ -1031,17 +1030,4 @@ const handleImportSubmit = async (): Promise<void> => {
 </template>
 
 <style scoped>
-.p-datatable {
-  font-size: 0.90rem;
-}
-
-/* Reduz o espaçamento interno das células */
-.p-datatable .p-datatable-tbody>tr>td {
-  padding: 0.5rem;
-}
-
-/* Reduz o espaçamento interno no cabeçalho */
-.p-datatable .p-datatable-thead>tr>th {
-  padding: 0.5rem;
-}
 </style>
