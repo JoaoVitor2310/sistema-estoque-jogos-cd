@@ -2,9 +2,12 @@
 
 namespace App\UseCases\Suppliers;
 
+use App\Domain\Pricing\IncomeCalculator;
+use App\Domain\Pricing\OfferCalculator;
 use App\Domain\Trades\CommentPolicy;
 use App\Domain\Trades\TradeGameComparison;
 use App\Models\Trade;
+use App\Services\Keys\KeyCalculationService;
 use App\Services\Suppliers\SupplierService;
 use Carbon\Carbon;
 
@@ -12,7 +15,7 @@ class ProspectSupplierUseCase
 {
     public function __construct(
         private readonly SupplierService $supplierService,
-        private readonly EvaluateSupplierProfitabilityUseCase $evaluateSupplierProfitabilityUseCase,
+        private readonly KeyCalculationService $calculationService,
     ) {}
 
     /**
@@ -25,7 +28,8 @@ class ProspectSupplierUseCase
             'steam_id' => $steamId,
             'url' => 'https://steamcommunity.com/profiles/'.$steamId,
         ]);
-        $profitable = $this->evaluateSupplierProfitabilityUseCase->execute($games);
+
+        $profitable = $this->evaluateProfitability($games);
 
         $previousTrade = $listCode
             ? Trade::where('list_code', $listCode)
@@ -35,7 +39,6 @@ class ProspectSupplierUseCase
             : null;
 
         $lastCommentedAt = $previousTrade?->last_commented_at;
-
         $previousRows = $previousTrade?->games ?? [];
 
         $gamesChanged = $previousTrade !== null
@@ -60,6 +63,37 @@ class ProspectSupplierUseCase
             'games_changed' => $gamesChanged,
             'should_comment' => $shouldComment,
         ];
+    }
+
+    /**
+     * @param  array<int, array{name: string, price_euro: float, popularity: int, region: string|null}>  $games
+     * @return array<int, array{name: string, price_euro: float, popularity: int, region: string|null, tf2_price: float}>
+     */
+    private function evaluateProfitability(array $games): array
+    {
+        $fee = $this->calculationService->getMarketplaceFee();
+        $tf2Price = $this->calculationService->getTf2EuroPrice();
+
+        $profitable = [];
+
+        foreach ($games as $game) {
+            $netIncome = IncomeCalculator::forGamivo((float) $game['price_euro'], $fee);
+            $tf2Offer = OfferCalculator::tf2Offer($netIncome, OfferCalculator::PROFIT_TIERS[0], $tf2Price);
+
+            if ($tf2Offer <= 0) {
+                continue;
+            }
+
+            $profitable[] = [
+                'name' => $game['name'],
+                'price_euro' => (float) $game['price_euro'],
+                'popularity' => (int) $game['popularity'],
+                'region' => $game['region'] ?? null,
+                'tf2_price' => round($tf2Offer, 2),
+            ];
+        }
+
+        return $profitable;
     }
 
     /**

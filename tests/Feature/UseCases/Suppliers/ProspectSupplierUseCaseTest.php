@@ -140,6 +140,61 @@ describe('ProspectSupplierUseCase', function () {
         });
     });
 
+    describe('evaluateProfitability', function () {
+
+        it('returns tf2_price for a profitable game', function () {
+            // €4.50 com tier baixo (6% + €0.25): income = 4.50 * 0.94 - 0.25 = 3.98
+            // tf2Offer = 3.98 * tier_ratio / 0.95
+            $result = app(ProspectSupplierUseCase::class)->execute(
+                supplierSteamId(),
+                [profitableGame()],
+            );
+
+            expect($result['profitable'])->toHaveCount(1);
+            expect($result['profitable'][0])->toHaveKey('tf2_price');
+            expect($result['profitable'][0]['tf2_price'])->toBeFloat()->toBeGreaterThan(0);
+        });
+
+        it('excludes games below profitability threshold', function () {
+            $result = app(ProspectSupplierUseCase::class)->execute(
+                supplierSteamId(),
+                [['name' => 'Junk', 'price_euro' => 0.01, 'popularity' => 1, 'region' => null]],
+            );
+
+            expect($result['profitable'])->toBeEmpty();
+        });
+
+        it('applies high fee tier for games priced at or above €8', function () {
+            // €10.00 tier alto (8% + €0.40): income = 10.00 * 0.92 - 0.40 = 8.80
+            // €4.50 tier baixo (6% + €0.25): income = 4.50 * 0.94 - 0.25 = 3.98
+            $result = app(ProspectSupplierUseCase::class)->execute(
+                supplierSteamId(),
+                [
+                    ['name' => 'Cheap Game', 'price_euro' => 4.50, 'popularity' => 100, 'region' => null],
+                    ['name' => 'Pricey Game', 'price_euro' => 10.00, 'popularity' => 100, 'region' => null],
+                ],
+            );
+
+            expect($result['profitable'])->toHaveCount(2);
+
+            $cheap = collect($result['profitable'])->firstWhere('name', 'Cheap Game');
+            $pricey = collect($result['profitable'])->firstWhere('name', 'Pricey Game');
+
+            // Tier alto gera income maior em termos absolutos
+            expect($pricey['tf2_price'])->toBeGreaterThan($cheap['tf2_price']);
+        });
+
+        it('preserves region and popularity in profitable output', function () {
+            $result = app(ProspectSupplierUseCase::class)->execute(
+                supplierSteamId(),
+                [['name' => 'Half-Life', 'price_euro' => 4.50, 'popularity' => 999, 'region' => 'EU']],
+            );
+
+            expect($result['profitable'][0]['region'])->toBe('EU');
+            expect($result['profitable'][0]['popularity'])->toBe(999);
+        });
+    });
+
     describe('games_changed', function () {
 
         it('returns false when there is no previous commented trade', function () {
