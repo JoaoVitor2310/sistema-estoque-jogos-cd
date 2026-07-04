@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Domain\Enums\SupplierCategory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -14,15 +15,18 @@ class Supplier extends Model
 
     protected $fillable = [
         'id',
+        'name',
         'steam_id',
         'url',
         'is_added',
         'has_traded',
+        'category',
     ];
 
     protected $casts = [
         'is_added' => 'boolean',
         'has_traded' => 'boolean',
+        'category' => SupplierCategory::class,
     ];
 
     public function trades(): HasMany
