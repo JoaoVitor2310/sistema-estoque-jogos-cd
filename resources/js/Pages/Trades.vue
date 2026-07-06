@@ -250,7 +250,7 @@ async function handlePaste(e: ClipboardEvent) {
 
     tradeList.value.unshift({
       id: res.data.id,
-      title: '',
+      title: res.data.title ?? '',
       date,
       supplierUrl,
       tf2Qty,
@@ -365,7 +365,7 @@ async function importTrade(trade: TradeEntry) {
     tf2_quantity: tf2Quantity,
     key_code: (row.keyCode ?? '').trim(),
     supplier_url: supplierUrl,
-    date: date,
+    acquired_at: date,
     region: (row.regionLock ?? '').trim() || null,
     expires_at: (row.expiry ?? '').trim() ? convertDateToISO((row.expiry ?? '').trim()) : null,
   }));
@@ -401,7 +401,7 @@ async function importTrade(trade: TradeEntry) {
         game_name: 'Nome',
         market_price: 'Preço de Mercado',
         supplier_url: 'URL Fornecedor',
-        date: 'Data',
+        acquired_at: 'Data',
       };
 
       meaningfulEntries.forEach(({ originalIdx }, gameIdx) => {

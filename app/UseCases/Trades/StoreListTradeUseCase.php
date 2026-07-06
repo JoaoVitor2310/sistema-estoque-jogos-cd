@@ -16,8 +16,11 @@ class StoreListTradeUseCase
      */
     public function execute(array $data): Trade
     {
+        $supplier = $this->supplierService->resolveBySteamId($data['supplier_steam_id'] ?? null);
+
         return Trade::create([
-            'supplier_id' => $this->supplierService->resolveIdBySteamId($data['supplier_steam_id'] ?? null),
+            'supplier_id' => $supplier?->id,
+            'title' => $supplier?->name ?: null,
             'list_code' => $data['list_code'] ?? null,
             'date' => now()->format('Y-m-d'),
             'games' => $this->buildGames($data['games']),

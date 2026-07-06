@@ -9,7 +9,7 @@ class SupplierService
     public function findOrCreate(string $supplierUrl): int
     {
         return Supplier::firstOrCreate(
-            ['url' => $supplierUrl],
+            ['url' => $this->normalizeUrl($supplierUrl)],
             ['has_traded' => true],
         )->id;
     }
@@ -21,13 +21,13 @@ class SupplierService
     {
         return Supplier::updateOrCreate(
             ['steam_id' => $data['steam_id']],
-            ['url' => $data['url']],
+            ['url' => $this->normalizeUrl($data['url'])],
         );
     }
 
     public function upsertByUrl(string $url): Supplier
     {
-        return Supplier::firstOrCreate(['url' => $url]);
+        return Supplier::firstOrCreate(['url' => $this->normalizeUrl($url)]);
     }
 
     public function resolveIdByUrl(?string $url): ?int
@@ -39,7 +39,7 @@ class SupplierService
         return $this->upsertByUrl($url)->id;
     }
 
-    public function resolveIdBySteamId(?string $steamId): ?int
+    public function resolveBySteamId(?string $steamId): ?Supplier
     {
         if (! $steamId) {
             return null;
@@ -48,6 +48,11 @@ class SupplierService
         return $this->upsert([
             'steam_id' => $steamId,
             'url' => 'https://steamcommunity.com/profiles/'.$steamId,
-        ])->id;
+        ]);
+    }
+
+    private function normalizeUrl(string $url): string
+    {
+        return rtrim($url, '/');
     }
 }

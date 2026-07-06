@@ -17,8 +17,13 @@ class CreateTradeUseCase
      */
     public function execute(array $data): Trade
     {
+        $supplier = ($data['supplierUrl'] ?? null)
+            ? $this->supplierService->upsertByUrl($data['supplierUrl'])
+            : null;
+
         return Trade::create([
-            'supplier_id' => $this->supplierService->resolveIdByUrl($data['supplierUrl'] ?? null),
+            'supplier_id' => $supplier?->id,
+            'title' => ($data['title'] ?? null) ?: ($supplier?->name ?: null),
             'date' => $this->parseDate($data['date'] ?? null),
             'tf2_qty' => ($data['tf2Qty'] ?? null) ?: null,
             'games' => $data['games'] ?? [],
