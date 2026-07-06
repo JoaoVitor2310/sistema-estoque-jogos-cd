@@ -6,6 +6,7 @@ import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import { FilterMatchMode } from '@primevue/core/api';
 import InputText from 'primevue/inputtext';
+import InputNumber from 'primevue/inputnumber';
 import 'primeicons/primeicons.css';
 import InputGroup from 'primevue/inputgroup';
 import InputGroupAddon from 'primevue/inputgroupaddon';
@@ -29,6 +30,8 @@ interface Supplier {
     name: string | null;
     steam_id: string | null;
     url: string | null;
+    region: string | null;
+    initial_offer_pct: number | null;
     category: 'vip' | 'blocked' | null;
     is_added: boolean;
     has_traded: boolean;
@@ -62,11 +65,18 @@ const categoryOptions = [
     { label: 'Bloqueado', value: 'blocked' },
 ];
 
+const isAddedOptions = [
+    { label: 'Sim', value: true },
+    { label: 'Não', value: false },
+];
+
 const emptySupplier: Supplier = {
     id: 0,
     name: '',
     steam_id: '',
     url: '',
+    region: null,
+    initial_offer_pct: null,
     category: null,
     is_added: false,
     has_traded: false,
@@ -91,6 +101,8 @@ const onSave = async () => {
         name: selected.name,
         steam_id: selected.steam_id,
         url: selected.url,
+        region: selected.region,
+        initial_offer_pct: selected.initial_offer_pct,
         category: selected.category,
         is_added: selected.is_added,
     };
@@ -249,21 +261,29 @@ const handleDelete = (event: any, item: Supplier) => {
                 <InputText v-model="selected.name" placeholder="Nome do supplier" />
             </div>
             <div class="d-flex flex-column gap-1">
-                <label class="fw-bold">ID Steam</label>
-                <InputText v-model="selected.steam_id" placeholder="76561198000000000" />
+                <label class="fw-bold">Região</label>
+                <InputText v-model="selected.region" />
             </div>
             <div class="d-flex flex-column gap-1">
-                <label class="fw-bold">URL</label>
-                <InputText v-model="selected.url" placeholder="https://steamcommunity.com/profiles/..." />
+                <label class="fw-bold">ID Steam</label>
+                <InputText v-model="selected.steam_id" />
+            </div>
+            <div class="d-flex flex-column gap-1">
+                <label class="fw-bold">% Lucro inicial</label>
+                <InputNumber v-model="selected.initial_offer_pct" :min="1" :max="1000" placeholder="100" />
             </div>
             <div class="d-flex flex-column gap-1">
                 <label class="fw-bold">Categoria</label>
                 <Select v-model="selected.category" :options="categoryOptions" optionLabel="label" optionValue="value"
                     placeholder="Normal (sem categoria)" />
             </div>
-            <div class="d-flex align-items-center gap-2">
-                <input type="checkbox" v-model="selected.is_added" id="is_added" />
-                <label for="is_added">Adicionado no Steam</label>
+            <div class="d-flex flex-column gap-1">
+                <label class="fw-bold">Adicionado no Steam</label>
+                <Select v-model="selected.is_added" :options="isAddedOptions" optionLabel="label" optionValue="value" />
+            </div>
+            <div class="d-flex flex-column gap-1">
+                <label class="fw-bold">URL</label>
+                <InputText v-model="selected.url" placeholder="https://steamcommunity.com/profiles/..." />
             </div>
         </div>
         <div class="d-flex justify-content-end gap-2">
@@ -309,11 +329,9 @@ const handleDelete = (event: any, item: Supplier) => {
                 <template #empty>Nenhum supplier encontrado.</template>
 
                 <Column selectionMode="multiple" headerStyle="width: 2.75rem" />
-                <Column field="name" header="Nome" sortable>
-                    <template #body="{ data }">
-                        {{ data.name ?? '—' }}
-                    </template>
-                </Column>
+                <Column field="id" header="ID" sortable :style="{ width: '4rem' }" />
+                <Column field="name" header="Nome" sortable />
+                <Column field="region" header="Região" sortable :style="{ width: '6rem' }" />
                 <Column field="steam_id" header="ID Steam" sortable />
                 <Column field="category" header="Categoria" sortable :style="{ width: '8rem' }" :showFilterMatchModes="false">
                     <template #body="{ data }">
@@ -330,6 +348,11 @@ const handleDelete = (event: any, item: Supplier) => {
                     <template #body="{ data }">
                         <Tag v-if="data.is_added" value="Sim" severity="success" />
                         <span v-else class="text-muted">Não</span>
+                    </template>
+                </Column>
+                <Column field="url" header="URL" :style="{ minWidth: '14rem' }">
+                    <template #body="{ data }">
+                        <a v-if="data.url" :href="data.url" target="_blank" rel="noopener" class="text-truncate d-block" style="max-width: 260px;">{{ data.url }}</a>
                     </template>
                 </Column>
                 <Column header="Ações" :style="{ minWidth: '8rem' }">

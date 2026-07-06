@@ -34,6 +34,8 @@ class SaveSupplierRequest extends FormRequest
             'steam_id' => ['nullable', 'string', 'max:255', Rule::unique('suppliers', 'steam_id')->ignore($ignore)],
             'url' => ['nullable', 'string', 'max:255', Rule::unique('suppliers', 'url')->ignore($ignore)],
             'category' => ['nullable', Rule::enum(SupplierCategory::class)],
+            'region' => ['nullable', 'string', 'max:255'],
+            'initial_offer_pct' => ['nullable', 'integer', 'min:1', 'max:1000'],
             'is_added' => ['boolean'],
         ];
     }
