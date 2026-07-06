@@ -51,6 +51,7 @@ class TradeController extends Controller
 
         return response()->json([
             'id' => $trade->id,
+            'title' => $trade->title,
             'created_at' => $trade->created_at,
         ], 201);
     }

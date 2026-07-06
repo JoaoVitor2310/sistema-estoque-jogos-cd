@@ -155,8 +155,37 @@ describe('Guest — mutations return 403', function () {
         $this->postJson('/trades', [])->assertStatus(403);
     });
 
-    it('blocks GET /vips', function () {
-        $this->get('/vips')->assertStatus(403);
+    it('blocks GET /suppliers', function () {
+        $this->get('/suppliers')->assertStatus(403);
+    });
+
+    it('blocks POST /suppliers', function () {
+        $this->postJson('/suppliers', [])->assertStatus(403);
+    });
+});
+
+// PUT/DELETE/execute usam route model binding — precisa de registro existente para o middleware disparar antes do 404
+describe('Guest — supplier mutations with model binding return 403', function () {
+
+    beforeEach(function () {
+        DB::table('suppliers')->insertOrIgnore([
+            'id' => 1,
+            'url' => 'https://steamcommunity.com/id/test',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    });
+
+    it('blocks PUT /suppliers/1', function () {
+        $this->putJson('/suppliers/1', [])->assertStatus(403);
+    });
+
+    it('blocks DELETE /suppliers/1', function () {
+        $this->deleteJson('/suppliers/1')->assertStatus(403);
+    });
+
+    it('blocks POST /suppliers/execute/1', function () {
+        $this->postJson('/suppliers/execute/1')->assertStatus(403);
     });
 });
 

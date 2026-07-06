@@ -12,7 +12,6 @@ use App\Http\Controllers\Keys\KeyImportController;
 use App\Http\Controllers\Keys\KeySaleController;
 use App\Http\Controllers\Suppliers\SupplierController;
 use App\Http\Controllers\TradeController;
-use App\Http\Controllers\VipController;
 use App\Http\Middleware\CheckAdmin;
 use App\Http\Middleware\CheckPermission;
 use App\Http\Middleware\RequireAuth;
@@ -47,17 +46,16 @@ Route::prefix('trades')
 
 Route::get('/games', [GameController::class, 'index'])->name('games')->middleware(RequireAuth::class);
 
-Route::prefix('vips')
-    ->middleware(CheckPermission::class)->controller(VipController::class)->group(function () {
-        Route::get('/', 'index')->name('vips.index');
-        Route::post('/', 'store')->name('vips.store');
-        Route::put('/{id}', 'update')->name('vips.update');
-        Route::delete('/{id}', 'destroy')->name('vips.destroy');
-        Route::post('/run/{vip}', 'runVipList')->name('vips.runVipList');
-        Route::post('/callback/{vipList}', 'callbackVipList')
-            ->name('vips.callbackVipList')
-            ->withoutMiddleware([CheckPermission::class])
-            ->middleware(VerifySecret::class);
+Route::prefix('suppliers')
+    ->middleware(CheckPermission::class)
+    ->controller(SupplierController::class)
+    ->group(function () {
+        Route::get('/', 'index')->name('suppliers.index');
+        Route::post('/', 'store')->name('suppliers.store');
+        Route::put('/{supplier}', 'update')->name('suppliers.update');
+        Route::delete('/{supplier}', 'destroy')->name('suppliers.destroy');
+        Route::post('/execute/{supplier}', 'executeList')->name('suppliers.executeList');
+        Route::post('/find-new', 'findNewSuppliers')->name('suppliers.findNew');
     });
 
 Route::get('/keys', [KeyController::class, 'show'])->name('keys');
