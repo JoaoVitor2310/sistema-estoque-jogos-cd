@@ -18,6 +18,8 @@ class Supplier extends Model
         'name',
         'steam_id',
         'url',
+        'region',
+        'initial_offer_pct',
         'is_added',
         'has_traded',
         'category',
@@ -26,6 +28,7 @@ class Supplier extends Model
     protected $casts = [
         'is_added' => 'boolean',
         'has_traded' => 'boolean',
+        'initial_offer_pct' => 'integer',
         'category' => SupplierCategory::class,
     ];
 
