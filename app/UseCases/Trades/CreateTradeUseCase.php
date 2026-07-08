@@ -24,7 +24,7 @@ class CreateTradeUseCase
         return Trade::create([
             'supplier_id' => $supplier?->id,
             'title' => ($data['title'] ?? null) ?: ($supplier?->name ?: null),
-            'date' => $this->parseDate($data['date'] ?? null),
+            'date' => $this->parseDate($data['date'] ?? null) ?? now()->format('Y-m-d'),
             'tf2_qty' => ($data['tf2Qty'] ?? null) ?: null,
             'games' => $data['games'] ?? [],
         ]);

@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { ref, nextTick } from 'vue';
+import { ref } from 'vue';
 import axiosInstance from '@/axios';
 import Checkbox from 'primevue/checkbox';
+import ConfirmPopup from 'primevue/confirmpopup';
+import { useConfirm } from 'primevue/useconfirm';
 
 const props = defineProps<{
   trades: Array<{
@@ -187,96 +189,6 @@ function getImpliedProfit(row: Row): number | null {
   return (netIncome / (tf2Val * props.tf2Price) - 1) * 100;
 }
 
-// ─── Parse de TSV ─────────────────────────────────────────────────────────────
-
-interface ParsedLine {
-  date: string;
-  supplierUrl: string;
-  tf2Qty: string;
-  name: string;
-  marketPriceRaw: string;
-  bundle: string;
-  expiry: string;
-  popularity: string;
-  regionLock: string;
-  keyCode: string;
-}
-
-function parseText(text: string): ParsedLine[] {
-  return text
-    .split('\n')
-    .map(l => l.trim())
-    .filter(l => l.length > 0)
-    .flatMap(line => {
-      const cols = line.split('\t');
-      if (cols.length < 10) return [];
-
-      const rawPrice = cols[1].replace('€', '').replace(',', '.').trim();
-      const marketPrice = parseFloat(rawPrice);
-      const name = cols[9].trim();
-
-      if (isNaN(marketPrice) || marketPrice <= 0 || !name) return [];
-
-      return [{
-        date: cols[0].trim(),
-        marketPriceRaw: (parseFloat(cols[1].replace('€', '').replace(',', '.').trim()) || 0).toFixed(2),
-        supplierUrl: cols[2].trim(),
-        tf2Qty: cols[3].trim(),
-        bundle: cols[4].trim(),
-        expiry: cols[5].trim(),
-        popularity: cols[6].trim(),
-        regionLock: cols[7].trim(),
-        keyCode: cols[8].trim(),
-        name,
-      }];
-    });
-}
-
-// ─── Paste → nova trade ───────────────────────────────────────────────────────
-
-async function handlePaste(e: ClipboardEvent) {
-  e.preventDefault();
-  const text = e.clipboardData?.getData('text') ?? '';
-  const parsed = parseText(text);
-  if (parsed.length === 0) return;
-
-  const date = parsed[0].date;
-  const supplierUrl = parsed[0].supplierUrl;
-  const tf2Qty = parsed[0].tf2Qty;
-  const rows: Row[] = parsed.map(toRow);
-
-  try {
-    const res = await axiosInstance.post(route('trades.store'), {
-      supplierUrl,
-      date: date,
-      tf2Qty,
-      games: rows.map(rowToGame),
-    });
-
-    tradeList.value.unshift({
-      id: res.data.id,
-      title: res.data.title ?? '',
-      date,
-      supplierUrl,
-      tf2Qty,
-      rows,
-      createdAt: res.data.created_at,
-      isStocked: false,
-      importing: false,
-      copiedKey: null,
-    });
-
-    // Rola até o topo onde a nova trade foi inserida
-    await nextTick();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  } catch (err) {
-    console.error('Erro ao salvar trade:', err);
-  }
-}
-
-// Paste escopado na zona de colagem — sem listener global.
-// Ver @paste na div.paste-zone no template.
-
 // ─── Autosave (debounce por trade) ────────────────────────────────────────────
 
 function scheduleAutosave(trade: TradeEntry) {
@@ -317,11 +229,54 @@ function duplicateRow(trade: TradeEntry, rowIdx: number) {
   scheduleAutosave(trade);
 }
 
+// ─── Criação ──────────────────────────────────────────────────────────────────
+
+const creatingTrade = ref(false);
+const confirm = useConfirm();
+
+async function createTrade() {
+  creatingTrade.value = true;
+  try {
+    const today = new Date();
+    const dd = String(today.getDate()).padStart(2, '0');
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const yyyy = today.getFullYear();
+
+    const res = await axiosInstance.post(route('trades.store'));
+
+    tradeList.value.unshift({
+      id: res.data.id,
+      title: res.data.title ?? '',
+      date: `${dd}/${mm}/${yyyy}`,
+      supplierUrl: '',
+      tf2Qty: '',
+      rows: [emptyRow()],
+      createdAt: res.data.created_at,
+      isStocked: false,
+      messageSent: false,
+      importing: false,
+      copiedKey: null,
+    });
+  } catch (err) {
+    console.error('Erro ao criar trade:', err);
+  } finally {
+    creatingTrade.value = false;
+  }
+}
+
 // ─── Exclusão ─────────────────────────────────────────────────────────────────
 
-async function deleteTrade(trade: TradeEntry) {
-  await axiosInstance.delete(route('trades.destroy', { trade: trade.id }));
-  tradeList.value = tradeList.value.filter(t => t.id !== trade.id);
+function deleteTrade(event: Event, trade: TradeEntry) {
+  confirm.require({
+    target: event.currentTarget as HTMLElement,
+    message: 'Excluir esta trade?',
+    rejectProps: { label: 'Cancelar', severity: 'secondary', outlined: true },
+    acceptProps: { label: 'Excluir', severity: 'danger' },
+    accept: async () => {
+      await axiosInstance.delete(route('trades.destroy', { trade: trade.id }));
+      tradeList.value = tradeList.value.filter(t => t.id !== trade.id);
+    },
+  });
 }
 
 // ─── Mensagem enviada ─────────────────────────────────────────────────────────
@@ -570,11 +525,20 @@ function sortIcon(field: string): string {
 </script>
 
 <template>
+  <ConfirmPopup />
   <div class="container-fluid py-4 px-4 w-100">
 
     <!-- Cabeçalho global -->
     <div class="d-flex align-items-center gap-3 mb-4 flex-wrap">
       <h4 class="mb-0 fw-bold">Trades</h4>
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-primary"
+        :disabled="creatingTrade"
+        @click="createTrade"
+      >
+        <i class="pi pi-plus me-1" />Nova trade
+      </button>
       <span class="badge bg-secondary">TF2 {{ formatEur(tf2Price) }}</span>
       <span class="text-muted small">
         Taxas Gamivo:
@@ -596,39 +560,6 @@ function sortIcon(field: string): string {
         />
         <span class="text-muted small">%</span>
       </div>
-    </div>
-
-    <!-- Zona de colagem (escopada — clique para focar, depois Ctrl+V) -->
-    <div
-      :class="tradeList.length === 0 ? 'paste-zone-full' : 'paste-zone-compact'"
-      class="paste-zone d-flex align-items-center justify-content-center gap-3 rounded mb-4"
-      tabindex="0"
-      @paste="handlePaste"
-      @click="($event.currentTarget as HTMLElement).focus()"
-    >
-      <i class="pi pi-clipboard" :style="tradeList.length === 0 ? 'font-size: 2.5rem; color: #8009EF;' : 'color: #8009EF;'" />
-      <div :class="tradeList.length === 0 ? 'text-center' : ''">
-        <p class="fw-semibold mb-0">
-          {{ tradeList.length === 0 ? 'Clique aqui e cole os dados' : 'Cole para adicionar nova trade' }}
-        </p>
-        <p v-if="tradeList.length === 0" class="text-muted small mb-0">
-          Ctrl+V após copiar as linhas da planilha ou do price researcher
-        </p>
-      </div>
-      <template v-if="tradeList.length === 0">
-        <div class="d-flex flex-wrap justify-content-center gap-1" style="max-width: 600px;">
-          <span class="badge bg-light text-secondary border">Data</span>
-          <span class="badge bg-warning text-dark border">Preço de Mercado</span>
-          <span class="badge bg-light text-secondary border">URL Fornecedor</span>
-          <span class="badge bg-warning text-dark border">Qtd TF2</span>
-          <span class="badge bg-light text-secondary border">Bundle</span>
-          <span class="badge bg-warning text-dark border">Expiração</span>
-          <span class="badge bg-light text-secondary border">Popularidade</span>
-          <span class="badge bg-warning text-dark border">Region Lock</span>
-          <span class="badge bg-warning text-dark border">Chave</span>
-          <span class="badge bg-warning text-dark border">Nome do Jogo</span>
-        </div>
-      </template>
     </div>
 
     <!-- Lista de trades (mais novas em cima) -->
@@ -730,7 +661,7 @@ function sortIcon(field: string): string {
             type="button"
             class="btn btn-sm btn-outline-danger"
             :disabled="trade.importing"
-            @click="deleteTrade(trade)"
+            @click="deleteTrade($event, trade)"
           >
             <i class="pi pi-trash me-1" />
             Excluir
@@ -952,31 +883,6 @@ function sortIcon(field: string): string {
 </template>
 
 <style scoped>
-/* ── Zona de colagem ─────────────────────────────────────────────────────────── */
-
-.paste-zone {
-  cursor: pointer;
-  border: 2px dashed #dee2e6;
-  transition: border-color 0.2s, background-color 0.2s;
-}
-
-.paste-zone:hover,
-.paste-zone:focus {
-  border-color: #8009EF;
-  background-color: #f9f4ff;
-  outline: none;
-}
-
-.paste-zone-full {
-  min-height: 220px;
-  padding: 2rem;
-  flex-direction: column;
-}
-
-.paste-zone-compact {
-  padding: 0.6rem 1.2rem;
-}
-
 .trade-meta-field {
   display: flex;
   flex-direction: column;
