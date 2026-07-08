@@ -429,10 +429,10 @@ async function copyCell(trade: TradeEntry, name: string, value: number, cellKey:
 }
 
 async function copyTier(trade: TradeEntry, tier: number) {
-  const text = trade.rows
-    .map(row => `${row.name}\t${formatTf2(getOffer(row, tier))}`)
-    .join('\n');
-  await copyToClipboard(text);
+  const lines = trade.rows.map(row => `${row.name}\t${formatTf2(getOffer(row, tier))}`);
+  const total = getTierTotal(trade, tier);
+  lines.push(`total ${formatTf2(total)} tf2`);
+  await copyToClipboard(lines.join('\n'));
   trade.copiedKey = `tier-${tier}`;
   setTimeout(() => { trade.copiedKey = null; }, 1500);
 }
@@ -445,6 +445,8 @@ async function copyCustomTier(trade: TradeEntry) {
     })
     .filter((line): line is string => line !== null);
   if (lines.length === 0) return;
+  const total = getCustomTierTotal(trade);
+  lines.push(`total ${formatTf2(total)} tf2`);
   await copyToClipboard(lines.join('\n'));
   trade.copiedKey = 'tier-custom';
   setTimeout(() => { trade.copiedKey = null; }, 1500);
@@ -521,6 +523,16 @@ function sortBy(field: string) {
 function sortIcon(field: string): string {
   if (sortField.value !== field) return 'pi pi-sort-alt';
   return sortDir.value === 'asc' ? 'pi pi-sort-up' : 'pi pi-sort-down';
+}
+
+// ─── Totais por tier ──────────────────────────────────────────────────────────
+
+function getTierTotal(trade: TradeEntry, tier: number): number {
+  return trade.rows.reduce((sum, row) => sum + getOffer(row, tier), 0);
+}
+
+function getCustomTierTotal(trade: TradeEntry): number {
+  return trade.rows.reduce((sum, row) => sum + getEffectiveCustomTf2(row), 0);
 }
 </script>
 
@@ -874,6 +886,30 @@ function sortIcon(field: string): string {
 
               </tr>
             </tbody>
+            <tfoot class="table-light">
+              <tr>
+                <td colspan="8" class="text-end text-muted small fw-semibold pe-3">Total</td>
+
+                <!-- Totais dos tiers fixos -->
+                <td
+                  v-for="tier in profitTiers"
+                  :key="tier"
+                  class="text-center fw-bold small"
+                >
+                  {{ formatTf2(getTierTotal(trade, tier)) }}
+                </td>
+
+                <!-- Total do tier customizável -->
+                <td class="text-center fw-bold small">
+                  <span v-if="getCustomTierTotal(trade) > 0">
+                    {{ formatTf2(getCustomTierTotal(trade)) }}
+                  </span>
+                  <span v-else class="text-muted">—</span>
+                </td>
+
+                <td></td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       </div>
