@@ -9,10 +9,11 @@ class Trade extends Model
 {
     protected $table = 'trades';
 
-    protected $fillable = ['supplier_id', 'list_code', 'last_commented_at', 'title', 'date', 'tf2_qty', 'games'];
+    protected $fillable = ['supplier_id', 'list_code', 'last_commented_at', 'title', 'date', 'message_sent', 'tf2_qty', 'games'];
 
     protected $casts = [
         'games' => 'array',
+        'message_sent' => 'boolean',
         'last_commented_at' => 'datetime',
         'date' => 'date',
         'tf2_qty' => 'decimal:2',

@@ -18,7 +18,7 @@ class TradeService
     {
         $trades = Trade::with('supplier')
             ->orderBy('created_at', 'desc')
-            ->get(['id', 'title', 'games', 'date', 'tf2_qty', 'supplier_id', 'created_at']);
+            ->get(['id', 'title', 'games', 'date', 'tf2_qty', 'supplier_id', 'created_at', 'message_sent']);
 
         $allKeyCodes = $trades
             ->flatMap(fn ($t) => collect($t->games ?? [])->pluck('keyCode')->filter())
@@ -43,6 +43,7 @@ class TradeService
                 'supplier' => $trade->supplier ? ['url' => $trade->supplier->url] : null,
                 'created_at' => $trade->created_at,
                 'is_stocked' => $isStocked,
+                'message_sent' => (bool) $trade->message_sent,
             ];
         });
     }
