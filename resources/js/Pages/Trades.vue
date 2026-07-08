@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, nextTick } from 'vue';
 import axiosInstance from '@/axios';
+import Checkbox from 'primevue/checkbox';
 
 const props = defineProps<{
   trades: Array<{
@@ -12,6 +13,7 @@ const props = defineProps<{
     supplier: { url: string } | null;
     created_at: string;
     is_stocked: boolean;
+    message_sent: boolean;
   }>;
   tf2Price: number;
   fees: {
@@ -54,6 +56,7 @@ interface TradeEntry {
   rows: Row[];
   createdAt: string;
   isStocked: boolean;
+  messageSent: boolean;
   // UI-only
   importing: boolean;
   copiedKey: string | null;
@@ -102,6 +105,7 @@ function toTradeEntry(t: typeof props.trades[number]): TradeEntry {
     rows: (t.games ?? []).map(toRow),
     createdAt: t.created_at,
     isStocked: t.is_stocked ?? false,
+    messageSent: t.message_sent ?? false,
     importing: false,
     copiedKey: null,
   };
@@ -118,6 +122,7 @@ function tradePayload(trade: TradeEntry) {
     date: trade.date,
     tf2Qty: trade.tf2Qty,
     games: trade.rows.map(rowToGame),
+    message_sent: trade.messageSent,
   };
 }
 
@@ -317,6 +322,13 @@ function duplicateRow(trade: TradeEntry, rowIdx: number) {
 async function deleteTrade(trade: TradeEntry) {
   await axiosInstance.delete(route('trades.destroy', { trade: trade.id }));
   tradeList.value = tradeList.value.filter(t => t.id !== trade.id);
+}
+
+// ─── Mensagem enviada ─────────────────────────────────────────────────────────
+
+async function toggleMessageSent(trade: TradeEntry) {
+  trade.messageSent = !trade.messageSent;
+  await axiosInstance.put(route('trades.update', { trade: trade.id }), tradePayload(trade));
 }
 
 // ─── Importação de keys (por trade) ───────────────────────────────────────────
@@ -685,6 +697,15 @@ function sortIcon(field: string): string {
           <span v-if="trade.isStocked" class="badge bg-success">
             <i class="pi pi-check-circle me-1" />Inserida no estoque
           </span>
+          <div class="d-flex align-items-center gap-2">
+            <Checkbox
+              :modelValue="trade.messageSent"
+              :binary="true"
+              inputId="`msg-sent-${trade.id}`"
+              @update:modelValue="toggleMessageSent(trade)"
+            />
+            <label :for="`msg-sent-${trade.id}`" class="small text-muted mb-0" style="cursor: pointer;">Mensagem enviada</label>
+          </div>
         </div>
         <div class="d-flex gap-2">
           <button

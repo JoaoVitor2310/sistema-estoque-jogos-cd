@@ -13,7 +13,7 @@ class UpdateTradeUseCase
     ) {}
 
     /**
-     * @param  array{title?: string|null, supplierUrl?: string|null, date?: string|null, tf2Qty?: string|null, games?: array<int, mixed>}  $data
+     * @param  array{title?: string|null, supplierUrl?: string|null, date?: string|null, tf2Qty?: string|null, games?: array<int, mixed>, message_sent?: bool}  $data
      */
     public function execute(Trade $trade, array $data): void
     {
@@ -23,6 +23,7 @@ class UpdateTradeUseCase
             'date' => $this->parseDate($data['date'] ?? null),
             'tf2_qty' => ($data['tf2Qty'] ?? null) ?: null,
             'games' => $data['games'] ?? [],
+            'message_sent' => (bool) ($data['message_sent'] ?? false),
         ]);
     }
 
