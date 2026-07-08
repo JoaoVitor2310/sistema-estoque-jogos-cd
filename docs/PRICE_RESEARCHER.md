@@ -150,22 +150,20 @@ Recebe uma lista de jogos com seus IDs internos e retorna o `id_steam` de cada u
 
 ### 4. `POST /api/lists/run` — Execução assíncrona de listas SteamTrades
 
-Enfileira a busca de listas de trade de um usuário no SteamTrades. Resposta imediata (202); o resultado chega via **callback HTTP** quando concluído.
+Enfileira a busca de listas de trade de um usuário no SteamTrades. Resposta imediata (202); o resultado é enviado diretamente para `POST /trades/from-price-researcher` no sistema-estoque quando concluído. Ver [`PRICE_RESEARCHER_LISTS_MIGRATION.md`](PRICE_RESEARCHER_LISTS_MIGRATION.md) para o contrato completo.
 
 **Request body** (`Content-Type: application/json`):
 
 ```json
 {
-  "id_steam": "76561198012345678",
-  "callback_url": "https://seu-sistema.com/webhook/price-result",
+  "steam_id": "76561198012345678",
   "checkGamivoOffer": true
 }
 ```
 
 | Campo | Tipo | Padrão | Descrição |
 |---|---|---|---|
-| `id_steam` | `string` | — | Steam ID 64-bit do usuário |
-| `callback_url` | `string` (URL válida) | — | Endpoint que receberá o resultado via POST |
+| `steam_id` | `string` | — | Steam ID 64-bit do usuário |
 | `checkGamivoOffer` | `boolean` | `true` | Filtrar somente ofertas ativas na Gamivo |
 
 **Response 202** (enfileirado):
@@ -173,19 +171,7 @@ Enfileira a busca de listas de trade de um usuário no SteamTrades. Resposta ime
 { "success": true, "status": "queued" }
 ```
 
-**Callback POST** enviado para `callback_url` quando concluído:
-
-```json
-{
-  "status": "completed",
-  "result": "09/04/2026\t1.99\thttps://steamcommunity.com/profiles/76561198012345678\t\t\t\t1234\tGLOBAL\t\tHalf-Life 2\n"
-}
-```
-
-| Campo | Descrição |
-|---|---|
-| `status` | `"completed"` ou `"failed"` |
-| `result` | String TSV pronta para planilha. Colunas: `data`, `GamivoPrice`, `perfil Steam`, `(vazio)×3`, `popularidade`, `região`, `(vazio)`, `nome do jogo` |
+**Resultado** enviado para `POST /trades/from-price-researcher` no sistema-estoque quando concluído. Ver [`PRICE_RESEARCHER_LISTS_MIGRATION.md`](PRICE_RESEARCHER_LISTS_MIGRATION.md) para o contrato completo de request/response.
 
 > Popularidade mínima é fixa em **30** para o fluxo de listas (não configurável via request).
 > Concorrência controlada por `RUN_LISTS_CONCURRENCY` (default `1`) no `.env`.
