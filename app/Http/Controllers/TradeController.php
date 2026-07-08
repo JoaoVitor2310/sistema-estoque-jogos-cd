@@ -45,9 +45,9 @@ class TradeController extends Controller
         ]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(): JsonResponse
     {
-        $trade = $this->createTradeUseCase->execute($request->all());
+        $trade = $this->createTradeUseCase->execute([]);
 
         return response()->json([
             'id' => $trade->id,
