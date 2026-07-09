@@ -15,6 +15,7 @@ class StoreListTradeRequest extends FormRequest
     {
         return [
             'supplier_steam_id' => ['nullable', 'string'],
+            'title' => ['nullable', 'string', 'max:255'],
             'list_code' => ['nullable', 'string'],
             'games' => ['required', 'array', 'min:1'],
             'games.*.name' => ['required', 'string'],
