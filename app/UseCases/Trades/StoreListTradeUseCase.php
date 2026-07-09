@@ -20,7 +20,7 @@ class StoreListTradeUseCase
 
         return Trade::create([
             'supplier_id' => $supplier?->id,
-            'title' => $supplier?->name ?: null,
+            'title' => ($data['title'] ?? null) ?: ($supplier?->name ?: null),
             'list_code' => $data['list_code'] ?? null,
             'date' => now()->format('Y-m-d'),
             'games' => $this->buildGames($data['games']),
