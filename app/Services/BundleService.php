@@ -2,10 +2,54 @@
 
 namespace App\Services;
 
+use App\Domain\Bundles\BundleGameLookup;
+use App\Domain\Games\GameNameNormalizer;
 use App\Models\Bundle;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class BundleService
 {
+    /**
+     * @param  string[]  $gameNames
+     * @return array<string, string> normalized game name → bundle name (bundle mais recente vence)
+     */
+    public function recentBundleByGameNames(array $gameNames): array
+    {
+        if (empty($gameNames)) {
+            return [];
+        }
+
+        try {
+            $normalized = array_map([GameNameNormalizer::class, 'normalize'], $gameNames);
+
+            $rows = DB::table('bundles')
+                ->join('bundle_games', 'bundle_games.bundle_id', '=', 'bundles.id')
+                ->join('games', 'games.id', '=', 'bundle_games.game_id')
+                ->select('bundles.name as bundle_name', 'games.normalized_name')
+                ->where('bundles.release_date', '>=', now()->subMonths(BundleGameLookup::RECENT_MONTHS))
+                ->whereIn('games.normalized_name', $normalized)
+                ->orderByDesc('bundles.release_date')
+                ->get();
+
+            $map = [];
+            foreach ($rows as $row) {
+                if (! isset($map[$row->normalized_name])) {
+                    $map[$row->normalized_name] = $row->bundle_name;
+                }
+            }
+
+            return $map;
+        } catch (\Throwable $e) {
+            Log::error('[BundleService] recentBundleByGameNames failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return [];
+        }
+    }
+
     /**
      * Get bundles with filters and pagination
      *

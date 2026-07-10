@@ -1,7 +1,22 @@
 <?php
 
+use App\Domain\Games\GameNameNormalizer;
 use App\UseCases\Trades\StoreListTradeUseCase;
 use Illuminate\Support\Facades\DB;
+
+function seedBundleWithGame(string $gameName, string $bundleName, string $releaseDate): void
+{
+    $now = now()->toDateTimeString();
+
+    $gameId = DB::table('games')->insertGetId([
+        'name' => $gameName,
+        'normalized_name' => GameNameNormalizer::normalize($gameName),
+        'created_at' => $now,
+        'updated_at' => $now,
+    ]);
+    $bundleId = DB::table('bundles')->insertGetId(['name' => $bundleName, 'release_date' => $releaseDate, 'created_at' => $now, 'updated_at' => $now]);
+    DB::table('bundle_games')->insert(['bundle_id' => $bundleId, 'game_id' => $gameId, 'created_at' => $now, 'updated_at' => $now]);
+}
 
 function listTradeGames(array $overrides = []): array
 {
@@ -99,5 +114,92 @@ describe('StoreListTradeUseCase', function () {
         ]);
 
         expect($trade->games[0]['regionLock'])->toBeNull();
+    });
+});
+
+describe('StoreListTradeUseCase — bundle lookup', function () {
+
+    it('fills bundle name when game is in a bundle released within 3 months', function () {
+        seedBundleWithGame('Stardew Valley', 'Humble Choice Junho 2026', now()->subMonths(1)->toDateString());
+
+        $trade = app(StoreListTradeUseCase::class)->execute([
+            'games' => [['name' => 'Stardew Valley', 'price_euro' => 5.00, 'popularity' => 1000, 'region' => null]],
+        ]);
+
+        expect($trade->games[0]['bundle'])->toBe('Humble Choice Junho 2026');
+    });
+
+    it('leaves bundle null when game has no bundle', function () {
+        $trade = app(StoreListTradeUseCase::class)->execute([
+            'games' => [['name' => 'Game Without Bundle', 'price_euro' => 5.00, 'popularity' => 100, 'region' => null]],
+        ]);
+
+        expect($trade->games[0]['bundle'])->toBeNull();
+    });
+
+    it('leaves bundle null when game bundle was released more than 3 months ago', function () {
+        seedBundleWithGame('Old Game', 'Humble Bundle Antigo', now()->subMonths(4)->toDateString());
+
+        $trade = app(StoreListTradeUseCase::class)->execute([
+            'games' => [['name' => 'Old Game', 'price_euro' => 3.00, 'popularity' => 50, 'region' => null]],
+        ]);
+
+        expect($trade->games[0]['bundle'])->toBeNull();
+    });
+
+    it('resolves bundle independently per game in a multi-game payload', function () {
+        seedBundleWithGame('Hollow Knight', 'Indie Bundle', now()->subMonths(2)->toDateString());
+
+        $trade = app(StoreListTradeUseCase::class)->execute([
+            'games' => [
+                ['name' => 'Hollow Knight', 'price_euro' => 4.00, 'popularity' => 800, 'region' => null],
+                ['name' => 'Unknown Game', 'price_euro' => 6.00, 'popularity' => 200, 'region' => null],
+            ],
+        ]);
+
+        expect($trade->games[0]['bundle'])->toBe('Indie Bundle')
+            ->and($trade->games[1]['bundle'])->toBeNull();
+    });
+
+    it('matches game name case-insensitively', function () {
+        seedBundleWithGame('hollow knight', 'Indie Bundle', now()->subMonths(1)->toDateString());
+
+        $trade = app(StoreListTradeUseCase::class)->execute([
+            'games' => [['name' => 'Hollow Knight', 'price_euro' => 4.00, 'popularity' => 800, 'region' => null]],
+        ]);
+
+        expect($trade->games[0]['bundle'])->toBe('Indie Bundle');
+    });
+
+    it('matches game name regardless of roman numeral vs decimal formatting', function () {
+        seedBundleWithGame('The Witcher III', 'RPG Bundle', now()->subMonths(1)->toDateString());
+
+        $trade = app(StoreListTradeUseCase::class)->execute([
+            'games' => [['name' => 'Witcher 3', 'price_euro' => 4.00, 'popularity' => 800, 'region' => null]],
+        ]);
+
+        expect($trade->games[0]['bundle'])->toBe('RPG Bundle');
+    });
+
+    it('uses the most recent bundle when game appears in two recent bundles', function () {
+        $now = now()->toDateTimeString();
+        $gameId = DB::table('games')->insertGetId([
+            'name' => 'Multi Bundle Game',
+            'normalized_name' => GameNameNormalizer::normalize('Multi Bundle Game'),
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $oldBundleId = DB::table('bundles')->insertGetId(['name' => 'Bundle Antigo', 'release_date' => now()->subMonths(2)->toDateString(), 'created_at' => $now, 'updated_at' => $now]);
+        $newBundleId = DB::table('bundles')->insertGetId(['name' => 'Bundle Recente', 'release_date' => now()->subWeeks(2)->toDateString(), 'created_at' => $now, 'updated_at' => $now]);
+
+        DB::table('bundle_games')->insert(['bundle_id' => $oldBundleId, 'game_id' => $gameId, 'created_at' => $now, 'updated_at' => $now]);
+        DB::table('bundle_games')->insert(['bundle_id' => $newBundleId, 'game_id' => $gameId, 'created_at' => $now, 'updated_at' => $now]);
+
+        $trade = app(StoreListTradeUseCase::class)->execute([
+            'games' => [['name' => 'Multi Bundle Game', 'price_euro' => 5.00, 'popularity' => 300, 'region' => null]],
+        ]);
+
+        expect($trade->games[0]['bundle'])->toBe('Bundle Recente');
     });
 });

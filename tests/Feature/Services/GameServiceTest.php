@@ -20,6 +20,7 @@
 |
 */
 
+use App\Domain\Games\GameNameNormalizer;
 use App\Domain\Pricing\MinMaxPriceCalculator;
 use App\Services\Games\GameService;
 use Carbon\Carbon;
@@ -206,6 +207,17 @@ describe('GameService', function () {
 
             $count = DB::table('games')->where('name', 'Idempotent Game')->count();
             expect($count)->toBe(1);
+        });
+
+        it('fills normalized_name on the created game', function () {
+            app(GameService::class)->createGameIfDontExists([
+                'game_name' => 'The Witcher III',
+                'region' => null,
+                'gamivo_id' => null,
+            ]);
+
+            $game = DB::table('games')->where('name', 'The Witcher III')->first();
+            expect($game->normalized_name)->toBe(GameNameNormalizer::normalize('The Witcher III'));
         });
     });
 

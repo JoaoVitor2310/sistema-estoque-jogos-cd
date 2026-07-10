@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Domain\Games\GameNameNormalizer;
 use App\Http\Requests\GameRequest;
 use App\Http\Requests\GameRequestArray;
 use App\Models\Game;
@@ -95,6 +96,8 @@ class GameController extends Controller
                         $game['gamivo_id'] = $idGamivo;
                     }
                 }
+
+                $game['normalized_name'] = GameNameNormalizer::normalize($game['name']);
 
                 // create() lança exceção em falha — o if ($created) era código morto
                 $created = Game::create($game);
@@ -190,6 +193,10 @@ class GameController extends Controller
                 if ($idGamivo) {
                     $updatedGame['gamivo_id'] = $idGamivo;
                 }
+            }
+
+            if (isset($updatedGame['name'])) {
+                $updatedGame['normalized_name'] = GameNameNormalizer::normalize($updatedGame['name']);
             }
 
             $game->fill($updatedGame);
