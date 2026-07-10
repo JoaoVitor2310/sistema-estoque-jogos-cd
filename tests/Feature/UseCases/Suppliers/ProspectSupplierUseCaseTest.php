@@ -155,6 +155,17 @@ describe('ProspectSupplierUseCase', function () {
             expect($result['profitable'][0]['tf2_price'])->toBeFloat()->toBeGreaterThan(0);
         });
 
+        it('applies NEW_SUPPLIER_PROFIT_PERCENT (70%) margin to the offer', function () {
+            // €4.50 tier baixo (6% + €0.25): income = 4.50 * 0.94 - 0.25 = 3.98
+            // tf2Offer = 3.98 / (1 + 70/100) / 0.95 = 2.46
+            $result = app(ProspectSupplierUseCase::class)->execute(
+                supplierSteamId(),
+                [profitableGame()],
+            );
+
+            expect($result['profitable'][0]['tf2_price'])->toBe(2.46);
+        });
+
         it('excludes games below profitability threshold', function () {
             $result = app(ProspectSupplierUseCase::class)->execute(
                 supplierSteamId(),

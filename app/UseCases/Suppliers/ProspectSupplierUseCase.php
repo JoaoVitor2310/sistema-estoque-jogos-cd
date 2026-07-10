@@ -78,7 +78,7 @@ class ProspectSupplierUseCase
 
         foreach ($games as $game) {
             $netIncome = IncomeCalculator::forGamivo((float) $game['price_euro'], $fee);
-            $tf2Offer = OfferCalculator::tf2Offer($netIncome, OfferCalculator::PROFIT_TIERS[0], $tf2Price);
+            $tf2Offer = OfferCalculator::tf2Offer($netIncome, OfferCalculator::NEW_SUPPLIER_PROFIT_PERCENT, $tf2Price);
 
             if ($tf2Offer <= 0) {
                 continue;
