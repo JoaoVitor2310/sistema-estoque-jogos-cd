@@ -41,10 +41,10 @@ Trades é uma compra realizada com nossos fornecedores. Nessa troca pode ter div
 Significa que foi gasto 5,5 TF2 keys para um trade de 8 jogos. Esses 8 jogos serão enviados de uma única vez, e o valorPagoIndividual vai conseguir calcular o preço de cada jogo.
 
 ## Lucro esperado
-O lucro inicial considerado é sempre de 100% quando é analisado um jogo para ser comprado, porém isso pode mudar para os seguintes casos:
+O lucro inicial considerado é de 100% quando é analisado um jogo para ser comprado, porém isso pode mudar para os seguintes casos:
 - Fornecedores de longa data
 - Jogos muito caros
-- Oportunidade de conhecer novos fornecedores
+- Oportunidade de conhecer novos fornecedores — a prospecção automática (`ProspectSupplierUseCase`) usa 70% de lucro (`OfferCalculator::NEW_SUPPLIER_PROFIT_PERCENT`) para tornar a oferta mais atrativa a fornecedores novos
 
 A ideia é não deixar ficar abaixo de 30%.
 

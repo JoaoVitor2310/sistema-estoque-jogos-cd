@@ -18,6 +18,9 @@ final class OfferCalculator
     /** Margens padrão exibidas na calculadora de trades, em ordem decrescente de lucro. */
     public const PROFIT_TIERS = [100, 80, 60];
 
+    /** Margem de lucro usada na prospecção automática de fornecedores novos (ProspectSupplierUseCase). */
+    public const NEW_SUPPLIER_PROFIT_PERCENT = 70;
+
     /**
      * Calcula a quantidade de TF2 keys a oferecer para atingir uma margem de lucro alvo.
      *
