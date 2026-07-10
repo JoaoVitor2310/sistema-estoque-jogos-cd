@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { onMounted, onUnmounted, ref } from 'vue';
 import axiosInstance from '@/axios';
 import Checkbox from 'primevue/checkbox';
 import ConfirmPopup from 'primevue/confirmpopup';
@@ -49,6 +49,8 @@ interface Row extends StoredGame {
   customTf2Override: string;
 }
 
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+
 interface TradeEntry {
   id: number;
   title: string;
@@ -62,6 +64,8 @@ interface TradeEntry {
   // UI-only
   importing: boolean;
   copiedKey: string | null;
+  saveStatus: SaveStatus;
+  lastSavedAt: string | null;
 }
 
 // ─── Estado global ────────────────────────────────────────────────────────────
@@ -110,6 +114,8 @@ function toTradeEntry(t: typeof props.trades[number]): TradeEntry {
     messageSent: t.message_sent ?? false,
     importing: false,
     copiedKey: null,
+    saveStatus: 'idle',
+    lastSavedAt: null,
   };
 }
 
@@ -190,26 +196,74 @@ function getImpliedProfit(row: Row): number | null {
 }
 
 // ─── Autosave (debounce por trade) ────────────────────────────────────────────
+//
+// Garante no máximo 1 requisição PUT em voo por trade: se uma edição dispara
+// o autosave enquanto o save anterior ainda está em rede, a nova requisição
+// não é enviada em paralelo (o backend faz overwrite completo de `games` —
+// duas requisições concorrentes podem chegar fora de ordem e a mais lenta
+// sobrescreveria dados mais novos). Em vez disso marca `dirtyDuringSave` e,
+// ao terminar o save em andamento, dispara imediatamente um novo salvando o
+// estado mais atual — nenhuma edição feita durante o save é perdida.
+
+const savingInFlight = new Set<number>();
+const dirtyDuringSave = new Set<number>();
 
 function scheduleAutosave(trade: TradeEntry) {
   const existing = saveTimers.get(trade.id);
   if (existing) clearTimeout(existing);
 
-  const timer = setTimeout(async () => {
+  const timer = setTimeout(() => {
     saveTimers.delete(trade.id);
-    try {
-      const res = await axiosInstance.put(route('trades.update', { trade: trade.id }), {
-        title: trade.title,
-        ...tradePayload(trade),
-      });
-      trade.isStocked = res.data.is_stocked ?? trade.isStocked;
-    } catch (err) {
-      console.error('Erro ao salvar trade:', err);
-    }
+    triggerSave(trade);
   }, 800);
 
   saveTimers.set(trade.id, timer);
 }
+
+async function triggerSave(trade: TradeEntry) {
+  if (savingInFlight.has(trade.id)) {
+    dirtyDuringSave.add(trade.id);
+
+    return;
+  }
+
+  savingInFlight.add(trade.id);
+  trade.saveStatus = 'saving';
+
+  try {
+    const res = await axiosInstance.put(route('trades.update', { trade: trade.id }), {
+      title: trade.title,
+      ...tradePayload(trade),
+    });
+    trade.isStocked = res.data.is_stocked ?? trade.isStocked;
+    trade.saveStatus = 'saved';
+    trade.lastSavedAt = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  } catch (err) {
+    console.error('Erro ao salvar trade:', err);
+    trade.saveStatus = 'error';
+  } finally {
+    savingInFlight.delete(trade.id);
+
+    if (dirtyDuringSave.has(trade.id)) {
+      dirtyDuringSave.delete(trade.id);
+      triggerSave(trade);
+    }
+  }
+}
+
+/** Impede perda silenciosa de dados: avisa o navegador se houver save pendente/em erro. */
+function handleBeforeUnload(e: BeforeUnloadEvent) {
+  const hasPending = saveTimers.size > 0 || savingInFlight.size > 0;
+  const hasError = tradeList.value.some(t => t.saveStatus === 'error');
+
+  if (hasPending || hasError) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+}
+
+onMounted(() => window.addEventListener('beforeunload', handleBeforeUnload));
+onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload));
 
 // ─── Linhas ───────────────────────────────────────────────────────────────────
 
@@ -256,6 +310,8 @@ async function createTrade() {
       messageSent: false,
       importing: false,
       copiedKey: null,
+      saveStatus: 'idle',
+      lastSavedAt: null,
     });
   } catch (err) {
     console.error('Erro ao criar trade:', err);
@@ -462,16 +518,6 @@ function formatTf2(val: number): string {
   return val.toFixed(2).replace('.', ',');
 }
 
-function formatCreatedAt(dateStr: string): string {
-  const d = new Date(dateStr);
-  const day = String(d.getDate()).padStart(2, '0');
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const year = d.getFullYear();
-  const hours = String(d.getHours()).padStart(2, '0');
-  const mins = String(d.getMinutes()).padStart(2, '0');
-  return `${day}/${month}/${year} ${hours}:${mins}`;
-}
-
 function tierBadgeClass(tier: number): string {
   if (tier === 100) return 'bg-success';
   if (tier === 80) return 'bg-primary';
@@ -631,14 +677,24 @@ function getCustomTierTotal(trade: TradeEntry): number {
           <div class="vr opacity-25 align-self-stretch" />
 
           <!-- Meta info -->
-          <span class="text-muted small">
-            <i class="pi pi-calendar me-1" />{{ formatCreatedAt(trade.createdAt) }}
-          </span>
           <span class="badge bg-light text-secondary border">
             {{ trade.rows.length }} jogo{{ trade.rows.length !== 1 ? 's' : '' }}
           </span>
           <span v-if="trade.isStocked" class="badge bg-success">
             <i class="pi pi-check-circle me-1" />Inserida no estoque
+          </span>
+          <span v-if="trade.saveStatus === 'saving'" class="badge bg-warning-subtle text-warning-emphasis">
+            <i class="pi pi-spinner pi-spin me-1" />Salvando...
+          </span>
+          <span v-else-if="trade.saveStatus === 'error'" class="badge bg-danger d-inline-flex align-items-center gap-2">
+            <i class="pi pi-exclamation-triangle" />
+            Erro ao salvar — não recarregue a página
+            <button type="button" class="btn btn-sm btn-light py-0 px-2" @click="triggerSave(trade)">
+              Tentar novamente
+            </button>
+          </span>
+          <span v-else-if="trade.saveStatus === 'saved'" class="badge bg-light text-success border">
+            <i class="pi pi-check me-1" />Salvo às {{ trade.lastSavedAt }}
           </span>
           <div class="d-flex align-items-center gap-2">
             <Checkbox
