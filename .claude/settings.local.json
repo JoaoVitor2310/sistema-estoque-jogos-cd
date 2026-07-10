@@ -16,28 +16,10 @@
       "TodoWrite",
       "WebSearch",
       "PowerShell",
-      "Bash(wsl -d ubuntu-24.04 bash -c \"docker exec app-cd tail -50 storage/logs/laravel.log 2>&1 | grep -A 20 'ERROR\\\\|exception\\\\|500' | tail -60\")",
-      "Bash(wsl -d ubuntu-24.04 bash -c \"docker exec app-cd tail -100 /var/www/html/storage/logs/laravel.log 2>&1\")",
-      "Bash(wsl -d ubuntu-24.04 bash -c \"docker exec app-cd php -m | grep -i redis 2>&1\")",
-      "Bash(wsl -d ubuntu-24.04 bash -c \"docker exec app-cd php artisan route:clear 2>&1 && docker exec app-cd php artisan config:clear 2>&1\")",
-      "Bash(wsl -d ubuntu-24.04 bash -c ' *)",
-      "Bash(wsl -d ubuntu-24.04 sh -c 'SECRET=$\\(docker exec app-cd php artisan tinker --execute=\"echo config\\(\\\\\"services.external_secret\\\\\"\\);\" 2>/dev/null | tail -1\\) && echo \"Secret: $SECRET\" && curl -s -w \"\\\\n%{http_code}\" -X POST http://localhost/trades/from-price-researcher -H \"Authorization: Bearer $SECRET\" -H \"Content-Type: application/json\" -d \"{\\\\\"games\\\\\":[{\\\\\"name\\\\\":\\\\\"Test Game\\\\\",\\\\\"price_euro\\\\\":5.00,\\\\\"popularity\\\\\":100}]}\" 2>&1')",
-      "Bash(wsl -d ubuntu-24.04 bash -c 'SECRET=$\\(grep EXTERNAL_SECRET /var/www/sistema-estoque-jogos-cd/.env | cut -d= -f2\\) && curl -s -w \"\\\\nHTTP_CODE:%{http_code}\" -X POST http://localhost/trades/from-price-researcher -H \"Authorization: Bearer $SECRET\" -H \"Content-Type: application/json\" -d '\\\\''{\"games\":[{\"name\":\"Test Game\",\"price_euro\":5.00,\"popularity\":100}]}'\\\\''')",
-      "Bash(wsl -d ubuntu-24.04 bash -c 'SECRET=$\\(grep EXTERNAL_SECRET /var/www/sistema-estoque-jogos-cd/.env | cut -d= -f2\\) && curl -s -o /dev/null -w \"HTTP:%{http_code}\" -X POST http://localhost/trades/from-price-researcher -H \"Authorization: Bearer $SECRET\" -H \"Content-Type: application/json\" -d '\\\\''{\"games\":[{\"name\":\"Test Game\",\"price_euro\":5.00,\"popularity\":100}]}'\\\\''')",
-      "Bash(wsl -d ubuntu-24.04 bash -c \"docker exec app-cd tail -30 /var/www/html/storage/logs/laravel.log 2>&1 | grep -A 5 'local.ERROR'\")",
-      "Bash(wsl -d ubuntu-24.04 bash -c \"docker exec app-cd tail -50 /var/www/html/storage/logs/laravel.log 2>&1 | tail -30\")",
-      "Bash(wsl -d ubuntu-24.04 bash -c \"docker exec app-cd tail -80 /var/www/html/storage/logs/laravel.log 2>&1 | grep -A 15 'Session store not set'\")",
-      "Bash(wsl -d ubuntu-24.04 bash -c 'docker exec app-cd php artisan route:clear && SECRET=$\\(grep EXTERNAL_SECRET /var/www/sistema-estoque-jogos-cd/.env | cut -d= -f2\\) && curl -s -o /dev/null -w \"HTTP:%{http_code}\" -X POST http://localhost/trades/from-price-researcher -H \"Authorization: Bearer $SECRET\" -H \"Content-Type: application/json\" -d '\\\\''{\"games\":[{\"name\":\"Test Game\",\"price_euro\":5.00,\"popularity\":100}]}'\\\\''')",
-      "Bash(wsl -d ubuntu-24.04 bash -c \"grep EXTERNAL_SECRET /var/www/sistema-estoque-jogos-cd/.env\")",
-      "Bash(wsl -d ubuntu-24.04 bash -c 'docker exec app-cd php -r \"echo config\\('\"'\"'services.external_secret'\"'\"'\\);\"')",
-      "Bash(wsl -d ubuntu-24.04 bash -c 'docker exec app-cd php artisan tinker --execute \"echo config\\('\"'\"'services.external_secret'\"'\"'\\);\"')",
-      "Bash(wsl -d ubuntu-24.04 bash -c 'SECRET=yeG8fKrYSz88dXcatJ3RJtYezPTZfxQOzAGO6BieB2MQUTvUyt841bvVlA3Ozzp7XjbW65C19CVbI0sOO8SjeYCMzoBSymmbh8Zt && curl -v -X POST http://localhost/trades/from-price-researcher -H \"Authorization: Bearer $SECRET\" -H \"Content-Type: application/json\" -d '\\\\''{\"games\":[{\"name\":\"Test Game\",\"price_euro\":5.00,\"popularity\":100}]}'\\\\'' 2>&1 | grep -E \"HTTP|Authorization|< |> \"')",
-      "Bash(wsl -d ubuntu-24.04 bash -c \"docker exec app-cd php artisan test tests/Feature/Trades/StoreListTradeTest.php --no-coverage 2>&1\")",
-      "Bash(wsl -d ubuntu-24.04 bash -c \"docker exec app-cd php artisan test --no-coverage 2>&1 | tail -20\")",
+      "Bash(wsl *)",
+      "PowerShell(wsl *)",
       "Skill(update-config)",
-      "Skill(update-config:*)",
-      "Bash(wsl -d ubuntu-24.04 bash -c \"docker exec app-cd php artisan route:clear 2>&1 && docker exec app-cd php artisan test tests/Feature/Trades/StoreListTradeTest.php --no-coverage 2>&1\")",
-      "Bash(wsl -d ubuntu-24.04 bash -c \"docker exec app-cd php artisan route:clear 2>&1\")"
+      "Skill(update-config:*)"
     ]
   }
 }
