@@ -2,6 +2,7 @@
 
 namespace App\Services\Games;
 
+use App\Domain\Games\GameNameNormalizer;
 use App\Domain\Keys\KeyPriceAging;
 use App\Models\Game;
 use App\Models\Key;
@@ -119,6 +120,7 @@ class GameService
             ->where('region', $game['region'])
             ->firstOr(fn () => Game::create([
                 'name' => $game['game_name'],
+                'normalized_name' => GameNameNormalizer::normalize($game['game_name']),
                 'region' => $game['region'],
                 'gamivo_id' => $game['gamivo_id'],
                 'steam_id' => $game['steam_id'] ?? null,

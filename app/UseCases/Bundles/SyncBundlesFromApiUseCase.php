@@ -3,6 +3,7 @@
 namespace App\UseCases\Bundles;
 
 use App\Domain\Bundles\BundleTypeResolver;
+use App\Domain\Games\GameNameNormalizer;
 use App\Models\Asset;
 use App\Models\Bundle;
 use App\Models\Game;
@@ -93,7 +94,10 @@ class SyncBundlesFromApiUseCase
             }
 
             $games = collect($topTierBundle['games'])
-                ->map(fn ($apiGame) => Game::firstOrCreate(['name' => $apiGame['title']]))
+                ->map(fn ($apiGame) => Game::firstOrCreate(
+                    ['name' => $apiGame['title']],
+                    ['normalized_name' => GameNameNormalizer::normalize($apiGame['title'])]
+                ))
                 ->all();
 
             $bundle->games()->syncWithoutDetaching(
