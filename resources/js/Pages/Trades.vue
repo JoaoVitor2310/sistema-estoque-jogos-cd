@@ -128,7 +128,7 @@ function tradePayload(trade: TradeEntry) {
   return {
     supplierUrl: trade.supplierUrl,
     date: trade.date,
-    tf2Qty: trade.tf2Qty,
+    tf2Qty: trade.tf2Qty.replace(',', '.'),
     games: trade.rows.map(rowToGame),
     message_sent: trade.messageSent,
   };
