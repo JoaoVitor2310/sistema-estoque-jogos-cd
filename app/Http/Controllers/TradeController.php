@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Domain\Pricing\OfferCalculator;
 use App\Http\Requests\ImportTradeKeysRequest;
 use App\Http\Requests\StoreListTradeRequest;
+use App\Http\Requests\UpdateTradeRequest;
 use App\Models\Trade;
 use App\Services\Keys\KeyCalculationService;
 use App\Services\Trades\TradeService;
@@ -13,7 +14,6 @@ use App\UseCases\Trades\CreateTradeUseCase;
 use App\UseCases\Trades\StoreListTradeUseCase;
 use App\UseCases\Trades\UpdateTradeUseCase;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -63,9 +63,9 @@ class TradeController extends Controller
         return response()->json(['created_at' => $trade->created_at], 201);
     }
 
-    public function update(Request $request, Trade $trade): JsonResponse
+    public function update(UpdateTradeRequest $request, Trade $trade): JsonResponse
     {
-        $this->updateTradeUseCase->execute($trade, $request->all());
+        $this->updateTradeUseCase->execute($trade, $request->validated());
 
         return response()->json([
             'is_stocked' => $this->tradeService->isStocked($trade->games ?? []),

@@ -16,10 +16,13 @@
       "TodoWrite",
       "WebSearch",
       "PowerShell",
+      "Skill(update-config)",
+      "Skill(update-config:*)",
       "Bash(wsl *)",
       "PowerShell(wsl *)",
-      "Skill(update-config)",
-      "Skill(update-config:*)"
+      "Bash(wsl.exe -d Ubuntu-24.04 -e bash -lc *)",
+      "Bash(wsl.exe -l -v)",
+      "Bash(docker exec *)"
     ]
   }
 }
