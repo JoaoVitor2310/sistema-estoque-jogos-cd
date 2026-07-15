@@ -8,12 +8,12 @@
 | Cobre a redução automática do piso de preço (min_api) para keys paradas
 | no estoque, em dois tiers de idade:
 |
-|  Tier moderado  (>= 4 meses e < 7 meses): min_api = custo × 1.5 (margem 50%)
-|  Tier aging     (>= 7 meses e < 10 meses): min_api = custo × 1.2 (margem 20%)
+|  Tier moderado  (>= 4 meses e < 7 meses): min_api = custo × 1.4 (margem 40%)
+|  Tier aging     (>= 7 meses e < 10 meses): min_api = custo × 1.15 (margem 15%)
 |
 | Regras verificadas:
-|  1. min_api é reduzido para individual_cost × 1.2 quando >= 7 meses
-|  2. min_api é reduzido para individual_cost × 1.5 quando >= 4 e < 7 meses
+|  1. min_api é reduzido para individual_cost × 1.15 quando >= 7 meses
+|  2. min_api é reduzido para individual_cost × 1.4 quando >= 4 e < 7 meses
 |  3. min_api já no limiar ou abaixo não é alterado (nunca aumenta)
 |  4. Keys com < 4 meses não são tocadas
 |  5. Keys com >= 10 meses não são tocadas (responsabilidade do age override)
@@ -64,22 +64,22 @@ describe('ReduceAgingKeysMinPriceUseCase', function () {
         DB::table('suppliers')->insert(['id' => 1, 'url' => 'https://steamcommunity.com/id/seed']);
     });
 
-    // ── Tier aging: >= 7 meses → multiplier 1.2 ──────────────────────────────
+    // ── Tier aging: >= 7 meses → multiplier 1.15 ──────────────────────────────
 
-    it('reduces min_api to individual_cost × 1.2 for keys acquired >= 7 months ago', function () {
-        // custo = 2.00 → novo min_api = 2.40; min_api atual = 5.00 → deve reduzir
+    it('reduces min_api to individual_cost × 1.15 for keys acquired >= 7 months ago', function () {
+        // custo = 2.00 → novo min_api = 2.30; min_api atual = 5.00 → deve reduzir
         insertAgingKey('440', ['individual_cost' => 2.00, 'min_api' => 5.00]);
 
         app(ReduceAgingKeysMinPriceUseCase::class)->execute();
 
         expect((float) DB::table('keys')->where('gamivo_id', '440')->value('min_api'))
-            ->toBe(2.40);
+            ->toBe(2.30);
     });
 
-    // ── Tier moderado: >= 4 meses e < 7 meses → multiplier 1.5 ───────────────
+    // ── Tier moderado: >= 4 meses e < 7 meses → multiplier 1.4 ───────────────
 
-    it('reduces min_api to individual_cost × 1.5 for keys acquired >= 4 months and < 7 months ago', function () {
-        // custo = 2.00 → novo min_api = 3.00; min_api atual = 5.00 → deve reduzir
+    it('reduces min_api to individual_cost × 1.4 for keys acquired >= 4 months and < 7 months ago', function () {
+        // custo = 2.00 → novo min_api = 2.80; min_api atual = 5.00 → deve reduzir
         insertAgingKey('440', [
             'individual_cost' => 2.00,
             'min_api' => 5.00,
@@ -89,11 +89,11 @@ describe('ReduceAgingKeysMinPriceUseCase', function () {
         app(ReduceAgingKeysMinPriceUseCase::class)->execute();
 
         expect((float) DB::table('keys')->where('gamivo_id', '440')->value('min_api'))
-            ->toBe(3.00);
+            ->toBe(2.80);
     });
 
     it('applies the correct multiplier per tier in a single run', function () {
-        // key de 8 meses → 1.2×; key de 5 meses → 1.5×
+        // key de 8 meses → 1.15×; key de 5 meses → 1.4×
         $id1 = insertAgingKey('440', [
             'individual_cost' => 2.00, 'min_api' => 5.00,
             'acquired_at' => now()->subMonths(8)->toDateString(),
@@ -106,8 +106,8 @@ describe('ReduceAgingKeysMinPriceUseCase', function () {
         $result = app(ReduceAgingKeysMinPriceUseCase::class)->execute();
 
         expect($result)->toHaveCount(2)->toContain($id1)->toContain($id2);
-        expect((float) DB::table('keys')->where('gamivo_id', '440')->value('min_api'))->toBe(2.40);
-        expect((float) DB::table('keys')->where('gamivo_id', '730')->value('min_api'))->toBe(3.00);
+        expect((float) DB::table('keys')->where('gamivo_id', '440')->value('min_api'))->toBe(2.30);
+        expect((float) DB::table('keys')->where('gamivo_id', '730')->value('min_api'))->toBe(2.80);
     });
 
     // ── Retorno e idempotência ────────────────────────────────────────────────
@@ -123,14 +123,14 @@ describe('ReduceAgingKeysMinPriceUseCase', function () {
     // ── Não reduz quando já está no limiar ────────────────────────────────────
 
     it('does not reduce min_api when it is already at the threshold', function () {
-        // custo = 2.00 → limiar = 2.40; min_api = 2.40 → já no limiar, não altera
-        insertAgingKey('440', ['individual_cost' => 2.00, 'min_api' => 2.40]);
+        // custo = 2.00 → limiar = 2.30; min_api = 2.30 → já no limiar, não altera
+        insertAgingKey('440', ['individual_cost' => 2.00, 'min_api' => 2.30]);
 
         $result = app(ReduceAgingKeysMinPriceUseCase::class)->execute();
 
         expect($result)->toBeEmpty()
             ->and((float) DB::table('keys')->where('gamivo_id', '440')->value('min_api'))
-            ->toBe(2.40);
+            ->toBe(2.30);
     });
 
     it('does not reduce min_api when it is already below the threshold', function () {

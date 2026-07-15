@@ -45,12 +45,12 @@ final class KeyEligibility
     /**
      * Multiplicador aplicado ao individual_cost para calcular o novo min_api
      * de keys com >= AGING_KEY_MONTHS meses no estoque.
-     * Ex: custo = €2,00 → novo min_api = €2,40 (margem mínima de 20%).
+     * Ex: custo = €2,00 → novo min_api = €2,30 (margem mínima de 15%).
      *
-     * A margem mínima de lucro equivalente é AGING_KEY_MIN_API_MULTIPLIER - 1 (= 0.20),
+     * A margem mínima de lucro equivalente é AGING_KEY_MIN_API_MULTIPLIER - 1 (= 0.15),
      * usada em hasMinimumProfitForAutoSell para manter coerência entre os dois mecanismos.
      */
-    public const AGING_KEY_MIN_API_MULTIPLIER = 1.2;
+    public const AGING_KEY_MIN_API_MULTIPLIER = 1.15;
 
     /**
      * Idade (meses) a partir da qual a exigência de margem mínima começa a cair
@@ -62,12 +62,12 @@ final class KeyEligibility
     /**
      * Multiplicador aplicado ao individual_cost para calcular o novo min_api
      * de keys com >= MODERATE_AGE_MONTHS e < AGING_KEY_MONTHS meses no estoque.
-     * Ex: custo = €2,00 → novo min_api = €3,00 (margem mínima de 50%).
+     * Ex: custo = €2,00 → novo min_api = €2,80 (margem mínima de 40%).
      *
-     * A margem mínima de lucro equivalente é MODERATE_AGE_MIN_API_MULTIPLIER - 1 (= 0.50),
+     * A margem mínima de lucro equivalente é MODERATE_AGE_MIN_API_MULTIPLIER - 1 (= 0.40),
      * usada em hasMinimumProfitForAutoSell para manter coerência com o ReduceAgingKeysMinPriceUseCase.
      */
-    public const MODERATE_AGE_MIN_API_MULTIPLIER = 1.5;
+    public const MODERATE_AGE_MIN_API_MULTIPLIER = 1.4;
 
     /**
      * Avalia se uma key está elegível para listagem automática.
@@ -120,12 +120,12 @@ final class KeyEligibility
      * o método inteiro via age override.
      *
      * Regras first-match-wins:
-     *  1. ≥ AGING_KEY_MONTHS meses  → AGING_KEY_MIN_API_MULTIPLIER - 1 (20%) — alinhado ao min_api já reduzido
-     *  2. ≥ MODERATE_AGE_MONTHS meses → 50%
-     *  3. custo > €15               → 50%  (mercado de itens caros costuma cair mais)
-     *  4. custo > €10               → 60%
-     *  5. custo < €1                → 75%  (margem relativa maior compensa valor absoluto baixo)
-     *  6. default                   → 78%
+     *  1. ≥ AGING_KEY_MONTHS meses  → AGING_KEY_MIN_API_MULTIPLIER - 1 (15%) — alinhado ao min_api já reduzido
+     *  2. ≥ MODERATE_AGE_MONTHS meses → 40%
+     *  3. custo > €15               → 40%  (mercado de itens caros costuma cair mais)
+     *  4. custo > €10               → 45%
+     *  5. custo < €1                → 55%  (margem relativa maior compensa valor absoluto baixo)
+     *  6. default                   → 60%
      *
      * @param  float  $sellerPrice  Preço de listagem calculado pelo ComparisonAlgorithm
      * @param  float  $individualCost  Custo individual pago pela key
@@ -143,10 +143,10 @@ final class KeyEligibility
         $minPercent = match (true) {
             $acquiredAt->lt(Carbon::now()->subMonths(self::AGING_KEY_MONTHS)) => self::AGING_KEY_MIN_API_MULTIPLIER - 1,
             $acquiredAt->lt(Carbon::now()->subMonths(self::MODERATE_AGE_MONTHS)) => self::MODERATE_AGE_MIN_API_MULTIPLIER - 1,
-            $cost > 15.0 => 0.50,
-            $cost > 10.0 => 0.60,
-            $cost < 1.0 => 0.75,
-            default => 0.78,
+            $cost > 15.0 => 0.40,
+            $cost > 10.0 => 0.45,
+            $cost < 1.0 => 0.55,
+            default => 0.60,
         };
 
         return $profit >= $minPercent * $cost;

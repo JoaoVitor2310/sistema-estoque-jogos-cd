@@ -11,9 +11,9 @@ use Illuminate\Support\Facades\Log;
  * Reduz o piso de preço (min_api) de keys paradas no estoque, em dois tiers de idade:
  *
  *  - >= MODERATE_AGE_MONTHS (4) e < AGING_KEY_MONTHS (7) meses:
- *      min_api = individual_cost × MODERATE_AGE_MIN_API_MULTIPLIER (1.5) → margem de 50%
+ *      min_api = individual_cost × MODERATE_AGE_MIN_API_MULTIPLIER (1.4) → margem de 40%
  *  - >= AGING_KEY_MONTHS (7) e < OLD_KEY_MONTHS (10) meses:
- *      min_api = individual_cost × AGING_KEY_MIN_API_MULTIPLIER (1.2)    → margem de 20%
+ *      min_api = individual_cost × AGING_KEY_MIN_API_MULTIPLIER (1.15)   → margem de 15%
  *
  * Com min_api mais baixo, o AutoSellUseCase consegue listar essas keys mesmo quando
  * o mercado caiu abaixo do piso original calculado no momento da aquisição.
@@ -55,7 +55,7 @@ class ReduceAgingKeysMinPriceUseCase
             $cost = (float) $key->individual_cost;
             $acquiredAt = Carbon::parse($key->acquired_at);
 
-            // Tier de aging: ≥ 7 meses → 1.2×; ≥ 4 meses → 1.5×
+            // Tier de aging: ≥ 7 meses → 1.15×; ≥ 4 meses → 1.4×
             $multiplier = $acquiredAt->lt(Carbon::now()->subMonths(KeyEligibility::AGING_KEY_MONTHS))
                 ? KeyEligibility::AGING_KEY_MIN_API_MULTIPLIER
                 : KeyEligibility::MODERATE_AGE_MIN_API_MULTIPLIER;
