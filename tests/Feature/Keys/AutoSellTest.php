@@ -227,8 +227,8 @@ describe('AutoSellUseCase', function () {
     // ── Minimum profit check ──────────────────────────────────────────────────
 
     it('skips a key when market price passes min_api but profit margin is too low', function () {
-        // individual_cost = 2.00 → default tier → exige 78% de margem → lucro mínimo = 1.56
-        // Concorrente a €2.50: passa min_api (2.00), mas lucro = 0.50 < 1.56 → deve pular
+        // individual_cost = 2.00 → default tier → exige 60% de margem → lucro mínimo = 1.20
+        // Concorrente a €2.50: passa min_api (2.00), mas lucro = 0.50 < 1.20 → deve pular
         Http::fake([
             '*/products/*/offers' => Http::response([
                 ['id' => 99, 'seller_name' => 'Rival', 'retail_price' => 2.50,
@@ -251,7 +251,7 @@ describe('AutoSellUseCase', function () {
     });
 
     it('lists an old key (>= 10 months) even when the profit margin would fail the check', function () {
-        // Mesma situação: concorrente a €2.50, lucro = 0.50 < 1.56 (78% de €2.00)
+        // Mesma situação: concorrente a €2.50, lucro = 0.50 < 1.20 (60% de €2.00)
         // Mas key tem 11 meses → age override → profit check ignorado → deve listar
         Http::fake([
             '*/products/*/offers' => Http::response([

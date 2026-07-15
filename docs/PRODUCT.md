@@ -62,12 +62,12 @@ Jogos que são oferecidos de maneira gratuita por sites. O preço desses jogos d
 Atualmente só vendemos keys na Gamivo e lá que é verificado o preço atual. O preço é definido com base no valor que os nossos concorrentes estão vendendo, sendo sempre o preço do menor - 0,01 para ficar o mais visível e atraente para os clientes. Esse sistema não tem essa lógica atualmente, mas a nossa API Gamivo faz esses cálculos.
 
 ## Tempo de venda da key
-Para os jogos já comprados, consideramos um alvo de 80% de lucro para colocar o jogo a venda, mas com o tempo esse número vai caindo:
-Tempo(meses) - Lucro % para colocar a venda
-- - 80%
-7 - 70%
-10 - 60%
-12 - vende independente do lucro/prejuízo obtido.
+Para os jogos já comprados, consideramos um alvo de 60% de lucro para colocar o jogo a venda (varia por faixa de custo — jogos caros toleram margens menores, jogos muito baratos exigem margens maiores), mas com o tempo esse número vai caindo:
+Tempo(meses) - Lucro % mínimo para colocar a venda
+- - 60% (default; ver `KeyEligibility::hasMinimumProfitForAutoSell` para os tiers de custo)
+4 - 40%
+7 - 15%
+10 - vende independente do lucro/prejuízo obtido.
 
 ## Valor mínimo que a key pode ficar a venda
 O valor adotado para esses casos é de 0.02, o que faz o jogo sair a praticamente sem lucro nenhum. Futuramente a ideia é que nem isso seja considerado para jogos mais velhos que 1 ano, pois a intenção é vender independente do preço e utilizar o dinheiro para comprar mais jogos. O problema é que a API Gamivo sempre vai buscar o min e máx, mesmo para jogos mais velhos que 1 ano.
