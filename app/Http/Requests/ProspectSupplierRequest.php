@@ -24,6 +24,7 @@ class ProspectSupplierRequest extends FormRequest
             'games.*.price_euro' => ['required', 'numeric', 'min:0'],
             'games.*.popularity' => ['required', 'integer', 'min:0'],
             'games.*.region' => ['nullable', 'string'],
+            'games.*.gamivo_id' => ['nullable', 'string'],
         ];
     }
 }

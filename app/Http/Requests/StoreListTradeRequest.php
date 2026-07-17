@@ -22,6 +22,7 @@ class StoreListTradeRequest extends FormRequest
             'games.*.price_euro' => ['required', 'numeric'],
             'games.*.popularity' => ['required', 'integer'],
             'games.*.region' => ['nullable', 'string'],
+            'games.*.gamivo_id' => ['nullable', 'string'],
         ];
     }
 }

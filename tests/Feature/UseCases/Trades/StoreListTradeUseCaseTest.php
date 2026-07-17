@@ -115,6 +115,22 @@ describe('StoreListTradeUseCase', function () {
 
         expect($trade->games[0]['regionLock'])->toBeNull();
     });
+
+    it('stores gamivo_id as gamivoId when provided', function () {
+        $trade = app(StoreListTradeUseCase::class)->execute([
+            'games' => [['name' => 'Half-Life', 'price_euro' => 4.50, 'popularity' => 500, 'region' => null, 'gamivo_id' => '144601']],
+        ]);
+
+        expect($trade->games[0]['gamivoId'])->toBe('144601');
+    });
+
+    it('stores null gamivoId when gamivo_id is not provided', function () {
+        $trade = app(StoreListTradeUseCase::class)->execute([
+            'games' => listTradeGames(),
+        ]);
+
+        expect($trade->games[0]['gamivoId'])->toBeNull();
+    });
 });
 
 describe('StoreListTradeUseCase — bundle lookup', function () {

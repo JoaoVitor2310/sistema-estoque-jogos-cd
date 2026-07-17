@@ -15,7 +15,7 @@ class StoreListTradeUseCase
     ) {}
 
     /**
-     * @param  array{supplier_steam_id?: string|null, title?: string|null, list_code?: string|null, games: array<int, array{name: string, price_euro: float, popularity: int, region: string|null}>}  $data
+     * @param  array{supplier_steam_id?: string|null, title?: string|null, list_code?: string|null, games: array<int, array{name: string, price_euro: float, popularity: int, region: string|null, gamivo_id?: string|null}>}  $data
      */
     public function execute(array $data): Trade
     {
@@ -34,7 +34,7 @@ class StoreListTradeUseCase
     }
 
     /**
-     * @param  array<int, array{name: string, price_euro: float, popularity: int, region: string|null}>  $games
+     * @param  array<int, array{name: string, price_euro: float, popularity: int, region: string|null, gamivo_id?: string|null}>  $games
      * @param  array<string, string>  $bundleMap  normalized game name → bundle name
      * @return array<int, array<string, mixed>>
      */
@@ -48,6 +48,7 @@ class StoreListTradeUseCase
             'bundle' => $bundleMap[GameNameNormalizer::normalize($game['name'])] ?? null,
             'expiry' => null,
             'keyCode' => null,
+            'gamivoId' => $game['gamivo_id'] ?? null,
         ], $games);
     }
 }
