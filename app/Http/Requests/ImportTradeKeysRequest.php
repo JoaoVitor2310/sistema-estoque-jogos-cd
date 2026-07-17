@@ -30,6 +30,7 @@ class ImportTradeKeysRequest extends FormRequest
             'games.*.region' => ['nullable', 'string'],
             'games.*.key_code' => ['required', 'string'],
             'games.*.game_name' => ['required', 'string'],
+            'games.*.gamivo_id' => ['nullable', 'string'],
         ];
     }
 

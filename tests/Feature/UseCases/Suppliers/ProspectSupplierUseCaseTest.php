@@ -50,6 +50,19 @@ describe('ProspectSupplierUseCase', function () {
         expect(DB::table('trades')->where('list_code', 'G0eXM')->whereNotNull('last_commented_at')->exists())->toBeTrue();
     });
 
+    it('persists gamivoId in the created trade games', function () {
+        app(ProspectSupplierUseCase::class)->execute(
+            supplierSteamId(),
+            [['name' => 'Half-Life', 'price_euro' => 4.50, 'popularity' => 500, 'region' => null, 'gamivo_id' => '144601']],
+            'G0eXM',
+        );
+
+        $trade = DB::table('trades')->where('list_code', 'G0eXM')->first();
+        $games = json_decode($trade->games, true);
+
+        expect($games[0]['gamivoId'])->toBe('144601');
+    });
+
     it('does not create a trade when no games are profitable', function () {
         $result = app(ProspectSupplierUseCase::class)->execute(
             supplierSteamId(),
@@ -203,6 +216,24 @@ describe('ProspectSupplierUseCase', function () {
 
             expect($result['profitable'][0]['region'])->toBe('EU');
             expect($result['profitable'][0]['popularity'])->toBe(999);
+        });
+
+        it('preserves gamivo_id in profitable output when provided', function () {
+            $result = app(ProspectSupplierUseCase::class)->execute(
+                supplierSteamId(),
+                [['name' => 'Half-Life', 'price_euro' => 4.50, 'popularity' => 500, 'region' => null, 'gamivo_id' => '144601']],
+            );
+
+            expect($result['profitable'][0]['gamivo_id'])->toBe('144601');
+        });
+
+        it('returns null gamivo_id when not provided', function () {
+            $result = app(ProspectSupplierUseCase::class)->execute(
+                supplierSteamId(),
+                [profitableGame()],
+            );
+
+            expect($result['profitable'][0]['gamivo_id'])->toBeNull();
         });
     });
 

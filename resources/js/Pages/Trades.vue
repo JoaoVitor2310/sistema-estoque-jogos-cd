@@ -40,6 +40,7 @@ interface StoredGame {
   popularity: string;
   regionLock: string;
   keyCode: string;
+  gamivoId: string;
 }
 
 /** StoredGame + estado de UI (não é enviado ao backend). */
@@ -91,6 +92,7 @@ function toRow(r: any): Row {
     popularity: r.popularity ?? '',
     regionLock: r.regionLock ?? '',
     keyCode: r.keyCode ?? '',
+    gamivoId: r.gamivoId ?? '',
     status: 'pending',
     errorMsg: '',
     customTf2Override: '',
@@ -391,6 +393,7 @@ async function importTrade(trade: TradeEntry) {
     acquired_at: date,
     region: (row.regionLock ?? '').trim() || null,
     expires_at: (row.expiry ?? '').trim() ? convertDateToISO((row.expiry ?? '').trim()) : null,
+    gamivo_id: (row.gamivoId ?? '').trim() || null,
   }));
 
   try {
@@ -757,6 +760,7 @@ function getCustomTierTotal(trade: TradeEntry): number {
                   <span class="text-primary fw-bold">Key Code</span>
                 </th>
                 <th style="min-width: 180px;">Nome do Jogo</th>
+                <th style="min-width: 100px;">Gamivo ID</th>
                 <th class="text-end sort-th" style="min-width: 100px;" @click="sortBy('netIncome')">
                   Income líq. <span class="text-muted fw-normal">(€)</span>
                   <i :class="sortIcon('netIncome')" class="sort-icon" />
@@ -861,6 +865,10 @@ function getCustomTierTotal(trade: TradeEntry): number {
                   <input v-model="row.name" class="cell-input fw-semibold" @input="scheduleAutosave(trade)" />
                 </td>
 
+                <td>
+                  <input v-model="row.gamivoId" class="cell-input text-muted" @input="scheduleAutosave(trade)" />
+                </td>
+
                 <!-- Income líquido -->
                 <td class="text-end text-muted small">
                   {{ formatEur(getNetIncome(row)) }}
@@ -944,7 +952,7 @@ function getCustomTierTotal(trade: TradeEntry): number {
             </tbody>
             <tfoot class="table-light">
               <tr>
-                <td colspan="8" class="text-end text-muted small fw-semibold pe-3">Total</td>
+                <td colspan="9" class="text-end text-muted small fw-semibold pe-3">Total</td>
 
                 <!-- Totais dos tiers fixos -->
                 <td

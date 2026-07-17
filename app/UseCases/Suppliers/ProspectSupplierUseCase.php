@@ -19,7 +19,7 @@ class ProspectSupplierUseCase
     ) {}
 
     /**
-     * @param  array<int, array{name: string, price_euro: float, popularity: int, region: string|null}>  $games
+     * @param  array<int, array{name: string, price_euro: float, popularity: int, region: string|null, gamivo_id?: string|null}>  $games
      * @return array{profitable: array<int, mixed>, is_added: bool, last_commented_at: Carbon|null, games_changed: bool, should_comment: bool}
      */
     public function execute(string $steamId, array $games, ?string $listCode = null): array
@@ -66,8 +66,8 @@ class ProspectSupplierUseCase
     }
 
     /**
-     * @param  array<int, array{name: string, price_euro: float, popularity: int, region: string|null}>  $games
-     * @return array<int, array{name: string, price_euro: float, popularity: int, region: string|null, tf2_price: float}>
+     * @param  array<int, array{name: string, price_euro: float, popularity: int, region: string|null, gamivo_id?: string|null}>  $games
+     * @return array<int, array{name: string, price_euro: float, popularity: int, region: string|null, gamivo_id: string|null, tf2_price: float}>
      */
     private function evaluateProfitability(array $games): array
     {
@@ -89,6 +89,7 @@ class ProspectSupplierUseCase
                 'price_euro' => (float) $game['price_euro'],
                 'popularity' => (int) $game['popularity'],
                 'region' => $game['region'] ?? null,
+                'gamivo_id' => $game['gamivo_id'] ?? null,
                 'tf2_price' => round($tf2Offer, 2),
             ];
         }
@@ -97,7 +98,7 @@ class ProspectSupplierUseCase
     }
 
     /**
-     * @param  array<int, array{name: string, price_euro: float, popularity: int, region: string|null, tf2_price: float}>  $profitable
+     * @param  array<int, array{name: string, price_euro: float, popularity: int, region: string|null, gamivo_id: string|null, tf2_price: float}>  $profitable
      * @return array<int, array<string, mixed>>
      */
     private function buildGames(array $profitable): array
@@ -110,6 +111,7 @@ class ProspectSupplierUseCase
             'bundle' => null,
             'expiry' => null,
             'keyCode' => null,
+            'gamivoId' => $game['gamivo_id'],
         ], $profitable);
     }
 }

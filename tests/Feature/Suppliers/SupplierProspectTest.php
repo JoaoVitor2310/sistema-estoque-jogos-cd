@@ -34,6 +34,10 @@
 |     15. Não cria trade quando nenhum jogo é rentável
 |     16. Games da trade contêm os campos corretos
 |
+|   gamivo_id:
+|     17. gamivo_id enviado é propagado para profitable e para os games da trade
+|     18. gamivo_id ausente não quebra o request e é armazenado como null
+|
 */
 
 use Illuminate\Support\Facades\Cache;
@@ -214,6 +218,44 @@ describe('POST /suppliers/prospect — trade creation', function () {
             ->and($game['keyCode'])->toBeNull();
 
         expect($trade->date)->not->toBeNull();
+    });
+});
+
+// ── gamivo_id ─────────────────────────────────────────────────────────────────
+
+describe('POST /suppliers/prospect — gamivo_id', function () {
+
+    beforeEach(function () {
+        Config::set('services.external_secret', PROSPECT_SECRET);
+        seedProspectDeps();
+    });
+
+    it('propagates gamivo_id to profitable and to the created trade games', function () {
+        $payload = validPayload(['games' => [
+            ['name' => 'Half-Life', 'price_euro' => 4.50, 'popularity' => 500, 'region' => null, 'gamivo_id' => '144601'],
+        ]]);
+
+        $response = $this->withToken(PROSPECT_SECRET)
+            ->postJson('/suppliers/prospect', $payload)
+            ->assertStatus(200);
+
+        expect($response->json('profitable.0.gamivo_id'))->toBe('144601');
+
+        $trade = DB::table('trades')->latest()->first();
+        $game = json_decode($trade->games, true)[0];
+
+        expect($game['gamivoId'])->toBe('144601');
+    });
+
+    it('accepts requests without gamivo_id and stores it as null', function () {
+        $this->withToken(PROSPECT_SECRET)
+            ->postJson('/suppliers/prospect', validPayload())
+            ->assertStatus(200);
+
+        $trade = DB::table('trades')->latest()->first();
+        $game = json_decode($trade->games, true)[0];
+
+        expect($game['gamivoId'])->toBeNull();
     });
 });
 
