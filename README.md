@@ -97,8 +97,8 @@ Because the Domain has zero framework dependencies, every financial calculation 
 
 ```
 tests/Unit/Domain/
-├── Pricing/   ProfitCalculator · IncomeCalculator · MinMaxPriceCalculator · SalePriceCalculator
-├── Keys/      KeyEligibility · KeyPriceAging
+├── Pricing/   ProfitCalculator · IncomeCalculator · MinMaxPriceCalculator · MinimumMarginPolicy · SalePriceCalculator
+├── Keys/      KeyEligibility
 ├── Platform/  PlatformIdentifier
 ├── Import/    ExcelDateConverter · ImportHeaderValidator · ImportRowValidator
 └── Bundles/   BundleTypeResolver

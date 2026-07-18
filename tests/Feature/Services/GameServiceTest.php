@@ -9,21 +9,11 @@
 |   - getIdGamivo: busca prioritária nas keys, fallback nos games
 |   - fillIdGamivo: preenche gamivo_id nulo em game existente
 |   - createGameIfDontExists: find-or-create case-insensitive
-|   - updateMinPrices: degradação de preço por tempo (delega ao Domain)
-|
-| Regra de degradação de preço (PRODUCT.md + KeyPriceAging):
-|   < 3 meses  → sem alteração
-|   3–6 meses  → individual_cost × 1.4
-|   6–9 meses  → individual_cost × 1.3
-|   9–12 meses → individual_cost × 1.2
-|   ≥ 12 meses → piso de 0.02 (MinMaxPriceCalculator::FLOOR)
 |
 */
 
 use App\Domain\Games\GameNameNormalizer;
-use App\Domain\Pricing\MinMaxPriceCalculator;
 use App\Services\Games\GameService;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 
@@ -32,28 +22,6 @@ use Illuminate\Support\Facades\Http;
 function seedGameServiceFks(): void
 {
     DB::table('suppliers')->insertOrIgnore(['id' => 1, 'url' => 'https://steamcommunity.com/id/seed']);
-}
-
-function insertListedKey(array $overrides = []): int
-{
-    return DB::table('keys')->insertGetId(array_merge([
-        'game_name' => 'Listed Game',
-        'key_code' => 'LISTED-'.uniqid(),
-        'market_price' => 5.00,
-        'individual_cost' => 1.00,
-        'purchase_profit_percent' => 25.00,
-        'min_api' => 1.50,
-        'max_api' => 10.00,
-        'supplier_url' => 'https://steamcommunity.com/id/seed',
-        'supplier_id' => 1,
-        'claim_type' => 'Nenhuma',
-        'key_format' => 'RK',
-        'sell_platform' => 'Gamivo',
-        'listed_at' => now()->subDays(5)->toDateString(), // Já listada
-        'sold_at' => null,
-        'created_at' => now(),
-        'updated_at' => now(),
-    ], $overrides));
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -218,110 +186,6 @@ describe('GameService', function () {
 
             $game = DB::table('games')->where('name', 'The Witcher III')->first();
             expect($game->normalized_name)->toBe(GameNameNormalizer::normalize('The Witcher III'));
-        });
-    });
-
-    // ── updateMinPrices ───────────────────────────────────────────────────────
-
-    describe('updateMinPrices()', function () {
-
-        it('does not change min_api for keys listed less than 3 months ago', function () {
-            // 1 mês listada → abaixo do primeiro tier → sem alteração
-            insertListedKey([
-                'key_code' => 'RECENT-LISTED-001',
-                'individual_cost' => 1.00,
-                'min_api' => 1.50,
-                'listed_at' => Carbon::now()->subMonths(1)->toDateString(),
-            ]);
-
-            app(GameService::class)->updateMinPrices();
-
-            $row = DB::table('keys')->where('key_code', 'RECENT-LISTED-001')->first();
-            expect((float) $row->min_api)->toBe(1.50); // Sem alteração
-        });
-
-        it('applies 1.4x multiplier for keys listed between 3 and 6 months', function () {
-            // 4 meses listada → tier de 3 meses → 1.0 × 1.4 = 1.4
-            insertListedKey([
-                'key_code' => 'MED-LISTED-001',
-                'individual_cost' => 1.00,
-                'min_api' => 1.50,
-                'listed_at' => Carbon::now()->subMonths(4)->toDateString(),
-            ]);
-
-            app(GameService::class)->updateMinPrices();
-
-            $row = DB::table('keys')->where('key_code', 'MED-LISTED-001')->first();
-            expect((float) $row->min_api)->toEqualWithDelta(1.4, 0.001);
-        });
-
-        it('applies 1.3x multiplier for keys listed between 6 and 9 months', function () {
-            // 7 meses listada → tier de 6 meses → 1.0 × 1.3 = 1.3
-            insertListedKey([
-                'key_code' => 'OLD-LISTED-001',
-                'individual_cost' => 1.00,
-                'min_api' => 1.50,
-                'listed_at' => Carbon::now()->subMonths(7)->toDateString(),
-            ]);
-
-            app(GameService::class)->updateMinPrices();
-
-            $row = DB::table('keys')->where('key_code', 'OLD-LISTED-001')->first();
-            expect((float) $row->min_api)->toEqualWithDelta(1.3, 0.001);
-        });
-
-        it('applies the price floor for keys listed more than 12 months (clearance sell)', function () {
-            // Jogo muito antigo → vende pelo piso mínimo independente de lucro
-            insertListedKey([
-                'key_code' => 'ANCIENT-LISTED-001',
-                'individual_cost' => 1.00,
-                'min_api' => 1.50,
-                'listed_at' => Carbon::now()->subMonths(13)->toDateString(),
-            ]);
-
-            app(GameService::class)->updateMinPrices();
-
-            $row = DB::table('keys')->where('key_code', 'ANCIENT-LISTED-001')->first();
-            expect((float) $row->min_api)->toEqualWithDelta(MinMaxPriceCalculator::FLOOR, 0.001);
-        });
-
-        it('skips keys that are already sold (sold_at set)', function () {
-            // Key vendida não deve ter min_api alterado
-            insertListedKey([
-                'key_code' => 'SOLD-OLD-001',
-                'individual_cost' => 1.00,
-                'min_api' => 1.50,
-                'listed_at' => Carbon::now()->subMonths(4)->toDateString(),
-                'sold_at' => Carbon::now()->subDays(2)->toDateString(),
-            ]);
-
-            app(GameService::class)->updateMinPrices();
-
-            $row = DB::table('keys')->where('key_code', 'SOLD-OLD-001')->first();
-            expect((float) $row->min_api)->toBe(1.50); // Sem alteração
-        });
-
-        it('processes at most 10 keys per call', function () {
-            // Insere 15 keys todas com 4 meses de listagem → todas elegíveis para atualização
-            for ($i = 1; $i <= 15; $i++) {
-                insertListedKey([
-                    'key_code' => "BATCH-KEY-{$i}",
-                    'individual_cost' => 1.00,
-                    'min_api' => 1.50, // Valor original
-                    'listed_at' => Carbon::now()->subMonths(4)->toDateString(),
-                ]);
-            }
-
-            app(GameService::class)->updateMinPrices();
-
-            // Após 4 meses, min_api = 1.0 × 1.4 = 1.4
-            $updatedCount = DB::table('keys')
-                ->where('min_api', 1.4)
-                ->count();
-
-            // No máximo 10 keys devem ter sido atualizadas
-            expect($updatedCount)->toBeLessThanOrEqual(10)
-                ->and($updatedCount)->toBeGreaterThan(0);
         });
     });
 

@@ -125,8 +125,8 @@ Campos relevantes:
 Fluxo principal:
 1. Key inserida manualmente ou via importação XLSX
 2. `KeyCalculationService` calcula fórmulas de lucro e preço
-3. `ReduceAgingKeysMinPriceUseCase` (scheduler 07:30) — reduz `min_api` de keys com ≥7 meses paradas
-4. `AutoSellUseCase` lista keys elegíveis na Gamivo (exclui bundles com < 21 dias; age override para ≥10 meses)
+3. `RegulateMinApiUseCase` (scheduler 07:30) — recalcula `min_api` de todas as keys não vendidas via `MinimumMarginPolicy`
+4. `AutoSellUseCase` lista keys elegíveis na Gamivo (exclui bundles com < 21 dias; age override para ≥8 meses)
 5. `UpdateSoldOffersUseCase` atualiza com dados de venda da API Gamivo
 6. `UpdateOffersUseCase` *(futuro)* reprecifica ofertas ativas contra concorrentes
 
@@ -231,10 +231,10 @@ app/
 │   │   ├── IncomeCalculator.php
 │   │   ├── SalePriceCalculator.php
 │   │   ├── MinMaxPriceCalculator.php
+│   │   ├── MinimumMarginPolicy.php     # fonte única do piso de preço (min_api)
 │   │   └── ValueObjects/MarketplaceFee.php
 │   ├── Keys/
-│   │   ├── KeyEligibility.php          # regra dos 21 dias
-│   │   └── KeyPriceAging.php           # degradação de preço por tempo na prateleira
+│   │   └── KeyEligibility.php          # regra dos 21 dias
 │   ├── Platform/
 │   │   └── PlatformIdentifier.php      # regex Steam, EA, EGS, GOG, Xbox, PSN
 │   ├── Import/
@@ -257,8 +257,8 @@ app/
 │   │   └── ImportKeysFromXlsxUseCase.php
 │   ├── Marketplaces/                     # orquestrações específicas por marketplace
 │   │   └── Gamivo/                       # quando vier outro: Eneba/, G2A/, etc.
-│   │       ├── AutoSellUseCase.php           # age override para keys >= 10 meses
-│   │       ├── ReduceAgingKeysMinPriceUseCase.php  # reduz min_api de keys >= 7 meses (07:30)
+│   │       ├── AutoSellUseCase.php           # age override para keys >= 8 meses
+│   │       ├── RegulateMinApiUseCase.php     # recalcula min_api via MinimumMarginPolicy (07:30)
 │   │       ├── UpdateSoldOffersUseCase.php
 │   │       ├── UpdateOffersUseCase.php
 │   │       └── UpdatePopularityUseCase.php   # scraping SteamCharts — migração Gamivo Fase 2
@@ -395,10 +395,10 @@ Hoje o vínculo é por string: `keys.gamivo_id ←→ games.id_gamivo`. Não há
 ## Regras de negócio
 
 - **Regra dos 21 dias** (`KeyEligibility::BUNDLE_EXCLUSION_DAYS`): keys de jogos em bundles com < 21 dias são excluídas do `autoSell()` — o bundle ainda está em cartaz e o preço está em queda.
-- **Age override — 10 meses** (`KeyEligibility::OLD_KEY_MONTHS`): keys com ≥ 10 meses no estoque são listadas pelo `AutoSellUseCase` independentemente do preço de mercado (ignora `min_api`). Após listagem, `min_api` é atualizado para o preço praticado.
-- **Redução de min_api — 7 meses** (`KeyEligibility::AGING_KEY_MONTHS`): o `ReduceAgingKeysMinPriceUseCase` (scheduler 07:30) reduz o `min_api` de keys paradas há ≥ 7 meses para `individual_cost × 1.2`, facilitando a listagem pelo AutoSell em mercados que caíram.
+- **Age override — 8 meses** (`KeyEligibility::OLD_KEY_MONTHS`): keys com ≥ 8 meses de estoque ignoram o piso `min_api` na listagem do `AutoSellUseCase` (mercado abaixo do mínimo não impede a venda). Após a listagem, `max_api` é travado no preço praticado, impedindo o `UpdateOffersUseCase` de subir o preço depois.
+- **`min_api` — fonte única (`MinimumMarginPolicy`)**: `RegulateMinApiUseCase` (scheduler 07:30) recalcula `min_api` de todas as keys não vendidas, listadas ou não, todo dia. Piso incondicional (FLOOR) para: expiração em ≤ 30 dias, estoque comprado há ≥ 8 meses (`OLD_KEY_MONTHS` — sobrevive à listagem, nunca regride) e listada há ≥ 10 meses (limbo). Fora isso, margem percentual por tempo de estoque (não listada, 4/6 meses) ou por tempo listado (listada, 3/4/6 meses) — ver `MinimumMarginPolicy` para a árvore completa.
 - **Tiers Gamivo**: fee diferente abaixo e acima de €8 (ver tabela na seção Domínios).
-- **`min_api`/`max_api`**: calculados em `MinMaxPriceCalculator` com base no `individual_cost`.
+- **`max_api`**: calculado em `MinMaxPriceCalculator` com base no `individual_cost`.
 - **`individual_cost` é imutável após registro**: no `UpdateKeyUseCase` nunca é recalculado.
 - **Importação XLSX**: 10 colunas obrigatórias (A=Data, B=Preço mercado, C=URL perfil, D=Qtd. TF2, E=Bundle, F=Expiração, G=Popularidade, H=Region Lock, I=Chave, J=Nome do Jogo). Datas em formato serial do Excel são convertidas. `tf2_quantity = 0` é rejeitado.
 

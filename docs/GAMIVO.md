@@ -162,12 +162,9 @@ Definidos em `routes/console.php`, fuso `America/Sao_Paulo`:
 | `0 7 * * *` | `UpdatePopularityUseCase` | Atualiza popularidade via SteamCharts |
 | `0 7 * * *` | `KeyService::checkExpiringKeys` | Alerta de keys expirando |
 | `0 7 * * *` | `AssetService::checkDollarAlert` | Alerta de câmbio |
-| `30 7 * * *` | `ReduceAgingKeysMinPriceUseCase` | Reduz `min_api` de keys ≥ 7 meses paradas |
+| `30 7 * * *` | `RegulateMinApiUseCase` | Recalcula `min_api` de todas as keys não vendidas (via `MinimumMarginPolicy`) |
 | `0 8 * * *` | `SendDailySalesSummaryUseCase` | Resumo de vendas do dia anterior por e-mail |
-| `0 6 * * *` | `KeyService::checkLimboKeys` | Ajusta `min_api` de keys em limbo (≥ 12 meses) |
-| `0 6 * * *` | `KeyService::reduceExpiringListedKeysPrice` | Reduz `min_api` de keys listadas expirando |
 | `0 6 * * *` | `GameService::searchGamesIdSteam` | Busca Steam IDs pendentes |
-| `0 6 * * *` | `GameService::updateMinPrices` | Atualiza preços mínimos de jogos |
 | `5 * * * *` | `SyncBundlesFromApiUseCase` | Sincroniza bundles da API GG.deals |
 | Manual | `gamivo:auto-sell` | Listagem automática — artisan command |
 
@@ -182,8 +179,8 @@ A migração do sistema legado Node.js (`gamivo-carca-deals`) para Laravel foi c
 | **0** | Infra compartilhada: `GamivoApiService`, scheduler, alerta de token | ✅ |
 | **1** | `UpdateOffersUseCase` — reprecificação horária | ✅ |
 | **2** | `UpdatePopularityUseCase` + `UpdateSoldOffersUseCase` | ✅ |
-| **3** | `AutoSellUseCase` — listagem automática + age override ≥ 10 meses | ✅ |
-| **4** | `ReduceAgingKeysMinPriceUseCase` — reduz `min_api` de keys ≥ 7 meses | ✅ |
+| **3** | `AutoSellUseCase` — listagem automática + age override ≥ 8 meses | ✅ |
+| **4** | `RegulateMinApiUseCase` — recalcula `min_api` via `MinimumMarginPolicy` (fonte única) | ✅ |
 | **5** | Desligar `gamivo-carca-deals`; notificações por e-mail | ✅ |
 | **Futura** | `PriceWholesaleUseCase` — wholesale/B2B | ⬜ |
 
@@ -191,7 +188,7 @@ A migração do sistema legado Node.js (`gamivo-carca-deals`) para Laravel foi c
 
 1. ✅ CRONs equivalentes confirmados ativos no scheduler Laravel (`routes/console.php`)
 2. ✅ Container Node.js (`gamivo-carca-deals`) desligado
-3. ✅ `CARCA_API_GAMIVO` removido do `.env` — `KeyService::checkLimboKeys()` migrado para usar `GamivoApiService` + `ComparisonAlgorithm`
+3. ✅ `CARCA_API_GAMIVO` removido do `.env` — o então `KeyService::checkLimboKeys()` foi migrado para usar `GamivoApiService` + `ComparisonAlgorithm`, e depois consolidado (junto com `GameService::updateMinPrices()` e `KeyService::reduceExpiringListedKeysPrice()`) em `RegulateMinApiUseCase` + `MinimumMarginPolicy` — a consulta a preço real de mercado foi descontinuada em favor de um piso fixo para keys em limbo
 4. ✅ Notificações: token expirado (Fase 0), resumo de vendas diário (`SendDailySalesSummaryUseCase` — 8h BRT, não envia se sem vendas)
 
 ### Fase Futura — PriceWholesaleUseCase

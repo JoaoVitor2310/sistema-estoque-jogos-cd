@@ -2,14 +2,14 @@
 
 namespace App\Domain\Pricing;
 
+use Carbon\Carbon;
+
 /**
  * Calcula os preços mínimo e máximo que a API do Gamivo pode atingir
  * ao ajustar automaticamente o preço de uma key.
  *
- * Tiers do mínimo:
- *   valorPago > 10  → valorPago × 1.4  (+40%)
- *   valorPago > 4   → valorPago × 1.5  (+50%)
- *   demais          → valorPago × 1.6  (+60%)
+ * O mínimo delega a MinimumMarginPolicy — fonte única da margem mínima
+ * aceitável (custo + idade da key). Ver MinimumMarginPolicy para os tiers.
  *
  * Tiers do máximo:
  *   valorPago < 1        → valorPago × 30
@@ -25,23 +25,6 @@ final class MinMaxPriceCalculator
 
     /** Teto absoluto de seller_price (guard-rail superior). */
     public const CEILING = 500.0;
-
-    // --- Tiers do mínimo ---
-
-    /** Custo acima deste valor aplica multiplicador MIN_MULTIPLIER_ABOVE_10. */
-    public const MIN_COST_THRESHOLD_HIGH = 10;
-
-    /** Custo acima deste valor aplica multiplicador MIN_MULTIPLIER_ABOVE_4. */
-    public const MIN_COST_THRESHOLD_MID = 4;
-
-    /** Multiplicador do mínimo quando custo > 10 (+40%). */
-    public const MIN_MULTIPLIER_ABOVE_10 = 1.4;
-
-    /** Multiplicador do mínimo quando custo > 4 (+50%). */
-    public const MIN_MULTIPLIER_ABOVE_4 = 1.5;
-
-    /** Multiplicador do mínimo padrão — custo ≤ 4 (+60%). */
-    public const MIN_MULTIPLIER_DEFAULT = 1.6;
 
     // --- Tiers do máximo ---
 
@@ -71,28 +54,15 @@ final class MinMaxPriceCalculator
     /**
      * @return array{min: float, max: float}
      */
-    public static function calculate(float $individualCost, float $clientPrice): array
+    public static function calculate(float $individualCost, float $clientPrice, Carbon $acquiredAt): array
     {
-        $min = self::computeMin($individualCost);
+        $min = MinimumMarginPolicy::minApi($individualCost, $acquiredAt);
         $max = self::computeMax($individualCost, $clientPrice);
 
         return [
             'min' => max($min, self::FLOOR),
             'max' => max($max, self::FLOOR),
         ];
-    }
-
-    private static function computeMin(float $individualCost): float
-    {
-        if ($individualCost > self::MIN_COST_THRESHOLD_HIGH) {
-            return $individualCost * self::MIN_MULTIPLIER_ABOVE_10;
-        }
-
-        if ($individualCost > self::MIN_COST_THRESHOLD_MID) {
-            return $individualCost * self::MIN_MULTIPLIER_ABOVE_4;
-        }
-
-        return $individualCost * self::MIN_MULTIPLIER_DEFAULT;
     }
 
     private static function computeMax(float $individualCost, float $clientPrice): float
