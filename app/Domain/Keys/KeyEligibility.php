@@ -31,43 +31,10 @@ final class KeyEligibility
     /**
      * Idade (meses) a partir da qual uma key é considerada "velha":
      * o AutoSellUseCase ignora o piso min_api e lista independentemente do preço de mercado.
-     * Após a listagem, min_api é atualizado para o preço praticado, permitindo repricing futuro.
+     * Após a listagem, max_api é travado no preço praticado, impedindo o
+     * UpdateOffersUseCase de subir o preço depois.
      */
-    public const OLD_KEY_MONTHS = 10;
-
-    /**
-     * Idade (meses) a partir da qual o ReduceAgingKeysMinPriceUseCase
-     * reduz o min_api para AGING_KEY_MIN_API_MULTIPLIER × individual_cost,
-     * facilitando a listagem pelo AutoSell em mercados que caíram desde a aquisição.
-     */
-    public const AGING_KEY_MONTHS = 7;
-
-    /**
-     * Multiplicador aplicado ao individual_cost para calcular o novo min_api
-     * de keys com >= AGING_KEY_MONTHS meses no estoque.
-     * Ex: custo = €2,00 → novo min_api = €2,30 (margem mínima de 15%).
-     *
-     * A margem mínima de lucro equivalente é AGING_KEY_MIN_API_MULTIPLIER - 1 (= 0.15),
-     * usada em hasMinimumProfitForAutoSell para manter coerência entre os dois mecanismos.
-     */
-    public const AGING_KEY_MIN_API_MULTIPLIER = 1.15;
-
-    /**
-     * Idade (meses) a partir da qual a exigência de margem mínima começa a cair
-     * no hasMinimumProfitForAutoSell e o ReduceAgingKeysMinPriceUseCase reduz o
-     * min_api para MODERATE_AGE_MIN_API_MULTIPLIER × individual_cost.
-     */
-    public const MODERATE_AGE_MONTHS = 4;
-
-    /**
-     * Multiplicador aplicado ao individual_cost para calcular o novo min_api
-     * de keys com >= MODERATE_AGE_MONTHS e < AGING_KEY_MONTHS meses no estoque.
-     * Ex: custo = €2,00 → novo min_api = €2,80 (margem mínima de 40%).
-     *
-     * A margem mínima de lucro equivalente é MODERATE_AGE_MIN_API_MULTIPLIER - 1 (= 0.40),
-     * usada em hasMinimumProfitForAutoSell para manter coerência com o ReduceAgingKeysMinPriceUseCase.
-     */
-    public const MODERATE_AGE_MIN_API_MULTIPLIER = 1.4;
+    public const OLD_KEY_MONTHS = 8;
 
     /**
      * Avalia se uma key está elegível para listagem automática.
@@ -109,46 +76,5 @@ final class KeyEligibility
         }
 
         return true;
-    }
-
-    /**
-     * Verifica se o preço de listagem gera lucro suficiente para justificar o auto-sell.
-     *
-     * Idade tem prioridade sobre custo: uma key parada há meses deve ser vendida com
-     * critérios mais permissivos, independentemente do seu custo original.
-     * Keys com >= OLD_KEY_MONTHS meses não chegam aqui — o AutoSellUseCase bypassa
-     * o método inteiro via age override.
-     *
-     * Regras first-match-wins:
-     *  1. ≥ AGING_KEY_MONTHS meses  → AGING_KEY_MIN_API_MULTIPLIER - 1 (15%) — alinhado ao min_api já reduzido
-     *  2. ≥ MODERATE_AGE_MONTHS meses → 40%
-     *  3. custo > €15               → 40%  (mercado de itens caros costuma cair mais)
-     *  4. custo > €10               → 45%
-     *  5. custo < €1                → 55%  (margem relativa maior compensa valor absoluto baixo)
-     *  6. default                   → 60%
-     *
-     * @param  float  $sellerPrice  Preço de listagem calculado pelo ComparisonAlgorithm
-     * @param  float  $individualCost  Custo individual pago pela key
-     * @param  Carbon  $acquiredAt  Data de aquisição da key
-     */
-    public static function hasMinimumProfitForAutoSell(
-        float $sellerPrice,
-        float $individualCost,
-        Carbon $acquiredAt,
-    ): bool {
-        // Protege contra custo zero ou negativo (dado inválido no banco)
-        $cost = max($individualCost, 0.01);
-        $profit = $sellerPrice - $cost;
-
-        $minPercent = match (true) {
-            $acquiredAt->lt(Carbon::now()->subMonths(self::AGING_KEY_MONTHS)) => self::AGING_KEY_MIN_API_MULTIPLIER - 1,
-            $acquiredAt->lt(Carbon::now()->subMonths(self::MODERATE_AGE_MONTHS)) => self::MODERATE_AGE_MIN_API_MULTIPLIER - 1,
-            $cost > 15.0 => 0.40,
-            $cost > 10.0 => 0.45,
-            $cost < 1.0 => 0.55,
-            default => 0.60,
-        };
-
-        return $profit >= $minPercent * $cost;
     }
 }

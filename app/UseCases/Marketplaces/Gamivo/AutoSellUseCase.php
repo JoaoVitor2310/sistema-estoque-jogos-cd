@@ -21,7 +21,7 @@ use Illuminate\Support\Facades\Log;
  *  1. Consulta o mercado atual via ComparisonAlgorithm (detectDumpers: false)
  *  2. Calcula o preço alvo e clamba entre min_api e max_api da key
  *  3. Keys com >= OLD_KEY_MONTHS meses ignoram o piso min_api (age override)
- *     e têm o min_api atualizado para o preço de listagem após o upload
+ *     e têm o max_api travado no preço de listagem após o upload
  *  4. Cria/reativa oferta na Gamivo
  *  5. Faz upload da chave
  *  6. Verifica diretamente na oferta se a key apareceu
@@ -142,7 +142,7 @@ class AutoSellUseCase
 
     /**
      * Processa uma key: calcula preço alvo, cria oferta, faz upload e marca listed_at.
-     * Keys com >= OLD_KEY_MONTHS meses ignoram o piso min_api e têm min_api atualizado.
+     * Keys com >= OLD_KEY_MONTHS meses ignoram o piso min_api e têm o max_api travado.
      * Retorna false se o mercado estiver abaixo do mínimo (apenas para keys jovens).
      */
     private function processKey(Key $key, string $sellerName, MarketplaceFee $fee): bool
@@ -172,11 +172,6 @@ class AutoSellUseCase
         $sellerPrice = $this->resolveSellerPrice($result->sellerPrice, $minApi, $maxApi, ignoreMinApi: $isOldKey);
 
         if ($sellerPrice === null) {
-            return false;
-        }
-
-        // Keys velhas (age override) são listadas para liquidar o estoque — margem mínima não se aplica
-        if (! $isOldKey && ! KeyEligibility::hasMinimumProfitForAutoSell($sellerPrice, (float) $key->individual_cost, $acquiredAt)) {
             return false;
         }
 
@@ -244,13 +239,12 @@ class AutoSellUseCase
         // Reativa explicitamente após confirmar que a key foi listada.
         $this->gamivoApi->changeOfferStatus($offerId, 1);
 
-        // Marca listed_at; keys velhas têm min/max travados no preço de listagem:
-        //  - max_api = sellerPrice → impede o UpdateOffersUseCase de subir o preço depois
-        //  - min_api = FLOOR      → permite máxima flexibilidade de baixar para competir
+        // Marca listed_at; keys velhas têm o max_api travado no preço de listagem,
+        // impedindo o UpdateOffersUseCase de subir o preço depois. O min_api não
+        // é tocado aqui — RegulateMinApiUseCase já o mantém correto diariamente.
         $updates = ['listed_at' => now()->toDateString()];
 
         if ($isOldKey) {
-            $updates['min_api'] = MinMaxPriceCalculator::FLOOR;
             $updates['max_api'] = $sellerPrice;
         }
 

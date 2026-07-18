@@ -3,10 +3,8 @@
 namespace App\Services\Games;
 
 use App\Domain\Games\GameNameNormalizer;
-use App\Domain\Keys\KeyPriceAging;
 use App\Models\Game;
 use App\Models\Key;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -19,7 +17,6 @@ use Illuminate\Support\Facades\Mail;
  *  - Preenchimento de gamivo_id na tabela games
  *  - Criação de jogo na tabela games (quando não existe)
  *  - Busca de IDs no Steamcharts via price_researcher
- *  - Atualização de preço mínimo da API Gamivo por envelhecimento (delega regra ao Domain)
  */
 class GameService
 {
@@ -184,31 +181,5 @@ class GameService
         }
 
         Log::info('Id Steam dos jogos atualizados com sucesso: '.count($updates));
-    }
-
-    /**
-     * Atualiza o preço mínimo da API Gamivo para keys antigas ainda listadas.
-     * Processa até 10 keys por chamada para evitar sobrecarga.
-     * A regra de degradação por tempo vive em Domain/Keys/KeyPriceAging.
-     */
-    public function updateMinPrices(): void
-    {
-        $keys = Key::select('id', 'game_name', 'region', 'individual_cost', 'min_api', 'max_api', 'listed_at', 'sold_at')
-            ->whereNotNull('listed_at')
-            ->whereNull('sold_at')
-            ->limit(10)
-            ->get();
-
-        foreach ($keys as $key) {
-            $monthsListed = Carbon::parse($key->listed_at)->diffInMonths(now());
-            $newMinPrice = KeyPriceAging::calculateAgedPrice((float) $key->individual_cost, $monthsListed);
-
-            if ($newMinPrice === null) {
-                continue; // Ainda não atingiu nenhum tier — sem alteração
-            }
-
-            $key->min_api = $newMinPrice;
-            $key->save();
-        }
     }
 }

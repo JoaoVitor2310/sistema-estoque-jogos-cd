@@ -8,6 +8,7 @@ use App\Domain\Pricing\ProfitCalculator;
 use App\Domain\Pricing\ValueObjects\MarketplaceFee;
 use App\Models\Asset;
 use App\Models\Fee;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -133,6 +134,7 @@ class KeyCalculationService
         $result = MinMaxPriceCalculator::calculate(
             individualCost: (float) $game['individual_cost'],
             clientPrice: (float) $game['market_price'],
+            acquiredAt: Carbon::parse($game['acquired_at']),
         );
 
         $game['min_api'] = $result['min'];
