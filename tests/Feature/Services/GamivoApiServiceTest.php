@@ -94,15 +94,26 @@ describe('GamivoApiService', function () {
             expect((new GamivoApiService)->updateOffer(99, ['wholesale_mode' => 0, 'seller_price' => 2.99]))->toBe(99);
         });
 
-        it('silences the "Wait for current action" error and returns the offerId without throwing', function () {
+        it('retries on "Wait for the current action" and applies the price once the lock clears', function () {
+            Http::fake([
+                '*/api/public/v1/offers/77*' => Http::sequence()
+                    ->push(['reason' => 'Wait for the current action to end. Progress: 50/100'], 400)
+                    ->push(77, 200),
+            ]);
+
+            expect((new GamivoApiService)->updateOffer(77, ['wholesale_mode' => 0, 'seller_price' => 2.99]))->toBe(77);
+        });
+
+        it('throws when the action lock never clears within the retry budget', function () {
             Http::fake([
                 '*/api/public/v1/offers/77*' => Http::response(
-                    ['reason' => 'Wait for the current action to end. Progress: 50/100'],
+                    ['reason' => 'Wait for the current action to end. Progress: 1/1'],
                     400
                 ),
             ]);
 
-            expect((new GamivoApiService)->updateOffer(77, ['wholesale_mode' => 0, 'seller_price' => 2.99]))->toBe(77);
+            expect(fn () => (new GamivoApiService)->updateOffer(77, ['wholesale_mode' => 0, 'seller_price' => 2.99]))
+                ->toThrow(\RuntimeException::class, 'Wait for the current action');
         });
     });
 
@@ -142,6 +153,30 @@ describe('GamivoApiService', function () {
                 'keys' => 1,
                 'is_preorder' => false,
             ]))->toBe(88888);
+        });
+    });
+
+    // ── changeOfferStatus ─────────────────────────────────────────────────────
+
+    describe('changeOfferStatus()', function () {
+
+        it('returns the offerId when the status change succeeds', function () {
+            Http::fake(['*/api/public/v1/offers/55/change-status' => Http::response(55, 200)]);
+
+            expect((new GamivoApiService)->changeOfferStatus(55, 1))->toBe(55);
+        });
+
+        // Regression: reactivating an offer right after uploadKeys used to fail with
+        // "Wait for the current action to end. Progress: 1/1" because the upload job
+        // was still processing. It must now retry until the lock clears.
+        it('retries on "Wait for the current action" and succeeds once the upload job ends', function () {
+            Http::fake([
+                '*/api/public/v1/offers/55/change-status' => Http::sequence()
+                    ->push(['reason' => 'Wait for the current action to end. Progress: 1/1'], 400)
+                    ->push(55, 200),
+            ]);
+
+            expect((new GamivoApiService)->changeOfferStatus(55, 1))->toBe(55);
         });
     });
 

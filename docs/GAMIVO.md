@@ -53,6 +53,7 @@ Dia 0          Dia 21              Dia 120+
 - **`POST /offers` + oferta já existente:** Gamivo retorna `"Offer already exists [12345]"`. Extrair o ID com regex `/\[(\d+)\]/` e reativar via `PUT /offers/{offerId}/change-status`.
 - **Delay de 500ms entre criar oferta e fazer upload de key:** necessário — a Gamivo precisa de tempo para registrar a oferta antes de aceitar chaves.
 - **Upload de keys com até 5 tentativas e 1s de delay:** race condition real na API — sempre implementar retry.
+- **`400 "Wait for the current action to end. Progress: X/Y"`:** a Gamivo processa **uma ação por oferta de cada vez** (upload de key, mudança de status). Qualquer mutação na mesma oferta enquanto a anterior não terminou retorna esse 400. Ele é **transitório, não é falha** — aguardar e reenviar resolve. `GamivoApiService::sendWithActionLockRetry()` reaplica esse retry (`ACTION_LOCK_RETRIES` × `ACTION_LOCK_RETRY_DELAY_S`s) em **todos** os endpoints de mutação (`createOffer`, `updateOffer`, `changeOfferStatus`, `uploadKeys`). Atenção especial: reativar a oferta (`change-status`) logo após `uploadKeys` colide com o job de upload ainda em andamento — daí o `Progress: 1/1`. `isKeyListed` confirmar a key **não** garante que o job já terminou no lado da Gamivo.
 - **`GET /accounts/sales/order-details/{orderId}` — chave do objeto:** é `<offer_id>` (integer como string), não `product_name`. Verificar ao usar.
 - **Scraping SteamCharts:** frágil. O **segundo** `span.num` é o pico 24h. Se o HTML mudar, para de funcionar.
 
@@ -216,6 +217,28 @@ for ($attempt = 1; $attempt <= 5; $attempt++) {
     if ($attempt < 5) sleep(1);
 }
 ```
+
+> Além disso, todos os endpoints **mutadores** (`createOffer`, `updateOffer`, `changeOfferStatus`, `uploadKeys`) reprocessam automaticamente o `400 "Wait for the current action to end"` via `GamivoApiService::sendWithActionLockRetry()` — a Gamivo só processa uma ação por oferta de cada vez.
+
+### Auto-sell: agrupamento por `gamivo_id` (venda FIFO)
+
+Uma oferta Gamivo é **uma por produto**: um único `seller_price` e um pool de keys, vendidas **FIFO na ordem em que foram enviadas** (a primeira key do upload é a primeira vendida).
+
+Por isso o `AutoSellUseCase` **agrupa as keys elegíveis por `gamivo_id`** e processa cada grupo como **uma oferta + um `uploadKeys` em lote** — nunca repetindo o ciclo `createOffer→updateOffer→uploadKeys→changeOfferStatus` por key na mesma oferta (era essa repetição que gerava o `400 "Wait for the current action"`).
+
+A lógica tem **duas etapas, nessa ordem** — a distinção é fundamental:
+
+1. **Quais keys listar (decisão por key).** Cada key do grupo é avaliada **individualmente**: entra se o mercado cobre o `min_api` **dela**, ou se não há concorrentes. Uma key reprovada é pulada sozinha — **não bloqueia as outras** do mesmo produto. Exemplo: se a key de menor `id` tem `min_api` acima do mercado, ela é pulada, mas uma key mais nova cujo `min_api` o mercado cobre **é listada normalmente**. A **idade não é reavaliada aqui**: o `min_api` já embute a idade, pois a `MinimumMarginPolicy` o rebaixa ao `FLOOR` para keys com ≥ `OLD_KEY_MONTHS` meses (persistido pelo `RegulateMinApiUseCase`, que roda antes do auto-sell).
+2. **Qual preço praticar (a governante).** Só **entre as keys aprovadas** na etapa 1, a mais antiga (**menor `id`** — governante) define o `seller_price` único da oferta, pois é a primeira a ser vendida (FIFO). Como uma key velha já tem `min_api` no `FLOOR`, o preço dela naturalmente pode ser baixo — sem nenhuma lógica de "override" no auto-sell.
+
+Demais regras:
+
+- **Escopo = keys elegíveis (não listadas).** O grupo contém apenas keys ainda **não listadas** (`findEligibleForAutoSell` já filtra `listed_at IS NULL`). Se o produto já tem keys listadas de rodadas anteriores, elas **não entram no grupo** — a governante é a mais antiga **entre as elegíveis aprovadas**, não a mais antiga absoluta do produto. O `seller_price` é recalculado por ela e sobrescreve o da oferta; o `UpdateOffersUseCase` reajusta em seguida considerando todas as keys. *(Decisão de negócio confirmada — 2026-07-20.)*
+- **Upload em ordem de `id` ASC** (`findEligibleForAutoSell` já retorna `orderBy('id')`), espelhando a ordem de venda da Gamivo.
+- **`max_api`** é travado no preço praticado apenas nas keys **individualmente** velhas (≥ `OLD_KEY_MONTHS`) — o único ponto do auto-sell que ainda avalia a idade diretamente, já que a `MinimumMarginPolicy` cobre só o `min_api`, não o `max_api`.
+- **Confirmação parcial:** após o upload, verifica na oferta quais códigos apareceram e marca `listed_at` **só nos confirmados**; os não confirmados seguem elegíveis na próxima rodada. Isso vale inclusive quando a própria governante não confirma — as keys mais novas confirmadas são listadas e a governante tenta de novo depois (a eventual inversão de ordem FIFO é aceita por ser rara). *(Decisão de negócio confirmada — 2026-07-20.)*
+
+> ⚠️  **Dívida relacionada:** `KeyRepository::findMinMaxByGamivoId` (usado pelo `UpdateOffersUseCase`) ainda agrega `MIN(min_api)`/`MAX(max_api)` entre as keys do produto — política diferente da governante FIFO. Será substituído pela regra da governante futuramente. Ver `docs/IMPROVEMENTS.md`.
 
 ### Testar sem chamar a API real
 

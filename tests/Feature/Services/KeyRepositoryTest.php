@@ -196,6 +196,21 @@ describe('KeyRepository', function () {
             expect($results->pluck('key_code'))->toContain($keyCode);
         });
 
+        it('returns eligible keys ordered by id ASC (FIFO for auto-sell grouping)', function () {
+            // A Gamivo vende FIFO; o AutoSellUseCase usa a key de menor id como governante do grupo.
+            $id1 = insertRepoKey(['gamivo_id' => 'gam-order', 'key_code' => 'ORDER-1']);
+            $id2 = insertRepoKey(['gamivo_id' => 'gam-order', 'key_code' => 'ORDER-2']);
+            $id3 = insertRepoKey(['gamivo_id' => 'gam-order', 'key_code' => 'ORDER-3']);
+
+            $ids = app(KeyRepository::class)->findEligibleForAutoSell()
+                ->where('gamivo_id', 'gam-order')
+                ->pluck('id')
+                ->values()
+                ->all();
+
+            expect($ids)->toBe([$id1, $id2, $id3]);
+        });
+
         it('returns only eligible keys when mixed statuses coexist', function () {
             insertRepoKey(['gamivo_id' => 'gam-ok-1', 'key_code' => 'OK-KEY-001']);
             insertRepoKey(['gamivo_id' => 'gam-ok-2', 'key_code' => 'OK-KEY-002']);

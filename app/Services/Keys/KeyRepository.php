@@ -72,6 +72,9 @@ class KeyRepository
      *  - notGiftLink: key_code sem URL
      *  - withoutRecentBundle: jogo fora de bundles dos últimos 21 dias
      *
+     * Ordenadas por id ASC: a Gamivo vende FIFO (key mais antiga primeiro), e o
+     * AutoSellUseCase agrupa por gamivo_id usando a key de menor id como governante.
+     *
      * @return Collection<int, Key>
      */
     public function findEligibleForAutoSell(): Collection
@@ -82,6 +85,7 @@ class KeyRepository
             ->notGiftLink()
             ->withoutRecentBundle(KeyEligibility::BUNDLE_EXCLUSION_DAYS)
             ->with('game.latestBundle')
+            ->orderBy('id')
             ->get();
     }
 }

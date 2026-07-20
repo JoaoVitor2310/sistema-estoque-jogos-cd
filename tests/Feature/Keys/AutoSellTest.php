@@ -259,11 +259,13 @@ describe('AutoSellUseCase', function () {
             ->toBe(now()->toDateString());
     });
 
-    // ── Age override (>= OLD_KEY_MONTHS) ──────────────────────────────────────
+    // ── Keys velhas (>= OLD_KEY_MONTHS) — min_api já rebaixado ao FLOOR pela policy ──
 
-    it('lists a key acquired >= OLD_KEY_MONTHS ago even when the market is below min_api', function () {
-        // Concorrente a €1.50, min_api = 10.00 — normalmente seria pulada.
-        // Mas key >= OLD_KEY_MONTHS → age override → lista mesmo assim.
+    it('lists an old key with a very low market price because its min_api is already at FLOOR', function () {
+        // Keys >= OLD_KEY_MONTHS têm o min_api rebaixado ao FLOOR pela MinimumMarginPolicy
+        // (persistido pelo RegulateMinApiUseCase, pré-requisito do AutoSell). Aqui simulamos
+        // isso com min_api = FLOOR. Concorrente a €1.50 → preço-alvo ~1.15 >= FLOOR → lista.
+        // O AutoSell não reavalia a idade: apenas consulta o min_api (fonte única do piso).
         Http::fake([
             '*/products/*/offers' => Http::response([
                 ['id' => 99, 'seller_name' => 'Rival', 'retail_price' => 1.50,
@@ -279,7 +281,7 @@ describe('AutoSellUseCase', function () {
         ]);
 
         insertAutoSellKey('440', [
-            'min_api' => 10.00,
+            'min_api' => 0.02, // FLOOR — o que a policy grava para uma key >= OLD_KEY_MONTHS
             'max_api' => 20.00,
             'acquired_at' => now()->subMonths(11)->toDateString(),
         ]);
@@ -289,6 +291,32 @@ describe('AutoSellUseCase', function () {
         expect($result)->toHaveCount(1)
             ->and(DB::table('keys')->where('gamivo_id', '440')->value('listed_at'))
             ->toBe(now()->toDateString());
+    });
+
+    it('skips an old key when its persisted min_api is still high (policy not yet run)', function () {
+        // Guard-rail explícito: o AutoSell NÃO reavalia a idade para ignorar o piso. Se o
+        // RegulateMinApiUseCase ainda não rebaixou o min_api desta key velha, ela é pulada
+        // como qualquer outra abaixo do piso — a idade só vale via o min_api já persistido.
+        Http::fake([
+            '*/products/*/offers' => Http::response([
+                ['id' => 99, 'seller_name' => 'Rival', 'retail_price' => 1.50,
+                    'completed_orders' => 1000, 'wholesale_mode' => 0, 'stock_available' => 5,
+                    'rating' => 4.5, 'invoicable' => false, 'is_preorder' => false],
+            ], 200),
+            '*/v1/offers' => Http::response(12345, 200),
+            '*/offers/12345/keys/upload' => Http::response(999, 200),
+        ]);
+
+        insertAutoSellKey('440', [
+            'min_api' => 10.00, // ainda não rebaixado pela policy
+            'max_api' => 20.00,
+            'acquired_at' => now()->subMonths(11)->toDateString(),
+        ]);
+
+        $result = app(AutoSellUseCase::class)->execute();
+
+        expect($result)->toBeEmpty()
+            ->and(DB::table('keys')->where('gamivo_id', '440')->value('listed_at'))->toBeNull();
     });
 
     it('locks max_api to the seller price after listing a key acquired >= OLD_KEY_MONTHS ago, leaving min_api untouched', function () {
@@ -386,6 +414,261 @@ describe('AutoSellUseCase', function () {
 
         expect($result)->toHaveCount(1)
             ->and(DB::table('keys')->whereNotNull('listed_at')->count())->toBe(1);
+    });
+
+    // ── Agrupamento por gamivo_id (FIFO: governante = menor id) ───────────────
+
+    describe('grouping by gamivo_id', function () {
+
+        it('creates a single offer and uploads all keys of the same gamivo_id at once', function () {
+            fakeGamivoAutoSell();
+            insertAutoSellKey('440', ['key_code' => 'AAA-1']);
+            insertAutoSellKey('440', ['key_code' => 'BBB-2']);
+            insertAutoSellKey('440', ['key_code' => 'CCC-3']);
+
+            $result = app(AutoSellUseCase::class)->execute();
+
+            // Todas as 3 keys listadas
+            expect($result)->toHaveCount(3)
+                ->and(DB::table('keys')->whereNotNull('listed_at')->count())->toBe(3);
+
+            // Uma única oferta criada (POST no endpoint exato /v1/offers, não /offers/{id}/...)
+            $createOfferCalls = 0;
+            Http::assertSent(function ($request) use (&$createOfferCalls) {
+                if (str_ends_with($request->url(), '/v1/offers') && $request->method() === 'POST') {
+                    $createOfferCalls++;
+                }
+
+                return true;
+            });
+            expect($createOfferCalls)->toBe(1);
+
+            // Um único uploadKeys com os 3 códigos no mesmo body
+            Http::assertSent(function ($request) {
+                if (! str_contains($request->url(), '/keys/upload')) {
+                    return false;
+                }
+                $body = json_decode($request->body(), true);
+
+                return $body['keys'] === ['AAA-1', 'BBB-2', 'CCC-3'];
+            });
+        });
+
+        it('uploads key codes in id ASC order (oldest first)', function () {
+            fakeGamivoAutoSell();
+            // Inseridas fora de ordem de código, mas os ids crescem na ordem de inserção
+            $first = insertAutoSellKey('440', ['key_code' => 'OLDEST']);
+            $second = insertAutoSellKey('440', ['key_code' => 'MIDDLE']);
+            $third = insertAutoSellKey('440', ['key_code' => 'NEWEST']);
+
+            expect($first)->toBeLessThan($second)->and($second)->toBeLessThan($third);
+
+            app(AutoSellUseCase::class)->execute();
+
+            Http::assertSent(function ($request) {
+                if (! str_contains($request->url(), '/keys/upload')) {
+                    return false;
+                }
+                $body = json_decode($request->body(), true);
+
+                // Ordem FIFO preservada: governante (menor id) primeiro
+                return $body['keys'] === ['OLDEST', 'MIDDLE', 'NEWEST'];
+            });
+        });
+
+        it('prices the group by the governing key (oldest id), not other keys in the group', function () {
+            // Sem concorrentes → sellerPrice = max_api. A governante (menor id) tem
+            // max_api = 15.00; a segunda key tem max_api = 99.00. O preço deve seguir a governante.
+            fakeGamivoAutoSell();
+            insertAutoSellKey('440', ['key_code' => 'GOV', 'min_api' => 3.00, 'max_api' => 15.00]);
+            insertAutoSellKey('440', ['key_code' => 'OTHER', 'min_api' => 3.00, 'max_api' => 99.00]);
+
+            app(AutoSellUseCase::class)->execute();
+
+            Http::assertSent(function ($request) {
+                if (! (str_contains($request->url(), '/v1/offers') && $request->method() === 'POST')) {
+                    return false;
+                }
+                $body = json_decode($request->body(), true);
+
+                return (float) ($body['seller_price'] ?? 0) === 15.00;
+            });
+        });
+
+        it('lists a key whose own min_api the market covers, and skips a group-mate below its own min_api', function () {
+            // Concorrente a 2.50 → preço-alvo de mercado ~2.09. A decisão é POR KEY:
+            //  - A (menor id, "mais velha por id" mas nova): min_api 10.00 → 2.09 < 10 → NÃO lista.
+            //  - B (mais nova): min_api 2.00 → 2.09 >= 2 → LISTA e vira a governante (única aprovada).
+            // Prova: a key mais nova com o mercado cobrindo o SEU min_api é listada e governa,
+            // mesmo havendo uma key de id menor no grupo.
+            Http::fake([
+                '*/products/*/offers' => Http::response([
+                    ['id' => 99, 'seller_name' => 'Rival', 'retail_price' => 2.50,
+                        'completed_orders' => 1000, 'wholesale_mode' => 0, 'stock_available' => 5,
+                        'rating' => 4.5, 'invoicable' => false, 'is_preorder' => false],
+                ], 200),
+                '*/v1/offers' => Http::response(12345, 200),
+                '*/offers/12345/change-status' => Http::response(12345, 200),
+                '*/offers/12345' => Http::response(12345, 200),
+                '*/offers/12345/keys/upload' => Http::response(999, 200),
+                '*/offers/12345/keys/active/0/1*' => Http::response(['count' => 1, 'data' => []], 200),
+            ]);
+
+            $expensiveId = insertAutoSellKey('440', [
+                'key_code' => 'A-HIGH-MIN', 'min_api' => 10.00, 'max_api' => 20.00,
+                'acquired_at' => now()->subMonths(2)->toDateString(),
+            ]);
+            $cheapId = insertAutoSellKey('440', [
+                'key_code' => 'B-LOW-MIN', 'min_api' => 2.00, 'max_api' => 20.00,
+                'acquired_at' => now()->subMonths(2)->toDateString(),
+            ]);
+
+            $result = app(AutoSellUseCase::class)->execute();
+
+            expect($result)->toBe([$cheapId])
+                ->and(DB::table('keys')->where('id', $expensiveId)->value('listed_at'))->toBeNull();
+
+            // Só a key aprovada foi enviada no upload
+            Http::assertSent(function ($request) {
+                if (! str_contains($request->url(), '/keys/upload')) {
+                    return false;
+                }
+                $body = json_decode($request->body(), true);
+
+                return $body['keys'] === ['B-LOW-MIN'];
+            });
+        });
+
+        it('lists an old key (min_api at FLOOR) even when a newer group-mate is skipped below its own min_api', function () {
+            // Mercado ~1.15 (concorrente 1.50). A decisão é POR KEY, cada uma pelo SEU min_api:
+            //  - NEW (menor id, 2 meses): min_api 10.00 → 1.15 < 10 → NÃO lista.
+            //  - OLD (11 meses): min_api já rebaixado ao FLOOR pela policy → 1.15 >= FLOOR → LISTA,
+            //    e vira a governante (única aprovada).
+            // Prova: a key nova pulada não bloqueia a velha; cada uma é avaliada pelo próprio piso.
+            Http::fake([
+                '*/products/*/offers' => Http::response([
+                    ['id' => 99, 'seller_name' => 'Rival', 'retail_price' => 1.50,
+                        'completed_orders' => 1000, 'wholesale_mode' => 0, 'stock_available' => 5,
+                        'rating' => 4.5, 'invoicable' => false, 'is_preorder' => false],
+                ], 200),
+                '*/v1/offers' => Http::response(12345, 200),
+                '*/offers/12345/change-status' => Http::response(12345, 200),
+                '*/offers/12345' => Http::response(12345, 200),
+                '*/offers/12345/keys/upload' => Http::response(999, 200),
+                '*/offers/12345/keys/active/0/1*' => Http::response(['count' => 1, 'data' => []], 200),
+            ]);
+
+            $newId = insertAutoSellKey('440', [
+                'key_code' => 'NEW-SKIP', 'min_api' => 10.00, 'max_api' => 20.00,
+                'acquired_at' => now()->subMonths(2)->toDateString(),
+            ]);
+            $oldId = insertAutoSellKey('440', [
+                'key_code' => 'OLD-LIST', 'min_api' => 0.02, 'max_api' => 20.00,
+                'acquired_at' => now()->subMonths(11)->toDateString(),
+            ]);
+
+            $result = app(AutoSellUseCase::class)->execute();
+
+            expect($result)->toBe([$oldId])
+                ->and(DB::table('keys')->where('id', $oldId)->value('listed_at'))->toBe(now()->toDateString())
+                ->and(DB::table('keys')->where('id', $newId)->value('listed_at'))->toBeNull();
+
+            Http::assertSent(function ($request) {
+                if (! str_contains($request->url(), '/keys/upload')) {
+                    return false;
+                }
+                $body = json_decode($request->body(), true);
+
+                return $body['keys'] === ['OLD-LIST'];
+            });
+        });
+
+        it('lists both keys when the market clears each own min_api (old governing key at FLOOR)', function () {
+            // Governante velha (11m, min_api FLOOR) + key nova cujo min_api (2.00) o mercado cobre.
+            // Sem concorrentes → preço = max_api da governante = 20.00; ambas listam.
+            fakeGamivoAutoSell();
+
+            insertAutoSellKey('440', [
+                'key_code' => 'GOV-OLD', 'min_api' => 0.02, 'max_api' => 20.00,
+                'acquired_at' => now()->subMonths(11)->toDateString(),
+            ]);
+            insertAutoSellKey('440', [
+                'key_code' => 'NEW-OK', 'min_api' => 2.00, 'max_api' => 20.00,
+                'acquired_at' => now()->subMonths(2)->toDateString(),
+            ]);
+
+            $result = app(AutoSellUseCase::class)->execute();
+
+            expect($result)->toHaveCount(2);
+        });
+
+        it('locks max_api only on the individually old keys of a mixed group', function () {
+            // Sem concorrentes → sellerPrice = max_api da governante (velha) = 20.00.
+            // A governante (velha) tem o max_api travado em 20.00 (= sellerPrice); a key nova
+            // do grupo mantém seu max_api original (99.00) — a trava é por-key, não do grupo.
+            fakeGamivoAutoSell();
+
+            $oldId = insertAutoSellKey('440', [
+                'key_code' => 'GOV-OLD', 'min_api' => 2.00, 'max_api' => 20.00,
+                'acquired_at' => now()->subMonths(11)->toDateString(),
+            ]);
+            $newId = insertAutoSellKey('440', [
+                'key_code' => 'NEW', 'min_api' => 2.00, 'max_api' => 99.00,
+                'acquired_at' => now()->subMonths(2)->toDateString(),
+            ]);
+
+            app(AutoSellUseCase::class)->execute();
+
+            expect((float) DB::table('keys')->where('id', $oldId)->value('max_api'))->toBe(20.00)
+                ->and((float) DB::table('keys')->where('id', $newId)->value('max_api'))->toBe(99.00);
+        });
+
+        it('skips every key when none is old and the market is below each own min_api', function () {
+            // Duas keys jovens do mesmo produto, min_api 3.00; mercado ~1.15 → cada uma reprovada
+            // no seu próprio min_api e nenhuma é velha → grupo inteiro pulado.
+            Http::fake([
+                '*/products/*/offers' => Http::response([
+                    ['id' => 99, 'seller_name' => 'Rival', 'retail_price' => 1.50,
+                        'completed_orders' => 1000, 'wholesale_mode' => 0, 'stock_available' => 5,
+                        'rating' => 4.5, 'invoicable' => false, 'is_preorder' => false],
+                ], 200),
+            ]);
+
+            insertAutoSellKey('440', ['key_code' => 'K1', 'min_api' => 3.00, 'max_api' => 25.00]);
+            insertAutoSellKey('440', ['key_code' => 'K2', 'min_api' => 3.00, 'max_api' => 25.00]);
+
+            $result = app(AutoSellUseCase::class)->execute();
+
+            expect($result)->toBeEmpty()
+                ->and(DB::table('keys')->whereNotNull('listed_at')->count())->toBe(0);
+        });
+
+        it('marks only the confirmed keys and leaves the unconfirmed ones eligible', function () {
+            // 2 keys enviadas; a verificação confirma só a primeira (count=1 depois count=0)
+            Http::fake([
+                '*/products/*/offers' => Http::response([], 200),
+                '*/v1/offers' => Http::response(12345, 200),
+                '*/offers/12345/change-status' => Http::response(12345, 200),
+                '*/offers/12345' => Http::response(12345, 200),
+                '*/offers/12345/keys/upload' => Http::response(999, 200),
+                // Filtro por código: CONF-1 aparece (count=1), CONF-2 nunca (count=0)
+                '*/offers/12345/keys/active/0/1*' => function ($request) {
+                    $filters = json_decode($request->data()['filters'] ?? '{}', true);
+                    $code = $filters['keys'][0] ?? '';
+
+                    return Http::response(['count' => $code === 'CONF-1' ? 1 : 0, 'data' => []], 200);
+                },
+            ]);
+
+            $confirmedId = insertAutoSellKey('440', ['key_code' => 'CONF-1']);
+            $unconfirmedId = insertAutoSellKey('440', ['key_code' => 'CONF-2']);
+
+            $result = app(AutoSellUseCase::class)->execute();
+
+            expect($result)->toBe([$confirmedId])
+                ->and(DB::table('keys')->where('id', $confirmedId)->value('listed_at'))->toBe(now()->toDateString())
+                ->and(DB::table('keys')->where('id', $unconfirmedId)->value('listed_at'))->toBeNull();
+        });
     });
 
     // ── Eligibility rules ─────────────────────────────────────────────────────

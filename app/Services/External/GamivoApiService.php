@@ -21,6 +21,18 @@ use Illuminate\Support\Facades\Mail;
  */
 class GamivoApiService
 {
+    /**
+     * Tentativas quando a Gamivo responde "Wait for the current action to end".
+     * A API processa uma ação por oferta de cada vez (upload de key, mudança de status);
+     * enquanto a anterior não termina, qualquer outra mutação na mesma oferta retorna 400.
+     */
+    public const ACTION_LOCK_RETRIES = 5;
+
+    /**
+     * Intervalo entre tentativas enquanto a oferta está travada por ação em andamento (segundos).
+     */
+    public const ACTION_LOCK_RETRY_DELAY_S = 2;
+
     // ── Offers ────────────────────────────────────────────────────────────────
 
     /**
@@ -100,13 +112,11 @@ class GamivoApiService
      */
     public function updateOffer(int $offerId, array $data): ?int
     {
-        $response = $this->http()->put("/api/public/v1/offers/{$offerId}", $data);
-
-        // "Wait for the current action to end" não é falha — Gamivo ainda está processando a ação anterior
-        if ($response->status() === 400
-            && str_contains($response->json('reason') ?? '', 'Wait for the current action')) {
-            return $offerId;
-        }
+        // Reenvia enquanto a Gamivo estiver processando uma ação anterior na oferta,
+        // garantindo que o novo preço seja de fato aplicado (não apenas silenciado).
+        $response = $this->sendWithActionLockRetry(
+            fn () => $this->http()->put("/api/public/v1/offers/{$offerId}", $data)
+        );
 
         return $this->handleResponse($response);
     }
@@ -118,7 +128,9 @@ class GamivoApiService
      */
     public function createOffer(array $data): ?int
     {
-        $response = $this->http()->post('/api/public/v1/offers', $data);
+        $response = $this->sendWithActionLockRetry(
+            fn () => $this->http()->post('/api/public/v1/offers', $data)
+        );
 
         // Oferta já existe inativa — API devolve o offerId no texto: "Offer already exists [12345]"
         if ($response->status() === 400) {
@@ -137,9 +149,13 @@ class GamivoApiService
      */
     public function changeOfferStatus(int $offerId, int $status): ?int
     {
-        return $this->handleResponse(
-            $this->http()->put("/api/public/v1/offers/{$offerId}/change-status", ['status' => $status])
+        // Reativar/desativar logo após um upload pode colidir com o job ainda em andamento
+        // ("Wait for the current action to end") — reenvia até a ação anterior terminar.
+        $response = $this->sendWithActionLockRetry(
+            fn () => $this->http()->put("/api/public/v1/offers/{$offerId}/change-status", ['status' => $status])
         );
+
+        return $this->handleResponse($response);
     }
 
     // ── Keys ──────────────────────────────────────────────────────────────────
@@ -153,9 +169,13 @@ class GamivoApiService
      */
     public function uploadKeys(int $offerId, array $keys): ?int
     {
-        return $this->handleResponse(
-            $this->http()->post("/api/public/v1/offers/{$offerId}/keys/upload", ['keys' => $keys])
+        // Uma oferta com várias keys pode ter um upload anterior ainda processando —
+        // reenvia até a ação anterior terminar em vez de falhar de imediato.
+        $response = $this->sendWithActionLockRetry(
+            fn () => $this->http()->post("/api/public/v1/offers/{$offerId}/keys/upload", ['keys' => $keys])
         );
+
+        return $this->handleResponse($response);
     }
 
     /**
@@ -275,6 +295,39 @@ class GamivoApiService
     }
 
     // ── Privados ──────────────────────────────────────────────────────────────
+
+    /**
+     * Reenvia uma requisição mutadora enquanto a Gamivo estiver travada por uma ação
+     * anterior na mesma oferta ("Wait for the current action to end. Progress: X/Y").
+     *
+     * A API só processa uma ação por oferta de cada vez (upload de key, mudança de status).
+     * Esse motivo não é falha — é transitório: aguardar e reenviar resolve.
+     *
+     * @param  callable():Response  $send
+     */
+    private function sendWithActionLockRetry(callable $send): Response
+    {
+        $response = $send();
+
+        for ($attempt = 1; $attempt < self::ACTION_LOCK_RETRIES && $this->isActionLocked($response); $attempt++) {
+            if (! app()->environment('testing')) {
+                sleep(self::ACTION_LOCK_RETRY_DELAY_S);
+            }
+
+            $response = $send();
+        }
+
+        return $response;
+    }
+
+    /**
+     * Detecta a resposta 400 "Wait for the current action to end" (ação anterior em andamento).
+     */
+    private function isActionLocked(Response $response): bool
+    {
+        return $response->status() === 400
+            && str_contains($response->json('reason') ?? '', 'Wait for the current action');
+    }
 
     /**
      * Instância HTTP pré-configurada com autenticação Bearer e timeout.
