@@ -12,20 +12,32 @@ use App\Services\External\GamivoApiService;
 use App\Services\Keys\KeyCalculationService;
 use App\Services\Keys\KeyRepository;
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 
 /**
  * Lista keys elegíveis na Gamivo automaticamente.
  *
- * Para cada key elegível:
+ * Keys do mesmo gamivo_id compartilham UMA única oferta na Gamivo, então são
+ * processadas em grupo (uma oferta, um upload em lote) — não uma por uma. Isso
+ * elimina a contenção "Wait for the current action to end" que mutações repetidas
+ * na mesma oferta causavam.
+ *
+ * A decisão de listar é tomada **por key**: cada key entra se o mercado cobre o seu
+ * próprio min_api (que já embute a idade — a MinimumMarginPolicy rebaixa o min_api ao
+ * FLOOR para keys velhas). Só então, entre as keys que serão listadas, escolhe-se a
+ * **governante** — a mais antiga (menor id) — que define o seller_price único da oferta,
+ * pois a Gamivo vende FIFO (a primeira enviada vende primeiro). O upload envia as keys
+ * aprovadas em ordem de id ASC.
+ *
+ * Para cada grupo de gamivo_id:
  *  1. Consulta o mercado atual via ComparisonAlgorithm (detectDumpers: false)
- *  2. Calcula o preço alvo e clamba entre min_api e max_api da key
- *  3. Keys com >= OLD_KEY_MONTHS meses ignoram o piso min_api (age override)
- *     e têm o max_api travado no preço de listagem após o upload
- *  4. Cria/reativa oferta na Gamivo
- *  5. Faz upload da chave
- *  6. Verifica diretamente na oferta se a key apareceu
- *  7. Marca listed_at no banco
+ *  2. Filtra, key a key, quais serão listadas (mercado >= min_api da própria key)
+ *  3. Governante = mais antiga entre as aprovadas; calcula o seller_price pelo min/max dela
+ *  4. Cria/reativa uma oferta na Gamivo
+ *  5. Faz upload das keys aprovadas num único uploadKeys (ordem id ASC)
+ *  6. Verifica na oferta quais keys apareceram — marca só as confirmadas
+ *  7. Marca listed_at; keys individualmente velhas têm o max_api travado no preço praticado
  *
  * Migrado de GET /api/auto-sell (gamivo-carca-deals, Node.js).
  * Documentação: docs/GAMIVO.md — seção "Fluxo B: auto-sell".
@@ -53,8 +65,8 @@ class AutoSellUseCase
     ) {}
 
     /**
-     * Itera keys elegíveis e lista cada uma na Gamivo.
-     * Erros por key são logados e não interrompem as demais.
+     * Agrupa keys elegíveis por gamivo_id e lista cada grupo (uma oferta) na Gamivo.
+     * Erros em um grupo são logados e não interrompem os demais.
      *
      * @return int[] IDs das keys listadas com sucesso
      */
@@ -69,35 +81,28 @@ class AutoSellUseCase
         $skipped = [];
         $errors = [];
 
-        foreach ($keys as $key) {
+        // Keys do mesmo gamivo_id → uma única oferta na Gamivo → um grupo.
+        // findEligibleForAutoSell já retorna ordenado por id ASC, então cada grupo
+        // preserva a ordem FIFO (governante = primeira key).
+        foreach ($keys->groupBy('gamivo_id') as $groupKeys) {
             try {
-                if ($this->processKey($key, $sellerName, $fee)) {
-                    $listed[] = $key->id;
-                    $listedDetails[] = [
+                $result = $this->processGroup($groupKeys, $sellerName, $fee);
+
+                $listed = array_merge($listed, $result['listed']);
+                $listedDetails = array_merge($listedDetails, $result['listedDetails']);
+                $skipped = array_merge($skipped, $result['skipped']);
+                $errors = array_merge($errors, $result['errors']);
+            } catch (\Throwable $e) {
+                // Falha antes de qualquer key confirmar (createOffer/uploadKeys) — grupo inteiro
+                foreach ($groupKeys as $key) {
+                    $errors[] = [
                         'key_id' => $key->id,
                         'key_code' => $key->key_code,
                         'game_name' => $key->game_name,
                         'gamivo_id' => $key->gamivo_id,
-                    ];
-                } else {
-                    // Mercado abaixo do min_api — pulou sem tentar listar
-                    $skipped[] = [
-                        'key_id' => $key->id,
-                        'key_code' => $key->key_code,
-                        'game_name' => $key->game_name,
-                        'gamivo_id' => $key->gamivo_id,
-                        'min_api' => $key->min_api,
+                        'error' => $e->getMessage(),
                     ];
                 }
-            } catch (\Throwable $e) {
-                // Erro durante criação de oferta ou upload — mensagem inclui offer/job id
-                $errors[] = [
-                    'key_id' => $key->id,
-                    'key_code' => $key->key_code,
-                    'game_name' => $key->game_name,
-                    'gamivo_id' => $key->gamivo_id,
-                    'error' => $e->getMessage(),
-                ];
             }
         }
 
@@ -117,45 +122,44 @@ class AutoSellUseCase
     // ── Privados ──────────────────────────────────────────────────────────────
 
     /**
-     * Determina o preço de entrada no mercado dado o preço do concorrente e os limites da key.
+     * Determina o preço de entrada no mercado dado o preço-alvo e os limites da key.
      *
-     * Quando $ignoreMinApi é true (keys com >= OLD_KEY_MONTHS meses), o piso min_api é ignorado
-     * e a key é listada mesmo que o mercado esteja abaixo do mínimo original.
-     * Retorna null apenas quando $ignoreMinApi é false e o mercado está abaixo do mínimo.
+     * O piso min_api já embute a idade da key: MinimumMarginPolicy::minApi rebaixa o
+     * min_api ao FLOOR para keys com >= OLD_KEY_MONTHS meses (o RegulateMinApiUseCase
+     * persiste isso antes do AutoSell). Por isso não há mais "age override" aqui — o
+     * min_api consultado já é a fonte única do piso.
+     *
+     * Retorna null quando o mercado está abaixo do min_api da key (não listar).
      */
-    private function resolveSellerPrice(
-        float $competitorPrice,
-        float $minApi,
-        float $maxApi,
-        bool $ignoreMinApi = false,
-    ): ?float {
-        if ($competitorPrice === 0.0) {
+    private function resolveSellerPrice(float $marketPrice, float $minApi, float $maxApi): ?float
+    {
+        if ($marketPrice === 0.0) {
             return $maxApi; // sem concorrentes → entrar pelo teto
         }
 
-        if (! $ignoreMinApi && $competitorPrice < $minApi) {
-            return null; // mercado abaixo do mínimo — não listar
+        if ($marketPrice < $minApi) {
+            return null; // mercado abaixo do min_api da key — não listar
         }
 
-        return min($competitorPrice, $maxApi); // clamp pelo teto
+        return min($marketPrice, $maxApi); // clamp pelo teto
     }
 
     /**
-     * Processa uma key: calcula preço alvo, cria oferta, faz upload e marca listed_at.
-     * Keys com >= OLD_KEY_MONTHS meses ignoram o piso min_api e têm o max_api travado.
-     * Retorna false se o mercado estiver abaixo do mínimo (apenas para keys jovens).
+     * Processa um grupo de keys do mesmo gamivo_id (uma única oferta na Gamivo).
+     *
+     * A listagem é decidida por key (marketClearsMinApi): entra quem tem o mercado cobrindo o
+     * próprio min_api (que já embute a idade da key via MinimumMarginPolicy). A governante
+     * — mais antiga (menor id) ENTRE AS APROVADAS — define o seller_price único, pois a
+     * Gamivo vende FIFO. As keys aprovadas são enviadas num único uploadKeys, em ordem de id ASC.
+     *
+     * @param  Collection<int, Key>  $groupKeys  Ordenadas por id ASC (mais antiga primeiro)
+     * @return array{listed: int[], listedDetails: array<int, array>, skipped: array<int, array>, errors: array<int, array>}
      */
-    private function processKey(Key $key, string $sellerName, MarketplaceFee $fee): bool
+    private function processGroup(Collection $groupKeys, string $sellerName, MarketplaceFee $fee): array
     {
-        $productId = (int) $key->gamivo_id;
-        $acquiredAt = $key->acquired_at !== null
-            ? Carbon::parse($key->acquired_at)
-            : Carbon::now();
+        $productId = (int) $groupKeys->first()->gamivo_id;
 
-        // Keys com >= OLD_KEY_MONTHS meses ignoram o piso min_api (age override)
-        $isOldKey = $acquiredAt->lt(Carbon::now()->subMonths(KeyEligibility::OLD_KEY_MONTHS));
-
-        // Consulta o mercado e determina o preço alvo sem exigir nossa oferta listada
+        // Consulta o mercado uma vez para o produto, sem exigir nossa oferta listada
         $rawOffers = $this->gamivoApi->getOffersForProduct($productId);
         $offers = array_map(fn ($o) => OfferData::fromArray($o), $rawOffers);
         $result = ComparisonAlgorithm::calculate(
@@ -165,17 +169,43 @@ class AutoSellUseCase
             detectDumpers: false,
             requireOurOffer: false,
         );
+        $marketPrice = $result->sellerPrice;
 
-        $minApi = $key->min_api !== null ? (float) $key->min_api : MinMaxPriceCalculator::FLOOR;
-        $maxApi = $key->max_api !== null ? (float) $key->max_api : MinMaxPriceCalculator::CEILING;
+        // Decisão de LISTAR é por key: entra quem tem o mercado cobrindo o próprio min_api
+        // (a idade já está embutida no min_api pela MinimumMarginPolicy). As demais são
+        // puladas individualmente.
+        [$toList, $skippedKeys] = $groupKeys->partition(
+            fn (Key $key) => $this->marketClearsMinApi($key, $marketPrice)
+        );
 
-        $sellerPrice = $this->resolveSellerPrice($result->sellerPrice, $minApi, $maxApi, ignoreMinApi: $isOldKey);
+        $skipped = $skippedKeys->map(fn (Key $key) => [
+            'key_id' => $key->id,
+            'key_code' => $key->key_code,
+            'game_name' => $key->game_name,
+            'gamivo_id' => $key->gamivo_id,
+            'min_api' => $key->min_api,
+        ])->values()->all();
 
-        if ($sellerPrice === null) {
-            return false;
+        if ($toList->isEmpty()) {
+            return [
+                'listed' => [],
+                'listedDetails' => [],
+                'skipped' => $skipped,
+                'errors' => [],
+            ];
         }
 
-        // Cria ou reativa oferta na Gamivo (retail, sem wholesale por padrão no auto-sell)
+        // Governante = mais antiga (menor id) ENTRE AS APROVADAS. Como vende primeiro,
+        // ela define o seller_price único da oferta. Por ter passado em marketClearsMinApi,
+        // resolveSellerPrice nunca retorna null aqui.
+        $governingKey = $toList->first();
+
+        $minApi = $governingKey->min_api !== null ? (float) $governingKey->min_api : MinMaxPriceCalculator::FLOOR;
+        $maxApi = $governingKey->max_api !== null ? (float) $governingKey->max_api : MinMaxPriceCalculator::CEILING;
+
+        $sellerPrice = $this->resolveSellerPrice($marketPrice, $minApi, $maxApi);
+
+        // Cria ou reativa a oferta na Gamivo (retail, sem wholesale por padrão no auto-sell)
         $offerId = $this->gamivoApi->createOffer([
             'product' => $productId,
             'seller_price' => $sellerPrice,
@@ -183,7 +213,7 @@ class AutoSellUseCase
             'tier_one_seller_price' => 0,
             'tier_two_seller_price' => 0,
             'status' => 1,
-            'keys' => 1,
+            'keys' => $toList->count(),
             'is_preorder' => false,
         ]);
 
@@ -201,26 +231,108 @@ class AutoSellUseCase
             'status' => 1,
         ]);
 
-        // Aguarda o registro da oferta antes de enviar a chave (race condition documentada — Gotcha #6)
+        // Aguarda o registro da oferta antes de enviar as chaves (race condition documentada)
         if (! app()->environment('testing')) {
             sleep(self::OFFER_CREATION_DELAY_S);
         }
 
-        // Inicia o upload assíncrono da key
-        $jobId = $this->gamivoApi->uploadKeys($offerId, [$key->key_code]);
+        // Sobe as keys aprovadas num único upload, em ordem de id ASC (governante primeiro)
+        $keyCodes = $toList->pluck('key_code')->all();
+        $jobId = $this->gamivoApi->uploadKeys($offerId, $keyCodes);
 
         if ($jobId === null) {
             throw new \RuntimeException("uploadKeys retornou null — offer={$offerId}");
         }
 
-        // Verifica diretamente na oferta se a key apareceu (polling de isKeyListed)
-        // Em vez de consultar o endpoint do job (assíncrono e menos confiável),
-        // entra na oferta e confirma presença da key. job_id fica no erro para inspeção manual.
-        $keyListed = false;
+        // Verifica na oferta quais keys apareceram (upload assíncrono). Só marca as confirmadas.
+        $confirmed = $this->confirmUploadedKeys($offerId, $toList);
+
+        if ($confirmed->isEmpty()) {
+            throw new \RuntimeException(
+                "Nenhuma key aprovada apareceu na oferta após upload — offer={$offerId} job={$jobId}"
+            );
+        }
+
+        // uploadKeys pode zerar o status da oferta durante o processamento — reativa após confirmar
+        $this->gamivoApi->changeOfferStatus($offerId, 1);
+
+        $listed = [];
+        $listedDetails = [];
+
+        foreach ($confirmed as $key) {
+            // Marca listed_at; keys individualmente velhas têm o max_api travado no preço de
+            // listagem, impedindo o UpdateOffersUseCase de subir o preço depois. O min_api não
+            // é tocado aqui — RegulateMinApiUseCase já o mantém correto diariamente.
+            $updates = ['listed_at' => now()->toDateString()];
+
+            if ($this->isOldKey($key)) {
+                $updates['max_api'] = $sellerPrice;
+            }
+
+            $key->update($updates);
+
+            $listed[] = $key->id;
+            $listedDetails[] = [
+                'key_id' => $key->id,
+                'key_code' => $key->key_code,
+                'game_name' => $key->game_name,
+                'gamivo_id' => $key->gamivo_id,
+            ];
+        }
+
+        // Keys aprovadas mas não confirmadas seguem elegíveis na próxima rodada — registra como aviso
+        $errors = $toList->whereNotIn('id', $listed)->map(fn (Key $key) => [
+            'key_id' => $key->id,
+            'key_code' => $key->key_code,
+            'game_name' => $key->game_name,
+            'gamivo_id' => $key->gamivo_id,
+            'error' => "Key não confirmada na oferta após upload em lote — offer={$offerId}",
+        ])->values()->all();
+
+        return [
+            'listed' => $listed,
+            'listedDetails' => $listedDetails,
+            'skipped' => $skipped,
+            'errors' => $errors,
+        ];
+    }
+
+    /**
+     * Verifica se o preço-alvo de mercado cobre o min_api da própria key (que já embute
+     * a idade, pois a policy rebaixa o min_api ao FLOOR para keys velhas) — o portão que
+     * decide se ela entra na listagem. A governante é escolhida depois, entre as keys que
+     * passam aqui.
+     */
+    private function marketClearsMinApi(Key $key, float $marketPrice): bool
+    {
+        $minApi = $key->min_api !== null ? (float) $key->min_api : MinMaxPriceCalculator::FLOOR;
+        $maxApi = $key->max_api !== null ? (float) $key->max_api : MinMaxPriceCalculator::CEILING;
+
+        return $this->resolveSellerPrice($marketPrice, $minApi, $maxApi) !== null;
+    }
+
+    /**
+     * Verifica na oferta quais keys do grupo apareceram após o upload assíncrono.
+     * Faz polling (isKeyListed) checando, a cada tentativa, apenas as keys ainda pendentes.
+     *
+     * @param  Collection<int, Key>  $groupKeys
+     * @return Collection<int, Key> Keys confirmadas como ativas na oferta
+     */
+    private function confirmUploadedKeys(int $offerId, Collection $groupKeys): Collection
+    {
+        $pending = $groupKeys->keyBy('id');
+        $confirmed = new Collection;
 
         for ($attempt = 1; $attempt <= self::KEY_UPLOAD_CHECK_ATTEMPTS; $attempt++) {
-            if ($this->gamivoApi->isKeyListed($offerId, $key->key_code)) {
-                $keyListed = true;
+            // values() copia a lista, tornando seguro remover de $pending durante a iteração
+            foreach ($pending->values() as $key) {
+                if ($this->gamivoApi->isKeyListed($offerId, $key->key_code)) {
+                    $confirmed->push($key);
+                    $pending->forget($key->id);
+                }
+            }
+
+            if ($pending->isEmpty()) {
                 break;
             }
 
@@ -229,27 +341,22 @@ class AutoSellUseCase
             }
         }
 
-        if (! $keyListed) {
-            throw new \RuntimeException(
-                "Key não apareceu na oferta após upload — offer={$offerId} job={$jobId}"
-            );
-        }
+        return $confirmed;
+    }
 
-        // uploadKeys pode fazer a Gamivo setar o status da oferta para 0 durante o processamento.
-        // Reativa explicitamente após confirmar que a key foi listada.
-        $this->gamivoApi->changeOfferStatus($offerId, 1);
+    /**
+     * Uma key é "velha" quando foi adquirida há >= OLD_KEY_MONTHS meses.
+     *
+     * Usado apenas para travar o max_api no preço de listagem dessas keys (o piso min_api
+     * já é rebaixado ao FLOOR pela MinimumMarginPolicy, então a idade não é reavaliada aqui
+     * para decidir listagem/preço). Sem acquired_at, assume-se recente (now).
+     */
+    private function isOldKey(Key $key): bool
+    {
+        $acquiredAt = $key->acquired_at !== null
+            ? Carbon::parse($key->acquired_at)
+            : Carbon::now();
 
-        // Marca listed_at; keys velhas têm o max_api travado no preço de listagem,
-        // impedindo o UpdateOffersUseCase de subir o preço depois. O min_api não
-        // é tocado aqui — RegulateMinApiUseCase já o mantém correto diariamente.
-        $updates = ['listed_at' => now()->toDateString()];
-
-        if ($isOldKey) {
-            $updates['max_api'] = $sellerPrice;
-        }
-
-        $key->update($updates);
-
-        return true;
+        return $acquiredAt->lt(Carbon::now()->subMonths(KeyEligibility::OLD_KEY_MONTHS));
     }
 }

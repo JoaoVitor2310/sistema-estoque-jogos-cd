@@ -126,7 +126,7 @@ Fluxo principal:
 1. Key inserida manualmente ou via importação XLSX
 2. `KeyCalculationService` calcula fórmulas de lucro e preço
 3. `RegulateMinApiUseCase` (scheduler 07:30) — recalcula `min_api` de todas as keys não vendidas via `MinimumMarginPolicy`
-4. `AutoSellUseCase` lista keys elegíveis na Gamivo (exclui bundles com < 21 dias; age override para ≥8 meses)
+4. `AutoSellUseCase` lista keys elegíveis na Gamivo, **agrupadas por `gamivo_id`** (exclui bundles com < 21 dias; keys ≥8 meses têm `max_api` travado no preço de listagem)
 5. `UpdateSoldOffersUseCase` atualiza com dados de venda da API Gamivo
 6. `UpdateOffersUseCase` *(futuro)* reprecifica ofertas ativas contra concorrentes
 
@@ -257,7 +257,7 @@ app/
 │   │   └── ImportKeysFromXlsxUseCase.php
 │   ├── Marketplaces/                     # orquestrações específicas por marketplace
 │   │   └── Gamivo/                       # quando vier outro: Eneba/, G2A/, etc.
-│   │       ├── AutoSellUseCase.php           # age override para keys >= 8 meses
+│   │       ├── AutoSellUseCase.php           # agrupa por gamivo_id (FIFO); trava max_api de keys >= 8 meses
 │   │       ├── RegulateMinApiUseCase.php     # recalcula min_api via MinimumMarginPolicy (07:30)
 │   │       ├── UpdateSoldOffersUseCase.php
 │   │       ├── UpdateOffersUseCase.php
@@ -394,8 +394,9 @@ Hoje o vínculo é por string: `keys.gamivo_id ←→ games.id_gamivo`. Não há
 
 ## Regras de negócio
 
+- **Venda FIFO / agrupamento por `gamivo_id`** (`AutoSellUseCase`): keys do mesmo `gamivo_id` compartilham **uma única oferta** na Gamivo, então o `AutoSellUseCase` as processa em grupo — uma oferta, um `uploadKeys` em lote — em vez de repetir o ciclo `createOffer→updateOffer→uploadKeys→changeOfferStatus` por key (a repetição na mesma oferta causava o erro `400 "Wait for the current action to end"`). **Duas etapas, nessa ordem:** (1) a decisão de listar é tomada **por key** — cada key entra se o mercado cobre o `min_api` *dela* (o `min_api` já embute a idade, pois a `MinimumMarginPolicy` o rebaixa ao FLOOR para keys velhas); as demais são puladas individualmente. (2) Só então, **entre as keys aprovadas**, escolhe-se a **governante** — a mais antiga (**menor `id`**) — que define o `seller_price` único da oferta, pois a Gamivo vende **FIFO** (a primeira enviada vende primeiro). O upload envia as keys aprovadas em **ordem de `id` ASC**. Keys aprovadas mas não confirmadas na oferta seguem elegíveis na próxima rodada (marca só as confirmadas). *(O `findMinMaxByGamivoId`, que hoje agrega `MIN/MAX` para o `UpdateOffersUseCase`, será substituído futuramente por essa mesma regra de governante — ver `docs/IMPROVEMENTS.md`.)*
 - **Regra dos 21 dias** (`KeyEligibility::BUNDLE_EXCLUSION_DAYS`): keys de jogos em bundles com < 21 dias são excluídas do `autoSell()` — o bundle ainda está em cartaz e o preço está em queda.
-- **Age override — 8 meses** (`KeyEligibility::OLD_KEY_MONTHS`): keys com ≥ 8 meses de estoque ignoram o piso `min_api` na listagem do `AutoSellUseCase` (mercado abaixo do mínimo não impede a venda). Após a listagem, `max_api` é travado no preço praticado, impedindo o `UpdateOffersUseCase` de subir o preço depois.
+- **Age override — 8 meses** (`KeyEligibility::OLD_KEY_MONTHS`): a idade da key entra na listagem **apenas via `min_api`** — `MinimumMarginPolicy::minApi` rebaixa o `min_api` ao FLOOR para keys com ≥ 8 meses (persistido diariamente pelo `RegulateMinApiUseCase`, pré-requisito do `AutoSellUseCase`). O `AutoSellUseCase` **não reavalia a idade** para decidir listagem ou preço — consulta o `min_api`, que é a fonte única do piso. A única coisa que ele faz com a idade é **travar o `max_api`** no preço praticado nas keys individualmente velhas após a listagem, impedindo o `UpdateOffersUseCase` de subir o preço depois (a `MinimumMarginPolicy` conta com essa trava — ver o comentário na classe).
 - **`min_api` — fonte única (`MinimumMarginPolicy`)**: `RegulateMinApiUseCase` (scheduler 07:30) recalcula `min_api` de todas as keys não vendidas, listadas ou não, todo dia. Piso incondicional (FLOOR) para: expiração em ≤ 30 dias, estoque comprado há ≥ 8 meses (`OLD_KEY_MONTHS` — sobrevive à listagem, nunca regride) e listada há ≥ 10 meses (limbo). Fora isso, margem percentual por tempo de estoque (não listada, 4/6 meses) ou por tempo listado (listada, 3/4/6 meses) — ver `MinimumMarginPolicy` para a árvore completa.
 - **Tiers Gamivo**: fee diferente abaixo e acima de €8 (ver tabela na seção Domínios).
 - **`max_api`**: calculado em `MinMaxPriceCalculator` com base no `individual_cost`.
