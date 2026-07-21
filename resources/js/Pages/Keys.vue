@@ -126,15 +126,6 @@ watch(sharedTotalPaid, (newValue) => {
   });
 });
 
-const handleEditButton = (data: any) => {
-  DialogVisible.value = true;
-  isEdit.value = true;
-  selected.splice(0, selected.length, ...data);
-  sharedAcquiredAt.value = data[0].acquired_at;
-  sharedSupplierUrl.value = data[0].supplier_url;
-  sharedTotalPaid.value = data[0].total_paid;
-};
-
 const onEdit = async (selected: any) => {
   isEdit.value = true;
   let product;
@@ -250,11 +241,10 @@ const onAdd = async (): Promise<void> => { // Faz a req pra api add o elemento
   }
 }
 
-const handleDeleteButton = (event: any, qtd: number) => {
+const handleDeleteButton = (event: any) => {
   confirm.require({
     target: event.currentTarget,
-    message: qtd === 1 ? 'Tem certeza que deseja excluir este item?' : 'Tem certeza que deseja excluir esses itens?',
-    // icon: 'pi pi-info-circle',
+    message: 'Tem certeza que deseja excluir esses itens?',
     rejectProps: {
       label: 'Cancelar',
       severity: 'secondary',
@@ -265,48 +255,27 @@ const handleDeleteButton = (event: any, qtd: number) => {
       severity: 'danger'
     },
     accept: async () => {
-      if (qtd === 1) {
-        try {
-          const res = await axiosInstance.delete(`/keys/${selected[0].id}`);
-          showResponse(res, toast.add);
-          if (res.status === 200 || res.status === 201) {
-            const itemToDelete = rowData.findIndex(item => item.id === selected[0].id);
-            // console.log(itemToDelete);
-            rowData.splice(itemToDelete, 1);
-            DialogVisible.value = false;
+      try {
+        const res = await axiosInstance.delete(`/keys`, {
+          params: {
+            games: selectedProduct.value
           }
-        } catch (error) {
-          toast.add({
-            severity: 'error',
-            summary: 'Erro Interno, tente novamente.',
-            detail: error,
-            life: 7000
-          });
-          console.log(error);
+        });
+        showResponse(res, toast.add);
+        if (res.status === 200 || res.status === 201) {
+          const selectedProductIds = selectedProduct.value.map(item => item.id);
+          const filteredRowData = rowData.filter(item => !selectedProductIds.includes(item.id));
+          rowData.splice(0, rowData.length, ...filteredRowData);
+          selectedProduct.value = null;
         }
-      } else {
-        try {
-          const res = await axiosInstance.delete(`/keys`, {
-            params: {
-              games: selectedProduct.value
-            }
-          });
-          showResponse(res, toast.add);
-          if (res.status === 200 || res.status === 201) {
-            const selectedProductIds = selectedProduct.value.map(item => item.id);
-            const filteredRowData = rowData.filter(item => !selectedProductIds.includes(item.id));
-            rowData.splice(0, rowData.length, ...filteredRowData);
-            selectedProduct.value = null;
-          }
-        } catch (error) {
-          toast.add({
-            severity: 'error',
-            summary: 'Erro Interno, tente novamente.',
-            detail: error,
-            life: 7000
-          });
-          console.log(error);
-        }
+      } catch (error) {
+        toast.add({
+          severity: 'error',
+          summary: 'Erro Interno, tente novamente.',
+          detail: error,
+          life: 7000
+        });
+        console.log(error);
       }
     }
   });
@@ -725,7 +694,7 @@ const handleImportSubmit = async (): Promise<void> => {
               <Button label="Novo" aria-label="Novo" icon="pi pi-plus" @click="handleAddButton()" raised />
               <Button label="Importar" aria-label="Importar" icon="pi pi-file-import" @click="handleImportButton()" raised />
               <Button label="Deletar" :disabled="!selectedProduct || selectedProduct.length === 0" aria-label="Deletar"
-                severity="danger" icon="pi pi-plus" @click="handleDeleteButton($event, 2)" raised />
+                severity="danger" icon="pi pi-plus" @click="handleDeleteButton($event)" raised />
             </div>
             <div class="d-flex gap-2 flex-column flex-md-row ms-auto">
               <Button label="Pesquisar" aria-label="Pesquisar" severity="info" icon="pi pi-search"
@@ -1007,17 +976,6 @@ const handleImportSubmit = async (): Promise<void> => {
           </template>
           <template #editor="{ data, field }">
             <InputText v-model="data[field]" @change="onEdit(data)"></InputText>
-          </template>
-        </Column>
-        <Column header="Ação" v-if="canEdit">
-          <template #body="slotProps">
-            <div class="d-flex gap-1">
-              <Button label="Editar" aria-label="Editar" icon="pi pi-pencil" @click="handleEditButton([slotProps.data])"
-                outlined />
-              <Button label="Excluir" aria-label="Excluir" icon="pi pi-times"
-                @click="handleDeleteButton($event, 1); Object.assign(selected, slotProps.data); selected[0].id = slotProps.data.id"
-                severity="danger" outlined />
-            </div>
           </template>
         </Column>
       </DataTable>
