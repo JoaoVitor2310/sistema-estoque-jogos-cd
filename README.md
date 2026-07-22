@@ -24,7 +24,7 @@
 
 Managing a game key trading business across multiple marketplaces (Gamivo, G2A, Kinguin) meant tracking hundreds of keys in spreadsheets — manually calculating purchase costs, net income after marketplace fees, profit margins, and deciding which keys to list. One formula error would silently propagate across the entire inventory.
 
-**The system replaced all of that.** Purchase cost per key is calculated automatically based on the batch's trade value. Profit margins update on every edit. Listing decisions are driven by automated eligibility rules. Sold offers are reconciled via webhook from the Gamivo API.
+**The system replaced all of that.** Purchase cost per key is calculated automatically based on the batch's trade value. Profit margins update on every edit. Listing decisions are driven by automated eligibility rules. Sold offers are reconciled by a scheduled job that polls the Gamivo sales history.
 
 ---
 
@@ -66,13 +66,14 @@ The decision was to **keep the value of Clean Architecture and discard the overh
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │  Domain  — pure PHP, zero Laravel dependency                    │
-│  Pricing · Keys · Platform · Import · Bundles · Enums           │
+│  Pricing · Keys · Platform · Import · Bundles                   │
+│  Games · Trades · Assets · Enums                                │
 └──────────────────────────────┬──────────────────────────────────┘
                                │
 ┌──────────────────────────────▼──────────────────────────────────┐
 │  Use Cases  — one class per business operation                  │
 │  RegisterKey · UpdateKey · AutoSell · UpdateSoldOffers          │
-│  ImportKeysFromXlsx · SyncBundles · ExecuteVipList              │
+│  ImportKeysFromXlsx · SyncBundles · ProspectSupplier            │
 └──────────────────────────────┬──────────────────────────────────┘
                                │ calls Services and Domain
 ┌──────────────────────────────▼──────────────────────────────────┐
@@ -101,7 +102,9 @@ tests/Unit/Domain/
 ├── Keys/      KeyEligibility
 ├── Platform/  PlatformIdentifier
 ├── Import/    ExcelDateConverter · ImportHeaderValidator · ImportRowValidator
-└── Bundles/   BundleTypeResolver
+├── Bundles/   BundleTypeResolver
+├── Games/     GameNameNormalizer
+└── Trades/    CommentPolicy · TradeGameComparison
 ```
 
 ---

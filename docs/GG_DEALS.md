@@ -55,14 +55,14 @@ Retorna todos os bundles ativos no momento da chamada.
 }
 ```
 
-## Fluxo de sincronização (`BundleService::getBundlesFromAPI`)
+## Fluxo de sincronização (`SyncBundlesFromApiUseCase::execute`)
 
 ```
 APIService::getBundles()
   └── GET /v1/bundles/active/
         │
         ▼
-BundleService::createBundlesFromAPI()
+SyncBundlesFromApiUseCase::syncBundles()
   │
   ├── Para cada bundle:
   │   ├── Determina tipo: "choice" se o título contém "Choice", senão "bundle"
@@ -75,11 +75,11 @@ BundleService::createBundlesFromAPI()
   │   ├── Salva bundle com price_dolar e minimum_price_tf2
   │   │
   │   ├── Para cada jogo do tier:
-  │   │   └── Game::firstOrCreate(name) — cria o jogo se não existir
+  │   │   └── Game::firstOrCreate(name) + normalized_name (GameNameNormalizer)
   │   │
   │   ├── Associa jogos ao bundle via pivot bundle_games (syncWithoutDetaching)
   │   │
-  │   └── Se bundle recém-criado → getBundleLaunchPrices()
+  │   └── Se bundle recém-criado → fetchLaunchPrices()
   │         └── Chama Price Researcher API com os nomes dos jogos
   │               → recebe preço Gamivo no momento do lançamento
   │               → salva em bundle_games.bundle_launch_price
@@ -121,4 +121,4 @@ Quando um bundle do tipo `choice` é detectado pela primeira vez, um e-mail é d
 
 ## Quando é chamado
 
-A sincronização é disparada manualmente ou via scheduler (a definir). Não há webhook — o sistema faz polling na API GG Deals.
+A sincronização roda **de hora em hora** (cron `5 * * * *`, em produção) via scheduler em `routes/console.php`, e pode ser disparada manualmente. Não há webhook — o sistema faz polling na API GG Deals.

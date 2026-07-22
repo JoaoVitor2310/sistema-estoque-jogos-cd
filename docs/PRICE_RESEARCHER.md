@@ -150,7 +150,7 @@ Recebe uma lista de jogos com seus IDs internos e retorna o `id_steam` de cada u
 
 ### 4. `POST /api/lists/run` — Execução assíncrona de listas SteamTrades
 
-Enfileira a busca de listas de trade de um usuário no SteamTrades. Resposta imediata (202); o resultado é enviado diretamente para `POST /trades/from-price-researcher` no sistema-estoque quando concluído. Ver [`PRICE_RESEARCHER_LISTS_MIGRATION.md`](PRICE_RESEARCHER_LISTS_MIGRATION.md) para o contrato completo.
+Enfileira a busca de listas de trade de um usuário no SteamTrades. Resposta imediata (202); o resultado é enviado diretamente para `POST /trades/from-price-researcher` no sistema-estoque quando concluído.
 
 **Request body** (`Content-Type: application/json`):
 
@@ -171,7 +171,7 @@ Enfileira a busca de listas de trade de um usuário no SteamTrades. Resposta ime
 { "success": true, "status": "queued" }
 ```
 
-**Resultado** enviado para `POST /trades/from-price-researcher` no sistema-estoque quando concluído. Ver [`PRICE_RESEARCHER_LISTS_MIGRATION.md`](PRICE_RESEARCHER_LISTS_MIGRATION.md) para o contrato completo de request/response.
+**Resultado** enviado para `POST /trades/from-price-researcher` no sistema-estoque quando concluído.
 
 > Popularidade mínima é fixa em **30** para o fluxo de listas (não configurável via request).
 > Concorrência controlada por `RUN_LISTS_CONCURRENCY` (default `1`) no `.env`.
