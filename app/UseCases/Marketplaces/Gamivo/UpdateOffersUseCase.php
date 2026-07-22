@@ -19,15 +19,14 @@ use Illuminate\Support\Facades\Log;
  *  - WeAreNotLowest : não somos o 1º → roda a cada hora para recuperar posição
  *  - null (padrão)  : processa todos (útil para execução manual via artisan)
  *
- * Migrado de GET /api/update-offers (gamivo-carca-deals, Node.js).
- * Documentação: docs/GAMIVO.md — seção "Fluxo A: update-offers".
+ * Documentação: docs/GAMIVO.md — seção "Algoritmos de Precificação".
  *
  * ⚠️  Chama a API Gamivo em produção. Nunca instanciar fora de contexto autorizado.
  */
 class UpdateOffersUseCase
 {
     /**
-     * Produtos ignorados na reprecificação (hardcoded — replicado do Node.js).
+     * Produtos ignorados na reprecificação (hardcoded).
      *  1767  = Random Game on Gamivo
      */
     private const IGNORED_PRODUCT_IDS = [1767];

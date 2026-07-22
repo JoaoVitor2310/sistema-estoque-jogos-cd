@@ -39,8 +39,7 @@ use Illuminate\Support\Facades\Log;
  *  6. Verifica na oferta quais keys apareceram — marca só as confirmadas
  *  7. Marca listed_at; keys individualmente velhas têm o max_api travado no preço praticado
  *
- * Migrado de GET /api/auto-sell (gamivo-carca-deals, Node.js).
- * Documentação: docs/GAMIVO.md — seção "Fluxo B: auto-sell".
+ * Documentação: docs/GAMIVO.md — seção "Auto-sell: agrupamento por `gamivo_id` (venda FIFO)".
  *
  * ⚠️  Chama a API Gamivo em produção. Nunca instanciar fora de contexto autorizado.
  */

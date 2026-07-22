@@ -9,9 +9,6 @@ use Illuminate\Support\Facades\Log;
 /**
  * Atualiza a popularidade dos jogos via scraping do SteamCharts.
  * Executado diariamente às 7h via scheduler.
- *
- * Migrado de GET /api/update-popularity (gamivo-carca-deals, Node.js).
- * Documentação: docs/GAMIVO.md — seção "Fluxo C: update-popularity".
  */
 class UpdatePopularityUseCase
 {

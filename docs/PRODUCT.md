@@ -22,11 +22,11 @@ Chave de ativação dos jogos, é muito provável que tenhamos mais de 1 key do 
 Key: YLXH8-22DWQ-4GD85, jogo: Corner Shop: NightShift
 Key: GUXH8-21Z2K-14B0S, jogo: Corner Shop: NightShift
 
-Cada key terá os seus valores individuais, mas o jogo é um valor que pode ser repetido, no exemplo acima os dois tem o mesmo gamivo_id por exemplo. A ideia é que futuramente no sistema as keys tenham um relacionamento com os jogos para não repetir esses dados.
+Cada key terá os seus valores individuais, mas o jogo é um valor que pode ser repetido, no exemplo acima os dois tem o mesmo gamivo_id por exemplo.
 
 
 ### Data de Expiração
-Data que a key para de funcionar. Quando falta 30 dias, é enviado um email para carcadeals@gmail.com para nos alertar e tomar uma ação. A ideia futuramente é colocar a venda automaticamente quando faltar 30 dias, tendo no mínimo 0,02 de lucro e no dia que expira, remover da Gamivo e avisar por email.
+Data em que a key para de funcionar. Quando faltam 30 dias (`KeyEligibility::EXPIRY_ALERT_DAYS`), é enviado um e-mail de alerta para carcadeals@gmail.com. Nesse mesmo prazo (`EXPIRY_PRICE_FLOOR_DAYS`), a `MinimumMarginPolicy` já rebaixa o `min_api` ao piso (€0,02) para forçar a venda antes da expiração.
 
 ### Region lock
 Determina a região que um jogo pode ser ativado, exemplo:
@@ -49,7 +49,7 @@ O lucro inicial considerado é de 100% quando é analisado um jogo para ser comp
 A ideia é não deixar ficar abaixo de 30%.
 
 ## Planilhas de cálculo
-Atuamente os preços que iremos ofertar para os fornecedores são calculados em planilhas de acordo com o lucro acima, mas a ideia é futuramente criar uma "calculadora de ofertas" para automatizar esse processo.
+Atualmente os preços ofertados aos fornecedores são calculados em planilhas de acordo com o lucro acima; o `OfferCalculator` já automatiza esse cálculo no fluxo de prospecção de fornecedores.
 
 ## Custo benefício
 Como cada key tem um longo processo a ser feito, o ideal é não comprar jogos abaixo de 1 euro(preco cliente), por não compensar o trabalho e tempo dedicado à aquela key. Isso não é uma regra imutável, mas precisamos definir melhor quando vale a pena ou não comprar.
@@ -59,21 +59,38 @@ Jogos que são oferecidos de maneira gratuita por sites. O preço desses jogos d
 ### https://www.gamerpower.com/api-read - Já descobrimos essa API para saber os jogos lançados em Giveaway.
 
 ## Como saber quanto vale o jogo agora
-Atualmente só vendemos keys na Gamivo e lá que é verificado o preço atual. O preço é definido com base no valor que os nossos concorrentes estão vendendo, sendo sempre o preço do menor - 0,01 para ficar o mais visível e atraente para os clientes. Esse sistema não tem essa lógica atualmente, mas a nossa API Gamivo faz esses cálculos.
+Atualmente só vendemos keys na Gamivo e é lá que o preço atual é verificado. O preço é definido com base no que os concorrentes estão vendendo — sempre abaixo do menor deles (passo de €0,014, `ComparisonAlgorithm::PRICE_STEP`) para ficar mais visível e atraente. Essa lógica hoje é do próprio sistema (`UpdateOffersUseCase` + `ComparisonAlgorithm`), com proteção contra price dumpers e concorrentes com bot.
 
 ## Tempo de venda da key
-Para os jogos já comprados, consideramos um alvo de 60% de lucro para colocar o jogo a venda (varia por faixa de custo — jogos caros toleram margens menores, jogos muito baratos exigem margens maiores), mas com o tempo esse número vai caindo:
-Tempo(meses) - Lucro % mínimo para colocar a venda
-- - 60% (default; ver `KeyEligibility::hasMinimumProfitForAutoSell` para os tiers de custo)
-4 - 40%
-7 - 15%
-10 - vende independente do lucro/prejuízo obtido.
+A margem mínima exigida para listar um jogo à venda é calculada pela `MinimumMarginPolicy` e persistida no `min_api` de cada key (recalculado diariamente pelo `RegulateMinApiUseCase` às 07:30). O auto-sell lista a key quando o preço de mercado cobre esse `min_api`.
+
+A margem-base varia por faixa de custo (jogo caro tolera margem menor; jogo muito barato exige margem maior):
+
+| Custo individual | Margem-base |
+|---|---|
+| < €1 | 55% |
+| €1–€10 | 60% (default) |
+| €10–€15 | 45% |
+| > €15 | 40% |
+
+Essa margem decai com o tempo, e a curva depende de a key já estar listada ou não:
+
+**Não listada** (conta a partir da compra):
+- ≥ 4 meses → 40%
+- ≥ 6 meses → 15%
+
+**Listada** (conta a partir da listagem):
+- ≥ 3 meses → 40%
+- ≥ 4 meses → 30%
+- ≥ 6 meses → 20%
+
+**Piso incondicional** (vende ao mínimo de €0,02, independente de lucro):
+- expira em ≤ 30 dias;
+- comprada há ≥ 8 meses (`OLD_KEY_MONTHS`);
+- listada há ≥ 10 meses (limbo).
 
 ## Valor mínimo que a key pode ficar a venda
-O valor adotado para esses casos é de 0.02, o que faz o jogo sair a praticamente sem lucro nenhum. Futuramente a ideia é que nem isso seja considerado para jogos mais velhos que 1 ano, pois a intenção é vender independente do preço e utilizar o dinheiro para comprar mais jogos. O problema é que a API Gamivo sempre vai buscar o min e máx, mesmo para jogos mais velhos que 1 ano.
-
-
-Essa lógica também está presente na API Gamivo.
+O piso é €0,02 (`MinMaxPriceCalculator::FLOOR`), o que faz o jogo sair praticamente sem lucro. Para keys compradas há ≥ 8 meses (`OLD_KEY_MONTHS`), listadas há ≥ 10 meses (limbo) ou expirando em ≤ 30 dias, a `MinimumMarginPolicy` rebaixa o `min_api` a esse piso — a intenção é vender independente do preço e reinvestir o capital em novos jogos. Diferente da versão antiga, esse rebaixamento já é aplicado automaticamente, sem depender de um serviço externo.
 
 ## Taxas com problemas em key
 Quando uma key tem problema, a Gamivo nos dá a opção de reembolsar o cliente ou fornecer outra chave. Se tivermos outra key, enviaremos para o cliente. Se não tivermos a key, a chave é reembolsada e o dinheiro que ganhamos com essa venda é devolvido para o cliente. Atualmente a Gamivo tem 2 taxas de punição para quando tem problemas com as keys:
@@ -269,7 +286,7 @@ O fluxo de venda tem como objetivo identificar automaticamente quando um jogo co
 
 ### Fonte da decisão
 
-O sistema utiliza uma API própria para:
+O sistema, com sua própria lógica interna (`UpdateOffersUseCase` + `ComparisonAlgorithm`), consegue:
 
 - consultar o preço atual do jogo;
 - comparar o preço atual com o valor pago na compra;
@@ -288,11 +305,11 @@ A análise de venda considera que:
 
 ### Periodicidade
 
-A verificação é realizada semanalmente.
+A verificação é diária: o `RegulateMinApiUseCase` recalcula o `min_api` de todas as keys não vendidas todo dia às 07:30, e o auto-sell roda em seguida. A reprecificação das ofertas já ativas roda a cada 5 minutos (quando somos os mais baratos) ou de hora em hora (quando não somos).
 
 ### Automação
 
-Com base nessa análise semanal, os jogos elegíveis são colocados à venda automaticamente.
+Com base nessa análise diária, os jogos elegíveis são colocados à venda automaticamente.
 
 ## Regras Operacionais Importantes
 
@@ -328,7 +345,7 @@ O sistema apoia a compra a partir da lista de jogos do cliente, pesquisa preços
 
 ### Venda
 
-O sistema avalia semanalmente os jogos comprados, comparando preço atual, histórico de bundle/choice, popularidade e tempo de mercado para decidir se o jogo já deve ser colocado à venda.
+O sistema avalia diariamente os jogos comprados, comparando preço atual, histórico de bundle/choice, popularidade e tempo de mercado para decidir se o jogo já deve ser colocado à venda.
 
 ### Bundles e choices
 

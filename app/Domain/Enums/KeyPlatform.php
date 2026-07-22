@@ -5,8 +5,8 @@ namespace App\Domain\Enums;
 /**
  * Plataforma de distribuição da key (onde ela é resgatada).
  *
- * Detectada automaticamente via regex no formato da chave —
- * lógica que será extraída para Domain/Platform/PlatformIdentifier na Fase 2.
+ * Detectada automaticamente via regex no formato da chave — a identificação
+ * canônica usada pelo app vive em Domain/Platform/PlatformIdentifier.
  */
 enum KeyPlatform: string
 {
@@ -29,8 +29,8 @@ enum KeyPlatform: string
      *  - Xbox:   XXXXX-XXXXX-XXXXX-XXXXX-XXXXX (5 grupos)
      *  - PSN:    XXXXX-XXXXX-XXXXX (com letras maiúsculas)
      *
-     * Nota: a implementação completa virá em Domain/Platform/PlatformIdentifier (Fase 2).
-     * Este método é um placeholder para o Enum funcionar de forma standalone.
+     * Nota: a identificação usada pelo app é a de Domain/Platform/PlatformIdentifier.
+     * Este método duplica aquela lógica e é candidato a remoção — ver docs/IMPROVEMENTS.md.
      */
     public static function fromKeyFormat(string $key): self
     {

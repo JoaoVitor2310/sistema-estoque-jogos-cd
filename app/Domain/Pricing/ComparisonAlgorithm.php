@@ -7,8 +7,6 @@ use App\Domain\Pricing\ValueObjects\MarketplaceFee;
 /**
  * Algoritmo de comparação de preços contra concorrentes na Gamivo.
  *
- * Migrado de comparisonService.ts (gamivo-carca-deals, Node.js).
- *
  * Documentação completa: docs/GAMIVO.md — seção "Algoritmos de Precificação".
  */
 final class ComparisonAlgorithm
@@ -45,8 +43,6 @@ final class ComparisonAlgorithm
 
     /**
      * Calcula o melhor preço competitivo para nossa oferta.
-     *
-     * Equivalente a compareById() / searchBestPrice() do Node.js.
      *
      * @param  OfferData[]  $offers  Todas as ofertas do produto, ordenadas por retail_price ASC.
      *                               GamivoApiService::getOffersForProduct() já retorna nessa ordem.

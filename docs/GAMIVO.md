@@ -156,45 +156,20 @@ price = min(max_api, price)
 
 Definidos em `routes/console.php`, fuso `America/Sao_Paulo`:
 
-| Expressão CRON | Use Case | Finalidade |
-|---|---|---|
-| `5 * * * *` | `UpdateOffersUseCase` | Reprecifica todas as ofertas ativas (ativo) |
-| `0 6,18 * * *` | `UpdateSoldOffersUseCase` | Dá baixa nas vendas — janela de 2 dias |
-| `0 7 * * *` | `UpdatePopularityUseCase` | Atualiza popularidade via SteamCharts |
-| `0 7 * * *` | `KeyService::checkExpiringKeys` | Alerta de keys expirando |
-| `0 7 * * *` | `AssetService::checkDollarAlert` | Alerta de câmbio |
-| `30 7 * * *` | `RegulateMinApiUseCase` | Recalcula `min_api` de todas as keys não vendidas (via `MinimumMarginPolicy`) |
-| `0 8 * * *` | `SendDailySalesSummaryUseCase` | Resumo de vendas do dia anterior por e-mail |
-| `0 6 * * *` | `GameService::searchGamesIdSteam` | Busca Steam IDs pendentes |
-| `5 * * * *` | `SyncBundlesFromApiUseCase` | Sincroniza bundles da API GG.deals |
-| Manual | `gamivo:auto-sell` | Listagem automática — artisan command |
+| Expressão CRON | Fuso | Use Case | Finalidade |
+|---|---|---|---|
+| `*/5 * * * *` | America/Sao_Paulo | `UpdateOffersUseCase(WeAreLowest)` | A cada 5min: sobe o preço das ofertas onde já somos os mais baratos |
+| `5 * * * *` | America/Sao_Paulo | `UpdateOffersUseCase(WeAreNotLowest)` | De hora em hora: tenta recuperar posição nas ofertas onde não somos os mais baratos |
+| `0 6,18 * * *` | America/Sao_Paulo | `UpdateSoldOffersUseCase::executeFromGamivo` | Dá baixa nas vendas — janela de 2 dias |
+| `0 7 * * *` | America/Sao_Paulo | `UpdatePopularityUseCase` | Atualiza popularidade via SteamCharts |
+| `0 7 * * *` | America/Sao_Paulo | `KeyService::checkExpiringKeys` | Alerta de keys expirando |
+| `0 7 * * *` | America/Sao_Paulo | `AssetService::checkDollarAlert` | Alerta de câmbio |
+| `30 7 * * *` | America/Sao_Paulo | `RegulateMinApiUseCase` | Recalcula `min_api` de todas as keys não vendidas (via `MinimumMarginPolicy`) — roda antes do auto-sell |
+| `0 6 * * *` | America/Sao_Paulo | `GameService::searchGamesIdSteam` | Busca Steam IDs pendentes |
+| `5 * * * *` | UTC | `SyncBundlesFromApiUseCase` | Sincroniza bundles da API GG.deals |
+| **Manual** | — | `gamivo:auto-sell` (artisan) | `AutoSellUseCase` — **não roda em cron**, precisa ser disparado manualmente |
 
----
-
-## Status da Migração
-
-A migração do sistema legado Node.js (`gamivo-carca-deals`) para Laravel foi concluída. O container Node.js está desligado.
-
-| Fase | Entrega | Status |
-|------|---------|:------:|
-| **0** | Infra compartilhada: `GamivoApiService`, scheduler, alerta de token | ✅ |
-| **1** | `UpdateOffersUseCase` — reprecificação horária | ✅ |
-| **2** | `UpdatePopularityUseCase` + `UpdateSoldOffersUseCase` | ✅ |
-| **3** | `AutoSellUseCase` — listagem automática + age override ≥ 8 meses | ✅ |
-| **4** | `RegulateMinApiUseCase` — recalcula `min_api` via `MinimumMarginPolicy` (fonte única) | ✅ |
-| **5** | Desligar `gamivo-carca-deals`; notificações por e-mail | ✅ |
-| **Futura** | `PriceWholesaleUseCase` — wholesale/B2B | ⬜ |
-
-### Fase 5 — Shutdown e Notificações ✅
-
-1. ✅ CRONs equivalentes confirmados ativos no scheduler Laravel (`routes/console.php`)
-2. ✅ Container Node.js (`gamivo-carca-deals`) desligado
-3. ✅ `CARCA_API_GAMIVO` removido do `.env` — o então `KeyService::checkLimboKeys()` foi migrado para usar `GamivoApiService` + `ComparisonAlgorithm`, e depois consolidado (junto com `GameService::updateMinPrices()` e `KeyService::reduceExpiringListedKeysPrice()`) em `RegulateMinApiUseCase` + `MinimumMarginPolicy` — a consulta a preço real de mercado foi descontinuada em favor de um piso fixo para keys em limbo
-4. ✅ Notificações: token expirado (Fase 0), resumo de vendas diário (`SendDailySalesSummaryUseCase` — 8h BRT, não envia se sem vendas)
-
-### Fase Futura — PriceWholesaleUseCase
-
-Modalidade de venda em atacado (divisor `1.035`). Implementar após estabilização das fases anteriores.
+> ⚠️ **`UpdateOffersUseCase(WeAreLowest)` roda nos minutos `0,5,10,15...` e `UpdateOffersUseCase(WeAreNotLowest)` roda no minuto `5` de cada hora — colidem todo minuto `:05`.** Nenhum dos dois usa `->withoutOverlapping()`. Ver `docs/IMPROVEMENTS.md` ("UpdateOffersUseCase — sobreposição de execuções agendadas").
 
 ---
 
@@ -238,7 +213,7 @@ Demais regras:
 - **`max_api`** é travado no preço praticado apenas nas keys **individualmente** velhas (≥ `OLD_KEY_MONTHS`) — o único ponto do auto-sell que ainda avalia a idade diretamente, já que a `MinimumMarginPolicy` cobre só o `min_api`, não o `max_api`.
 - **Confirmação parcial:** após o upload, verifica na oferta quais códigos apareceram e marca `listed_at` **só nos confirmados**; os não confirmados seguem elegíveis na próxima rodada. Isso vale inclusive quando a própria governante não confirma — as keys mais novas confirmadas são listadas e a governante tenta de novo depois (a eventual inversão de ordem FIFO é aceita por ser rara). *(Decisão de negócio confirmada — 2026-07-20.)*
 
-> ⚠️  **Dívida relacionada:** `KeyRepository::findMinMaxByGamivoId` (usado pelo `UpdateOffersUseCase`) ainda agrega `MIN(min_api)`/`MAX(max_api)` entre as keys do produto — política diferente da governante FIFO. Será substituído pela regra da governante futuramente. Ver `docs/IMPROVEMENTS.md`.
+> ⚠️  **Dívida relacionada:** `KeyRepository::findMinMaxByGamivoId` (usado pelo `UpdateOffersUseCase`) usa uma política de `MIN/MAX` diferente da governante FIFO — ver `docs/IMPROVEMENTS.md`.
 
 ### Testar sem chamar a API real
 

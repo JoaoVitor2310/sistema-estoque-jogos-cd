@@ -11,9 +11,9 @@ use Illuminate\Support\Facades\Log;
 /**
  * Atualiza keys vendidas com dados de venda da API Gamivo.
  *
- * Dois modos de uso:
- *  - execute(array $soldGames)       — recebe dados já processados (chamada via HTTP do legado Node.js)
- *  - executeFromGamivo(int $days)    — busca autonomamente no histórico da API Gamivo (cron diário)
+ * Dois métodos:
+ *  - executeFromGamivo(int $days)    — busca no histórico da API Gamivo e delega ao execute() (cron diário)
+ *  - execute(array $soldGames)       — núcleo: aplica dados de venda já processados às keys
  */
 class UpdateSoldOffersUseCase
 {
@@ -76,11 +76,11 @@ class UpdateSoldOffersUseCase
         return $result['failed'];
     }
 
-    // ── Modo externo (legado Node.js via HTTP) ────────────────────────────────
+    // ── Núcleo — aplica dados de venda já processados ──────────────────────────
 
     /**
      * Recebe vendas já processadas e dá baixa nas keys correspondentes.
-     * Chamado diretamente pelo endpoint POST /keys/update-sold-offers (legado Node.js).
+     * Usado pelo modo autônomo (executeFromGamivo) após montar os dados de venda.
      *
      * @param  array<int, array{keys: string[], profit: numeric, saleDate: string}>  $soldGames
      * @return array{updated: int, skipped: int, failed: array<int, mixed>}
@@ -155,7 +155,7 @@ class UpdateSoldOffersUseCase
             return null;
         }
 
-        // A chave do objeto 'keys' é o offer_id (string) — não o product_name (bug do Node.js)
+        // A chave do objeto 'keys' é o offer_id (string), não o product_name
         $keys = [];
         foreach ($orderDetails['keys'] as $offerEntry) {
             foreach ($offerEntry['keys'] ?? [] as $keyEntry) {

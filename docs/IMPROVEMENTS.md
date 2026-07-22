@@ -1,8 +1,104 @@
-# IMPROVEMENTS — dívidas técnicas identificadas em code-review
+# IMPROVEMENTS — pendências do sistema
 
-Itens de baixa/média severidade encontrados durante revisões de código, deixados
-para tratamento futuro por não bloquearem a funcionalidade em questão. Cada
-entrada referencia a origem (revisão que identificou) e o que precisa ser feito.
+Fonte única de tudo que ainda deve ser feito no sistema: roadmap, features
+planejadas, melhorias de qualidade e dívida técnica de code-review. Centraliza o
+que antes estava espalhado no `CLAUDE.md`, `docs/GAMIVO.md`, `docs/PRODUCT.md` e
+comentários de código. Cada entrada referencia onde mexer (**Onde**), o que fazer
+(**Ação**) e de onde veio (**Origem**).
+
+Ordem: roadmap/qualidade/features primeiro, dívida técnica de code-review no fim.
+
+---
+
+## Qualidade de código — endurecer o PHPStan
+
+**Onde:** `phpstan.neon`, `composer.json`.
+
+Já concluído: PHPStan (`phpstan/phpstan ^2.1`) e Pint rodam no CI (`.github/workflows/ci.yml` → jobs Pint, PHPStan, Pest), com `phpstan.neon` em **nível 7** cobrindo apenas `app/Domain`.
+
+**Ação (pendente):**
+- [ ] Subir o nível de `app/Domain` para 8
+- [ ] Estender a análise ao restante de `app/` (ex: nível 5)
+- [ ] Avaliar adicionar Larastan (`larastan/larastan`) para regras específicas de Laravel
+
+**Origem:** roadmap do `CLAUDE.md` — a instalação base já estava concluída (roadmap estava desatualizado); sobra só o endurecimento.
+
+---
+
+## Remover `supplier_url` de `keys`
+
+**Onde:** `app/Models/Key.php`, `app/Http/Controllers/Keys/KeyController.php`, `app/UseCases/Keys/RegisterKeyUseCase.php`, `app/UseCases/Keys/ImportKeysFromXlsxUseCase.php`, `app/Domain/Import/ImportRowValidator.php`.
+
+Campo redundante; o vínculo real é `keys.supplier_id → suppliers.id → suppliers.url`.
+
+**Ação:** garantir que todos os `supplier_id` estejam preenchidos → remover leituras/escritas de `supplier_url` → migration `dropColumn('supplier_url')`.
+
+**Origem:** roadmap do `CLAUDE.md`.
+
+---
+
+## Normalizar FK entre `keys` e `games`
+
+**Onde:** `app/Models/Key.php` (`game()`, `scopeWithoutRecentBundle`), `app/UseCases/Keys/RegisterKeyUseCase.php`, migrations.
+
+Hoje o vínculo é por string: `keys.gamivo_id ←→ games.gamivo_id`. Não há integridade referencial, JOINs são em varchar e `game_name`/`region` ficam duplicados em `keys`.
+
+**Ação (Expand-Contract):**
+1. Migration EXPAND: adicionar `game_id` (bigint nullable, FK → `games.id`) em `keys`
+2. Migration MIGRATE: backfill via `gamivo_id`
+3. `RegisterKeyUseCase` passa a persistir `game_id`
+4. Auditar keys órfãs → tornar `game_id` NOT NULL
+5. Reescrever `game()` para `belongsTo(Game::class)` padrão
+6. Reescrever `scopeWithoutRecentBundle` com FK integer
+7. Avaliar remoção de `game_name`/`region` de `keys` (dados denormalizados)
+8. Migration CONTRACT: remover `gamivo_id` de `keys`
+
+**Origem:** roadmap do `CLAUDE.md`; também citado em `docs/PRODUCT.md`.
+
+---
+
+## `PriceWholesaleUseCase` — venda no atacado (wholesale)
+
+**Onde:** `app/UseCases/Marketplaces/Gamivo/` (a criar).
+
+Modalidade de venda em atacado (wholesale, divisor `1.035`), ainda não implementada. Ver conceito em `docs/GAMIVO.md` e no termo "Wholesale" do `CONTEXT.md`.
+
+**Origem:** roadmap da migração Gamivo (`docs/GAMIVO.md`).
+
+---
+
+## Expiração — remover oferta da Gamivo no dia em que expira
+
+**Onde:** fluxo de expiração (scheduler / `KeyService`).
+
+Quando faltam 30 dias, o sistema já envia alerta por e-mail e a `MinimumMarginPolicy` rebaixa o `min_api` ao piso. Falta: no dia em que a key expira, remover a oferta da Gamivo e avisar por e-mail.
+
+**Origem:** `docs/PRODUCT.md`.
+
+---
+
+## Estrutura para um segundo marketplace (multi-marketplace)
+
+**Onde:** `app/UseCases/Marketplaces/`, `app/Domain/Pricing/`.
+
+Hoje o sistema opera **exclusivamente na Gamivo**. Diretrizes para quando entrar um segundo marketplace:
+
+- Use cases de marketplace vivem em `UseCases/Marketplaces/Gamivo/` — um novo marketplace ganha `UseCases/Marketplaces/Eneba/` etc., sem tocar nos use cases agnósticos de `UseCases/Keys/`.
+- `Domain/Pricing` está acoplado implicitamente à Gamivo (`IncomeCalculator::forGamivo()`, `MarketplaceFee`, constantes de `ComparisonAlgorithm`). **Não abstrair antes de haver um segundo marketplace real** (YAGNI) — abstrair só quando existir a segunda implementação.
+
+**Origem:** `CLAUDE.md` (seção Arquitetura).
+
+---
+
+## `KeyPlatform::fromKeyFormat` — placeholder morto
+
+**Onde:** `app/Domain/Enums/KeyPlatform.php`.
+
+`KeyPlatform::fromKeyFormat()` duplica a lógica de `Domain/Platform/PlatformIdentifier::identify()` (a versão usada pelo app). O método do enum só é exercitado pelo próprio teste (`tests/Unit/Domain/Enums/KeyPlatformTest.php`), nunca pelo código de produção.
+
+**Ação:** avaliar remover `KeyPlatform::fromKeyFormat()` e seu teste, deixando `PlatformIdentifier` como fonte única; se o enum precisar de um helper de plataforma, delegar a `PlatformIdentifier`.
+
+**Origem:** varredura de pendências (2026-07-21); o comentário "Fase 2" no enum estava stale — a extração para `PlatformIdentifier` já foi feita.
 
 ---
 
@@ -135,9 +231,9 @@ registrada em `routes/web.php:146` (`GET /auto-sell`, protegida por
 `VerifySecret::class`, sem `CheckPermission`).
 
 A rota ainda existe no código, mas não está sendo chamada externamente hoje
-(o plano é reativar esse fluxo HTTP futuramente — provavelmente para o
-`gamivo-carca-deals` ou outro serviço externo disparar o auto-sell via
-requisição, em vez de depender só do `artisan gamivo:auto-sell` via cron).
+(o plano é reativar esse fluxo HTTP futuramente — para um serviço externo
+disparar o auto-sell via requisição, em vez de depender só do
+`artisan gamivo:auto-sell` via cron).
 
 Quando esse caller externo for reintroduzido, `AutoSellUseCase::execute()`
 roda de forma **síncrona dentro do ciclo de request-response** (`$listed = $this->autoSellUseCase->execute();` em `autoSell()`, sem dispatch para queue).
