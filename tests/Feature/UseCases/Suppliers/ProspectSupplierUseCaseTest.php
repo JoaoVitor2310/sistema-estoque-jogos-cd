@@ -237,6 +237,44 @@ describe('ProspectSupplierUseCase', function () {
         });
     });
 
+    describe('total_tf2_price', function () {
+
+        it('equals the tf2_price of a single profitable game', function () {
+            // €4.50 → tf2_price 2.46 (ver teste de margem acima)
+            $result = app(ProspectSupplierUseCase::class)->execute(
+                supplierSteamId(),
+                [profitableGame()],
+            );
+
+            expect($result['total_tf2_price'])->toBe(2.46);
+        });
+
+        it('sums the tf2_price across all profitable games', function () {
+            // €4.50 → 2.46 ; €10.00 → 5.45 ; soma = 7.91
+            $result = app(ProspectSupplierUseCase::class)->execute(
+                supplierSteamId(),
+                [
+                    ['name' => 'Cheap Game', 'price_euro' => 4.50, 'popularity' => 100, 'region' => null],
+                    ['name' => 'Pricey Game', 'price_euro' => 10.00, 'popularity' => 100, 'region' => null],
+                ],
+            );
+
+            $expected = round(array_sum(array_column($result['profitable'], 'tf2_price')), 2);
+
+            expect($result['total_tf2_price'])->toBe(7.91)->toBe($expected);
+        });
+
+        it('is 0.0 when no games are profitable', function () {
+            $result = app(ProspectSupplierUseCase::class)->execute(
+                supplierSteamId(),
+                [['name' => 'Junk', 'price_euro' => 0.01, 'popularity' => 1, 'region' => null]],
+            );
+
+            expect($result['profitable'])->toBeEmpty();
+            expect($result['total_tf2_price'])->toBe(0.0);
+        });
+    });
+
     describe('games_changed', function () {
 
         it('returns false when there is no previous commented trade', function () {

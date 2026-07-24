@@ -24,6 +24,7 @@
 |   Rentabilidade:
 |     10. Todos rentáveis → profitable preenchido, is_added reflete o banco
 |     11. Nenhum rentável → profitable vazio
+|     11b. total_tf2_price = soma dos tf2_price dos jogos rentáveis
 |
 |   is_added:
 |     12. Novo supplier → is_added = false
@@ -306,7 +307,7 @@ describe('POST /suppliers/prospect — profitability', function () {
         $response = $this->withToken(PROSPECT_SECRET)
             ->postJson('/suppliers/prospect', validPayload())
             ->assertStatus(200)
-            ->assertJsonStructure(['profitable', 'is_added', 'last_commented_at', 'games_changed', 'should_comment']);
+            ->assertJsonStructure(['profitable', 'total_tf2_price', 'is_added', 'last_commented_at', 'games_changed', 'should_comment']);
 
         expect($response->json('profitable'))->not->toBeEmpty();
     });
@@ -319,9 +320,23 @@ describe('POST /suppliers/prospect — profitability', function () {
         $response = $this->withToken(PROSPECT_SECRET)
             ->postJson('/suppliers/prospect', $payload)
             ->assertStatus(200)
-            ->assertJsonStructure(['profitable', 'is_added', 'last_commented_at', 'games_changed', 'should_comment']);
+            ->assertJsonStructure(['profitable', 'total_tf2_price', 'is_added', 'last_commented_at', 'games_changed', 'should_comment']);
 
         expect($response->json('profitable'))->toBeEmpty();
+    });
+
+    it('returns total_tf2_price as the sum of the profitable games tf2_price', function () {
+        // €4.50 → 2.46 ; €10.00 → 5.45 ; soma = 7.91
+        $payload = validPayload(['games' => [
+            ['name' => 'Cheap Game', 'price_euro' => 4.50, 'popularity' => 100, 'region' => null],
+            ['name' => 'Pricey Game', 'price_euro' => 10.00, 'popularity' => 100, 'region' => null],
+        ]]);
+
+        $response = $this->withToken(PROSPECT_SECRET)
+            ->postJson('/suppliers/prospect', $payload)
+            ->assertStatus(200);
+
+        expect($response->json('total_tf2_price'))->toBe(7.91);
     });
 });
 
@@ -354,7 +369,7 @@ describe('POST /suppliers/prospect — list_code', function () {
         $response = $this->withToken(PROSPECT_SECRET)
             ->postJson('/suppliers/prospect', validPayload(['list_code' => 'G0eXM']))
             ->assertStatus(200)
-            ->assertJsonStructure(['profitable', 'is_added', 'last_commented_at', 'games_changed', 'should_comment']);
+            ->assertJsonStructure(['profitable', 'total_tf2_price', 'is_added', 'last_commented_at', 'games_changed', 'should_comment']);
 
         expect($response->json('last_commented_at'))->toBeNull()
             ->and($response->json('games_changed'))->toBeFalse();

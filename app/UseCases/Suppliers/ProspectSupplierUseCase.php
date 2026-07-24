@@ -20,7 +20,7 @@ class ProspectSupplierUseCase
 
     /**
      * @param  array<int, array{name: string, price_euro: float, popularity: int, region: string|null, gamivo_id?: string|null}>  $games
-     * @return array{profitable: array<int, mixed>, is_added: bool, last_commented_at: Carbon|null, games_changed: bool, should_comment: bool}
+     * @return array{profitable: array<int, mixed>, total_tf2_price: float, is_added: bool, last_commented_at: Carbon|null, games_changed: bool, should_comment: bool}
      */
     public function execute(string $steamId, array $games, ?string $listCode = null): array
     {
@@ -58,6 +58,7 @@ class ProspectSupplierUseCase
 
         return [
             'profitable' => $profitable,
+            'total_tf2_price' => round(array_sum(array_column($profitable, 'tf2_price')), 2),
             'is_added' => (bool) $record->is_added,
             'last_commented_at' => $lastCommentedAt,
             'games_changed' => $gamesChanged,
