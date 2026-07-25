@@ -15,6 +15,9 @@ class ImportTradeKeysRequest extends FormRequest
 
     /**
      * Regras na mesma ordem das colunas do TradeCalculator (frontend).
+     *
+     * Cobre exatamente os campos que o TradeCalculator envia; os demais campos
+     * da key assumem o valor canônico de KeyDefaults no RegisterKeyUseCase.
      */
     public function rules(): array
     {

@@ -8,7 +8,6 @@ use App\Http\Controllers\FeeController;
 use App\Http\Controllers\FinancialController;
 use App\Http\Controllers\GameController;
 use App\Http\Controllers\Keys\KeyController;
-use App\Http\Controllers\Keys\KeyImportController;
 use App\Http\Controllers\Keys\KeySaleController;
 use App\Http\Controllers\Suppliers\SupplierController;
 use App\Http\Controllers\TradeController;
@@ -136,18 +135,14 @@ Route::prefix('assets')
 Route::prefix('keys')
     ->middleware(CheckPermission::class)
     ->group(function () {
-        // KeyController — CRUD (mutações exigem permissão)
-        Route::post('/', [KeyController::class, 'store'])->name('keys.store');
-        Route::put('/{id}', [KeyController::class, 'update'])->name('keys.update');
+        // KeyController — edição/remoção (mutações exigem permissão).
+        // Não há rota de criação: keys entram só via POST /trades/{trade}/import.
+        Route::put('/{key}', [KeyController::class, 'update'])->name('keys.update');
         Route::delete('/{id}', [KeyController::class, 'destroy'])->name('keys.destroy');
         Route::delete('/', [KeyController::class, 'destroyArray'])->name('keys.destroyArray');
 
         // KeySaleController — operações de venda
         Route::get('/auto-sell', [KeySaleController::class, 'autoSell'])->name('keys.auto-sell')->withoutMiddleware([CheckPermission::class])->middleware(VerifySecret::class);
-
-        // KeyImportController — importação XLSX
-        Route::post('/import', [KeyImportController::class, 'import'])->name('keys.import');
-        Route::get('/download-example_keys', [KeyImportController::class, 'downloadExample'])->name('keys.download-example_keys');
     });
 
 Route::prefix('authorize') // Gerenciar quem tem acesso

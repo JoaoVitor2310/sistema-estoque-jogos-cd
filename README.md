@@ -38,7 +38,7 @@ Managing a game key trading business across multiple marketplaces (Gamivo, G2A, 
 
 **Result:**
 - Profit calculation errors dropped to zero — every formula is unit-tested and lives in a framework-independent Domain layer
-- Batch key registration went from ~30 minutes of spreadsheet work to a single XLSX upload or JSON submission
+- Batch key registration went from ~30 minutes of spreadsheet work to a single import from the trade that produced the keys
 - Listing decisions that required manual cross-referencing now execute in milliseconds
 - The marketplace fee cache (Redis) eliminated repeated database queries — from 4 queries per request to 1 query per hour
 
@@ -73,7 +73,7 @@ The decision was to **keep the value of Clean Architecture and discard the overh
 ┌──────────────────────────────▼──────────────────────────────────┐
 │  Use Cases  — one class per business operation                  │
 │  RegisterKey · UpdateKey · AutoSell · UpdateSoldOffers          │
-│  ImportKeysFromXlsx · SyncBundles · ProspectSupplier            │
+│  SyncBundles · ProspectSupplier · UpdateTrade                   │
 └──────────────────────────────┬──────────────────────────────────┘
                                │ calls Services and Domain
 ┌──────────────────────────────▼──────────────────────────────────┐
@@ -101,7 +101,6 @@ tests/Unit/Domain/
 ├── Pricing/   ProfitCalculator · IncomeCalculator · MinMaxPriceCalculator · MinimumMarginPolicy · SalePriceCalculator
 ├── Keys/      KeyEligibility
 ├── Platform/  PlatformIdentifier
-├── Import/    ExcelDateConverter · ImportHeaderValidator · ImportRowValidator
 ├── Bundles/   BundleTypeResolver
 ├── Games/     GameNameNormalizer
 └── Trades/    CommentPolicy · TradeGameComparison

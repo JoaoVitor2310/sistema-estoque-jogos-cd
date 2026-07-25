@@ -21,6 +21,7 @@ class Key extends Model
         'id',
         'color',
         'supplier_id',
+        'trade_id',
         'claim_type',
         'steam_id',
         'gamivo_id',
@@ -60,6 +61,11 @@ class Key extends Model
     public function supplier()
     {
         return $this->belongsTo(Supplier::class);
+    }
+
+    public function trade()
+    {
+        return $this->belongsTo(Trade::class);
     }
 
     public function game()

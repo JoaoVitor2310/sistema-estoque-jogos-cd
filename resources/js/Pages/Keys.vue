@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import axiosInstance from '../axios';
 import { GameLine } from '../types/GameLine';
 import { convertToDbDate, formatDateToBR, formatDateToDB, identifyAndFormatDate } from '../helpers/formatHelpers';
@@ -14,7 +14,6 @@ import { FilterMatchMode } from '@primevue/core/api';
 import InputText from 'primevue/inputtext';
 import 'primeicons/primeicons.css'
 import Button from 'primevue/button';
-import Dialog from 'primevue/dialog';
 import Toast from 'primevue/toast';
 import { useToast } from "primevue/usetoast";
 import ConfirmPopup from 'primevue/confirmpopup';
@@ -24,7 +23,6 @@ import Select from 'primevue/select';
 import DatePicker from 'primevue/datepicker';
 import Paginator, { PageState } from 'primevue/paginator';
 import MultiSelect from 'primevue/multiselect';
-import ColorPicker from 'primevue/colorpicker';
 import { usePage } from '@inertiajs/vue3';
 
 // onMouted {
@@ -60,175 +58,38 @@ const toast = useToast();
 const confirm = useConfirm();
 
 const selectedProduct = ref();
-const DialogVisible = ref(false); // Visibilidade do Dialog(modal)
-const isEdit = ref(false); // Variável que define se é para criar ou editar no Dialog
 const localTotalGames = ref(props.totalGames);
-const ImportDialogVisible = ref(false); // Visibilidade do Dialog de Importação
-const selectedFile = ref<File | null>(null);
-const selectedNewObject = {
-  id: 0,
-  color: '',
-  claim_type: 'Nenhuma',
-  dont_sell: false,
-  steam_id: '',
-  gamivo_id: '',
-  key_format: 'RK',
-  key_code: '',
-  is_duplicate: false,
-  game_name: '',
-  region: '',
-  notes: '',
-  sell_platform: 'Gamivo',
-  market_price: null,
-  total_paid: '',
-  individual_cost: null,
-  min_api: null,
-  max_api: null,
-  sold_price: null,
-  sale_profit: null,
-  sale_profit_percent: null,
-  acquired_at: null,
-  listed_at: '',
-  sold_at: '',
-  supplier_url: '',
-  tf2_quantity: null,
-};
 
-const selected = reactive([selectedNewObject]);
-
-const sharedTf2Quantity = ref(null);
-const sharedAcquiredAt = ref(null);
-const sharedSupplierUrl = ref('');
-const sharedTotalPaid = ref('');
-
-// Sincroniza o valor de tf2_quantity em todos os itens
-watch(sharedTf2Quantity, (newValue) => {
-  selected.forEach(item => {
-    item.tf2_quantity = newValue;
-  });
-});
-
-watch(sharedAcquiredAt, (newValue) => {
-  selected.forEach(item => {
-    item.acquired_at = newValue;
-  });
-});
-
-watch(sharedSupplierUrl, (newValue) => {
-  selected.forEach(item => {
-    item.supplier_url = newValue;
-  });
-});
-
-watch(sharedTotalPaid, (newValue) => {
-  selected.forEach(item => {
-    item.total_paid = newValue;
-  });
-});
-
+/** Salva a edição inline de uma célula do DataTable (editMode="cell"). */
 const onEdit = async (selected: any) => {
-  isEdit.value = true;
-  let product;
-  if (Array.isArray(selected)) {
-    product = { ...selected[0] };
-    if (sharedAcquiredAt.value) {
-      product.acquired_at = sharedAcquiredAt.value;
-    }
-    if (sharedSupplierUrl.value !== '') {
-      product.supplier_url = sharedSupplierUrl.value;
-    }
-    if (sharedTotalPaid.value !== '') {
-      product.total_paid = sharedTotalPaid.value;
-    }
-  } else {
-    product = { ...selected };
-    if (selected.acquired_at) {
-      selected.acquired_at = identifyAndFormatDate(selected.acquired_at);
-    }
-    if (selected.listed_at) {
-      selected.listed_at = identifyAndFormatDate(selected.listed_at);
-    }
-    if (selected.sold_at) {
-      selected.sold_at = identifyAndFormatDate(selected.sold_at);
-    }
-    console.log(selected);
+  const product = { ...selected };
+
+  if (selected.acquired_at) {
+    selected.acquired_at = identifyAndFormatDate(selected.acquired_at);
   }
+  if (selected.listed_at) {
+    selected.listed_at = identifyAndFormatDate(selected.listed_at);
+  }
+  if (selected.sold_at) {
+    selected.sold_at = identifyAndFormatDate(selected.sold_at);
+  }
+
   try {
     const res = await axiosInstance.put(`/keys/${product.id}`, product);
     // console.log(res.data);
     showResponse(res, toast.add);
 
     if (res.status === 200) {
-      const itemToUpdate = rowData.find(item => item.id === product.id);
-      if (itemToUpdate) {
-        Object.assign(itemToUpdate, res.data.data);
-      }
-      DialogVisible.value = false;
-    }
-  } catch (error) {
-    toast.add({
-      severity: 'error',
-      summary: 'Erro Interno, tente novamente.',
-      detail: error,
-      life: 7000
-    });
-    console.log(error);
-  }
-}
-
-const handleAddButton = async (): Promise<void> => { // Mostra o dialog com o elemento clicado
-  try {
-    const res = await axiosInstance.get(`/auth/logged`);
-    // console.log(res.data.data);
-    if (res.status === 400 || res.status === 401) {
-      showResponse(res, toast.add);
-      return;
-    }
-  } catch (error) {
-    toast.add({
-      severity: 'error',
-      summary: 'Erro Interno, tente novamente.',
-      detail: error,
-      life: 7000
-    });
-    console.log(error);
-  }
-  toast.add({
-    severity: 'warn',
-    summary: 'Atenção!',
-    detail: 'Lembre-se de atualizar o valor da chave antes de adicionar os jogos.',
-    life: 7000
-  });
-  isEdit.value = false;
-  selected.splice(0, selected.length, { ...selectedNewObject }); // Zera o valor para criar um novo
-  sharedTf2Quantity.value = null;
-  sharedAcquiredAt.value = new Date().toLocaleDateString('pt-BR');
-  sharedSupplierUrl.value = '';
-  sharedTotalPaid.value = '';
-  DialogVisible.value = true;
-}
-
-const onAdd = async (): Promise<void> => { // Faz a req pra api add o elemento
-  selected.forEach(item => {
-    if (item.acquired_at) {
-      item.acquired_at = identifyAndFormatDate(item.acquired_at);
-    }
-    if (item.listed_at) {
-      item.listed_at = identifyAndFormatDate(item.listed_at);
-    }
-    if (item.sold_at) {
-      item.sold_at = identifyAndFormatDate(item.sold_at);
-    }
-  });
-
-  try {
-    // console.log(selected)
-    const res = await axiosInstance.post(`/keys`, { games: selected });
-    // console.log(res.data.data);
-    showResponse(res, toast.add);
-    if (res.status === 200 || res.status === 201) {
-      DialogVisible.value = false;
-      rowData.unshift(...res.data.data.reverse()); // Adiciona no início do array na ordem inversa da resposta enviada pelo servidor, para manter o DESC de id
+      // Editar o market_price recalcula o lucro de todo o lote no backend, que
+      // devolve todas as keys afetadas. Atualiza cada linha na tela (não só a
+      // editada) para as irmãs refletirem os novos valores sem recarregar.
+      const affected = res.data.data ?? [];
+      affected.forEach((updated: any) => {
+        const row = rowData.find(item => item.id === updated.id);
+        if (row) {
+          Object.assign(row, updated);
+        }
+      });
     }
   } catch (error) {
     toast.add({
@@ -429,83 +290,6 @@ const exportCSV = () => {
   dt.value.exportCSV();
 };
 
-const addOrRemove = (add: boolean) => {
-  if (add) {
-    selected.push({ ...selectedNewObject });
-  } else {
-    if (selected.length > 1) {
-      selected.pop();
-    }
-  }
-};
-
-const handleImportButton = (): void => {
-  ImportDialogVisible.value = true;
-  selectedFile.value = null;
-};
-
-const downloadExampleFile = (): void => {
-  window.location.href = '/keys/download-example_keys';
-};
-
-const handleFileSelect = (event: Event): void => {
-  const target = event.target as HTMLInputElement;
-  if (target.files && target.files.length > 0) {
-    const file = target.files[0];
-    // Verificar se é um arquivo XLSX
-    if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-      selectedFile.value = file;
-    } else {
-      toast.add({
-        severity: 'error',
-        summary: 'Erro',
-        detail: 'Por favor, selecione um arquivo Excel (.xlsx ou .xls)',
-        life: 5000
-      });
-      selectedFile.value = null;
-    }
-  }
-};
-
-const handleImportSubmit = async (): Promise<void> => {
-  if (!selectedFile.value) {
-    toast.add({
-      severity: 'warn',
-      summary: 'Atenção',
-      detail: 'Por favor, selecione um arquivo para importar',
-      life: 5000
-    });
-    return;
-  }
-
-  const formData = new FormData();
-  formData.append('file', selectedFile.value);
-
-  try {
-    const res = await axiosInstance.post('/keys/import', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-
-    showResponse(res, toast.add);
-
-    if (res.status === 200 || res.status === 201) {
-      ImportDialogVisible.value = false;
-      selectedFile.value = null;
-      // Recarregar os dados da tabela
-      await onPageChange(false);
-    }
-  } catch (error: any) {
-    toast.add({
-      severity: 'error',
-      summary: 'Erro Interno, tente novamente.',
-      detail: error.response?.data?.message || error.message,
-      life: 7000
-    });
-    console.log(error);
-  }
-};
 
 </script>
 
@@ -513,172 +297,6 @@ const handleImportSubmit = async (): Promise<void> => {
   <div class="w-100">
     <Toast position="bottom-right" />
     <ConfirmPopup />
-    <Dialog v-model:visible="DialogVisible" modal :header="isEdit ? 'Editar' : 'Criar'"
-      :style="{ width: '90%', paddingBottom: '5rem' }" maximizable>
-      <span class="d-block mb-3" v-if="!isEdit">Insira os dados para criar.</span>
-      <span class="d-block mb-3" v-if="isEdit">Edite os dados.</span>
-      <span class="d-block mb-3"><strong>Dica:</strong> Utilize "shift + scroll" para navegar horizontalmente.</span>
-
-      <Button class="flex-auto mb-3 me-2" v-if="!isEdit" @click="addOrRemove(true)" label="Adicionar jogo"
-        icon="pi pi-plus" />
-      <Button class="flex-auto mb-3" v-if="!isEdit" @click="addOrRemove(false)" label="Remover jogo" icon="pi pi-minus"
-        severity="danger" />
-
-
-      <div v-for="(item, index) in selected" class="d-flex flex-row gap-2">
-        <div class="d-flex flex-column">
-          <label class="fw-bold me-2">Cor</label>
-          <div class="d-flex gap-5 mb-3">
-            <ColorPicker v-model="item.color" format="hex" />
-            <InputText v-model="item.color" placeholder="#000000" />
-          </div>
-        </div>
-        <div class="d-flex flex-column">
-          <label class="fw-bold">Reclamação</label>
-          <div class="d-flex gap-5 mb-3">
-            <Select v-model="item.claim_type" :options="props.claimTypes"
-              class="w-full md:w-56" />
-          </div>
-        </div>
-        <div class="d-flex flex-column">
-          <label class="fw-bold">Formato</label>
-          <div class="d-flex gap-5 mb-3">
-            <Select v-model="item.key_format" :options="props.keyFormats"
-              placeholder="Formato do Jogo" class="w-full md:w-56" />
-          </div>
-        </div>
-        <div class="d-flex flex-column" v-if="user && user.email === 'carcadeals@gmail.com'">
-          <label class="fw-bold">Chave Recebida*</label>
-          <div class="d-flex gap-5 mb-3">
-            <InputText class="flex-auto" v-model="item.key_code" />
-          </div>
-        </div>
-        <div class="d-flex flex-column">
-          <label class="fw-bold">Nome do jogo*</label>
-          <div class="d-flex gap-5 mb-3">
-            <InputText class="flex-auto" v-model="item.game_name" />
-          </div>
-        </div>
-        <div class="d-flex flex-column">
-          <label class="fw-bold">Região</label>
-          <div class="d-flex gap-5 mb-3">
-            <InputText class="flex-auto" v-model="item.region" />
-          </div>
-        </div>
-        <div class="d-flex flex-column">
-          <label class="fw-bold">Observação</label>
-          <div class="d-flex gap-5 mb-3">
-            <InputText class="flex-auto" v-model="item.notes" />
-          </div>
-        </div>
-        <div class="d-flex flex-column">
-          <label class="fw-bold">Plataforma</label>
-          <div class="d-flex gap-5 mb-3">
-            <Select v-model="item.sell_platform" :options="props.sellPlatforms"
-              class="w-full md:w-56" />
-          </div>
-        </div>
-        <div class="d-flex flex-column">
-          <label class="fw-bold">Preço Mercado*</label>
-          <div class="d-flex gap-5 mb-3">
-            <InputNumber class="flex-auto" v-model="item.market_price" mode="decimal" showButtons :minFractionDigits="2"
-              :maxFractionDigits="2" :min="0" useGrouping />
-          </div>
-        </div>
-        <div v-if="!isEdit" class="d-flex flex-column">
-          <label class="fw-bold">Quantidade de TF2*</label>
-          <div class="d-flex gap-5 mb-3">
-            <InputNumber class="flex-auto" v-model="sharedTf2Quantity" mode="decimal" showButtons :minFractionDigits="2"
-              :maxFractionDigits="2" useGrouping />
-          </div>
-        </div>
-        <div class="d-flex flex-column">
-          <label class="fw-bold">Valor Pago Total</label>
-          <div class="d-flex gap-5 mb-3">
-            <InputText class="flex-auto" v-model="sharedTotalPaid" />
-          </div>
-        </div>
-        <div class="d-flex flex-column">
-          <label class="fw-bold">Valor Vendido</label>
-          <div class="d-flex gap-5 mb-3">
-            <InputNumber class="flex-auto" v-model="item.sold_price" mode="decimal" showButtons :minFractionDigits="2"
-              :maxFractionDigits="2" :min="-Infinity" useGrouping />
-          </div>
-        </div>
-        <div class="d-flex flex-column">
-          <label class="fw-bold text-nowrap">Data Adquirida*</label>
-          <div class="d-flex gap-5 mb-3">
-            <InputText class="flex-auto" v-model="sharedAcquiredAt" />
-          </div>
-        </div>
-        <div class="d-flex flex-column">
-          <label class="fw-bold">Data Listada</label>
-          <div class="d-flex gap-5 mb-3">
-            <InputText class="flex-auto" v-model="item.listed_at" />
-          </div>
-        </div>
-        <div class="d-flex flex-column">
-          <label class="fw-bold text-nowrap">Data Vendida</label>
-          <div class="d-flex gap-5 mb-3">
-            <InputText class="flex-auto" v-model="item.sold_at" />
-          </div>
-        </div>
-        <div class="d-flex flex-column">
-          <label class="fw-bold text-nowrap">URL Fornecedor*</label>
-          <div class="d-flex gap-5 mb-3">
-            <InputText class="flex-auto" v-model="sharedSupplierUrl" />
-          </div>
-        </div>
-      </div>
-
-      <div class="d-flex justify-content-end gap-2 position-absolute bottom-0 end-0 p-3 botao-rodape">
-        <Button type="button" label="Cancelar" severity="secondary" @click="DialogVisible = false"></Button>
-        <Button type="button" label="Salvar" @click="isEdit ? onEdit(selected) : onAdd()"></Button>
-      </div>
-    </Dialog>
-
-    <Dialog v-model:visible="ImportDialogVisible" modal header="Importar Jogos"
-      :style="{ width: '50%' }">
-      <div class="d-flex flex-column gap-3">
-        <div class="alert alert-info d-flex align-items-center justify-content-between" role="alert">
-          <div>
-            <i class="pi pi-info-circle me-2"></i>
-            <span>Use o arquivo de exemplo como referência para o formato correto.</span>
-          </div>
-          <Button
-            type="button"
-            label="Baixar Exemplo"
-            icon="pi pi-download"
-            severity="info"
-            size="small"
-            @click="downloadExampleFile"
-          />
-        </div>
-
-        <span class="d-block mb-2">Selecione um arquivo Excel (.xlsx) para importar os jogos.</span>
-
-        <div class="d-flex flex-column">
-          <label class="fw-bold mb-2">Arquivo Excel</label>
-          <input
-            type="file"
-            accept=".xlsx,.xls"
-            @change="handleFileSelect"
-            class="form-control"
-          />
-          <small class="text-muted mt-1" v-if="selectedFile">
-            Arquivo selecionado: {{ selectedFile.name }}
-          </small>
-        </div>
-      </div>
-
-      <template #footer>
-        <div class="d-flex justify-content-end gap-2">
-          <Button type="button" label="Cancelar" severity="secondary" @click="ImportDialogVisible = false"></Button>
-          <Button type="button" label="Importar" @click="handleImportSubmit" :disabled="!selectedFile"></Button>
-        </div>
-      </template>
-    </Dialog>
-
     <div class="text-center mb-3 mx-5">
       <h1>Keys</h1>
       <div class="w-50 m-auto">
@@ -691,8 +309,6 @@ const handleImportSubmit = async (): Promise<void> => {
         <template #header>
           <div class="d-flex justify-content-between">
             <div class="d-flex gap-2 flex-column flex-md-row" v-if="canEdit">
-              <Button label="Novo" aria-label="Novo" icon="pi pi-plus" @click="handleAddButton()" raised />
-              <Button label="Importar" aria-label="Importar" icon="pi pi-file-import" @click="handleImportButton()" raised />
               <Button label="Deletar" :disabled="!selectedProduct || selectedProduct.length === 0" aria-label="Deletar"
                 severity="danger" icon="pi pi-plus" @click="handleDeleteButton($event)" raised />
             </div>

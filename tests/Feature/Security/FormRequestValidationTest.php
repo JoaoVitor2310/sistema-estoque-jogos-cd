@@ -2,23 +2,24 @@
 
 /*
 |--------------------------------------------------------------------------
-| FormRequest validation — characterization tests (6.5 e 6.6)
+| FormRequest validation — characterization tests
 |--------------------------------------------------------------------------
 |
-| 6.5 — market_price e tf2_quantity devem ser > 0.
-| 6.6 — claim_type, key_format e sell_platform devem ser valores válidos
-|        dos respectivos Enums do Domain.
+| market_price e tf2_quantity devem ser > 0.
 |
-| A rota POST /keys usa StoreGameRequestArray, que espera
-| os dados no formato { games: [...] }. Os erros de validação são retornados
-| com chaves no formato "games.0.fieldName".
+| A rota POST /trades/{trade}/import usa ImportTradeKeysRequest — o único
+| ponto de entrada de keys no sistema. Espera os dados no formato
+| { games: [...] }; os erros de validação são retornados com chaves no
+| formato "games.0.fieldName".
+|
+| Os enums (claim_type, key_format, sell_platform) não são validados aqui: o
+| TradeCalculator não os envia, então assumem o valor de KeyDefaults. A
+| validação por enum deles vive no StoreGameRequest (edição inline de key).
 |
 */
 
-use App\Domain\Enums\ClaimType;
-use App\Domain\Enums\KeyFormat;
-use App\Domain\Enums\SellPlatform;
 use App\Models\AuthorizedUsers;
+use App\Models\Trade;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
@@ -43,7 +44,13 @@ function requestAuthorizedUser(): User
     return $user;
 }
 
-/** Retorna um payload válido para StoreGameRequestArray (games: [...]) */
+/** Rota de importação de uma trade nova — único caminho de entrada de keys. */
+function tradeImportRoute(): string
+{
+    return route('trades.import', ['trade' => Trade::create(['games' => []])->id]);
+}
+
+/** Retorna um payload válido para ImportTradeKeysRequest (games: [...]) */
 function gamePayload(array $overrides = []): array
 {
     return [
@@ -69,7 +76,7 @@ function gamePayload(array $overrides = []): array
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-describe('StoreGameRequest validation', function () {
+describe('ImportTradeKeysRequest validation', function () {
 
     beforeEach(function () {
         seedValidationFks();
@@ -83,7 +90,7 @@ describe('StoreGameRequest validation', function () {
             $user = requestAuthorizedUser();
 
             $this->actingAs($user)
-                ->postJson('/keys', gamePayload(['market_price' => 0]))
+                ->postJson(tradeImportRoute(), gamePayload(['market_price' => 0]))
                 ->assertStatus(422)
                 ->assertJsonValidationErrors(['games.0.market_price']);
         });
@@ -92,7 +99,7 @@ describe('StoreGameRequest validation', function () {
             $user = requestAuthorizedUser();
 
             $this->actingAs($user)
-                ->postJson('/keys', gamePayload(['market_price' => -1.50]))
+                ->postJson(tradeImportRoute(), gamePayload(['market_price' => -1.50]))
                 ->assertStatus(422)
                 ->assertJsonValidationErrors(['games.0.market_price']);
         });
@@ -101,7 +108,7 @@ describe('StoreGameRequest validation', function () {
             $user = requestAuthorizedUser();
 
             $response = $this->actingAs($user)
-                ->postJson('/keys', gamePayload(['market_price' => 5.00]));
+                ->postJson(tradeImportRoute(), gamePayload(['market_price' => 5.00]));
 
             expect($response->status())->not->toBe(422);
         });
@@ -113,7 +120,7 @@ describe('StoreGameRequest validation', function () {
             $user = requestAuthorizedUser();
 
             $this->actingAs($user)
-                ->postJson('/keys', gamePayload(['tf2_quantity' => 0]))
+                ->postJson(tradeImportRoute(), gamePayload(['tf2_quantity' => 0]))
                 ->assertStatus(422)
                 ->assertJsonValidationErrors(['games.0.tf2_quantity']);
         });
@@ -122,7 +129,7 @@ describe('StoreGameRequest validation', function () {
             $user = requestAuthorizedUser();
 
             $this->actingAs($user)
-                ->postJson('/keys', gamePayload(['tf2_quantity' => -2.0]))
+                ->postJson(tradeImportRoute(), gamePayload(['tf2_quantity' => -2.0]))
                 ->assertStatus(422)
                 ->assertJsonValidationErrors(['games.0.tf2_quantity']);
         });
@@ -131,137 +138,9 @@ describe('StoreGameRequest validation', function () {
             $user = requestAuthorizedUser();
 
             $response = $this->actingAs($user)
-                ->postJson('/keys', gamePayload(['tf2_quantity' => 2.0]));
+                ->postJson(tradeImportRoute(), gamePayload(['tf2_quantity' => 2.0]));
 
             expect($response->status())->not->toBe(422);
-        });
-    });
-
-    describe('sold_price (6.5)', function () {
-
-        it('accepts sold_price = 0 (ex: reembolso)', function () {
-            $user = requestAuthorizedUser();
-
-            $response = $this->actingAs($user)
-                ->postJson('/keys', gamePayload(['sold_price' => 0]));
-
-            expect($response->status())->not->toBe(422);
-        });
-
-        it('accepts negative sold_price (ex: gamivo fee)', function () {
-            $user = requestAuthorizedUser();
-
-            $response = $this->actingAs($user)
-                ->postJson('/keys', gamePayload(['sold_price' => -1.50]));
-
-            expect($response->status())->not->toBe(422);
-        });
-
-        it('accepts null sold_price (key ainda não vendida)', function () {
-            $user = requestAuthorizedUser();
-
-            $response = $this->actingAs($user)
-                ->postJson('/keys', gamePayload(['sold_price' => null]));
-
-            expect($response->status())->not->toBe(422);
-        });
-    });
-
-    // ── 6.6: enum fields ─────────────────────────────────────────────────────
-
-    describe('claim_type ', function () {
-
-        it('rejects an arbitrary string', function () {
-            $user = requestAuthorizedUser();
-
-            $this->actingAs($user)
-                ->postJson('/keys', gamePayload(['claim_type' => 'INVALIDO']))
-                ->assertStatus(422)
-                ->assertJsonValidationErrors(['games.0.claim_type']);
-        });
-
-        it('accepts null claim_type', function () {
-            $user = requestAuthorizedUser();
-
-            $response = $this->actingAs($user)
-                ->postJson('/keys', gamePayload(['claim_type' => null]));
-
-            expect($response->status())->not->toBe(422);
-        });
-
-        it('accepts every valid ClaimType value', function () {
-            $user = requestAuthorizedUser();
-
-            foreach (ClaimType::cases() as $case) {
-                $response = $this->actingAs($user)
-                    ->postJson('/keys', gamePayload(['claim_type' => $case->value]));
-
-                expect($response->status())->not->toBe(422, "claim_type '{$case->value}' deveria ser aceito");
-            }
-        });
-    });
-
-    describe('key_format ', function () {
-
-        it('rejects an arbitrary string', function () {
-            $user = requestAuthorizedUser();
-
-            $this->actingAs($user)
-                ->postJson('/keys', gamePayload(['key_format' => 'INVALIDO']))
-                ->assertStatus(422)
-                ->assertJsonValidationErrors(['games.0.key_format']);
-        });
-
-        it('accepts null key_format', function () {
-            $user = requestAuthorizedUser();
-
-            $response = $this->actingAs($user)
-                ->postJson('/keys', gamePayload(['key_format' => null]));
-
-            expect($response->status())->not->toBe(422);
-        });
-
-        it('accepts every valid KeyFormat value', function () {
-            $user = requestAuthorizedUser();
-
-            foreach (KeyFormat::cases() as $case) {
-                $response = $this->actingAs($user)
-                    ->postJson('/keys', gamePayload(['key_format' => $case->value]));
-
-                expect($response->status())->not->toBe(422, "key_format '{$case->value}' deveria ser aceito");
-            }
-        });
-    });
-
-    describe('sell_platform ', function () {
-
-        it('rejects an arbitrary string', function () {
-            $user = requestAuthorizedUser();
-
-            $this->actingAs($user)
-                ->postJson('/keys', gamePayload(['sell_platform' => 'INVALIDO']))
-                ->assertStatus(422)
-                ->assertJsonValidationErrors(['games.0.sell_platform']);
-        });
-
-        it('accepts null sell_platform', function () {
-            $user = requestAuthorizedUser();
-
-            $response = $this->actingAs($user)
-                ->postJson('/keys', gamePayload(['sell_platform' => null]));
-
-            expect($response->status())->not->toBe(422);
-        });
-
-        it('accepts every valid SellPlatform value', function () {
-            $user = requestAuthorizedUser();
-
-            foreach (SellPlatform::cases() as $case) {
-                $response = $this->actingAs($user)
-                    ->postJson('/keys', gamePayload(['sell_platform' => $case->value]));
-
-                expect($response->status())->not->toBe(422, "sell_platform '{$case->value}' deveria ser aceito");
-            }
         });
     });
 });

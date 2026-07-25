@@ -81,9 +81,11 @@ class TradeController extends Controller
 
     public function importKeys(ImportTradeKeysRequest $request, Trade $trade): JsonResponse
     {
-        $result = $this->registerKeyUseCase->execute($request->validated('games'));
+        $result = $this->registerKeyUseCase->execute($trade, $request->validated('games'));
 
-        $status = empty($result['errors']) ? 201 : 207;
+        // Importação atômica: 201 quando o lote inteiro entrou; 422 quando nada
+        // entrou (não há resultado parcial).
+        $status = empty($result['errors']) ? 201 : 422;
 
         return response()->json([
             'message' => $result['message'],

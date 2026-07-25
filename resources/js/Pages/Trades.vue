@@ -29,7 +29,9 @@ const props = defineProps<{
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
-type RowStatus = 'pending' | 'success' | 'error';
+// Importação é atômica: ou o lote inteiro entra (e a trade sai da aba), ou nada
+// entra e as linhas problemáticas ficam em 'error'. Não há estado de sucesso por linha.
+type RowStatus = 'pending' | 'error';
 
 /** Campos de um jogo persistidos no banco. */
 interface StoredGame {
@@ -397,30 +399,39 @@ async function importTrade(trade: TradeEntry) {
   }));
 
   try {
-    const res = await axiosInstance.post(
+    await axiosInstance.post(
       route('trades.import', { trade: trade.id }),
       { games },
     );
 
-    const errors: { linha: number; erro: string }[] = res.data.errors ?? [];
-    const errorsByGameIdx = new Map(errors.map(e => [e.linha - 1, e.erro]));
-
-    meaningfulEntries.forEach(({ originalIdx }, gameIdx) => {
-      const row = trade.rows[originalIdx];
-      if (errorsByGameIdx.has(gameIdx)) {
-        row.status = 'error';
-        row.errorMsg = errorsByGameIdx.get(gameIdx)!;
-      } else {
-        row.status = 'success';
-      }
-    });
-
-    if (trade.rows.some(r => r.status === 'success')) {
-      trade.isStocked = true;
-    }
+    // 201 — a importação é atômica, então chegar aqui significa que o lote inteiro
+    // entrou. O backend marcou a trade como importada: ela sai da aba de Trades,
+    // mas permanece no banco (mantendo o vínculo keys.trade_id).
+    tradeList.value = tradeList.value.filter(t => t.id !== trade.id);
   } catch (e: any) {
     if (e?.response?.status === 422) {
-      const validationErrors: Record<string, string[]> = e.response.data.errors ?? {};
+      // 422 — nada foi cadastrado. Dois formatos de erro possíveis:
+      //  - registro: array [{ line, game, error }] vindo do RegisterKeyUseCase
+      //  - validação: objeto { 'games.N.campo': [msg] } vindo do FormRequest
+      const payload = e.response.data.errors ?? {};
+
+      if (Array.isArray(payload)) {
+        const errorsByGameIdx = new Map(
+          (payload as { line: number; error: string }[]).map(err => [err.line - 1, err.error]),
+        );
+
+        meaningfulEntries.forEach(({ originalIdx }, gameIdx) => {
+          const row = trade.rows[originalIdx];
+          // Sem status 'success': como nada foi salvo, as linhas sem erro voltam
+          // a 'pending' para não sugerir que foram importadas.
+          row.status = errorsByGameIdx.has(gameIdx) ? 'error' : 'pending';
+          row.errorMsg = errorsByGameIdx.get(gameIdx) ?? '';
+        });
+
+        return;
+      }
+
+      const validationErrors: Record<string, string[]> = payload;
       const fieldLabels: Record<string, string> = {
         tf2_quantity: 'Qtd TF2',
         key_code: 'Key Code',
@@ -529,7 +540,6 @@ function tierBadgeClass(tier: number): string {
 }
 
 function rowClass(row: Row): string {
-  if (row.status === 'success') return 'table-success';
   if (row.status === 'error') return 'table-danger';
   return '';
 }
@@ -855,9 +865,6 @@ function getCustomTierTotal(trade: TradeEntry): number {
                   />
                   <div v-if="row.status === 'error'" class="text-danger" style="font-size: 0.7rem;">
                     {{ row.errorMsg }}
-                  </div>
-                  <div v-if="row.status === 'success'" class="text-success" style="font-size: 0.7rem;">
-                    <i class="pi pi-check me-1" />Importada com sucesso
                   </div>
                 </td>
 

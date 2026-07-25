@@ -10,6 +10,8 @@
 |   1. gamivo_id enviado é persistido na key criada
 |   2. gamivo_id enviado é propagado para a tabela games
 |   3. gamivo_id ausente não quebra a importação (campo nullable)
+|   4. as keys importadas são vinculadas à trade (trade_id)
+|   5. importação sem erros marca a trade como is_imported
 |
 */
 
@@ -100,5 +102,37 @@ describe('POST /trades/{trade}/import — gamivo_id', function () {
             'key_code' => 'AAAAA-BBBBB-CCCCC',
             'gamivo_id' => null,
         ]);
+    });
+
+    it('links the imported keys to the trade (trade_id)', function () {
+        $user = makeAuthorizedImportUser();
+        $trade = Trade::create(['games' => []]);
+
+        $this->actingAs($user)
+            ->postJson(route('trades.import', ['trade' => $trade->id]), [
+                'games' => [importGamePayload()],
+            ])
+            ->assertStatus(201);
+
+        $this->assertDatabaseHas('keys', [
+            'key_code' => 'AAAAA-BBBBB-CCCCC',
+            'trade_id' => $trade->id,
+        ]);
+    });
+
+    it('marks the trade as imported after a successful import', function () {
+        $user = makeAuthorizedImportUser();
+        $trade = Trade::create(['games' => []]);
+
+        // default do banco (o modelo recém-criado em memória não reflete o default)
+        expect($trade->fresh()->is_imported)->toBeFalse();
+
+        $this->actingAs($user)
+            ->postJson(route('trades.import', ['trade' => $trade->id]), [
+                'games' => [importGamePayload()],
+            ])
+            ->assertStatus(201);
+
+        expect($trade->fresh()->is_imported)->toBeTrue();
     });
 });

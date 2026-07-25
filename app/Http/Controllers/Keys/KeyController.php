@@ -7,20 +7,20 @@ use App\Domain\Enums\KeyFormat;
 use App\Domain\Enums\SellPlatform;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreGameRequest;
-use App\Http\Requests\StoreGameRequestArray;
 use App\Http\Resources\KeyResource;
 use App\Models\Key;
 use App\Traits\HttpResponses;
-use App\UseCases\Keys\RegisterKeyUseCase;
 use App\UseCases\Keys\UpdateKeyUseCase;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 
 /**
- * CRUD de keys + renderização da página inicial.
+ * Leitura, edição e remoção de keys + renderização da página inicial.
  * Responsabilidade: HTTP only — recebe request, delega ao UseCase, retorna response.
+ *
+ * A criação de keys não vive aqui: o único caminho de entrada é a importação
+ * por trade (`POST /trades/{trade}/import` → `TradeController::importKeys`).
  */
 class KeyController extends Controller
 {
@@ -46,7 +46,6 @@ class KeyController extends Controller
     ];
 
     public function __construct(
-        private readonly RegisterKeyUseCase $registerKeyUseCase,
         private readonly UpdateKeyUseCase $updateKeyUseCase,
     ) {}
 
@@ -205,31 +204,14 @@ class KeyController extends Controller
     }
 
     /**
-     * Registra um lote de keys.
-     */
-    public function store(StoreGameRequestArray $request)
-    {
-        $result = $this->registerKeyUseCase->execute($request->validated()['games']);
-
-        return $this->response(201, $result['message'], KeyResource::collection(collect($result['games'])));
-    }
-
-    /**
      * Atualiza uma key existente.
      */
-    public function update(StoreGameRequest $request, string $id)
+    public function update(StoreGameRequest $request, Key $key)
     {
-        try {
-            $game = $this->updateKeyUseCase->execute($id, $request->validated());
-        } catch (ModelNotFoundException) {
-            return $this->error(404, 'Jogo não encontrado');
-        }
+        // Devolve todas as keys afetadas — o lote inteiro quando o market_price muda.
+        $result = $this->updateKeyUseCase->execute($key, $request->validated());
 
-        $message = $game->identified_platform === 'DESCONHECIDO'
-            ? 'Jogo atualizado, mas a plataforma não foi identificada.'
-            : 'Jogo atualizado com sucesso';
-
-        return $this->response(200, $message, new KeyResource($game));
+        return $this->response(200, $result['message'], KeyResource::collection($result['keys'])->resolve());
     }
 
     /**

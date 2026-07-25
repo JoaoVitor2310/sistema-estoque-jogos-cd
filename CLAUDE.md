@@ -60,8 +60,9 @@ Atue sempre como arquiteto de software sênior com conhecimento profundo de Lara
 - Ao sugerir onde um novo arquivo deve viver, justifique com base na camada correta
 - **Nomes sempre em inglês** — variáveis, classes, arquivos, rotas, nomes de página Vue, métodos e constantes. Nunca criar `FinanceiroService`, `financeiro.vue` ou rota `/financeiro` — o correto é `FinancialService`, `Financial.vue`, `/financial`
 - **Idioma por camada**:
-  - **Inglês**: todo código (nomes, strings de sistema, mensagens de erro, logs, git hooks, scripts de terminal, textos de CI/CD)
+  - **Inglês**: todo código — nomes de variáveis/classes/métodos/constantes, **chaves de array e de payload** (`['line' => ...]`, nunca `['linha' => ...]`), strings de sistema, logs, git hooks, scripts de terminal, textos de CI/CD
   - **Português**: comentários no código (para facilitar manutenção) e texto visível ao usuário no frontend (labels, botões, mensagens de validação)
+  - **Comentário descreve a própria camada**: não vaze presentation no backend. Um UseCase/Service não comenta sobre "a aba", "a tela" ou "o modal" — descreve a regra/efeito no domínio (ex: "marca a trade como importada", não "a trade sai da aba")
 - Colunas do banco sempre em inglês e snake_case
 - Mantenha boas práticas (SOLID, Clean Code, Design Patterns)
 - Identifique Code Smells e proponha soluções
@@ -242,10 +243,11 @@ Campos relevantes:
 - `key_code` — código da key entregue ao cliente
 - `acquired_at`, `listed_at`, `sold_at`, `expires_at` — datas do ciclo de vida
 - `supplier_url` — URL do perfil do fornecedor
+- `trade_id` — FK → `trades.id` (nullable): a trade/lote de onde a key veio; populado só no import por trade. Usado para recalcular o rateio de custo ao editar (ver `docs/adr/0004`)
 - `min_api`, `max_api` — limites de preço aceitos pela API Gamivo
 
 Fluxo principal:
-1. Key inserida manualmente ou via importação XLSX
+1. Key inserida **exclusivamente** pela importação de uma trade (`POST /trades/{trade}/import`) — não há cadastro avulso nem importação XLSX
 2. `KeyCalculationService` calcula fórmulas de lucro e preço
 3. `RegulateMinApiUseCase` (scheduler 07:30) — recalcula `min_api` de todas as keys não vendidas via `MinimumMarginPolicy`
 4. `AutoSellUseCase` lista keys elegíveis na Gamivo, **agrupadas por `gamivo_id`** (exclui bundles com < 21 dias; keys ≥8 meses têm `max_api` travado no preço de listagem)
@@ -288,7 +290,8 @@ Chaves usadas: `gamivoPercentualMenor`, `gamivoFixoMenor`, `gamivoPercentualMaio
 
 ### 6. Suppliers e Trades (`Supplier`/`Trade` → tabelas `suppliers`/`trades`)
 - `Supplier` — fornecedor Steam. Campos: `steam_id`, `url`, `region`, `initial_offer_pct`, `is_added` (marcado manualmente como adicionado à lista de trade), `has_traded`, `category` (enum `SupplierCategory`: `vip` | `blocked`)
-- `Trade` — registro de uma lista de jogos comentada/ofertada a um supplier. Campos: `supplier_id`, `list_code`, `last_commented_at`, `title`, `date`, `message_sent`, `tf2_qty`, `games` (JSON)
+- `Trade` — registro de uma lista de jogos comentada/ofertada a um supplier. Campos: `supplier_id`, `list_code`, `last_commented_at`, `title`, `date`, `message_sent`, `is_imported`, `tf2_qty`, `games` (JSON). `Trade hasMany Key` via `keys.trade_id` — as keys efetivamente compradas daquele lote (populado no `POST /trades/{trade}/import`)
+  - `is_imported` — importar as keys da trade (sem erros) marca `is_imported = true`. A aba de Trades (`TradeService::allWithStockedStatus`) só lista trades **não** importadas — a trade importada some da tela mas **permanece no banco**, para o vínculo `keys.trade_id` continuar válido (não excluir a trade após importar). Ver [`docs/adr/0004`](docs/adr/0004-recalculate-trade-on-key-edit.md)
 - Fluxo: `ProspectSupplierUseCase` avalia a lucratividade dos jogos do supplier (`IncomeCalculator` + `OfferCalculator`, margem `OfferCalculator::NEW_SUPPLIER_PROFIT_PERCENT` = 70%), decide comentar via `Domain/Trades/CommentPolicy` (recomenta se os jogos mudaram desde a última vez — `TradeGameComparison::hasChanged()` — ou se já passaram `CommentPolicy::INTERVAL_DAYS` = 14 dias sem comentário) e persiste um `Trade`
 - `ExecuteSupplierListUseCase` → POST `price_researcher` (`/api/lists/run`) para rodar a lista de jogos do supplier
 - `TradeService::isStocked()` / `allWithStockedStatus()` — indica se algum `key_code` da trade já está no estoque (`keys`)
@@ -329,12 +332,12 @@ Só crie um método privado se ele: (a) é chamado em 3+ lugares, (b) revela int
 
 ```php
 // ❌ Wrapper sem valor
-private function convertExcelDate($cell): ?string {
-    return ExcelDateConverter::convert($cell->getValue()) ?? now()->toDateString();
+private function identifyPlatform(string $keyCode): string {
+    return PlatformIdentifier::identify($keyCode);
 }
 
 // ✅ Inline
-ExcelDateConverter::convert($cell->getValue()) ?? now()->toDateString()
+$game['identified_platform'] = PlatformIdentifier::identify($game['key_code']);
 ```
 
 ### Value Objects — quando usar
@@ -361,10 +364,6 @@ app/
 │   │   └── KeyDefaults.php             # estado inicial canônico de uma key nova
 │   ├── Platform/
 │   │   └── PlatformIdentifier.php      # regex Steam, EA, EGS, GOG, Xbox, PSN
-│   ├── Import/
-│   │   ├── ExcelDateConverter.php
-│   │   ├── ImportRowValidator.php
-│   │   └── ImportHeaderValidator.php
 │   ├── Bundles/
 │   │   ├── BundleTypeResolver.php
 │   │   └── BundleGameLookup.php
@@ -386,9 +385,8 @@ app/
 │
 ├── UseCases/
 │   ├── Keys/                             # operações agnósticas de marketplace
-│   │   ├── RegisterKeyUseCase.php
-│   │   ├── UpdateKeyUseCase.php
-│   │   └── ImportKeysFromXlsxUseCase.php
+│   │   ├── RegisterKeyUseCase.php        # único caminho de entrada de keys (exige uma Trade)
+│   │   └── UpdateKeyUseCase.php          # edição inline; recalcula o lote da trade
 │   ├── Marketplaces/                     # orquestrações específicas por marketplace
 │   │   └── Gamivo/                       # quando vier outro: Eneba/, G2A/, etc.
 │   │       ├── AutoSellUseCase.php           # agrupa por gamivo_id (FIFO); trava max_api de keys >= 8 meses
@@ -424,8 +422,7 @@ app/
 ├── Http/
 │   ├── Controllers/
 │   │   ├── Keys/
-│   │   │   ├── KeyController.php       # CRUD — rota: GET/POST/PUT/DELETE /keys
-│   │   │   ├── KeyImportController.php
+│   │   │   ├── KeyController.php       # leitura/edição/remoção — GET/PUT/DELETE /keys (sem criação)
 │   │   │   └── KeySaleController.php   # autoSell, updateSoldOffers...
 │   │   ├── Suppliers/SupplierController.php
 │   │   ├── GameController.php
@@ -474,8 +471,9 @@ Fluxo: merge na `main` → `ci.yml` (Pint + PHPStan + Pest) → `deploy.yml` (bu
 - **`min_api` — fonte única (`MinimumMarginPolicy`)**: `RegulateMinApiUseCase` (scheduler 07:30) recalcula `min_api` de todas as keys não vendidas, listadas ou não, todo dia. Piso incondicional (FLOOR) para: expiração em ≤ 30 dias, estoque comprado há ≥ 8 meses (`OLD_KEY_MONTHS` — sobrevive à listagem, nunca regride) e listada há ≥ 10 meses (limbo). Fora isso, margem percentual por tempo de estoque (não listada, 4/6 meses) ou por tempo listado (listada, 3/4/6 meses) — ver `MinimumMarginPolicy` para a árvore completa.
 - **Tiers Gamivo**: fee diferente abaixo e acima de €8 (ver tabela na seção Domínios).
 - **`max_api`**: calculado em `MinMaxPriceCalculator` com base no `individual_cost`.
-- **`individual_cost` é imutável após registro**: no `UpdateKeyUseCase` nunca é recalculado.
-- **Importação XLSX**: 10 colunas obrigatórias (A=Data, B=Preço mercado, C=URL perfil, D=Qtd. TF2, E=Bundle, F=Expiração, G=Popularidade, H=Region Lock, I=Chave, J=Nome do Jogo). Datas em formato serial do Excel são convertidas. `tf2_quantity = 0` é rejeitado.
+- **Editar o `market_price` de uma key recalcula o custo e os lucros do lote inteiro** (`UpdateKeyUseCase`): `individual_cost` é um rateio do custo total da trade proporcional ao income de cada key, então depende do somatório de incomes de todas as keys do lote. Mudar o `market_price` muda esse somatório e, portanto, o `individual_cost`/lucros de compra de todas as keys da mesma trade — o update recalcula o lote inteiro, identificado pela FK `keys.trade_id`. Keys antigas (anteriores a esse vínculo) têm `trade_id` nulo e recalculam só a própria key. **`market_price` é o único campo editável que dispara recálculo** — outras edições persistem só os campos alterados. Não recalcula `min_api`/`max_api` (o `min_api` se corrige no `RegulateMinApiUseCase` diário). Ver [`docs/adr/0004`](docs/adr/0004-recalculate-trade-on-key-edit.md).
+- **Toda key nasce de uma trade**: o único caminho de entrada é `POST /trades/{trade}/import` → `RegisterKeyUseCase::execute(Trade $trade, array $games)` — a trade é **obrigatória** na assinatura. Não existe cadastro avulso (`POST /keys`) nem importação XLSX; a coluna `keys.trade_id` é nullable apenas por causa das keys anteriores a esse vínculo. Validação de entrada em `ImportTradeKeysRequest`.
+- **Importação é atômica (tudo ou nada)**: `RegisterKeyUseCase` roda o lote inteiro numa transação. Todas as keys são avaliadas — para reportar **todos** os erros de uma vez, cada key roda num savepoint próprio — mas se qualquer uma falhar, nada é persistido (nem as keys, nem os efeitos em `games`/`suppliers`) e a trade **não** é marcada como importada. Resposta HTTP: `201` quando o lote inteiro entra, `422` quando nada entra. Não existe resultado parcial, logo não há `207 Multi-Status`.
 
 ---
 

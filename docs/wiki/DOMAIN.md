@@ -21,6 +21,7 @@ Vínculos reais no banco, começando pelos da Key (a entidade central):
 | De | Para | Cardinalidade | Como se ligam |
 |---|---|---|---|
 | Key | Supplier | N : 1 | `keys.supplier_id` → `suppliers.id` (FK, nullable) |
+| Key | Trade | N : 1 | `keys.trade_id` → `trades.id` (FK, nullable) — o lote de onde a key veio; populado só no import por trade |
 | Key | Game | N : 1 | `keys.gamivo_id` ↔ `games.gamivo_id` — **join por string, sem FK** |
 | Trade | Supplier | N : 1 | `trades.supplier_id` → `suppliers.id` (FK) |
 | Game | Bundle | N : N | pivot `bundle_games` (com `bundle_launch_price`) |

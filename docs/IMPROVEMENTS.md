@@ -10,6 +10,16 @@ Ordem: roadmap/qualidade/features primeiro, dívida técnica de code-review no f
 
 ---
 
+## Paginação/filtros na aba de Trades — exibir trades importadas
+
+**Onde:** `app/Services/Trades/TradeService.php::allWithStockedStatus()`, `resources/js/Pages/Trades.vue`.
+
+Hoje a aba lista só trades com `is_imported = false` (filtro fixo, sem paginação). A ideia é a tela ganhar paginação e um filtro para também exibir as trades já importadas, em vez de escondê-las incondicionalmente.
+
+**Origem:** decisão ao introduzir `trades.is_imported` (2026-07-24).
+
+---
+
 ## Qualidade de código — endurecer o PHPStan
 
 **Onde:** `phpstan.neon`, `composer.json`.
@@ -25,9 +35,21 @@ Já concluído: PHPStan (`phpstan/phpstan ^2.1`) e Pint rodam no CI (`.github/wo
 
 ---
 
+## Mover `tf2_quantity` de `keys` para `trades`
+
+**Onde:** `database/migrations/` (nova migration), `app/Models/Key.php`, `app/Models/Trade.php`, `app/Domain/Pricing/ProfitCalculator.php` (`individualCost`), `app/UseCases/Keys/RegisterKeyUseCase.php`, `app/Services/FinancialService.php` (`getTf2Spent`).
+
+`tf2_quantity` é o total de TF2 keys pago pela **trade**, não por cada key — hoje está duplicado em toda key do lote (mesmo valor repetido) e não deveria ser editável no nível da key. O lugar correto é `trades.tf2_qty` (que já existe). O rateio de `individual_cost` passaria a ler a quantidade da trade, e o `getTf2Spent` deixaria de precisar deduplicar por `(total_paid, acquired_at)`.
+
+**Ação:** migrar o valor para `trades`, ajustar o cálculo de rateio para ler da trade, e remover a coluna de `keys` (Expand-Contract). Enquanto não migra, `tf2_quantity` **não** deve ser editável na tela de keys.
+
+**Origem:** decisão ao gatilhar o recálculo do `UpdateKeyUseCase` por `market_price` (2026-07-24).
+
+---
+
 ## Remover `supplier_url` de `keys`
 
-**Onde:** `app/Models/Key.php`, `app/Http/Controllers/Keys/KeyController.php`, `app/UseCases/Keys/RegisterKeyUseCase.php`, `app/UseCases/Keys/ImportKeysFromXlsxUseCase.php`, `app/Domain/Import/ImportRowValidator.php`.
+**Onde:** `app/Models/Key.php`, `app/Http/Resources/KeyResource.php`, `app/UseCases/Keys/RegisterKeyUseCase.php`, `app/UseCases/Keys/UpdateKeyUseCase.php`, `app/Http/Requests/ImportTradeKeysRequest.php`, `app/Http/Requests/StoreGameRequest.php`.
 
 Campo redundante; o vínculo real é `keys.supplier_id → suppliers.id → suppliers.url`.
 
@@ -149,7 +171,7 @@ de suporte em `tests/Support/`) — `seedGamivoFees()` e `actingAsAuthorizedUser
 
 ---
 
-## Regra de validação `games.*.gamivo_id` duplicada em 5 FormRequests
+## Regra de validação `games.*.gamivo_id` duplicada em 4 FormRequests
 
 **Onde:**
 
@@ -157,10 +179,9 @@ de suporte em `tests/Support/`) — `seedGamivoFees()` e `actingAsAuthorizedUser
 - `app/Http/Requests/ProspectSupplierRequest.php`
 - `app/Http/Requests/StoreListTradeRequest.php`
 - `app/Http/Requests/GameRequestArray.php` (pré-existente)
-- `app/Http/Requests/StoreGameRequestArray.php` (pré-existente)
 
 `'games.*.gamivo_id' => ['nullable', 'string']` está copiada identicamente em
-cinco classes. Um endurecimento futuro da regra (ex: exigir apenas dígitos)
+quatro classes. Um endurecimento futuro da regra (ex: exigir apenas dígitos)
 precisaria ser aplicado em todas — esquecer uma deixa pontos de entrada com
 validação inconsistente.
 
@@ -187,8 +208,8 @@ armazenado exige editar os dois em paralelo.
 
 Abaixo do limiar de 3+ chamadas que o CLAUDE.md define para justificar
 extração de wrapper — por isso não foi extraído agora — mas vale observar se
-um terceiro ponto de entrada (ex: importação XLSX) precisar do mesmo
-mapeamento no futuro, momento em que a extração passa a se justificar.
+um terceiro ponto de entrada precisar do mesmo mapeamento no futuro, momento
+em que a extração passa a se justificar.
 
 **Ação:** nenhuma agora. Reavaliar extração de um mapper compartilhado
 (`TradeGameMapper::fromIntakeArray()`) se surgir um terceiro caller.
