@@ -24,6 +24,19 @@ class KeyRepository
     }
 
     /**
+     * Retorna todas as keys vinculadas a uma trade (mesmo lote), ordenadas por id ASC.
+     * Usado no recálculo do rateio de custo ao editar uma key. Ver docs/adr/0004.
+     *
+     * @return Collection<int, Key>
+     */
+    public function findByTradeId(int $tradeId): Collection
+    {
+        return Key::where('trade_id', $tradeId)
+            ->orderBy('id')
+            ->get();
+    }
+
+    /**
      * Retorna os limites de preço min/max para um produto Gamivo.
      * Considera apenas keys listadas (listed_at não nulo) e ainda não vendidas (sold_at nulo).
      * Quando múltiplas keys compartilham o mesmo gamivo_id (cópias do mesmo jogo),

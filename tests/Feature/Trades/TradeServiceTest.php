@@ -12,6 +12,7 @@
 |     - is_stocked = false quando nenhum keyCode da trade existe em `keys`
 |     - is_stocked = true  quando ao menos um keyCode existe em `keys`
 |     - Trades sem rows retornam is_stocked = false
+|     - Trades importadas (is_imported) não aparecem na listagem
 |
 |   isStocked(array $rows)
 |     - Retorna false para array vazio
@@ -111,6 +112,16 @@ describe('TradeService::allWithStockedStatus', function () {
         $result = app(TradeService::class)->allWithStockedStatus();
 
         expect($result->first()['is_stocked'])->toBeFalse();
+    });
+
+    it('excludes imported trades from the listing', function () {
+        makeTrade([tradeRow('VISIBLE-KEY-001')]);          // não importada → aparece
+        makeTrade([tradeRow('HIDDEN-KEY-001')])->update(['is_imported' => true]); // importada → some
+
+        $result = app(TradeService::class)->allWithStockedStatus();
+
+        expect($result)->toHaveCount(1)
+            ->and($result->first()['games'][0]['keyCode'])->toBe('VISIBLE-KEY-001');
     });
 
     it('computes is_stocked independently per trade', function () {

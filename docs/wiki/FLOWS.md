@@ -14,7 +14,7 @@ Da identificação de um fornecedor até a key entrar no estoque.
 | 4 | Decidir se comenta | Se vale (re)comentar na lista do supplier | `CommentPolicy` |
 | 5 | Registrar a trade | Persiste a lista ofertada e a data do comentário | `Trade` |
 | 6 | Negociar | Acerto final de preço com o supplier | manual, na Steam |
-| 7 | Registrar as keys | Entrada no estoque, com `individual_cost` rateado pelo lote | `RegisterKeyUseCase` / `ImportKeysFromXlsxUseCase` |
+| 7 | Importar as keys da trade | Entrada no estoque, com `individual_cost` rateado pelo lote — **único** caminho de entrada de keys | `POST /trades/{trade}/import` → `RegisterKeyUseCase` |
 
 ### Quando o fluxo para antes do fim
 
@@ -34,7 +34,9 @@ Da identificação de um fornecedor até a key entrar no estoque.
 
 **Pontos que costumam escapar:**
 - Os 70% valem só na prospecção automática — a negociação manual usa a margem que fizer sentido no caso.
-- `individual_cost` sai do rateio do lote inteiro da trade (proporcional ao income de cada jogo) e **nunca é recalculado** depois do registro.
+- `individual_cost` sai do rateio do lote inteiro da trade (proporcional ao income de cada jogo). Se o `market_price` de uma key for editado depois, o custo e os lucros de compra do **lote inteiro** são recalculados (ver [docs/adr/0004](../adr/0004-recalculate-trade-on-key-edit.md)).
+- Importar as keys por uma trade (`POST /trades/{trade}/import`) grava o `trade_id` nas keys e marca a trade como `is_imported` — ela some da aba de Trades mas **permanece no banco** (não é excluída), para o vínculo `trade_id` seguir válido.
+- A importação é **tudo ou nada**: se qualquer key do lote falhar, nenhuma é cadastrada e a trade continua na aba, com todos os erros marcados de uma vez nas linhas correspondentes — evita reimportar em partes e um rateio de custo calculado sobre um lote incompleto.
 
 ## Fluxo de venda
 

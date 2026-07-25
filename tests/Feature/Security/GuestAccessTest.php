@@ -127,24 +127,12 @@ describe('Guest — public routes return 200', function () {
 
 describe('Guest — mutations return 403', function () {
 
-    it('blocks POST /keys', function () {
-        $this->postJson('/keys', ['games' => []])->assertStatus(403);
-    });
-
-    it('blocks PUT /keys/1', function () {
-        $this->putJson('/keys/1', [])->assertStatus(403);
-    });
-
     it('blocks DELETE /keys/1', function () {
         $this->deleteJson('/keys/1')->assertStatus(403);
     });
 
     it('blocks DELETE /keys (bulk)', function () {
         $this->deleteJson('/keys', ['games' => []])->assertStatus(403);
-    });
-
-    it('blocks POST /keys/import', function () {
-        $this->postJson('/keys/import', [])->assertStatus(403);
     });
 
     it('blocks GET /trades', function () {
@@ -165,6 +153,15 @@ describe('Guest — mutations return 403', function () {
 });
 
 // PUT/DELETE/execute usam route model binding — precisa de registro existente para o middleware disparar antes do 404
+describe('Guest — key mutations with model binding return 403', function () {
+
+    beforeEach(fn () => seedGuestKey());
+
+    it('blocks PUT /keys/1', function () {
+        $this->putJson('/keys/1', [])->assertStatus(403);
+    });
+});
+
 describe('Guest — supplier mutations with model binding return 403', function () {
 
     beforeEach(function () {

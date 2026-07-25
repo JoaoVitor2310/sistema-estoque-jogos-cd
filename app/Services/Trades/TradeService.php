@@ -16,7 +16,9 @@ class TradeService
      */
     public function allWithStockedStatus(): Collection
     {
+        // Trades já importadas são omitidas (permanecem no banco pelo vínculo keys.trade_id).
         $trades = Trade::with('supplier')
+            ->where('is_imported', false)
             ->orderBy('created_at', 'desc')
             ->get(['id', 'title', 'games', 'date', 'tf2_qty', 'supplier_id', 'created_at', 'message_sent']);
 

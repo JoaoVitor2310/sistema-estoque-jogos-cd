@@ -21,6 +21,7 @@
 |
 */
 
+use App\Models\Trade;
 use App\UseCases\Keys\RegisterKeyUseCase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -41,8 +42,14 @@ function seedRegisterFks(): void
     ]);
 }
 
+/** Trade de origem do lote — obrigatória em todo registro de key. */
+function newTrade(): Trade
+{
+    return Trade::create(['games' => []]);
+}
+
 /**
- * Monta o array de entrada de uma key no mesmo formato que o XLSX produz.
+ * Monta o array de entrada de uma key.
  * market_price = 5.00 → income ≈ 4.45 (tier baixo: 5×0.940 - 0.250)
  */
 function makeGameInput(array $overrides = []): array
@@ -83,28 +90,59 @@ describe('RegisterKeyUseCase', function () {
     // ── Happy path ────────────────────────────────────────────────────────────
 
     it('persists a key and returns it in the result', function () {
-        $result = app(RegisterKeyUseCase::class)->execute([makeGameInput()]);
+        $result = app(RegisterKeyUseCase::class)->execute(newTrade(), [makeGameInput()]);
 
         expect($result['games'])->toHaveCount(1)
             ->and($result['errors'])->toBeEmpty();
     });
 
+    it('links every registered key to the originating trade', function () {
+        $trade = Trade::create(['games' => []]);
+
+        $result = app(RegisterKeyUseCase::class)->execute($trade, [makeGameInput()]);
+
+        expect((int) $result['games'][0]->trade_id)->toBe($trade->id);
+    });
+
+    // ── Ciclo de vida da trade ────────────────────────────────────────────────
+
+    it('marks the trade as imported when the batch has no errors', function () {
+        $trade = Trade::create(['games' => []]);
+
+        app(RegisterKeyUseCase::class)->execute($trade, [makeGameInput()]);
+
+        expect($trade->fresh()->is_imported)->toBeTrue();
+    });
+
+    it('does not mark the trade as imported when a key fails', function () {
+        $trade = Trade::create(['games' => []]);
+
+        // claim_type inválido → ValueError no cast do Eloquent → erro coletado no lote
+        $result = app(RegisterKeyUseCase::class)->execute($trade, [
+            makeGameInput(['key_code' => 'OK-KEY-00001']),
+            makeGameInput(['key_code' => 'BAD-KEY-0002', 'claim_type' => 'INVALID_ENUM']),
+        ]);
+
+        expect($result['errors'])->toHaveCount(1)
+            ->and($trade->fresh()->is_imported)->toBeFalse();
+    });
+
     it('calculates simulated_income based on Gamivo fees', function () {
         // market_price = 5.00 → tier baixo: 5 × (1 - 0.060) - 0.250 = 4.45
-        $result = app(RegisterKeyUseCase::class)->execute([makeGameInput()]);
+        $result = app(RegisterKeyUseCase::class)->execute(newTrade(), [makeGameInput()]);
 
         expect($result['games'][0]->simulated_income)->toEqualWithDelta(4.45, 0.01);
     });
 
     it('calculates individual_cost proportional to income share', function () {
         // Lote de 1 key: ratio = 1.0 → custo = 2.0 × 2.0 × 1.0 = 4.0
-        $result = app(RegisterKeyUseCase::class)->execute([makeGameInput()]);
+        $result = app(RegisterKeyUseCase::class)->execute(newTrade(), [makeGameInput()]);
 
         expect((float) $result['games'][0]->individual_cost)->toEqualWithDelta(4.0, 0.01);
     });
 
     it('formats total_paid as "{tf2_quantity}x TF2 Keys / {count}"', function () {
-        $result = app(RegisterKeyUseCase::class)->execute([
+        $result = app(RegisterKeyUseCase::class)->execute(newTrade(), [
             makeGameInput(['tf2_quantity' => 3.5, 'key_code' => 'KEY-A-00001']),
             makeGameInput(['tf2_quantity' => 3.5, 'key_code' => 'KEY-B-00002']),
         ]);
@@ -115,7 +153,7 @@ describe('RegisterKeyUseCase', function () {
     });
 
     it('populates min_api and max_api', function () {
-        $result = app(RegisterKeyUseCase::class)->execute([makeGameInput()]);
+        $result = app(RegisterKeyUseCase::class)->execute(newTrade(), [makeGameInput()]);
 
         $game = $result['games'][0];
         expect((float) $game->min_api)->toBeGreaterThan(0)
@@ -132,13 +170,13 @@ describe('RegisterKeyUseCase', function () {
             'updated_at' => now(),
         ]));
 
-        $result = app(RegisterKeyUseCase::class)->execute([makeGameInput()]);
+        $result = app(RegisterKeyUseCase::class)->execute(newTrade(), [makeGameInput()]);
 
         expect($result['games'][0]->is_duplicate)->toBeTrue();
     });
 
     it('does not mark is_duplicate when the key code is unique', function () {
-        $result = app(RegisterKeyUseCase::class)->execute([makeGameInput()]);
+        $result = app(RegisterKeyUseCase::class)->execute(newTrade(), [makeGameInput()]);
 
         expect($result['games'][0]->is_duplicate)->toBeFalsy();
     });
@@ -146,7 +184,7 @@ describe('RegisterKeyUseCase', function () {
     // ── Platform identification ───────────────────────────────────────────────
 
     it('identifies Steam platform from the 5-5-5 key format', function () {
-        $result = app(RegisterKeyUseCase::class)->execute([
+        $result = app(RegisterKeyUseCase::class)->execute(newTrade(), [
             makeGameInput(['key_code' => 'ABCDE-12345-FGHIJ']),
         ]);
 
@@ -154,7 +192,7 @@ describe('RegisterKeyUseCase', function () {
     });
 
     it('sets identified_platform to DESCONHECIDO for unrecognized formats', function () {
-        $result = app(RegisterKeyUseCase::class)->execute([
+        $result = app(RegisterKeyUseCase::class)->execute(newTrade(), [
             makeGameInput(['key_code' => 'UNKNOWNFORMATKEY']),
         ]);
 
@@ -162,7 +200,7 @@ describe('RegisterKeyUseCase', function () {
     });
 
     it('includes unidentified-platform count in the message', function () {
-        $result = app(RegisterKeyUseCase::class)->execute([
+        $result = app(RegisterKeyUseCase::class)->execute(newTrade(), [
             makeGameInput(['key_code' => 'UNKNOWNFORMATKEY']),
         ]);
 
@@ -173,7 +211,7 @@ describe('RegisterKeyUseCase', function () {
 
     it('creates the supplier if it does not exist', function () {
         $profile = 'https://steamcommunity.com/id/newvendor';
-        app(RegisterKeyUseCase::class)->execute([makeGameInput(['supplier_url' => $profile])]);
+        app(RegisterKeyUseCase::class)->execute(newTrade(), [makeGameInput(['supplier_url' => $profile])]);
 
         expect(DB::table('suppliers')->where('url', $profile)->exists())->toBeTrue();
     });
@@ -181,7 +219,7 @@ describe('RegisterKeyUseCase', function () {
     it('reuses the same supplier when two keys share the same supplier_url', function () {
         $profile = 'https://steamcommunity.com/id/sameSeller';
 
-        app(RegisterKeyUseCase::class)->execute([
+        app(RegisterKeyUseCase::class)->execute(newTrade(), [
             makeGameInput(['key_code' => 'KEY-X-11111', 'supplier_url' => $profile]),
             makeGameInput(['key_code' => 'KEY-X-22222', 'supplier_url' => $profile]),
         ]);
@@ -198,7 +236,7 @@ describe('RegisterKeyUseCase', function () {
     // ── Game table ────────────────────────────────────────────────────────────
 
     it('creates a game record in the games table', function () {
-        app(RegisterKeyUseCase::class)->execute([makeGameInput(['game_name' => 'Brand New Game'])]);
+        app(RegisterKeyUseCase::class)->execute(newTrade(), [makeGameInput(['game_name' => 'Brand New Game'])]);
 
         expect(DB::table('games')->where('name', 'Brand New Game')->exists())->toBeTrue();
     });
@@ -207,13 +245,13 @@ describe('RegisterKeyUseCase', function () {
         // Jogo já existe com casing diferente
         DB::table('games')->insert(['name' => 'test game', 'region' => null, 'created_at' => now(), 'updated_at' => now()]);
 
-        app(RegisterKeyUseCase::class)->execute([makeGameInput(['game_name' => 'Test Game', 'region' => null])]);
+        app(RegisterKeyUseCase::class)->execute(newTrade(), [makeGameInput(['game_name' => 'Test Game', 'region' => null])]);
 
         expect(DB::table('games')->whereRaw('LOWER("name") = ?', ['test game'])->count())->toBe(1);
     });
 
     it('propagates gamivo_id to the games table when provided', function () {
-        app(RegisterKeyUseCase::class)->execute([
+        app(RegisterKeyUseCase::class)->execute(newTrade(), [
             makeGameInput(['gamivo_id' => 'gam-test-99', 'game_name' => 'Game With Id']),
         ]);
 
@@ -226,7 +264,7 @@ describe('RegisterKeyUseCase', function () {
         // Dois jogos com preços diferentes num mesmo lote de 2.0 TF2 keys
         // income game1 = 5×0.940 - 0.250 = 4.45 ; income game2 = 10×0.920 - 0.400 = 8.80
         // somatorio = 13.25 ; custo total do lote = 2.0 × 2.0 = 4.0
-        $result = app(RegisterKeyUseCase::class)->execute([
+        $result = app(RegisterKeyUseCase::class)->execute(newTrade(), [
             makeGameInput(['key_code' => 'BATCH-KEY-001', 'market_price' => 5.00]),
             makeGameInput(['key_code' => 'BATCH-KEY-002', 'market_price' => 10.00]),
         ]);
@@ -238,34 +276,61 @@ describe('RegisterKeyUseCase', function () {
         expect($cost2)->toBeGreaterThan($cost1);
     });
 
-    // ── Error isolation ───────────────────────────────────────────────────────
+    // ── Atomicidade: tudo ou nada ─────────────────────────────────────────────
 
-    it('collects errors per key without interrupting the remaining batch', function () {
+    it('persists no key at all when one of them fails', function () {
         $validGame = makeGameInput(['key_code' => 'VALID-KEY-001']);
         $invalidGame = makeGameInput([
             'key_code' => 'VALID-KEY-002',
             'claim_type' => 'INVALID_ENUM', // Valor inválido → ValueError ao fazer cast pelo Eloquent
         ]);
 
-        $result = app(RegisterKeyUseCase::class)->execute([$validGame, $invalidGame]);
+        $result = app(RegisterKeyUseCase::class)->execute(newTrade(), [$validGame, $invalidGame]);
 
-        expect($result['games'])->toHaveCount(1)
-            ->and($result['errors'])->toHaveCount(1)
-            ->and($result['errors'][0]['linha'])->toBe(2);
+        // A key válida também é descartada — nada é meio-importado
+        expect($result['games'])->toBeEmpty();
+        expect(DB::table('keys')->count())->toBe(0);
     });
 
-    it('includes error count in the message when errors occur', function () {
+    it('reports every failing line of the batch at once', function () {
+        // Duas linhas ruins → ambos os erros voltam juntos, evitando reimportar em partes
+        $result = app(RegisterKeyUseCase::class)->execute(newTrade(), [
+            makeGameInput(['key_code' => 'OK-KEY-000001']),
+            makeGameInput(['key_code' => 'BAD-KEY-00002', 'claim_type' => 'INVALID_ENUM']),
+            makeGameInput(['key_code' => 'BAD-KEY-00003', 'key_format' => 'INVALID_ENUM']),
+        ]);
+
+        expect($result['errors'])->toHaveCount(2)
+            ->and(array_column($result['errors'], 'line'))->toBe([2, 3]);
+    });
+
+    it('rolls back the side effects on games and suppliers when the batch fails', function () {
+        $result = app(RegisterKeyUseCase::class)->execute(newTrade(), [
+            makeGameInput([
+                'key_code' => 'BAD-KEY-00001',
+                'game_name' => 'Jogo Que Nao Deve Existir',
+                'supplier_url' => 'https://steamcommunity.com/id/naoDeveExistir',
+                'claim_type' => 'INVALID_ENUM',
+            ]),
+        ]);
+
+        expect($result['errors'])->toHaveCount(1);
+        expect(DB::table('games')->where('name', 'Jogo Que Nao Deve Existir')->exists())->toBeFalse();
+        expect(DB::table('suppliers')->where('url', 'https://steamcommunity.com/id/naoDeveExistir')->exists())->toBeFalse();
+    });
+
+    it('states that nothing was registered in the message when errors occur', function () {
         $invalidGame = makeGameInput([
             'claim_type' => 'INVALID_ENUM', // Valor inválido → ValueError ao fazer cast pelo Eloquent
         ]);
 
-        $result = app(RegisterKeyUseCase::class)->execute([$invalidGame]);
+        $result = app(RegisterKeyUseCase::class)->execute(newTrade(), [$invalidGame]);
 
-        expect($result['message'])->toContain('erro');
+        expect($result['message'])->toContain('Nenhuma key foi cadastrada');
     });
 
     it('returns an empty errors list when all keys succeed', function () {
-        $result = app(RegisterKeyUseCase::class)->execute([makeGameInput()]);
+        $result = app(RegisterKeyUseCase::class)->execute(newTrade(), [makeGameInput()]);
 
         expect($result['errors'])->toBeEmpty();
     });
