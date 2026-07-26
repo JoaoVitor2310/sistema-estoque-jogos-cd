@@ -26,8 +26,27 @@ class CreateTradeUseCase
             'title' => ($data['title'] ?? null) ?: ($supplier?->name ?: null),
             'date' => $this->parseDate($data['date'] ?? null) ?? now()->format('Y-m-d'),
             'tf2_qty' => ($data['tf2Qty'] ?? null) ?: null,
-            'games' => $data['games'] ?? [],
+            // Trade nasce com uma linha em branco para o usuário editar direto;
+            // sem isso o card apareceria vazio e obrigaria clicar em "+ Linha" antes.
+            'games' => $data['games'] ?? [self::emptyRow()],
         ]);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private static function emptyRow(): array
+    {
+        return [
+            'name' => '',
+            'marketPriceRaw' => '',
+            'bundle' => '',
+            'expiry' => '',
+            'popularity' => '',
+            'regionLock' => '',
+            'keyCode' => '',
+            'gamivoId' => '',
+        ];
     }
 
     private function parseDate(?string $date): ?string

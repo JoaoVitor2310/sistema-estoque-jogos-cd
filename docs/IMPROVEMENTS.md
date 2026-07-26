@@ -10,16 +10,6 @@ Ordem: roadmap/qualidade/features primeiro, dívida técnica de code-review no f
 
 ---
 
-## Paginação/filtros na aba de Trades — exibir trades importadas
-
-**Onde:** `app/Services/Trades/TradeService.php::allWithStockedStatus()`, `resources/js/Pages/Trades.vue`.
-
-Hoje a aba lista só trades com `is_imported = false` (filtro fixo, sem paginação). A ideia é a tela ganhar paginação e um filtro para também exibir as trades já importadas, em vez de escondê-las incondicionalmente.
-
-**Origem:** decisão ao introduzir `trades.is_imported` (2026-07-24).
-
----
-
 ## Qualidade de código — endurecer o PHPStan
 
 **Onde:** `phpstan.neon`, `composer.json`.

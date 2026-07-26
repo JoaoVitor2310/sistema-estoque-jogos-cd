@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::table('trades', function (Blueprint $table) {
             // Marca que as keys da trade já foram importadas. A trade não é excluída
             // ao importar, para manter keys.trade_id válido (ver docs/adr/0004);
-            // TradeService::allWithStockedStatus omite as já importadas.
+            // TradeService::paginate esconde importadas no default (view=open).
             $table->boolean('is_imported')->default(false)->after('message_sent');
         });
     }

@@ -291,10 +291,10 @@ Chaves usadas: `gamivoPercentualMenor`, `gamivoFixoMenor`, `gamivoPercentualMaio
 ### 6. Suppliers e Trades (`Supplier`/`Trade` → tabelas `suppliers`/`trades`)
 - `Supplier` — fornecedor Steam. Campos: `steam_id`, `url`, `region`, `initial_offer_pct`, `is_added` (marcado manualmente como adicionado à lista de trade), `has_traded`, `category` (enum `SupplierCategory`: `vip` | `blocked`)
 - `Trade` — registro de uma lista de jogos comentada/ofertada a um supplier. Campos: `supplier_id`, `list_code`, `last_commented_at`, `title`, `date`, `message_sent`, `is_imported`, `tf2_qty`, `games` (JSON). `Trade hasMany Key` via `keys.trade_id` — as keys efetivamente compradas daquele lote (populado no `POST /trades/{trade}/import`)
-  - `is_imported` — importar as keys da trade (sem erros) marca `is_imported = true`. A aba de Trades (`TradeService::allWithStockedStatus`) só lista trades **não** importadas — a trade importada some da tela mas **permanece no banco**, para o vínculo `keys.trade_id` continuar válido (não excluir a trade após importar). Ver [`docs/adr/0004`](docs/adr/0004-recalculate-trade-on-key-edit.md)
+  - `is_imported` — importar as keys da trade (sem erros) marca `is_imported = true`. A trade importada permanece no banco (o vínculo `keys.trade_id` continua válido — não excluir a trade após importar). A aba de Trades usa `TradeService::paginate(filters, sort, dir, perPage)` com o filtro `view` (`open`/`imported`/`all`); default `open` esconde importadas — comportamento equivalente ao histórico. Ver [`docs/adr/0004`](docs/adr/0004-recalculate-trade-on-key-edit.md)
 - Fluxo: `ProspectSupplierUseCase` avalia a lucratividade dos jogos do supplier (`IncomeCalculator` + `OfferCalculator`, margem `OfferCalculator::NEW_SUPPLIER_PROFIT_PERCENT` = 70%), decide comentar via `Domain/Trades/CommentPolicy` (recomenta se os jogos mudaram desde a última vez — `TradeGameComparison::hasChanged()` — ou se já passaram `CommentPolicy::INTERVAL_DAYS` = 14 dias sem comentário) e persiste um `Trade`
 - `ExecuteSupplierListUseCase` → POST `price_researcher` (`/api/lists/run`) para rodar a lista de jogos do supplier
-- `TradeService::isStocked()` / `allWithStockedStatus()` — indica se algum `key_code` da trade já está no estoque (`keys`)
+- `TradeService::paginate()` — retorna um `LengthAwarePaginator` com filtros (`view`, `date_from/to`, `tf2_min/max`), ordenação por whitelist (`date`, `tf2_qty` — sempre com `id DESC` como tiebreaker) e paginação (20/página). `is_imported` é a fonte única de "trade já foi importada"
 - *Absorveu os antigos `Vip`/`VipList`* — tabelas `vips`/`vip_lists` e `ExecuteVipListUseCase`/`VipListExecutionService` foram removidos (migration `2026_07_05_000001_drop_vips_and_vip_lists_tables.php`); `VipList` virou `Trade` (`supplier_id` + `list_code`), `Vip.id_steam` virou `suppliers.steam_id`.
 
 ### 7. Autorização
@@ -412,7 +412,7 @@ app/
 │   │   ├── GameService.php
 │   │   └── GameRepository.php
 │   ├── Suppliers/SupplierService.php
-│   ├── Trades/TradeService.php          # is_stocked, listagem com supplier eager-loaded
+│   ├── Trades/TradeService.php          # paginate() com filtros/sort/paginação; is_stocked scoped-to-page
 │   ├── ResourceService.php             # conversão de moedas para Assets
 │   └── External/
 │       ├── GamivoApiService.php

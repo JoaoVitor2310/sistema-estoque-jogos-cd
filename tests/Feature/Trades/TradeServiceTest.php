@@ -5,173 +5,186 @@
 | TradeService — testes de caracterização
 |--------------------------------------------------------------------------
 |
-| Cobre os dois métodos públicos do serviço:
-|
-|   allWithStockedStatus()
-|     - Retorna trades em ordem decrescente de criação (DESC)
-|     - is_stocked = false quando nenhum keyCode da trade existe em `keys`
-|     - is_stocked = true  quando ao menos um keyCode existe em `keys`
-|     - Trades sem rows retornam is_stocked = false
-|     - Trades importadas (is_imported) não aparecem na listagem
-|
-|   isStocked(array $rows)
-|     - Retorna false para array vazio
-|     - Retorna false quando nenhum keyCode bate com `keys`
-|     - Retorna true  quando ao menos um keyCode existe em `keys`
-|     - Ignora rows cujo keyCode é null ou string vazia
+|   paginate(filters, sortField, sortDir, perPage)
+|     - default (view=open) esconde importadas, ordena por date DESC + id DESC
+|     - view=imported retorna só importadas
+|     - view=all retorna as duas
+|     - date_from / date_to filtram sobre trades.date
+|     - tf2_min / tf2_max filtram sobre trades.tf2_qty
+|     - sort=tf2_qty asc ordena corretamente
+|     - is_imported vem no shape retornado
 |
 */
 
 use App\Models\Trade;
 use App\Services\Trades\TradeService;
-use Illuminate\Support\Facades\DB;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** Insere uma key mínima na tabela `keys` com o key_code informado. */
-function seedKey(string $keyCode): void
+function makeTrade(array $attrs = []): Trade
 {
-    DB::table('suppliers')->insertOrIgnore([
-        'id' => 1,
-        'url' => 'https://steamcommunity.com/id/seed',
-        'created_at' => now(),
-        'updated_at' => now(),
-    ]);
-
-    DB::table('keys')->insert([
-        'key_code' => $keyCode,
-        'supplier_id' => 1,
-        'supplier_url' => 'https://steamcommunity.com/id/seed',
-        'game_name' => 'Seed Game',
-        'market_price' => 5.00,
-        'acquired_at' => now()->toDateString(),
-        'created_at' => now(),
-        'updated_at' => now(),
-    ]);
+    return Trade::create(array_merge(['games' => []], $attrs));
 }
 
-/** Cria uma Trade com um ou mais rows no banco. */
-function makeTrade(array $rows = [], ?string $createdAt = null): Trade
-{
-    $trade = Trade::create(['games' => $rows]);
+// ── paginate ──────────────────────────────────────────────────────────────────
 
-    if ($createdAt) {
-        $trade->forceFill(['created_at' => $createdAt])->save();
-    }
+describe('TradeService::paginate — default view', function () {
 
-    return $trade;
-}
+    it('hides imported trades by default (view=open)', function () {
+        makeTrade(['date' => '2025-06-01']);
+        makeTrade(['date' => '2025-06-02', 'is_imported' => true]);
 
-/** Row mínima no formato que o frontend persiste. */
-function tradeRow(string $keyCode, string $name = 'Test Game'): array
-{
-    return ['keyCode' => $keyCode, 'name' => $name, 'marketPriceRaw' => '5.00'];
-}
+        $page = app(TradeService::class)->paginate();
 
-// ── allWithStockedStatus ──────────────────────────────────────────────────────
-
-describe('TradeService::allWithStockedStatus', function () {
-
-    it('returns trades in descending order of creation', function () {
-        makeTrade([], '2025-01-01 10:00:00');
-        makeTrade([], '2025-03-01 10:00:00');
-        makeTrade([], '2025-02-01 10:00:00');
-
-        $result = app(TradeService::class)->allWithStockedStatus();
-
-        $dates = $result->pluck('created_at')->map(fn ($d) => substr($d, 0, 10))->values();
-
-        expect($dates[0])->toBe('2025-03-01')
-            ->and($dates[1])->toBe('2025-02-01')
-            ->and($dates[2])->toBe('2025-01-01');
+        expect($page->total())->toBe(1);
+        expect($page->items()[0]['is_imported'])->toBeFalse();
     });
 
-    it('returns is_stocked = false when no key_code exists in keys table', function () {
-        makeTrade([tradeRow('AAAAA-11111-BBBBB')]);
+    it('orders by date DESC then id DESC (tiebreaker)', function () {
+        $older = makeTrade(['date' => '2025-01-01']);
+        $newerA = makeTrade(['date' => '2025-03-01']);
+        $newerB = makeTrade(['date' => '2025-03-01']);
 
-        $result = app(TradeService::class)->allWithStockedStatus();
+        $items = app(TradeService::class)->paginate()->items();
+        $ids = array_map(fn ($t) => $t['id'], $items);
 
-        expect($result->first()['is_stocked'])->toBeFalse();
+        // Mesma data → id DESC decide (newerB antes de newerA)
+        expect($ids)->toBe([$newerB->id, $newerA->id, $older->id]);
     });
 
-    it('returns is_stocked = true when at least one key_code is in the keys table', function () {
-        seedKey('AAAAA-11111-BBBBB');
-        makeTrade([
-            tradeRow('AAAAA-11111-BBBBB'),
-            tradeRow('CCCCC-33333-DDDDD'),
-        ]);
+    it('exposes is_imported flag in the response shape', function () {
+        makeTrade(['date' => '2025-06-01']);
 
-        $result = app(TradeService::class)->allWithStockedStatus();
+        $item = app(TradeService::class)->paginate()->items()[0];
 
-        expect($result->first()['is_stocked'])->toBeTrue();
-    });
-
-    it('returns is_stocked = false for a trade with no rows', function () {
-        makeTrade([]);
-
-        $result = app(TradeService::class)->allWithStockedStatus();
-
-        expect($result->first()['is_stocked'])->toBeFalse();
-    });
-
-    it('excludes imported trades from the listing', function () {
-        makeTrade([tradeRow('VISIBLE-KEY-001')]);          // não importada → aparece
-        makeTrade([tradeRow('HIDDEN-KEY-001')])->update(['is_imported' => true]); // importada → some
-
-        $result = app(TradeService::class)->allWithStockedStatus();
-
-        expect($result)->toHaveCount(1)
-            ->and($result->first()['games'][0]['keyCode'])->toBe('VISIBLE-KEY-001');
-    });
-
-    it('computes is_stocked independently per trade', function () {
-        seedKey('STOCKED-KEY-001');
-
-        makeTrade([tradeRow('STOCKED-KEY-001')]);
-        makeTrade([tradeRow('NOT-IN-DB-KEY-X')]);
-
-        $result = app(TradeService::class)->allWithStockedStatus();
-
-        // Ordem DESC — a segunda inserida vem primeiro
-        $stockedFlags = $result->pluck('is_stocked')->values();
-
-        expect($stockedFlags)->toContain(true)
-            ->and($stockedFlags)->toContain(false);
+        expect($item)->toHaveKey('is_imported')
+            ->and($item['is_imported'])->toBeFalse();
     });
 });
 
-// ── isStocked ─────────────────────────────────────────────────────────────────
+describe('TradeService::paginate — view filter', function () {
 
-describe('TradeService::isStocked', function () {
+    it('returns only imported trades when view=imported', function () {
+        makeTrade(['date' => '2025-06-01']);
+        $imported = makeTrade(['date' => '2025-06-02', 'is_imported' => true]);
 
-    it('returns false for an empty rows array', function () {
-        expect(app(TradeService::class)->isStocked([]))->toBeFalse();
+        $page = app(TradeService::class)->paginate(['view' => 'imported']);
+
+        expect($page->total())->toBe(1);
+        expect($page->items()[0]['id'])->toBe($imported->id);
     });
 
-    it('returns false when no keyCode matches the keys table', function () {
-        $rows = [tradeRow('XXXXX-99999-YYYYY')];
+    it('returns both when view=all', function () {
+        makeTrade(['date' => '2025-06-01']);
+        makeTrade(['date' => '2025-06-02', 'is_imported' => true]);
 
-        expect(app(TradeService::class)->isStocked($rows))->toBeFalse();
+        $page = app(TradeService::class)->paginate(['view' => 'all']);
+
+        expect($page->total())->toBe(2);
+    });
+});
+
+describe('TradeService::paginate — date range', function () {
+
+    it('filters by date_from', function () {
+        makeTrade(['date' => '2025-05-01']);
+        makeTrade(['date' => '2025-06-15']);
+
+        $page = app(TradeService::class)->paginate(['date_from' => '2025-06-01']);
+
+        expect($page->total())->toBe(1);
     });
 
-    it('returns true when at least one keyCode exists in the keys table', function () {
-        seedKey('MATCH-KEY-00001');
+    it('filters by date_to', function () {
+        makeTrade(['date' => '2025-05-01']);
+        makeTrade(['date' => '2025-06-15']);
 
-        $rows = [
-            tradeRow('NO-MATCH-00000'),
-            tradeRow('MATCH-KEY-00001'),
-        ];
+        $page = app(TradeService::class)->paginate(['date_to' => '2025-06-01']);
 
-        expect(app(TradeService::class)->isStocked($rows))->toBeTrue();
+        expect($page->total())->toBe(1);
     });
 
-    it('ignores rows with null or empty keyCode', function () {
-        $rows = [
-            ['keyCode' => null, 'name' => 'Game A'],
-            ['keyCode' => '',   'name' => 'Game B'],
-            ['name' => 'Game C'],                     // sem campo keyCode
-        ];
+    it('filters by both date_from and date_to', function () {
+        makeTrade(['date' => '2025-04-01']);
+        makeTrade(['date' => '2025-06-15']);
+        makeTrade(['date' => '2025-08-01']);
 
-        expect(app(TradeService::class)->isStocked($rows))->toBeFalse();
+        $page = app(TradeService::class)->paginate([
+            'date_from' => '2025-05-01',
+            'date_to' => '2025-07-01',
+        ]);
+
+        expect($page->total())->toBe(1);
+    });
+});
+
+describe('TradeService::paginate — tf2 range', function () {
+
+    it('filters by tf2_min', function () {
+        makeTrade(['date' => '2025-06-01', 'tf2_qty' => 3.0]);
+        makeTrade(['date' => '2025-06-02', 'tf2_qty' => 12.5]);
+
+        $page = app(TradeService::class)->paginate(['tf2_min' => '10']);
+
+        expect($page->total())->toBe(1);
+    });
+
+    it('filters by tf2_max', function () {
+        makeTrade(['date' => '2025-06-01', 'tf2_qty' => 3.0]);
+        makeTrade(['date' => '2025-06-02', 'tf2_qty' => 12.5]);
+
+        $page = app(TradeService::class)->paginate(['tf2_max' => '10']);
+
+        expect($page->total())->toBe(1);
+    });
+
+    it('accepts decimal values', function () {
+        makeTrade(['date' => '2025-06-01', 'tf2_qty' => 0.5]);
+        makeTrade(['date' => '2025-06-02', 'tf2_qty' => 1.25]);
+
+        $page = app(TradeService::class)->paginate([
+            'tf2_min' => '1.0',
+            'tf2_max' => '1.5',
+        ]);
+
+        expect($page->total())->toBe(1);
+    });
+});
+
+describe('TradeService::paginate — sort', function () {
+
+    it('sorts by tf2_qty ascending', function () {
+        makeTrade(['date' => '2025-06-01', 'tf2_qty' => 10.0]);
+        makeTrade(['date' => '2025-06-01', 'tf2_qty' => 2.0]);
+        makeTrade(['date' => '2025-06-01', 'tf2_qty' => 5.0]);
+
+        $items = app(TradeService::class)->paginate([], 'tf2_qty', 'asc')->items();
+        $qtys = array_map(fn ($t) => (float) $t['tf2_qty'], $items);
+
+        expect($qtys)->toBe([2.0, 5.0, 10.0]);
+    });
+
+    it('falls back to date when sort field is not whitelisted', function () {
+        makeTrade(['date' => '2025-06-01']);
+        makeTrade(['date' => '2025-06-02']);
+
+        // "title" não é whitelisted — cai no default `date desc`
+        $items = app(TradeService::class)->paginate([], 'title', 'desc')->items();
+        expect($items[0]['date'])->toBe('02/06/2025');
+    });
+});
+
+describe('TradeService::paginate — pagination', function () {
+
+    it('respects perPage', function () {
+        for ($i = 1; $i <= 25; $i++) {
+            makeTrade(['date' => '2025-06-01']);
+        }
+
+        $page = app(TradeService::class)->paginate([], 'date', 'desc', 10);
+
+        expect($page->total())->toBe(25);
+        expect($page->perPage())->toBe(10);
+        expect(count($page->items()))->toBe(10);
     });
 });

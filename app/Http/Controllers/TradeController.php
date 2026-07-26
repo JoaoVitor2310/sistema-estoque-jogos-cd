@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Domain\Pricing\OfferCalculator;
 use App\Http\Requests\ImportTradeKeysRequest;
+use App\Http\Requests\IndexTradesRequest;
 use App\Http\Requests\StoreListTradeRequest;
 use App\Http\Requests\UpdateTradeRequest;
 use App\Models\Trade;
@@ -28,12 +29,27 @@ class TradeController extends Controller
         private readonly StoreListTradeUseCase $storeListTradeUseCase,
     ) {}
 
-    public function show(): Response
+    public function show(IndexTradesRequest $request): Response
     {
         $fee = $this->calculationService->getMarketplaceFee();
 
+        $paginator = $this->tradeService->paginate(
+            $request->filters(),
+            $request->sortField(),
+            $request->sortDir(),
+        );
+
         return Inertia::render('Trades', [
-            'trades' => $this->tradeService->allWithStockedStatus(),
+            'trades' => $paginator,
+            'filters' => [
+                'view' => $request->filters()['view'],
+                'date_from' => $request->filters()['date_from'],
+                'date_to' => $request->filters()['date_to'],
+                'tf2_min' => $request->filters()['tf2_min'],
+                'tf2_max' => $request->filters()['tf2_max'],
+                'sort' => $request->sortField(),
+                'dir' => $request->sortDir(),
+            ],
             'tf2Price' => $this->calculationService->getTf2EuroPrice(),
             'fees' => [
                 'percentLow' => $fee->percentLow,
@@ -67,9 +83,7 @@ class TradeController extends Controller
     {
         $this->updateTradeUseCase->execute($trade, $request->validated());
 
-        return response()->json([
-            'is_stocked' => $this->tradeService->isStocked($trade->games ?? []),
-        ], 200);
+        return response()->json([], 200);
     }
 
     public function destroy(Trade $trade): JsonResponse
