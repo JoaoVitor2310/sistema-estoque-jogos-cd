@@ -11,7 +11,7 @@
 |   - filtros date_from / date_to / tf2_min / tf2_max
 |   - sort=tf2_qty & dir=asc
 |   - sort/dir/view fora da whitelist → 422
-|   - paginação: per_page default 20, page=2 traz os próximos
+|   - paginação: per_page default 40, page=2 traz os próximos
 |
 | Segurança de guest é coberta em tests/Feature/Security/GuestAccessTest.php
 | (bloco "blocks GET /trades" já existente).
@@ -150,6 +150,52 @@ describe('GET /trades — tf2 range', function () {
     });
 });
 
+describe('GET /trades — text search', function () {
+
+    it('filters by title substring', function () {
+        seedIndexTrade(['date' => '2025-06-01', 'title' => 'Steam Summer Deal']);
+        seedIndexTrade(['date' => '2025-06-02', 'title' => 'Winter']);
+
+        $this->actingAs(makeAuthorizedIndexUser())
+            ->get('/trades?title_search=summer')
+            ->assertInertia(fn ($page) => $page->where('trades.total', 1));
+    });
+
+    it('filters by game name substring inside games JSON', function () {
+        seedIndexTrade([
+            'date' => '2025-06-01',
+            'games' => [['name' => 'Half-Life 2', 'marketPriceRaw' => '5.00', 'keyCode' => 'AAA']],
+        ]);
+        seedIndexTrade([
+            'date' => '2025-06-02',
+            'games' => [['name' => 'Cyberpunk', 'marketPriceRaw' => '10.00', 'keyCode' => 'BBB']],
+        ]);
+
+        $this->actingAs(makeAuthorizedIndexUser())
+            ->get('/trades?game_search=half')
+            ->assertInertia(fn ($page) => $page->where('trades.total', 1));
+    });
+
+    it('filters by supplier url substring', function () {
+        $supplierA = DB::table('suppliers')->insertGetId([
+            'url' => 'https://steamcommunity.com/id/alice',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $supplierB = DB::table('suppliers')->insertGetId([
+            'url' => 'https://steamcommunity.com/id/bob',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        seedIndexTrade(['date' => '2025-06-01', 'supplier_id' => $supplierA]);
+        seedIndexTrade(['date' => '2025-06-02', 'supplier_id' => $supplierB]);
+
+        $this->actingAs(makeAuthorizedIndexUser())
+            ->get('/trades?supplier_search=alice')
+            ->assertInertia(fn ($page) => $page->where('trades.total', 1));
+    });
+});
+
 describe('GET /trades — sort', function () {
 
     it('sorts by tf2_qty asc when requested', function () {
@@ -196,18 +242,18 @@ describe('GET /trades — validation', function () {
 
 describe('GET /trades — pagination', function () {
 
-    it('paginates 20 per page by default and page=2 brings the next batch', function () {
-        for ($i = 1; $i <= 25; $i++) {
+    it('paginates 40 per page by default and page=2 brings the next batch', function () {
+        for ($i = 1; $i <= 45; $i++) {
             seedIndexTrade(['date' => '2025-06-01']);
         }
 
         $this->actingAs(makeAuthorizedIndexUser())
             ->get('/trades')
             ->assertInertia(fn ($page) => $page
-                ->where('trades.total', 25)
-                ->where('trades.per_page', 20)
+                ->where('trades.total', 45)
+                ->where('trades.per_page', 40)
                 ->where('trades.current_page', 1)
-                ->has('trades.data', 20)
+                ->has('trades.data', 40)
             );
 
         $this->actingAs(makeAuthorizedIndexUser())
