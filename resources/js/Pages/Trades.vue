@@ -47,6 +47,9 @@ interface Filters {
   date_to: string | null;
   tf2_min: string | null;
   tf2_max: string | null;
+  title_search: string | null;
+  supplier_search: string | null;
+  game_search: string | null;
   sort: 'date' | 'tf2_qty';
   dir: 'asc' | 'desc';
 }
@@ -211,9 +214,14 @@ function resetFilters() {
     date_to: null,
     tf2_min: null,
     tf2_max: null,
+    title_search: null,
+    supplier_search: null,
+    game_search: null,
     sort: 'date',
     dir: 'desc',
   } satisfies Filters);
+  dateFromPicker.value = null;
+  dateToPicker.value = null;
   applyFilters();
 }
 
@@ -801,6 +809,36 @@ function headerSortIcon(field: Filters['sort']): string {
           >
             Todas
           </button>
+        </div>
+
+        <div class="vr opacity-25 align-self-stretch" />
+
+        <!-- Busca por texto -->
+        <div class="d-flex align-items-center gap-1">
+          <input
+            v-model="localFilters.title_search"
+            type="text"
+            placeholder="Título"
+            class="form-control form-control-sm filter-search"
+            @change="applyFilters()"
+            @keydown.enter.prevent="applyFilters()"
+          />
+          <input
+            v-model="localFilters.supplier_search"
+            type="text"
+            placeholder="URL fornecedor"
+            class="form-control form-control-sm filter-search"
+            @change="applyFilters()"
+            @keydown.enter.prevent="applyFilters()"
+          />
+          <input
+            v-model="localFilters.game_search"
+            type="text"
+            placeholder="Nome do jogo"
+            class="form-control form-control-sm filter-search"
+            @change="applyFilters()"
+            @keydown.enter.prevent="applyFilters()"
+          />
         </div>
 
         <div class="vr opacity-25 align-self-stretch" />
@@ -1487,6 +1525,11 @@ function headerSortIcon(field: Filters['sort']): string {
 
 .filter-tf2 {
   width: 80px;
+  font-size: 0.8rem;
+}
+
+.filter-search {
+  width: 160px;
   font-size: 0.8rem;
 }
 

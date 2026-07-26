@@ -18,6 +18,7 @@
 
 use App\Models\Trade;
 use App\Services\Trades\TradeService;
+use Illuminate\Support\Facades\DB;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -148,6 +149,72 @@ describe('TradeService::paginate — tf2 range', function () {
         ]);
 
         expect($page->total())->toBe(1);
+    });
+});
+
+describe('TradeService::paginate — text search', function () {
+
+    it('filters trades by title using case-insensitive substring', function () {
+        makeTrade(['date' => '2025-06-01', 'title' => 'Steam Summer Deal']);
+        makeTrade(['date' => '2025-06-02', 'title' => 'Winter clearance']);
+
+        $page = app(TradeService::class)->paginate(['title_search' => 'summer']);
+
+        expect($page->total())->toBe(1);
+        expect($page->items()[0]['title'])->toBe('Steam Summer Deal');
+    });
+
+    it('filters trades by supplier url using case-insensitive substring', function () {
+        $supplierA = DB::table('suppliers')->insertGetId([
+            'url' => 'https://steamcommunity.com/id/alice',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $supplierB = DB::table('suppliers')->insertGetId([
+            'url' => 'https://steamcommunity.com/id/bob',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        makeTrade(['date' => '2025-06-01', 'supplier_id' => $supplierA]);
+        makeTrade(['date' => '2025-06-02', 'supplier_id' => $supplierB]);
+
+        $page = app(TradeService::class)->paginate(['supplier_search' => 'ALICE']);
+
+        expect($page->total())->toBe(1);
+        expect($page->items()[0]['supplier']['url'])->toBe('https://steamcommunity.com/id/alice');
+    });
+
+    it('ignores empty/whitespace text searches', function () {
+        makeTrade(['date' => '2025-06-01', 'title' => 'anything']);
+
+        $page = app(TradeService::class)->paginate([
+            'title_search' => '   ',
+            'supplier_search' => '',
+            'game_search' => '  ',
+        ]);
+
+        expect($page->total())->toBe(1);
+    });
+
+    it('filters by game name inside the games JSON (case-insensitive)', function () {
+        makeTrade([
+            'date' => '2025-06-01',
+            'games' => [
+                ['name' => 'Half-Life 2', 'marketPriceRaw' => '5.00', 'keyCode' => 'AAA'],
+                ['name' => 'Portal', 'marketPriceRaw' => '3.00', 'keyCode' => 'BBB'],
+            ],
+        ]);
+        makeTrade([
+            'date' => '2025-06-02',
+            'games' => [
+                ['name' => 'Cyberpunk 2077', 'marketPriceRaw' => '10.00', 'keyCode' => 'CCC'],
+            ],
+        ]);
+
+        $page = app(TradeService::class)->paginate(['game_search' => 'portal']);
+
+        expect($page->total())->toBe(1);
+        expect($page->items()[0]['games'][1]['name'])->toBe('Portal');
     });
 });
 
