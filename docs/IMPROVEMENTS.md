@@ -10,6 +10,58 @@ Ordem: roadmap/qualidade/features primeiro, dívida técnica de code-review no f
 
 ---
 
+## FinancialMonth — fechamento mensal e distribuição entre sócios (spec)
+
+**Onde:** domínio novo e isolado — `app/Domain/Financial/` (a criar: `FinancialMonthCalculator`), `app/UseCases/Financial/` (`CloseMonthUseCase`, `ReopenFinancialMonthUseCase`), `app/Models/` (`FinancialMonth`, `Account`, `Movement`, `Partner`), `app/Http/Controllers/Financial/`, `resources/js/Pages/FinancialMonths.vue`, `routes/web.php`, `database/migrations/`. **Não** tocar em `FinancialService`/`Financial.vue` (dashboard analítico em €, domínio distinto — compartilham só o prefixo).
+
+**Problema:** todo mês os dois sócios reconstroem o financeiro na mão — reúnem entradas/saídas, aplicam uma sequência fixa de descontos e chegam ao saque de cada sócio. Trabalhoso, sem histórico auditável, cada mês recomeça do zero.
+
+**Solução:** domínio `FinancialMonth` (`/financial-months`) onde o mês é montado ao longo do tempo e "fechado" com um clique. Termo falado: "fechamento mensal"; a entidade cobre o ciclo `draft` → `closed`, com `close`/`reopen` como atos.
+
+### Modelo de 3 contas
+Três saldos (`Account`: `principal` / `reinvestment` / `emergency`), cada um com `Movement` (crédito/débito, `category`, justificativa). Saldo da empresa = soma dos três.
+
+- **Principal**: entra faturamento (+ receitas avulsas); saem despesas operacionais, compras reais de TF2 (saída categorizada `qtd × preço`), transferências p/ as caixas e distribuições aos sócios.
+- **Reinvestimento / Emergência**: recebem depósito no fechamento; permitem saque com justificativa a qualquer momento.
+
+### Cascata do fechamento (arredonda cada passo, 2 casas, round-half-up)
+| Passo | Efeito | Exemplo real |
+|---|---|---|
+| Σ Entradas do mês | entrada no Principal | R$ 3.257,03 |
+| − Reserva TF2 (`meta × preço`) | **earmark virtual** — não sai do Principal, só reduz o distribuível e a base dos % | − R$ 1.963,50 |
+| − Σ Saídas operacionais | saídas reais do Principal | − R$ 207,05 |
+| = Saldo base | | R$ 1.086,48 |
+| − Reinvest (20%, config) | transferência real → Reinvestimento | − R$ 217,30 |
+| − Emergência (10%, config) | transferência real → Emergência (10% do saldo **pós-reinvest**) | − R$ 86,92 |
+| = Distribuível ÷ 2 | saídas reais → sócios; **centavo órfão → Sócio 1** | R$ 391,13 cada |
+
+### Decisões-chave
+- **Reserva TF2 = earmark virtual**: subtraída no cálculo (e na base dos %), mas o dinheiro permanece no Principal (protege a verba de compra). Compras reais de TF2 são saída categorizada separada — permite comparar meta vs. gasto real.
+- **Ciclo:** no máximo um `draft` (o corrente). Fechar gera os movimentos (transferências + distribuições), atualiza saldos e cria o próximo `draft` herdando estado.
+- **Carry-forward:** novo draft herda do anterior (taxas, split, nomes, qtd-meta TF2 **+10**, saldos). Sem tabela de settings global — os valores vivem em cada `FinancialMonth` (snapshot → alterar padrão não reescreve histórico).
+- **Bootstrap:** primeiro fechamento tem formulário de estado de abertura (qtd TF2, saldos das 3 contas, taxas iniciais).
+- **Correção:** reabrir só o fechamento **mais recente** (e só se não houver mês fechado depois); reabrir desfaz os movimentos gerados.
+- **Sócios:** exatamente 2, nomes + split configuráveis (padrão 50/50); um deles é o admin (`carcadeals`).
+- **Permissões:** página `RequireAuth`; mutações `CheckPermission`; enums via `Rule::enum()`. Guest bloqueado (cobrir em `GuestAccessTest`).
+- **Moeda:** R$, sem cruzamento com € do dashboard.
+
+### Testes (3 camadas)
+- **Unit** (`tests/Unit/Domain/`): `FinancialMonthCalculator` — cascata inteira com valores literais (números reais: 3.257,03 → 391,13), centavo órfão, half-up por passo, base correta dos % (reinvest sobre pós-despesas, emergência sobre pós-reinvest). Prior-art: `IncomeCalculatorTest`, `MinimumMarginPolicyTest`.
+- **Integration** (`tests/Feature/UseCases/`): `CloseMonthUseCase` (movimentos, depósitos, carry +10, próximo draft) e `ReopenFinancialMonthUseCase` (desfaz movimentos; recusa reabrir o que não é o mais recente). Prior-art: `UpdateTradeUseCaseTest`.
+- **Feature**: contratos HTTP (criar draft, lançar movimento, fechar, reabrir, ver) + validação (422) + acesso. Prior-art: `TradesIndexTest`, `GuestAccessTest`.
+
+### Fora de escopo
+Tela de "Configurações" global; vínculo das compras de TF2 ao domínio de trades/keys; > 2 sócios; scheduler de fechamento; câmbio €↔R$; metas parciais de compra por lote.
+
+### Vocabulário para `CONTEXT.md` (ao implementar)
+`FinancialMonth (fechamento mensal)`, `Account`, `Movement` (entrada/saída), reserva TF2 = earmark, `Partner`; `close`/`reopen` como atos.
+
+**Ação:** por ser multi-sessão, quebrar em tickets tracer-bullet (`/to-tickets`) e implementar por ticket. Atualizar `CLAUDE.md` (domínios/arquitetura), `CONTEXT.md` (vocabulário) e `docs/PRODUCT.md` (regra de negócio da cascata) na entrega.
+
+**Origem:** `/grill-with-docs` → `/to-spec` (2026-07-27); decisões de modelo (3 contas + earmark virtual) validadas com o dono do produto.
+
+---
+
 ## Qualidade de código — endurecer o PHPStan
 
 **Onde:** `phpstan.neon`, `composer.json`.
