@@ -7,8 +7,8 @@ use App\Domain\Financial\ManualMovement;
 
 describe('ManualMovement', function () {
 
-    it('builds an income as a credit into the principal account', function () {
-        $movement = ManualMovement::make(MovementCategory::Income, amount: 3257.03);
+    it('builds an income as a credit into the chosen account', function () {
+        $movement = ManualMovement::make(MovementCategory::Income, AccountType::Principal, amount: 3257.03);
 
         expect($movement->account)->toBe(AccountType::Principal)
             ->and($movement->direction)->toBe(MovementDirection::Credit)
@@ -18,22 +18,29 @@ describe('ManualMovement', function () {
             ->and($movement->unitPrice)->toBeNull();
     });
 
-    it('builds an expense as a debit from the principal account', function () {
-        $movement = ManualMovement::make(MovementCategory::Expense, amount: 207.05);
+    it('accepts an income into an account other than principal', function () {
+        $movement = ManualMovement::make(MovementCategory::Income, AccountType::Emergency, amount: 500.00);
+
+        expect($movement->account)->toBe(AccountType::Emergency)
+            ->and($movement->direction)->toBe(MovementDirection::Credit);
+    });
+
+    it('builds an expense as a debit from the chosen account', function () {
+        $movement = ManualMovement::make(MovementCategory::Expense, AccountType::Principal, amount: 207.05);
 
         expect($movement->account)->toBe(AccountType::Principal)
             ->and($movement->direction)->toBe(MovementDirection::Debit)
             ->and($movement->amount)->toBe(207.05);
     });
 
-    it('builds a tf2 purchase with amount derived from quantity times unit price', function () {
-        $movement = ManualMovement::make(MovementCategory::Tf2Purchase, quantity: 130, unitPrice: 15.10);
+    it('builds a tf2 purchase debiting the tf2 budget', function () {
+        $movement = ManualMovement::make(MovementCategory::Tf2Purchase, quantity: 100, unitPrice: 10.00);
 
-        expect($movement->account)->toBe(AccountType::Principal)
+        expect($movement->account)->toBe(AccountType::Tf2)
             ->and($movement->direction)->toBe(MovementDirection::Debit)
-            ->and($movement->amount)->toBe(1963.00)
-            ->and($movement->quantity)->toBe(130.0)
-            ->and($movement->unitPrice)->toBe(15.10);
+            ->and($movement->amount)->toBe(1000.00)
+            ->and($movement->quantity)->toBe(100.0)
+            ->and($movement->unitPrice)->toBe(10.00);
     });
 
     it('rounds the tf2 purchase amount half-up to the cent', function () {
@@ -43,40 +50,43 @@ describe('ManualMovement', function () {
         expect($movement->amount)->toBe(25.33);
     });
 
-    it('builds a fund withdrawal as a debit from the chosen fund', function () {
-        $fromReinvestment = ManualMovement::make(
-            MovementCategory::FundWithdrawal,
-            amount: 100.00,
-            fund: AccountType::Reinvestment,
-        );
-        $fromEmergency = ManualMovement::make(
-            MovementCategory::FundWithdrawal,
-            amount: 50.00,
-            fund: AccountType::Emergency,
-        );
+    it('requires a justification to debit a reserve fund', function () {
+        expect(fn () => ManualMovement::make(MovementCategory::Expense, AccountType::Emergency, amount: 100.00))
+            ->toThrow(InvalidArgumentException::class);
 
-        expect($fromReinvestment->account)->toBe(AccountType::Reinvestment)
-            ->and($fromReinvestment->direction)->toBe(MovementDirection::Debit)
-            ->and($fromEmergency->account)->toBe(AccountType::Emergency);
+        expect(fn () => ManualMovement::make(MovementCategory::Expense, AccountType::Reinvestment, amount: 100.00, description: '  '))
+            ->toThrow(InvalidArgumentException::class);
     });
 
-    it('rejects a fund withdrawal targeting the principal account', function () {
-        expect(fn () => ManualMovement::make(
-            MovementCategory::FundWithdrawal,
+    it('allows debiting a reserve fund when justified', function () {
+        $movement = ManualMovement::make(
+            MovementCategory::Expense,
+            AccountType::Emergency,
             amount: 100.00,
-            fund: AccountType::Principal,
-        ))->toThrow(InvalidArgumentException::class);
+            description: 'Conserto emergencial',
+        );
+
+        expect($movement->account)->toBe(AccountType::Emergency)
+            ->and($movement->direction)->toBe(MovementDirection::Debit);
     });
 
-    it('rejects a fund withdrawal without a target fund', function () {
-        expect(fn () => ManualMovement::make(MovementCategory::FundWithdrawal, amount: 100.00))
+    it('does not require a justification to credit a reserve fund', function () {
+        $movement = ManualMovement::make(MovementCategory::Income, AccountType::Emergency, amount: 100.00);
+
+        expect($movement->direction)->toBe(MovementDirection::Credit);
+    });
+
+    it('requires an account for income and expense', function () {
+        expect(fn () => ManualMovement::make(MovementCategory::Income, amount: 100.00))
+            ->toThrow(InvalidArgumentException::class);
+        expect(fn () => ManualMovement::make(MovementCategory::Expense, amount: 100.00))
             ->toThrow(InvalidArgumentException::class);
     });
 
     it('rejects a non-positive amount', function () {
-        expect(fn () => ManualMovement::make(MovementCategory::Income, amount: 0))
+        expect(fn () => ManualMovement::make(MovementCategory::Income, AccountType::Principal, amount: 0))
             ->toThrow(InvalidArgumentException::class);
-        expect(fn () => ManualMovement::make(MovementCategory::Expense, amount: -5))
+        expect(fn () => ManualMovement::make(MovementCategory::Expense, AccountType::Principal, amount: -5))
             ->toThrow(InvalidArgumentException::class);
     });
 
@@ -87,15 +97,16 @@ describe('ManualMovement', function () {
             ->toThrow(InvalidArgumentException::class);
     });
 
-    it('rejects categories generated by the closing cascade', function () {
-        expect(fn () => ManualMovement::make(MovementCategory::PartnerDistribution, amount: 100))
+    it('rejects categories that need their own use case', function () {
+        // Transferência e distribuição geram mais de uma linha (group_id), e
+        // abertura é gerada pelo sistema — nenhuma passa por aqui.
+        expect(fn () => ManualMovement::make(MovementCategory::Transfer, AccountType::Principal, amount: 100))
             ->toThrow(InvalidArgumentException::class);
-        expect(fn () => ManualMovement::make(MovementCategory::ReinvestmentTransfer, amount: 100))
+        expect(fn () => ManualMovement::make(MovementCategory::Tf2Allocation, quantity: 300, unitPrice: 10))
             ->toThrow(InvalidArgumentException::class);
-    });
-
-    it('rejects the opening category, which is bootstrap-only', function () {
-        expect(fn () => ManualMovement::make(MovementCategory::Opening, amount: 100))
+        expect(fn () => ManualMovement::make(MovementCategory::PartnerDistribution, AccountType::Principal, amount: 100))
+            ->toThrow(InvalidArgumentException::class);
+        expect(fn () => ManualMovement::make(MovementCategory::Opening, AccountType::Principal, amount: 100))
             ->toThrow(InvalidArgumentException::class);
     });
 });

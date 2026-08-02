@@ -14,6 +14,7 @@ class FinancialMovement extends Model
 
     protected $fillable = [
         'financial_month_id',
+        'group_id',
         'account_type',
         'direction',
         'category',
@@ -22,6 +23,7 @@ class FinancialMovement extends Model
         'occurred_at',
         'quantity',
         'unit_price',
+        'partner_slot',
         'is_generated',
     ];
 
@@ -30,9 +32,10 @@ class FinancialMovement extends Model
         'direction' => MovementDirection::class,
         'category' => MovementCategory::class,
         'amount' => 'decimal:2',
-        'occurred_at' => 'date',
+        'occurred_at' => 'date:Y-m-d',
         'quantity' => 'decimal:2',
         'unit_price' => 'decimal:2',
+        'partner_slot' => 'integer',
         'is_generated' => 'boolean',
     ];
 

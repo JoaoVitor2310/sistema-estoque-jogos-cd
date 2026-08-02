@@ -5,22 +5,19 @@ namespace App\Domain\Financial;
 /**
  * Padrões de domínio para um novo fechamento mensal.
  *
- * Fonte única dos valores default usados no bootstrap (primeiro mês) e como
- * ponto de partida antes do carry-forward. Cada `FinancialMonth` guarda o valor
- * efetivamente usado como snapshot — alterar um default aqui só afeta meses
- * futuros, nunca reescreve histórico.
+ * Estes valores **nunca são aplicados sozinhos** — servem só para pré-preencher
+ * os formulários de lançamento, que o usuário confirma explicitamente (ver
+ * docs/adr/0005). Cada `FinancialMonth` guarda o valor vigente como snapshot e o
+ * repassa ao mês seguinte, então alterar um default aqui não reescreve histórico.
  */
 final class FinancialMonthDefaults
 {
-    /** Fração do saldo base destinada ao reinvestimento (20%). */
+    /** Fração sugerida do saldo de origem ao abastecer o reinvestimento (20%). */
     public const REINVESTMENT_PERCENT = 0.20;
 
-    /** Fração do saldo pós-reinvest destinada à emergência (10%). */
+    /** Fração sugerida do saldo de origem ao abastecer a emergência (10%). */
     public const EMERGENCY_PERCENT = 0.10;
 
-    /** Fração do distribuível do Sócio 1 (50%); o Sócio 2 leva o resto. */
+    /** Fração sugerida do Sócio 1 na distribuição (50%); o Sócio 2 leva o resto. */
     public const PARTNER_ONE_SHARE = 0.50;
-
-    /** Aumento mensal da meta de TF2 keys aplicado no fechamento (+10). */
-    public const TF2_MONTHLY_INCREMENT = 10;
 }

@@ -54,6 +54,9 @@ const handleLogout = async () => {
             <!-- Demais links: apenas para quem tem can-edit -->
             <template v-if="canEdit">
               <li>
+                <Link class="nav-link" :href="route('trades')">Trades</Link>
+              </li>
+              <li>
                 <Link class="nav-link" :href="route('games')">Jogos</Link>
               </li>
               <li>
@@ -77,7 +80,7 @@ const handleLogout = async () => {
                 <Link class="nav-link" :href="route('financial')">Financeiro</Link>
               </li>
               <li>
-                <Link class="nav-link" :href="route('trades')">Trades</Link>
+                <Link class="nav-link" :href="route('financial-months')">Mensal</Link>
               </li>
             </template>
           </ul>

@@ -5,139 +5,185 @@ use App\Domain\Enums\FinancialMonthStatus;
 use App\Domain\Enums\MovementCategory;
 use App\Domain\Enums\MovementDirection;
 use App\Models\FinancialMonth;
+use App\Services\Financial\FinancialMonthService;
 use App\UseCases\Financial\CloseMonthUseCase;
-use App\UseCases\Financial\CreateDraftFinancialMonthUseCase;
-use App\UseCases\Financial\RecordMovementUseCase;
+use Tests\Support\FinancialMonthFactory;
 
 /**
- * Cenário de números limpos (sem arredondamento) — o half-up já é coberto no
- * FinancialMonthCalculatorTest. Aqui verificamos a fiação: a cascata recebe os
- * inputs certos, os movimentos gerados batem e o próximo draft herda o estado.
- *
- * Abertura: Principal 1000. Entradas 2000, saídas op. 200.
- * Meta TF2 10 × 15,00 = 150 (reserva virtual).
- *   base        = 2000 − 150 − 200 = 1650
- *   reinvest    = 20% × 1650       = 330   → afterReinvest 1320
- *   emergency   = 10% × 1320       = 132   → distribuível 1188
- *   por sócio   = 1188 ÷ 2         = 594
- * Saldos de fecho: Principal 1000+2000−200−330−132−1188 = 1150 (retém a reserva),
- *                  Reinvestment 330, Emergency 132.
+ * O fechamento não distribui nada (docs/adr/0005): só devolve a sobra da verba
+ * de TF2 e abre o próximo mês. O que se verifica aqui é essa devolução, o
+ * carry-forward uniforme e a virada de ano.
  */
-function seedClosableDraft(): void
+function seedMonthWithBudget(): FinancialMonth
 {
-    app(CreateDraftFinancialMonthUseCase::class)->execute([
-        'year' => 2026,
-        'month' => 7,
-        'tf2TargetQuantity' => 10,
-        'tf2Price' => 15.00,
-        'partnerOneName' => 'Carca',
-        'partnerTwoName' => 'Sócio',
-        'openingBalances' => ['principal' => 1000.00],
+    $month = FinancialMonthFactory::draft();
+
+    // Abertura: Principal 3.000.
+    $month->movements()->create([
+        'account_type' => AccountType::Principal,
+        'direction' => MovementDirection::Credit,
+        'category' => MovementCategory::Opening,
+        'amount' => 3000.00,
+        'occurred_at' => now()->toDateString(),
+        'is_generated' => false,
     ]);
-    app(RecordMovementUseCase::class)->execute(category: MovementCategory::Income, amount: 2000.00);
-    app(RecordMovementUseCase::class)->execute(category: MovementCategory::Expense, amount: 200.00);
+
+    // Verba de TF2: 300 × R$ 10 = 3.000 saem do Principal e entram no Tf2.
+    $groupId = (string) Str::uuid();
+    foreach ([[AccountType::Principal, MovementDirection::Debit], [AccountType::Tf2, MovementDirection::Credit]] as [$account, $direction]) {
+        $month->movements()->create([
+            'group_id' => $groupId,
+            'account_type' => $account,
+            'direction' => $direction,
+            'category' => MovementCategory::Tf2Allocation,
+            'amount' => 3000.00,
+            'quantity' => 300,
+            'unit_price' => 10.00,
+            'occurred_at' => now()->toDateString(),
+            'is_generated' => false,
+        ]);
+    }
+
+    return $month;
 }
 
 describe('CloseMonthUseCase', function () {
 
-    describe('with a closable draft', function () {
+    it('closes the month without distributing anything', function () {
+        seedMonthWithBudget();
 
-        beforeEach(fn () => seedClosableDraft());
+        $closed = app(CloseMonthUseCase::class)->execute();
 
-        it('freezes the cascade snapshot and closes the month', function () {
+        expect($closed->status)->toBe(FinancialMonthStatus::Closed)
+            ->and($closed->closed_at)->not->toBeNull()
+            ->and($closed->movements()->where('category', MovementCategory::PartnerDistribution)->exists())->toBeFalse();
+    });
+
+    describe('tf2 leftover', function () {
+
+        it('returns the unspent budget to principal, zeroing the tf2 account', function () {
+            $month = seedMonthWithBudget();
+
+            // Comprou 100 das 300 previstas → sobram R$ 2.000.
+            $month->movements()->create([
+                'account_type' => AccountType::Tf2,
+                'direction' => MovementDirection::Debit,
+                'category' => MovementCategory::Tf2Purchase,
+                'amount' => 1000.00,
+                'quantity' => 100,
+                'unit_price' => 10.00,
+                'occurred_at' => now()->toDateString(),
+                'is_generated' => false,
+            ]);
+
             $closed = app(CloseMonthUseCase::class)->execute();
+            $balances = app(FinancialMonthService::class)->accountBalances($closed->fresh());
 
-            expect($closed->status)->toBe(FinancialMonthStatus::Closed)
-                ->and($closed->closed_at)->not->toBeNull()
-                ->and((float) $closed->total_income)->toBe(2000.00)
-                ->and((float) $closed->total_expenses)->toBe(200.00)
-                ->and((float) $closed->tf2_reserve)->toBe(150.00)
-                ->and((float) $closed->base_balance)->toBe(1650.00)
-                ->and((float) $closed->reinvestment_amount)->toBe(330.00)
-                ->and((float) $closed->emergency_amount)->toBe(132.00)
-                ->and((float) $closed->distributable)->toBe(1188.00)
-                ->and((float) $closed->partner_one_amount)->toBe(594.00)
-                ->and((float) $closed->partner_two_amount)->toBe(594.00);
+            expect($balances['tf2'])->toBe(0.0)
+                ->and($balances['principal'])->toBe(2000.00);
+
+            $returns = $closed->movements()
+                ->where('category', MovementCategory::Transfer)
+                ->where('is_generated', true)
+                ->get();
+
+            expect($returns)->toHaveCount(2)
+                ->and($returns->pluck('group_id')->unique())->toHaveCount(1)
+                ->and((float) $returns->firstWhere('account_type', AccountType::Tf2)->amount)->toBe(2000.00)
+                ->and($returns->firstWhere('account_type', AccountType::Tf2)->direction)->toBe(MovementDirection::Debit)
+                ->and($returns->firstWhere('account_type', AccountType::Principal)->direction)->toBe(MovementDirection::Credit);
         });
 
-        it('generates the transfer and distribution movements (double-entry)', function () {
+        it('charges principal when the budget was overspent', function () {
+            $month = seedMonthWithBudget();
+
+            // Comprou 350 das 300 previstas → verba estourada em R$ 500.
+            $month->movements()->create([
+                'account_type' => AccountType::Tf2,
+                'direction' => MovementDirection::Debit,
+                'category' => MovementCategory::Tf2Purchase,
+                'amount' => 3500.00,
+                'quantity' => 350,
+                'unit_price' => 10.00,
+                'occurred_at' => now()->toDateString(),
+                'is_generated' => false,
+            ]);
+
             $closed = app(CloseMonthUseCase::class)->execute();
-            $generated = $closed->movements()->where('is_generated', true)->get();
+            $balances = app(FinancialMonthService::class)->accountBalances($closed->fresh());
 
-            // 2 transferências (2 lados cada) + 2 distribuições
-            expect($generated)->toHaveCount(6);
+            expect($balances['tf2'])->toBe(0.0)
+                ->and($balances['principal'])->toBe(-500.00);
 
-            $reinvestOut = $generated->first(fn ($m) => $m->category === MovementCategory::ReinvestmentTransfer && $m->account_type === AccountType::Principal);
-            $reinvestIn = $generated->first(fn ($m) => $m->category === MovementCategory::ReinvestmentTransfer && $m->account_type === AccountType::Reinvestment);
-            expect($reinvestOut->direction)->toBe(MovementDirection::Debit)
-                ->and((float) $reinvestOut->amount)->toBe(330.00)
-                ->and($reinvestIn->direction)->toBe(MovementDirection::Credit)
-                ->and((float) $reinvestIn->amount)->toBe(330.00);
+            $return = $closed->movements()
+                ->where('category', MovementCategory::Transfer)
+                ->where('account_type', AccountType::Principal)
+                ->first();
 
-            $emergencyOut = $generated->first(fn ($m) => $m->category === MovementCategory::EmergencyTransfer && $m->account_type === AccountType::Principal);
-            $emergencyIn = $generated->first(fn ($m) => $m->category === MovementCategory::EmergencyTransfer && $m->account_type === AccountType::Emergency);
-            expect((float) $emergencyOut->amount)->toBe(132.00)
-                ->and((float) $emergencyIn->amount)->toBe(132.00);
-
-            $distributions = $generated->where('category', MovementCategory::PartnerDistribution);
-            expect($distributions)->toHaveCount(2);
-            $distributions->each(function ($m) {
-                expect($m->account_type)->toBe(AccountType::Principal)
-                    ->and($m->direction)->toBe(MovementDirection::Debit)
-                    ->and((float) $m->amount)->toBe(594.00);
-            });
+            expect($return->direction)->toBe(MovementDirection::Debit)
+                ->and((float) $return->amount)->toBe(500.00);
         });
 
-        it('does not create a movement for the virtual tf2 reserve', function () {
+        it('generates no movement when the budget landed exactly on zero', function () {
+            $month = seedMonthWithBudget();
+
+            $month->movements()->create([
+                'account_type' => AccountType::Tf2,
+                'direction' => MovementDirection::Debit,
+                'category' => MovementCategory::Tf2Purchase,
+                'amount' => 3000.00,
+                'quantity' => 300,
+                'unit_price' => 10.00,
+                'occurred_at' => now()->toDateString(),
+                'is_generated' => false,
+            ]);
+
             $closed = app(CloseMonthUseCase::class)->execute();
 
-            expect($closed->movements()->where('category', 'tf2_reserve')->exists())->toBeFalse()
-                ->and($closed->movements()->where('description', 'like', '%reserva%')->exists())->toBeFalse();
+            expect($closed->movements()->where('is_generated', true)->exists())->toBeFalse();
         });
+    });
 
-        it('opens the next draft carrying state forward with tf2 target +increment', function () {
+    describe('next draft', function () {
+
+        it('opens the next draft carrying the percentages forward', function () {
+            seedMonthWithBudget();
+
             app(CloseMonthUseCase::class)->execute();
             $next = FinancialMonth::where('status', FinancialMonthStatus::Draft)->first();
 
             expect($next)->not->toBeNull()
                 ->and($next->year)->toBe(2026)
                 ->and($next->month)->toBe(8)
-                ->and($next->tf2_target_quantity)->toBe(20) // 10 + increment 10
-                ->and((float) $next->tf2_price)->toBe(15.00)
                 ->and((float) $next->reinvestment_percent)->toBe(0.20)
                 ->and((float) $next->emergency_percent)->toBe(0.10)
                 ->and((float) $next->partner_one_share)->toBe(0.50)
-                ->and($next->partner_one_name)->toBe('Carca')
-                ->and($next->partner_two_name)->toBe('Sócio')
                 ->and($next->closed_at)->toBeNull();
         });
 
-        it('seeds the next draft with opening balances equal to the closing balances', function () {
+        it('seeds the next draft with the closing balances, tf2 already zeroed', function () {
+            seedMonthWithBudget();
+
             app(CloseMonthUseCase::class)->execute();
             $next = FinancialMonth::where('status', FinancialMonthStatus::Draft)->first();
             $openings = $next->movements()->where('category', MovementCategory::Opening)->get();
 
-            expect($openings)->toHaveCount(3);
-            $openings->each(fn ($m) => expect($m->direction)->toBe(MovementDirection::Credit)->and($m->is_generated)->toBeFalse());
-
-            expect((float) $openings->firstWhere('account_type', AccountType::Principal)->amount)->toBe(1150.00)
-                ->and((float) $openings->firstWhere('account_type', AccountType::Reinvestment)->amount)->toBe(330.00)
-                ->and((float) $openings->firstWhere('account_type', AccountType::Emergency)->amount)->toBe(132.00);
+            // Só o Principal abre com saldo: a verba inteira voltou para ele.
+            expect($openings)->toHaveCount(1)
+                ->and($openings->first()->account_type)->toBe(AccountType::Principal)
+                ->and((float) $openings->first()->amount)->toBe(3000.00)
+                ->and($openings->first()->direction)->toBe(MovementDirection::Credit)
+                ->and($openings->first()->is_generated)->toBeFalse();
         });
-    });
 
-    it('rolls over December into the next year', function () {
-        app(CreateDraftFinancialMonthUseCase::class)->execute([
-            'year' => 2026,
-            'month' => 12,
-            'tf2TargetQuantity' => 0,
-            'tf2Price' => 0,
-        ]);
+        it('rolls over December into the next year', function () {
+            FinancialMonthFactory::draft(['year' => 2026, 'month' => 12]);
 
-        app(CloseMonthUseCase::class)->execute();
-        $next = FinancialMonth::where('status', FinancialMonthStatus::Draft)->first();
+            app(CloseMonthUseCase::class)->execute();
+            $next = FinancialMonth::where('status', FinancialMonthStatus::Draft)->first();
 
-        expect($next->year)->toBe(2027)->and($next->month)->toBe(1);
+            expect($next->year)->toBe(2027)->and($next->month)->toBe(1);
+        });
     });
 
     it('throws when there is no open draft', function () {

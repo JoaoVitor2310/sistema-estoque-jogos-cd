@@ -5,6 +5,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AuthorizedUsersController;
 use App\Http\Controllers\BundleController;
 use App\Http\Controllers\FeeController;
+use App\Http\Controllers\Financial\FinancialMonthController;
 use App\Http\Controllers\FinancialController;
 use App\Http\Controllers\GameController;
 use App\Http\Controllers\Keys\KeyController;
@@ -31,6 +32,21 @@ Route::get('/assets', [AssetController::class, 'show'])->name('assets')->middlew
 Route::get('/bundles', [BundleController::class, 'index'])->name('bundles'); // público — visitantes podem ver
 
 Route::get('/financial', [FinancialController::class, 'show'])->name('financial')->middleware(RequireAuth::class);
+
+// Fechamento mensal (FinancialMonth). Página: RequireAuth (redirect). Mutações: CheckPermission (403).
+Route::get('/financial-months', [FinancialMonthController::class, 'index'])
+    ->name('financial-months')
+    ->middleware(RequireAuth::class);
+
+Route::prefix('financial-months')
+    ->middleware(CheckPermission::class)
+    ->controller(FinancialMonthController::class)
+    ->group(function () {
+        Route::post('/', 'store')->name('financial-months.store');
+        Route::post('/movements', 'storeMovement')->name('financial-months.movements.store');
+        Route::post('/close', 'close')->name('financial-months.close');
+        Route::post('/{financialMonth}/reopen', 'reopen')->name('financial-months.reopen');
+    });
 
 Route::prefix('trades')
     ->middleware(CheckPermission::class)
