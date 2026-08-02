@@ -1,100 +1,94 @@
 <?php
 
 use App\Domain\Enums\AccountType;
-use App\Domain\Enums\FinancialMonthStatus;
 use App\Domain\Enums\MovementCategory;
 use App\Domain\Enums\MovementDirection;
-use App\Models\FinancialMonth;
+use App\UseCases\Financial\RecordMovementData;
 use App\UseCases\Financial\RecordMovementUseCase;
-use Illuminate\Support\Facades\DB;
-
-function draftMonth(): FinancialMonth
-{
-    $id = DB::table('financial_months')->insertGetId([
-        'year' => 2026,
-        'month' => 7,
-        'status' => FinancialMonthStatus::Draft->value,
-        'tf2_target_quantity' => 0,
-        'tf2_increment' => 10,
-        'tf2_price' => 0,
-        'reinvestment_percent' => 0.20,
-        'emergency_percent' => 0.10,
-        'partner_one_share' => 0.50,
-        'created_at' => now(),
-        'updated_at' => now(),
-    ]);
-
-    return FinancialMonth::findOrFail($id);
-}
+use Tests\Support\FinancialMonthFactory;
 
 describe('RecordMovementUseCase', function () {
 
-    it('records an income into the current draft', function () {
-        $month = draftMonth();
+    it('records an income into the chosen account of the current draft', function () {
+        $month = FinancialMonthFactory::draft();
 
-        $movement = app(RecordMovementUseCase::class)->execute(
+        $movement = app(RecordMovementUseCase::class)->execute(new RecordMovementData(
             category: MovementCategory::Income,
+            account: AccountType::Principal,
             amount: 3257.03,
-            description: 'Faturamento Gamivo',
+            description: 'Saque da Gamivo',
             occurredAt: '2026-07-15',
-        );
+        ));
 
         expect($movement->financial_month_id)->toBe($month->id)
             ->and($movement->account_type)->toBe(AccountType::Principal)
             ->and($movement->direction)->toBe(MovementDirection::Credit)
             ->and($movement->category)->toBe(MovementCategory::Income)
             ->and((float) $movement->amount)->toBe(3257.03)
-            ->and($movement->description)->toBe('Faturamento Gamivo')
+            ->and($movement->description)->toBe('Saque da Gamivo')
             ->and($movement->occurred_at->toDateString())->toBe('2026-07-15')
             ->and($movement->is_generated)->toBeFalse();
     });
 
-    it('records a tf2 purchase with quantity, price and derived amount', function () {
-        draftMonth();
+    it('records a tf2 purchase debiting the tf2 budget', function () {
+        FinancialMonthFactory::draft();
 
-        $movement = app(RecordMovementUseCase::class)->execute(
+        $movement = app(RecordMovementUseCase::class)->execute(new RecordMovementData(
             category: MovementCategory::Tf2Purchase,
-            quantity: 130,
-            unitPrice: 15.10,
-        );
+            quantity: 100,
+            unitPrice: 10.00,
+        ));
 
-        expect($movement->category)->toBe(MovementCategory::Tf2Purchase)
+        expect($movement->account_type)->toBe(AccountType::Tf2)
             ->and($movement->direction)->toBe(MovementDirection::Debit)
-            ->and((float) $movement->amount)->toBe(1963.00)
-            ->and((float) $movement->quantity)->toBe(130.0)
-            ->and((float) $movement->unit_price)->toBe(15.10);
+            ->and((float) $movement->amount)->toBe(1000.00)
+            ->and((float) $movement->quantity)->toBe(100.0)
+            ->and((float) $movement->unit_price)->toBe(10.00);
     });
 
-    it('records a fund withdrawal from the chosen fund', function () {
-        draftMonth();
+    it('records a justified expense out of a reserve fund', function () {
+        FinancialMonthFactory::draft();
 
-        $movement = app(RecordMovementUseCase::class)->execute(
-            category: MovementCategory::FundWithdrawal,
+        $movement = app(RecordMovementUseCase::class)->execute(new RecordMovementData(
+            category: MovementCategory::Expense,
+            account: AccountType::Emergency,
             amount: 200.00,
-            fund: AccountType::Emergency,
             description: 'Emergência médica',
-        );
+        ));
 
         expect($movement->account_type)->toBe(AccountType::Emergency)
             ->and($movement->direction)->toBe(MovementDirection::Debit)
-            ->and((float) $movement->amount)->toBe(200.00);
+            ->and((float) $movement->amount)->toBe(200.00)
+            ->and($movement->description)->toBe('Emergência médica');
+    });
+
+    it('refuses to debit a reserve fund without a justification', function () {
+        FinancialMonthFactory::draft();
+
+        expect(fn () => app(RecordMovementUseCase::class)->execute(new RecordMovementData(
+            category: MovementCategory::Expense,
+            account: AccountType::Emergency,
+            amount: 200.00,
+        )))->toThrow(InvalidArgumentException::class);
     });
 
     it('defaults occurred_at to today when not provided', function () {
-        draftMonth();
+        FinancialMonthFactory::draft();
 
-        $movement = app(RecordMovementUseCase::class)->execute(
+        $movement = app(RecordMovementUseCase::class)->execute(new RecordMovementData(
             category: MovementCategory::Expense,
+            account: AccountType::Principal,
             amount: 50.00,
-        );
+        ));
 
         expect($movement->occurred_at->toDateString())->toBe(now()->toDateString());
     });
 
     it('throws when there is no open draft', function () {
-        expect(fn () => app(RecordMovementUseCase::class)->execute(
+        expect(fn () => app(RecordMovementUseCase::class)->execute(new RecordMovementData(
             category: MovementCategory::Income,
+            account: AccountType::Principal,
             amount: 100.00,
-        ))->toThrow(RuntimeException::class);
+        )))->toThrow(RuntimeException::class);
     });
 });

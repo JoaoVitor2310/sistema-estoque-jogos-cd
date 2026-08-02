@@ -96,6 +96,10 @@ describe('Guest — page routes redirect to /login', function () {
     it('blocks GET /financial', function () {
         $this->get('/financial')->assertRedirectToRoute('login');
     });
+
+    it('blocks GET /financial-months', function () {
+        $this->get('/financial-months')->assertRedirectToRoute('login');
+    });
 });
 
 // ── 2. Public routes accessible to guests ────────────────────────────────────
@@ -150,6 +154,18 @@ describe('Guest — mutations return 403', function () {
     it('blocks POST /suppliers', function () {
         $this->postJson('/suppliers', [])->assertStatus(403);
     });
+
+    it('blocks POST /financial-months', function () {
+        $this->postJson('/financial-months', [])->assertStatus(403);
+    });
+
+    it('blocks POST /financial-months/movements', function () {
+        $this->postJson('/financial-months/movements', [])->assertStatus(403);
+    });
+
+    it('blocks POST /financial-months/close', function () {
+        $this->postJson('/financial-months/close', [])->assertStatus(403);
+    });
 });
 
 // PUT/DELETE/execute usam route model binding — precisa de registro existente para o middleware disparar antes do 404
@@ -183,6 +199,27 @@ describe('Guest — supplier mutations with model binding return 403', function 
 
     it('blocks POST /suppliers/execute/1', function () {
         $this->postJson('/suppliers/execute/1')->assertStatus(403);
+    });
+});
+
+describe('Guest — financial-month reopen with model binding returns 403', function () {
+
+    beforeEach(function () {
+        DB::table('financial_months')->insert([
+            'id' => 1,
+            'year' => 2026,
+            'month' => 7,
+            'status' => 'closed',
+            'reinvestment_percent' => 0.20,
+            'emergency_percent' => 0.10,
+            'partner_one_share' => 0.50,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    });
+
+    it('blocks POST /financial-months/1/reopen', function () {
+        $this->postJson('/financial-months/1/reopen')->assertStatus(403);
     });
 });
 
@@ -329,5 +366,12 @@ describe('Authorized user (can-edit) — accesses pages blocked for guests', fun
         AuthorizedUsers::create(['name' => $user->name, 'email' => $user->email, 'status' => true]);
 
         $this->actingAs($user)->get('/financial')->assertStatus(200);
+    });
+
+    it('accesses GET /financial-months', function () {
+        $user = User::factory()->create();
+        AuthorizedUsers::create(['name' => $user->name, 'email' => $user->email, 'status' => true]);
+
+        $this->actingAs($user)->get('/financial-months')->assertStatus(200);
     });
 });

@@ -7,20 +7,23 @@ use App\Domain\Enums\MovementCategory;
 use App\Domain\Enums\MovementDirection;
 
 /**
- * Um movimento manual lançado pelo usuário num fechamento em aberto.
+ * Um movimento simples lançado pelo usuário num fechamento em aberto: uma
+ * entrada, uma saída ou uma compra real de TF2.
  *
- * Concentra as regras que ligam a categoria à conta e à direção — a intenção do
- * usuário é "lançar uma entrada" / "lançar uma compra de TF2", e o resto é
- * derivado, não digitado:
+ * A conta é escolhida por quem lança — o saque da Gamivo normalmente entra no
+ * Principal, mas um gasto pode sair de qualquer conta. O que a categoria decide
+ * é a **direção** e quais campos a acompanham:
  *
- *  - income          → Principal, crédito
- *  - expense         → Principal, débito
- *  - tf2_purchase    → Principal, débito; `amount = quantidade × preço`
- *  - fund_withdrawal → caixa escolhida (Reinvestment/Emergency), débito
+ *  - income       → crédito na conta escolhida
+ *  - expense      → débito na conta escolhida
+ *  - tf2_purchase → débito na conta Tf2 (gasta a verba do mês); `amount = qtd × preço`
  *
- * As categorias geradas pelo fechamento (transferências e distribuições) e a
- * `opening` (exclusiva do bootstrap) não são lançáveis por aqui — a fábrica as
- * recusa. Valores em reais, arredondados ao centavo (half-up) via `Money`.
+ * Débito numa caixinha (Reinvestimento/Emergência) exige justificativa — é a
+ * proteção de auditoria que sobreviveu à remoção da categoria `fund_withdrawal`
+ * (ver docs/adr/0005).
+ *
+ * Lançamentos que geram mais de uma linha (transferência, distribuição) não
+ * passam por aqui: têm UseCases próprios, porque precisam de `group_id`.
  */
 final class ManualMovement
 {
@@ -35,14 +38,15 @@ final class ManualMovement
 
     public static function make(
         MovementCategory $category,
+        ?AccountType $account = null,
         ?float $amount = null,
         ?float $quantity = null,
         ?float $unitPrice = null,
-        ?AccountType $fund = null,
+        ?string $description = null,
     ): self {
-        return match ($category) {
+        $movement = match ($category) {
             MovementCategory::Income => new self(
-                AccountType::Principal,
+                self::requireAccount($account),
                 MovementDirection::Credit,
                 $category,
                 self::requirePositive($amount, 'amount'),
@@ -50,31 +54,32 @@ final class ManualMovement
                 null,
             ),
             MovementCategory::Expense => new self(
-                AccountType::Principal,
+                self::requireAccount($account),
                 MovementDirection::Debit,
                 $category,
                 self::requirePositive($amount, 'amount'),
                 null,
                 null,
             ),
+            // A compra real sempre gasta a verba do mês, então a conta não é escolhível.
             MovementCategory::Tf2Purchase => self::tf2Purchase(
                 self::requirePositive($quantity, 'quantity'),
                 self::requirePositive($unitPrice, 'unitPrice'),
             ),
-            MovementCategory::FundWithdrawal => self::fundWithdrawal(
-                $fund,
-                self::requirePositive($amount, 'amount'),
-            ),
             default => throw new \InvalidArgumentException(
-                "Category {$category->value} cannot be recorded as a manual movement."
+                "Category {$category->value} cannot be recorded as a simple movement."
             ),
         };
+
+        $movement->guardFundJustification($description);
+
+        return $movement;
     }
 
     private static function tf2Purchase(float $quantity, float $unitPrice): self
     {
         return new self(
-            AccountType::Principal,
+            AccountType::Tf2,
             MovementDirection::Debit,
             MovementCategory::Tf2Purchase,
             Money::fromReais($quantity * $unitPrice)->toReais(),
@@ -83,15 +88,27 @@ final class ManualMovement
         );
     }
 
-    private static function fundWithdrawal(?AccountType $fund, float $amount): self
+    /**
+     * Tirar dinheiro de uma caixinha exige dizer por quê — o histórico das
+     * reservas não pode ter saída sem motivo registrado.
+     */
+    private function guardFundJustification(?string $description): void
     {
-        if ($fund === null || $fund === AccountType::Principal) {
-            throw new \InvalidArgumentException(
-                'A fund withdrawal requires a reinvestment or emergency account.'
-            );
+        if ($this->direction === MovementDirection::Debit
+            && $this->account->isFund()
+            && ($description === null || trim($description) === '')
+        ) {
+            throw new \InvalidArgumentException('Debiting a reserve fund requires a justification.');
+        }
+    }
+
+    private static function requireAccount(?AccountType $account): AccountType
+    {
+        if ($account === null) {
+            throw new \InvalidArgumentException('An account must be chosen for this movement.');
         }
 
-        return new self($fund, MovementDirection::Debit, MovementCategory::FundWithdrawal, $amount, null, null);
+        return $account;
     }
 
     private static function requirePositive(?float $value, string $field): float

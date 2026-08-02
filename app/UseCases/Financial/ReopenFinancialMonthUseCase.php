@@ -13,9 +13,9 @@ use Illuminate\Support\Facades\DB;
  * dele). Reabrir:
  *   - descarta o draft corrente — aquele que o fechamento criou; devolver ESTE
  *     mês ao estado draft não pode deixar dois drafts abertos;
- *   - desfaz só os movimentos gerados pela cascata (transferências/distribuições);
- *     os manuais (opening/income/expense/tf2_purchase) permanecem;
- *   - limpa o snapshot e volta o mês para `draft`.
+ *   - desfaz os movimentos gerados pelo fechamento (a devolução da verba de TF2);
+ *     os lançamentos manuais permanecem intactos;
+ *   - volta o mês para `draft`.
  */
 class ReopenFinancialMonthUseCase
 {
@@ -42,15 +42,6 @@ class ReopenFinancialMonthUseCase
             $month->movements()->where('is_generated', true)->delete();
 
             $month->update([
-                'total_income' => null,
-                'total_expenses' => null,
-                'tf2_reserve' => null,
-                'base_balance' => null,
-                'reinvestment_amount' => null,
-                'emergency_amount' => null,
-                'distributable' => null,
-                'partner_one_amount' => null,
-                'partner_two_amount' => null,
                 'status' => FinancialMonthStatus::Draft,
                 'closed_at' => null,
             ]);

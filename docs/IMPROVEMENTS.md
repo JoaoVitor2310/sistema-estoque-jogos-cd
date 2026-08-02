@@ -12,53 +12,90 @@ Ordem: roadmap/qualidade/features primeiro, dívida técnica de code-review no f
 
 ## FinancialMonth — fechamento mensal e distribuição entre sócios (spec)
 
-**Onde:** domínio novo e isolado — `app/Domain/Financial/` (a criar: `FinancialMonthCalculator`), `app/UseCases/Financial/` (`CloseMonthUseCase`, `ReopenFinancialMonthUseCase`), `app/Models/` (`FinancialMonth`, `Account`, `Movement`, `Partner`), `app/Http/Controllers/Financial/`, `resources/js/Pages/FinancialMonths.vue`, `routes/web.php`, `database/migrations/`. **Não** tocar em `FinancialService`/`Financial.vue` (dashboard analítico em €, domínio distinto — compartilham só o prefixo).
+**Onde:** `app/Domain/Financial/`, `app/Domain/Enums/` (`AccountType`, `MovementCategory`, `MovementDirection`, `FinancialMonthStatus`), `app/UseCases/Financial/`, `app/Services/Financial/`, `app/Models/` (`FinancialMonth`, `FinancialMovement`), `app/Http/Controllers/Financial/`, `app/Http/Requests/`, `resources/js/Pages/FinancialMonths.vue`, `routes/web.php`, `database/migrations/`. **Não** tocar em `FinancialService`/`Financial.vue` (dashboard analítico em €, domínio distinto — compartilham só o prefixo).
 
-**Problema:** todo mês os dois sócios reconstroem o financeiro na mão — reúnem entradas/saídas, aplicam uma sequência fixa de descontos e chegam ao saque de cada sócio. Trabalhoso, sem histórico auditável, cada mês recomeça do zero.
+**Problema:** todo mês os dois sócios reconstroem o financeiro na mão — reúnem entradas/saídas, separam a verba de TF2, abastecem as caixinhas e chegam ao saque de cada sócio. Trabalhoso, sem histórico auditável, cada mês recomeça do zero.
 
-**Solução:** domínio `FinancialMonth` (`/financial-months`) onde o mês é montado ao longo do tempo e "fechado" com um clique. Termo falado: "fechamento mensal"; a entidade cobre o ciclo `draft` → `closed`, com `close`/`reopen` como atos.
+**Solução:** domínio `FinancialMonth` (`/financial-months`) — um **livro-caixa de 4 contas** onde o mês é montado lançamento a lançamento, e "fechar" apenas encerra o mês e abre o próximo. Termo falado: "fechamento mensal"; a entidade cobre o ciclo `draft` → `closed`, com `close`/`reopen` como atos.
 
-### Modelo de 3 contas
-Três saldos (`Account`: `principal` / `reinvestment` / `emergency`), cada um com `Movement` (crédito/débito, `category`, justificativa). Saldo da empresa = soma dos três.
+> **Estado atual:** existe código não commitado no working tree implementando uma versão **anterior** desta spec (com cascata automática). Os tickets abaixo são **diffs sobre esse código**, não trabalho do zero — ver "Mapeamento de tickets".
 
-- **Principal**: entra faturamento (+ receitas avulsas); saem despesas operacionais, compras reais de TF2 (saída categorizada `qtd × preço`), transferências p/ as caixas e distribuições aos sócios.
-- **Reinvestimento / Emergência**: recebem depósito no fechamento; permitem saque com justificativa a qualquer momento.
+### Modelo de 4 contas
 
-### Cascata do fechamento (arredonda cada passo, 2 casas, round-half-up)
-| Passo | Efeito | Exemplo real |
-|---|---|---|
-| Σ Entradas do mês | entrada no Principal | R$ 3.257,03 |
-| − Reserva TF2 (`meta × preço`) | **earmark virtual** — não sai do Principal, só reduz o distribuível e a base dos % | − R$ 1.963,50 |
-| − Σ Saídas operacionais | saídas reais do Principal | − R$ 207,05 |
-| = Saldo base | | R$ 1.086,48 |
-| − Reinvest (20%, config) | transferência real → Reinvestimento | − R$ 217,30 |
-| − Emergência (10%, config) | transferência real → Emergência (10% do saldo **pós-reinvest**) | − R$ 86,92 |
-| = Distribuível ÷ 2 | saídas reais → sócios; **centavo órfão → Sócio 1** | R$ 391,13 cada |
+Quatro saldos (`AccountType`: `principal` / `reinvestment` / `emergency` / `tf2`), cada um com movimentos (`FinancialMovement`: crédito/débito, `category`, justificativa). **Nenhum saldo é persistido** — é sempre a soma dos movimentos do mês. Saldo da empresa = soma dos quatro.
+
+- **Principal**: caixa operacional. Entra faturamento (saque da Gamivo + receitas avulsas); saem a verba de TF2, despesas operacionais, transferências p/ as caixinhas e distribuições aos sócios.
+- **TF2**: verba do mês para comprar TF2 keys. Recebe a alocação do Principal; as compras reais debitam daqui. A sobra volta ao Principal no fechamento.
+- **Reinvestimento / Emergência**: caixinhas. Recebem transferências explícitas; débitos exigem justificativa.
+
+### Fluxo do mês (roteiro, não invariante — nada é bloqueado)
+
+| # | Ação | Efeito | Categoria |
+|---|---|---|---|
+| 1 | Registrar o saque da Gamivo | crédito na conta escolhida (normalmente Principal) | `income` |
+| 2–3 | Definir a meta de TF2 (qtd × preço unitário) | débito no Principal + crédito no TF2 | `tf2_allocation` |
+| 4 | Lançar gastos (impostos, Claude, etc.) | débito na conta escolhida | `expense` |
+| 4 | Abastecer o Reinvestimento | débito Principal + crédito Reinvestimento | `transfer` |
+| 5 | Abastecer a Emergência | débito Principal + crédito Emergência | `transfer` |
+| 6 | Sacar para os sócios | dois débitos na conta escolhida (um por sócio) | `partner_distribution` |
+| 7 | Comprar TF2 ao longo do mês (qtd × preço) | débito no TF2 | `tf2_purchase` |
+| 8 | Fechar o mês | devolve a sobra do TF2 e abre o próximo draft | `transfer` (gerado) |
+
+**Nada é distribuído automaticamente.** Cada passo é um lançamento explícito que o usuário confirma. Quem usa porcentagem (passos 4, 5, 6) a aplica sobre o **saldo atual da conta de origem** — seguindo esta ordem, isso reproduz naturalmente a antiga cascata (o Principal já está pós-TF2 e pós-gastos quando os 20% incidem), sem o sistema precisar rastrear degrau nenhum.
 
 ### Decisões-chave
-- **Reserva TF2 = earmark virtual**: subtraída no cálculo (e na base dos %), mas o dinheiro permanece no Principal (protege a verba de compra). Compras reais de TF2 são saída categorizada separada — permite comparar meta vs. gasto real.
-- **Ciclo:** no máximo um `draft` (o corrente). Fechar gera os movimentos (transferências + distribuições), atualiza saldos e cria o próximo `draft` herdando estado.
-- **Carry-forward:** novo draft herda do anterior (taxas, split, nomes, qtd-meta TF2 **+10**, saldos). Sem tabela de settings global — os valores vivem em cada `FinancialMonth` (snapshot → alterar padrão não reescreve histórico).
-- **Bootstrap:** primeiro fechamento tem formulário de estado de abertura (qtd TF2, saldos das 3 contas, taxas iniciais).
-- **Correção:** reabrir só o fechamento **mais recente** (e só se não houver mês fechado depois); reabrir desfaz os movimentos gerados.
-- **Sócios:** exatamente 2, nomes + split configuráveis (padrão 50/50); um deles é o admin (`carcadeals`).
+
+- **Verba de TF2 é conta real, não earmark.** O dinheiro sai do Principal de verdade e vive numa quarta conta. *(Reverte a decisão anterior de earmark virtual — ver [ADR 0005](adr/0005-financial-month-records-instead-of-calculating.md).)*
+- **Meta de TF2 mora no movimento.** Definir a meta *é* lançar um `tf2_allocation` com `quantity` × `unit_price`. Não há coluna de meta declarada que possa divergir do dinheiro movido; dá para complementar o orçamento no meio do mês com um segundo lançamento. O formulário pré-preenche com o mês anterior (quantidade total alocada + último preço unitário). **Não existe incremento automático** de meta.
+- **Transferência é genérica.** Uma categoria `transfer` para qualquer par de contas — o par (*Principal→Reinvestimento*) já declara a intenção, sem categoria redundante que possa contradizer as contas. Sempre dupla partida: débito na origem + crédito no destino.
+- **Justificativa protege as caixinhas.** `description` é obrigatória em qualquer movimento que **debite** Reinvestimento ou Emergência, seja `transfer` ou `expense`.
+- **Distribuição aos sócios:** uma ação (valor + conta de origem + % do Sócio 1) gera **dois** débitos; o Sócio 2 leva o resto exato, então a soma reconcilia e o **centavo órfão fica com o Sócio 1**. Cada débito traz `partner_slot` (1 ou 2) — **nomes de sócio não são guardados**, a tela exibe "Sócio 1"/"Sócio 2" e a `description` fica livre para observação real.
+- **Fechar não distribui.** O `close` gera **um único** movimento: um `transfer` TF2→Principal com a sobra da verba, no mês que encerra. O TF2 fecha em zero e o carry-forward fica uniforme (toda conta abre o mês seguinte com o próprio saldo). Se a verba foi **estourada** (saldo TF2 negativo), a "devolução" vira débito no Principal — que é o comportamento correto.
+- **Ciclo:** no máximo um `draft` (o corrente). Bootstrap é o único caminho manual de criação e recusa rodar se **qualquer** mês existir; do segundo mês em diante o draft nasce só do fechamento.
+- **Carry-forward:** o novo draft herda as 3 porcentagens (só como **prefill de formulário**, nunca aplicadas sozinhas) e os saldos (como movimentos `opening`).
+- **Correção:** apagar lançamento **por grupo** (`group_id`), só em mês `draft`. Um lançamento pode gerar mais de uma linha no livro-caixa — uma transferência grava o débito na origem *e* o crédito no destino. Apagar só uma delas criaria ou destruiria dinheiro (apagar só o débito de uma transferência de R$ 500 devolve os 500 à origem sem tirá-los do destino, inflando o total da empresa em R$ 500). O `group_id` marca as linhas nascidas do mesmo lançamento para que sumam juntas. Sem edição. Mês `closed` é imutável.
+- **Reabrir** só o fechamento mais recente: apaga o draft seguinte, desfaz os movimentos `is_generated` (a devolução do TF2 e as aberturas) e volta o status.
+- **Saldo negativo é permitido**, sinalizado em vermelho — comprar acima da meta é decisão de negócio legítima, e as contas são baldes internos, não contas bancárias.
+- **Sócios:** exatamente 2, identificados por posição (Sócio 1 / Sócio 2) — sem cadastro de nome. Só o split é configurável (padrão 50/50).
 - **Permissões:** página `RequireAuth`; mutações `CheckPermission`; enums via `Rule::enum()`. Guest bloqueado (cobrir em `GuestAccessTest`).
 - **Moeda:** R$, sem cruzamento com € do dashboard.
 
 ### Testes (3 camadas)
-- **Unit** (`tests/Unit/Domain/`): `FinancialMonthCalculator` — cascata inteira com valores literais (números reais: 3.257,03 → 391,13), centavo órfão, half-up por passo, base correta dos % (reinvest sobre pós-despesas, emergência sobre pós-reinvest). Prior-art: `IncomeCalculatorTest`, `MinimumMarginPolicyTest`.
-- **Integration** (`tests/Feature/UseCases/`): `CloseMonthUseCase` (movimentos, depósitos, carry +10, próximo draft) e `ReopenFinancialMonthUseCase` (desfaz movimentos; recusa reabrir o que não é o mais recente). Prior-art: `UpdateTradeUseCaseTest`.
-- **Feature**: contratos HTTP (criar draft, lançar movimento, fechar, reabrir, ver) + validação (422) + acesso. Prior-art: `TradesIndexTest`, `GuestAccessTest`.
+
+- **Unit** (`tests/Unit/Domain/Financial/`): `Money` (já existe), `ManualMovement` (categoria → conta/direção, valor derivado de qtd × preço) e `PartnerSplit` (divisão por %, centavo órfão no Sócio 1, reconciliação exata).
+- **Integration** (`tests/Feature/UseCases/Financial/`): cada UseCase via `app()` — bootstrap, lançamento de cada categoria, transferência em dupla partida, distribuição, exclusão por grupo, `close` (devolução da sobra + próximo draft) e `reopen`.
+- **Feature** (`tests/Feature/Financial/`, `tests/Feature/Security/`): contratos HTTP + validação (422) + acesso guest/autorizado.
 
 ### Fora de escopo
-Tela de "Configurações" global; vínculo das compras de TF2 ao domínio de trades/keys; > 2 sócios; scheduler de fechamento; câmbio €↔R$; metas parciais de compra por lote.
+
+Tela de "Configurações" global; vínculo das compras de TF2 ao domínio de trades/keys; > 2 sócios; scheduler de fechamento; câmbio €↔R$; edição de lançamento; relatório de total sacado por sócio (a `description` cobre a consulta pontual); imposição da ordem dos passos.
 
 ### Vocabulário para `CONTEXT.md` (ao implementar)
-`FinancialMonth (fechamento mensal)`, `Account`, `Movement` (entrada/saída), reserva TF2 = earmark, `Partner`; `close`/`reopen` como atos.
 
-**Ação:** por ser multi-sessão, quebrar em tickets tracer-bullet (`/to-tickets`) e implementar por ticket. Atualizar `CLAUDE.md` (domínios/arquitetura), `CONTEXT.md` (vocabulário) e `docs/PRODUCT.md` (regra de negócio da cascata) na entrega.
+`FinancialMonth` (fechamento mensal), `AccountType` (Principal / TF2 / Reinvestimento / Emergência), `FinancialMovement`, `tf2_allocation` (verba do mês) vs. `tf2_purchase` (compra real), `transfer`, `partner_distribution`, `close`/`reopen` como atos, `draft`/`closed` como estados.
 
-**Origem:** `/grill-with-docs` → `/to-spec` (2026-07-27); decisões de modelo (3 contas + earmark virtual) validadas com o dono do produto.
+---
+
+### Mapeamento de tickets
+
+O working tree já contém a implementação da spec anterior (cascata automática), **não commitada**. Como merge na `main` dispara deploy, o modelo antigo não deve ser commitado — os tickets abaixo reescrevem o working tree e só o resultado final vira commit.
+
+**Sobrevive intacto:** `Money`, os dois Models, as migrations base, a camada HTTP (rotas/controller/FormRequests com `toData()`/`toManualMovement()`), `FinancialMonthService` (leitura CQRS), o esqueleto de bootstrap/close/reopen e a maior parte dos testes.
+
+| # | Ticket | O que muda | Testes |
+|---|---|---|---|
+| **R1** | **Migration + enums** | Migration nova: dropar as 9 colunas de snapshot, `tf2_target_quantity`, `tf2_price`, `tf2_increment`, `partner_one_name`, `partner_two_name`; adicionar `group_id` (uuid, nullable) e `partner_slot` (tinyint, nullable) em `financial_movements`. `AccountType` ganha `tf2`; `MovementCategory` perde `reinvestment_transfer`/`emergency_transfer`/`fund_withdrawal` e ganha `transfer`/`tf2_allocation`. Deletar `FinancialMonthDefaults::TF2_MONTHLY_INCREMENT`. | Unit (enums) |
+| **R2** | **Domain: `PartnerSplit`, `ManualMovement`** | Extrair `PartnerSplit` do `FinancialMonthCalculator` (divisão + centavo órfão) e **deletar** `FinancialMonthCalculator`, `FinancialMonthResult` e `FinancialMonthCalculatorTest`. Reescrever `ManualMovement`: conta escolhida em `income`/`expense`, `tf2_purchase` debitando TF2, `tf2_allocation` e `transfer` novos, justificativa obrigatória em débito de caixinha. | Unit |
+| **R3** | **UseCases de lançamento** | `RecordMovementUseCase` aceita conta escolhida. Novos: `RecordTransferUseCase` (dupla partida + `group_id`, aceita valor ou % do saldo da origem), `RecordTf2AllocationUseCase`, `DistributeToPartnersUseCase` (2 débitos + `PartnerSplit` + `group_id` + `partner_slot`). | Integration |
+| **R4** | **Apagar lançamento** | `DeleteMovementGroupUseCase` — apaga o grupo inteiro, só em mês `draft`, recusa em `closed`. | Integration |
+| **R5** | **Fechar/reabrir** | `CloseMonthUseCase` perde a cascata inteira: gera só o `transfer` de devolução do TF2, marca `closed` e abre o próximo draft (carry-forward uniforme + prefills). `ReopenFinancialMonthUseCase` perde a limpeza de snapshot. `CreateDraftFinancialMonthUseCase`/`BootstrapFinancialMonthData` perdem meta de TF2 e nomes dos sócios, e ganham saldo de abertura da 4ª conta. | Integration |
+| **R6** | **HTTP** | `FinancialMonthController` ganha endpoints de transferência, alocação, distribuição e exclusão; FormRequests correspondentes com `Rule::enum()`; rotas + `GuestAccessTest`. | Feature |
+| **R7** | **Frontend** | `FinancialMonths.vue`: 4º card de saldo, negativo em vermelho, formulários por ação (com prefill de TF2 e das %), ordem do roteiro na tela, botão de apagar lançamento, histórico sem as colunas de cascata. | — |
+| **R8** | **Doc viva** | `CONTEXT.md` (vocabulário), `CLAUDE.md` (domínios/arquitetura), `docs/PRODUCT.md` (fluxo dos 8 passos) e remover esta spec daqui. O ADR [`0005`](adr/0005-financial-month-records-instead-of-calculating.md) já está escrito. | — |
+
+**Ação:** implementar por ticket, limpando o contexto entre eles; R1→R5 encadeiam, R6 depende de R5, R7 de R6.
+
+**Origem:** `/grill-with-docs` → `/to-spec` (2026-07-27); revisado por `/grill-with-docs` (2026-08-01) após simulação de uso real — o dono do produto identificou que o fechamento automático invertia a ordem real das ações e que a verba de TF2 precisa ser uma conta de verdade. 13 decisões validadas na entrevista.
 
 ---
 
@@ -364,3 +401,31 @@ não coincida com nenhum múltiplo de 5 do outro job (ex: `35 * * * *`) —
 elimina a colisão estrutural entre os dois modos.
 
 **Origem:** code-review do fix de action-lock em `GamivoApiService` (2026-07-20).
+
+---
+
+## Polimentos adiados do domínio Financial
+
+**Onde:** `app/UseCases/Financial/`, `tests/Feature/UseCases/Financial/`, `tests/Feature/Services/Financial/`.
+
+Itens levantados no code-review dos tickets 1–3 do `FinancialMonth` e conscientemente adiados —
+nenhum bloqueia funcionalidade. Reavaliar **durante o redesenho** (tickets `R1`–`R8` acima),
+porque parte deles morre junto com o código que os originou:
+
+- [ ] **`?string $occurredAt`** nos UseCases de lançamento — `Money` é VO, datas não.
+  Trocar por `\DateTimeInterface`/`CarbonImmutable` evita bug de formato na fronteira.
+- [ ] **Float strict-equality** (`$balance === 0.0`) ao decidir se cria movimento de abertura
+  no carry-forward. Funciona hoje porque `Money::toReais()` devolve float quantizado ao
+  centavo, mas quebra silenciosamente se um valor não-quantizado passar por ali.
+  Preferir `abs($balance) < 0.005` ou devolver `Money` do service.
+- [ ] **Nomes de fixture genéricos** — o Pest promove `function draftMonth()` e
+  `seedClosableDraft()` para o namespace global; `draftMonth` é genérico o bastante para
+  colidir com testes futuros. Mover para `tests/Support/` ou renomear com prefixo do domínio.
+- [ ] **Duplicação da criação de movimentos** — `movements()->create([...])` repetido em
+  `CreateDraftFinancialMonthUseCase` e `CloseMonthUseCase`. Com os UseCases novos de
+  transferência/distribuição o padrão passa de 2 para 4+ sítios, cruzando o limiar do
+  `CLAUDE.md` para extrair um helper.
+
+**Ação:** endereçar dentro dos tickets do redesenho, não como passada separada.
+
+**Origem:** code-review dos tickets 1–3 do FinancialMonth (2026-08-01), eixo Standards.
