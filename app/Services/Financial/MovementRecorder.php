@@ -20,6 +20,10 @@ use Illuminate\Support\Str;
  *
  * Justificativa e data são campos de registro, não de domínio — valem para o
  * lançamento inteiro, então se repetem em cada perna.
+ *
+ * `$isGenerated` marca o que o sistema lançou sozinho (hoje só a devolução da
+ * verba de TF2, no fechamento). O que é gerado não se apaga à mão: quem desfaz
+ * é o `reopen`, em bloco — ver `MovementDeletionPolicy`.
  */
 class MovementRecorder
 {
@@ -32,6 +36,7 @@ class MovementRecorder
         array $legs,
         ?string $description = null,
         ?string $occurredAt = null,
+        bool $isGenerated = false,
     ): Collection {
         $groupId = (string) Str::uuid();
         $occurredAt ??= now()->toDateString();
@@ -48,7 +53,7 @@ class MovementRecorder
                 'partner_slot' => $leg->partnerSlot,
                 'description' => $description,
                 'occurred_at' => $occurredAt,
-                'is_generated' => false,
+                'is_generated' => $isGenerated,
             ])
         ));
     }
