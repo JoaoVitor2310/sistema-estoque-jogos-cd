@@ -6,10 +6,11 @@ use App\Domain\Enums\AccountType;
 use App\Domain\Enums\FinancialMonthStatus;
 use App\Domain\Enums\MovementCategory;
 use App\Domain\Enums\MovementDirection;
+use App\Domain\Financial\AccountTransfer;
 use App\Models\FinancialMonth;
 use App\Services\Financial\FinancialMonthService;
+use App\Services\Financial\MovementRecorder;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 /**
  * Encerra o mês corrente e abre o próximo.
@@ -31,17 +32,17 @@ use Illuminate\Support\Str;
  */
 class CloseMonthUseCase
 {
+    /** Justificativa das duas pernas geradas pela devolução da verba. */
+    private const LEFTOVER_DESCRIPTION = 'Devolução da verba de TF2 não utilizada';
+
     public function __construct(
         private readonly FinancialMonthService $financialMonthService,
+        private readonly MovementRecorder $movementRecorder,
     ) {}
 
     public function execute(): FinancialMonth
     {
-        $month = FinancialMonth::where('status', FinancialMonthStatus::Draft)->first();
-
-        if ($month === null) {
-            throw new \RuntimeException('There is no open financial month.');
-        }
+        $month = $this->financialMonthService->currentDraftOrFail();
 
         return DB::transaction(function () use ($month) {
             $this->returnTf2Leftover($month);
@@ -59,7 +60,7 @@ class CloseMonthUseCase
 
     /**
      * Devolve ao Principal o que sobrou da verba de TF2, zerando a conta.
-     * Saldo negativo (verba estourada) inverte a direção: o Principal cobre.
+     * Saldo negativo (verba estourada) troca a origem: o Principal cobre.
      */
     private function returnTf2Leftover(FinancialMonth $month): void
     {
@@ -69,28 +70,19 @@ class CloseMonthUseCase
             return;
         }
 
-        $groupId = (string) Str::uuid();
-        $returning = $leftover > 0;
+        // Quem devolve é a origem da transferência: sobra sai do Tf2, verba
+        // estourada sai do Principal (que cobre o rombo). Nos dois casos o Tf2
+        // fecha em zero — só muda de que lado o dinheiro vem.
+        $transfer = $leftover > 0
+            ? AccountTransfer::between(AccountType::Tf2, AccountType::Principal, $leftover, self::LEFTOVER_DESCRIPTION)
+            : AccountTransfer::between(AccountType::Principal, AccountType::Tf2, abs($leftover), self::LEFTOVER_DESCRIPTION);
 
-        $this->writeMovement($month, [
-            'group_id' => $groupId,
-            'account_type' => AccountType::Tf2,
-            'direction' => $returning ? MovementDirection::Debit : MovementDirection::Credit,
-            'category' => MovementCategory::Transfer,
-            'amount' => abs($leftover),
-            'description' => 'Devolução da verba de TF2 não utilizada',
-            'is_generated' => true,
-        ]);
-
-        $this->writeMovement($month, [
-            'group_id' => $groupId,
-            'account_type' => AccountType::Principal,
-            'direction' => $returning ? MovementDirection::Credit : MovementDirection::Debit,
-            'category' => MovementCategory::Transfer,
-            'amount' => abs($leftover),
-            'description' => 'Devolução da verba de TF2 não utilizada',
-            'is_generated' => true,
-        ]);
+        $this->movementRecorder->record(
+            $month,
+            $transfer->legs(),
+            self::LEFTOVER_DESCRIPTION,
+            isGenerated: true,
+        );
     }
 
     /**
@@ -115,12 +107,13 @@ class CloseMonthUseCase
                 continue;
             }
 
-            $this->writeMovement($next, [
+            $next->movements()->create([
                 'account_type' => AccountType::from($accountValue),
                 'direction' => $balance > 0 ? MovementDirection::Credit : MovementDirection::Debit,
                 'category' => MovementCategory::Opening,
                 'amount' => abs($balance),
                 'description' => 'Saldo de abertura',
+                'occurred_at' => now()->toDateString(),
                 'is_generated' => false,
             ]);
         }
@@ -134,13 +127,5 @@ class CloseMonthUseCase
         return $month->month === 12
             ? [$month->year + 1, 1]
             : [$month->year, $month->month + 1];
-    }
-
-    /**
-     * @param  array<string, mixed>  $attributes
-     */
-    private function writeMovement(FinancialMonth $month, array $attributes): void
-    {
-        $month->movements()->create($attributes + ['occurred_at' => now()->toDateString()]);
     }
 }

@@ -7,6 +7,8 @@ use App\Domain\Enums\MovementDirection;
 use App\Models\FinancialMonth;
 use App\Services\Financial\FinancialMonthService;
 use App\UseCases\Financial\CloseMonthUseCase;
+use App\UseCases\Financial\DTO\RecordTf2AllocationDTO;
+use App\UseCases\Financial\RecordTf2AllocationUseCase;
 use Tests\Support\FinancialMonthFactory;
 
 /**
@@ -18,31 +20,13 @@ function seedMonthWithBudget(): FinancialMonth
 {
     $month = FinancialMonthFactory::draft();
 
-    // Abertura: Principal 3.000.
-    $month->movements()->create([
-        'account_type' => AccountType::Principal,
-        'direction' => MovementDirection::Credit,
-        'category' => MovementCategory::Opening,
-        'amount' => 3000.00,
-        'occurred_at' => now()->toDateString(),
-        'is_generated' => false,
-    ]);
+    // Abertura: Principal 3.000. Verba de TF2: 300 × R$ 10 = 3.000 saem do
+    // Principal e entram no Tf2 — pelo caminho real, não montado à mão.
+    FinancialMonthFactory::credit($month, AccountType::Principal, 3000.00);
 
-    // Verba de TF2: 300 × R$ 10 = 3.000 saem do Principal e entram no Tf2.
-    $groupId = (string) Str::uuid();
-    foreach ([[AccountType::Principal, MovementDirection::Debit], [AccountType::Tf2, MovementDirection::Credit]] as [$account, $direction]) {
-        $month->movements()->create([
-            'group_id' => $groupId,
-            'account_type' => $account,
-            'direction' => $direction,
-            'category' => MovementCategory::Tf2Allocation,
-            'amount' => 3000.00,
-            'quantity' => 300,
-            'unit_price' => 10.00,
-            'occurred_at' => now()->toDateString(),
-            'is_generated' => false,
-        ]);
-    }
+    app(RecordTf2AllocationUseCase::class)->execute(
+        new RecordTf2AllocationDTO(quantity: 300, unitPrice: 10.00)
+    );
 
     return $month;
 }
