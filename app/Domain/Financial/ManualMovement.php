@@ -18,9 +18,8 @@ use App\Domain\Enums\MovementDirection;
  *  - expense      → débito na conta escolhida
  *  - tf2_purchase → débito na conta Tf2 (gasta a verba do mês); `amount = qtd × preço`
  *
- * Débito numa caixinha (Reinvestimento/Emergência) exige justificativa — é a
- * proteção de auditoria que sobreviveu à remoção da categoria `fund_withdrawal`
- * (ver docs/adr/0005).
+ * Débito numa caixinha exige justificativa — a regra vive na `JustificationPolicy`,
+ * compartilhada com os demais lançamentos.
  *
  * Lançamentos que geram mais de uma linha (transferência, distribuição) não
  * passam por aqui: têm UseCases próprios, porque precisam de `group_id`.
@@ -71,7 +70,9 @@ final class ManualMovement
             ),
         };
 
-        $movement->guardFundJustification($description);
+        if ($movement->direction === MovementDirection::Debit) {
+            JustificationPolicy::guardDebit($movement->account, $description);
+        }
 
         return $movement;
     }
@@ -86,20 +87,6 @@ final class ManualMovement
             $quantity,
             $unitPrice,
         );
-    }
-
-    /**
-     * Tirar dinheiro de uma caixinha exige dizer por quê — o histórico das
-     * reservas não pode ter saída sem motivo registrado.
-     */
-    private function guardFundJustification(?string $description): void
-    {
-        if ($this->direction === MovementDirection::Debit
-            && $this->account->isFund()
-            && ($description === null || trim($description) === '')
-        ) {
-            throw new \InvalidArgumentException('Debiting a reserve fund requires a justification.');
-        }
     }
 
     private static function requireAccount(?AccountType $account): AccountType
