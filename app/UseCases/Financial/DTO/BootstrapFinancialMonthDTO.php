@@ -1,6 +1,6 @@
 <?php
 
-namespace App\UseCases\Financial;
+namespace App\UseCases\Financial\DTO;
 
 /**
  * Entrada do bootstrap (primeiro fechamento). Carrega o estado de abertura vindo
@@ -11,7 +11,7 @@ namespace App\UseCases\Financial;
  * Não há meta de TF2 aqui — ela vive no movimento `tf2_allocation`, lançado
  * durante o mês (ver docs/adr/0005).
  */
-final class BootstrapFinancialMonthData
+final class BootstrapFinancialMonthDTO
 {
     /**
      * @param  array<string, float>  $openingBalances  saldo inicial por conta (principal/tf2/reinvestment/emergency)

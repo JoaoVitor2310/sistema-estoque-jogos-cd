@@ -1,6 +1,6 @@
 <?php
 
-namespace App\UseCases\Financial;
+namespace App\UseCases\Financial\DTO;
 
 use App\Domain\Enums\AccountType;
 use App\Domain\Enums\MovementCategory;
@@ -12,7 +12,7 @@ use App\Domain\Enums\MovementCategory;
  * `ManualMovement` (e portanto quem pode falhar por regra de negócio) é o
  * UseCase, para que o erro nasça na camada que sabe reportá-lo.
  */
-final class RecordMovementData
+final class RecordMovementDTO
 {
     public function __construct(
         public readonly MovementCategory $category,

@@ -36,7 +36,7 @@ class FinancialMonthController extends Controller
     public function store(StoreFinancialMonthRequest $request): JsonResponse
     {
         try {
-            $month = $this->createDraftFinancialMonthUseCase->execute($request->toData());
+            $month = $this->createDraftFinancialMonthUseCase->execute($request->toDTO());
         } catch (\RuntimeException) {
             return $this->error(422, 'O primeiro fechamento mensal já foi aberto.');
         }
@@ -47,7 +47,7 @@ class FinancialMonthController extends Controller
     public function storeMovement(RecordMovementRequest $request): JsonResponse
     {
         try {
-            $recorded = $this->recordMovementUseCase->execute($request->toData());
+            $recorded = $this->recordMovementUseCase->execute($request->toDTO());
         } catch (\InvalidArgumentException $e) {
             return $this->error(422, $e->getMessage());
         } catch (\RuntimeException) {

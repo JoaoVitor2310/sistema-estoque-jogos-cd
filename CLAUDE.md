@@ -344,6 +344,21 @@ $game['identified_platform'] = PlatformIdentifier::identify($game['key_code']);
 
 Usar quando uma função receberia 3+ parâmetros do mesmo conceito ou os dados vêm de fonte externa e precisam de validação (ex: taxas do banco → `MarketplaceFee`). Não usar para 1-2 primitivos simples.
 
+### DTOs — entrada dos UseCases
+
+O input tipado de um UseCase mora em `app/UseCases/<Domínio>/DTO/`, com sufixo `DTO` no nome da classe (ex: `App\UseCases\Financial\DTO\RecordTransferDTO`). O FormRequest correspondente o monta num método `toDTO()` — o mapeamento payload → tipos fica na fronteira HTTP, não no controller.
+
+**DTO não é Value Object.** A tabela abaixo separa os dois; a distinção importa porque só uma das duas famílias pode conter regra de negócio:
+
+| | DTO | Value Object |
+|---|---|---|
+| Onde | `app/UseCases/<Domínio>/DTO/` | `app/Domain/<Domínio>/` (ou `ValueObjects/`) |
+| Para quê | carregar primitivos já validados até o UseCase | representar um conceito do domínio |
+| Comportamento | nenhum — só `readonly` públicos | valida invariantes, tem métodos |
+| Quem constrói | FormRequest (`toDTO()`) | o UseCase, a partir do DTO |
+
+Por isso o DTO **nunca** entra em `app/Domain/`: o domínio recebe primitivos/VOs e não pode conhecer a forma do payload HTTP.
+
 ### Estrutura de arquivos
 
 ```

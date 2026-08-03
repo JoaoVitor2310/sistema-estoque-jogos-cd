@@ -2,7 +2,10 @@
 
 namespace Tests\Support;
 
+use App\Domain\Enums\AccountType;
 use App\Domain\Enums\FinancialMonthStatus;
+use App\Domain\Enums\MovementCategory;
+use App\Domain\Enums\MovementDirection;
 use App\Models\FinancialMonth;
 use Illuminate\Support\Facades\DB;
 
@@ -32,6 +35,22 @@ final class FinancialMonthFactory
             'status' => FinancialMonthStatus::Closed->value,
             'closed_at' => now(),
         ] + $overrides);
+    }
+
+    /**
+     * Dá saldo inicial a uma conta, para os testes que precisam de dinheiro em
+     * caixa antes do lançamento sob teste (ex: transferir uma % do Principal).
+     */
+    public static function credit(FinancialMonth $month, AccountType $account, float $amount): void
+    {
+        $month->movements()->create([
+            'account_type' => $account,
+            'direction' => MovementDirection::Credit,
+            'category' => MovementCategory::Opening,
+            'amount' => $amount,
+            'occurred_at' => now()->toDateString(),
+            'is_generated' => false,
+        ]);
     }
 
     /**
