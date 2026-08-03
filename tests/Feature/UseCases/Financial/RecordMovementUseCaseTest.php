@@ -3,7 +3,7 @@
 use App\Domain\Enums\AccountType;
 use App\Domain\Enums\MovementCategory;
 use App\Domain\Enums\MovementDirection;
-use App\UseCases\Financial\RecordMovementData;
+use App\UseCases\Financial\DTO\RecordMovementDTO;
 use App\UseCases\Financial\RecordMovementUseCase;
 use Tests\Support\FinancialMonthFactory;
 
@@ -12,7 +12,7 @@ describe('RecordMovementUseCase', function () {
     it('records an income into the chosen account of the current draft', function () {
         $month = FinancialMonthFactory::draft();
 
-        $movement = app(RecordMovementUseCase::class)->execute(new RecordMovementData(
+        $movement = app(RecordMovementUseCase::class)->execute(new RecordMovementDTO(
             category: MovementCategory::Income,
             account: AccountType::Principal,
             amount: 3257.03,
@@ -33,7 +33,7 @@ describe('RecordMovementUseCase', function () {
     it('records a tf2 purchase debiting the tf2 budget', function () {
         FinancialMonthFactory::draft();
 
-        $movement = app(RecordMovementUseCase::class)->execute(new RecordMovementData(
+        $movement = app(RecordMovementUseCase::class)->execute(new RecordMovementDTO(
             category: MovementCategory::Tf2Purchase,
             quantity: 100,
             unitPrice: 10.00,
@@ -49,7 +49,7 @@ describe('RecordMovementUseCase', function () {
     it('records a justified expense out of a reserve fund', function () {
         FinancialMonthFactory::draft();
 
-        $movement = app(RecordMovementUseCase::class)->execute(new RecordMovementData(
+        $movement = app(RecordMovementUseCase::class)->execute(new RecordMovementDTO(
             category: MovementCategory::Expense,
             account: AccountType::Emergency,
             amount: 200.00,
@@ -65,7 +65,7 @@ describe('RecordMovementUseCase', function () {
     it('refuses to debit a reserve fund without a justification', function () {
         FinancialMonthFactory::draft();
 
-        expect(fn () => app(RecordMovementUseCase::class)->execute(new RecordMovementData(
+        expect(fn () => app(RecordMovementUseCase::class)->execute(new RecordMovementDTO(
             category: MovementCategory::Expense,
             account: AccountType::Emergency,
             amount: 200.00,
@@ -75,7 +75,7 @@ describe('RecordMovementUseCase', function () {
     it('defaults occurred_at to today when not provided', function () {
         FinancialMonthFactory::draft();
 
-        $movement = app(RecordMovementUseCase::class)->execute(new RecordMovementData(
+        $movement = app(RecordMovementUseCase::class)->execute(new RecordMovementDTO(
             category: MovementCategory::Expense,
             account: AccountType::Principal,
             amount: 50.00,
@@ -85,7 +85,7 @@ describe('RecordMovementUseCase', function () {
     });
 
     it('throws when there is no open draft', function () {
-        expect(fn () => app(RecordMovementUseCase::class)->execute(new RecordMovementData(
+        expect(fn () => app(RecordMovementUseCase::class)->execute(new RecordMovementDTO(
             category: MovementCategory::Income,
             account: AccountType::Principal,
             amount: 100.00,

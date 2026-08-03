@@ -4,7 +4,7 @@ namespace App\Http\Requests;
 
 use App\Domain\Enums\AccountType;
 use App\Domain\Enums\MovementCategory;
-use App\UseCases\Financial\RecordMovementData;
+use App\UseCases\Financial\DTO\RecordMovementDTO;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -51,11 +51,11 @@ class RecordMovementRequest extends FormRequest
         ];
     }
 
-    public function toData(): RecordMovementData
+    public function toDTO(): RecordMovementDTO
     {
         $data = $this->validated();
 
-        return new RecordMovementData(
+        return new RecordMovementDTO(
             category: MovementCategory::from($data['category']),
             account: isset($data['account']) ? AccountType::from($data['account']) : null,
             amount: isset($data['amount']) ? (float) $data['amount'] : null,

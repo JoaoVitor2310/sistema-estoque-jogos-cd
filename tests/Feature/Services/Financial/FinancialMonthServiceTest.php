@@ -3,21 +3,8 @@
 use App\Domain\Enums\AccountType;
 use App\Domain\Enums\MovementCategory;
 use App\Domain\Enums\MovementDirection;
-use App\Models\FinancialMonth;
 use App\Services\Financial\FinancialMonthService;
 use Tests\Support\FinancialMonthFactory;
-
-function creditAccount(FinancialMonth $month, AccountType $account, float $amount): void
-{
-    $month->movements()->create([
-        'account_type' => $account,
-        'direction' => MovementDirection::Credit,
-        'category' => MovementCategory::Opening,
-        'amount' => $amount,
-        'occurred_at' => now()->toDateString(),
-        'is_generated' => false,
-    ]);
-}
 
 describe('FinancialMonthService', function () {
 
@@ -33,7 +20,7 @@ describe('FinancialMonthService', function () {
 
         it('returns the current draft with its balances', function () {
             $month = FinancialMonthFactory::draft();
-            creditAccount($month, AccountType::Principal, 1000.00);
+            FinancialMonthFactory::credit($month, AccountType::Principal, 1000.00);
 
             $overview = app(FinancialMonthService::class)->overview();
 
@@ -66,8 +53,8 @@ describe('FinancialMonthService', function () {
 
         it('subtracts debits from credits per account', function () {
             $month = FinancialMonthFactory::draft();
-            creditAccount($month, AccountType::Principal, 3000.00);
-            creditAccount($month, AccountType::Tf2, 1000.00);
+            FinancialMonthFactory::credit($month, AccountType::Principal, 3000.00);
+            FinancialMonthFactory::credit($month, AccountType::Tf2, 1000.00);
 
             $month->movements()->create([
                 'account_type' => AccountType::Principal,

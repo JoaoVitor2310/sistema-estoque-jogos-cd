@@ -2,7 +2,7 @@
 
 namespace App\Http\Requests;
 
-use App\UseCases\Financial\BootstrapFinancialMonthData;
+use App\UseCases\Financial\DTO\BootstrapFinancialMonthDTO;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -42,11 +42,11 @@ class StoreFinancialMonthRequest extends FormRequest
      * Hidrata o input tipado do UseCase a partir do payload já validado —
      * o mapeamento mora na fronteira, não no controller.
      */
-    public function toData(): BootstrapFinancialMonthData
+    public function toDTO(): BootstrapFinancialMonthDTO
     {
         $data = $this->validated();
 
-        return new BootstrapFinancialMonthData(
+        return new BootstrapFinancialMonthDTO(
             year: isset($data['year']) ? (int) $data['year'] : null,
             month: isset($data['month']) ? (int) $data['month'] : null,
             reinvestmentPercent: isset($data['reinvestment_percent']) ? (float) $data['reinvestment_percent'] : null,

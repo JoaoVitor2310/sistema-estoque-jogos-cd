@@ -8,6 +8,7 @@ use App\Domain\Enums\MovementCategory;
 use App\Domain\Enums\MovementDirection;
 use App\Domain\Financial\FinancialMonthDefaults;
 use App\Models\FinancialMonth;
+use App\UseCases\Financial\DTO\BootstrapFinancialMonthDTO;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -25,7 +26,7 @@ use Illuminate\Support\Facades\DB;
  */
 class CreateDraftFinancialMonthUseCase
 {
-    public function execute(BootstrapFinancialMonthData $data): FinancialMonth
+    public function execute(BootstrapFinancialMonthDTO $data): FinancialMonth
     {
         if (FinancialMonth::exists()) {
             throw new \RuntimeException('The first financial month has already been opened.');

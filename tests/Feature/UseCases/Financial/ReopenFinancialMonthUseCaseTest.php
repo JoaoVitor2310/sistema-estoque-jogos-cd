@@ -4,10 +4,10 @@ use App\Domain\Enums\AccountType;
 use App\Domain\Enums\FinancialMonthStatus;
 use App\Domain\Enums\MovementCategory;
 use App\Models\FinancialMonth;
-use App\UseCases\Financial\BootstrapFinancialMonthData;
 use App\UseCases\Financial\CloseMonthUseCase;
 use App\UseCases\Financial\CreateDraftFinancialMonthUseCase;
-use App\UseCases\Financial\RecordMovementData;
+use App\UseCases\Financial\DTO\BootstrapFinancialMonthDTO;
+use App\UseCases\Financial\DTO\RecordMovementDTO;
 use App\UseCases\Financial\RecordMovementUseCase;
 use App\UseCases\Financial\ReopenFinancialMonthUseCase;
 
@@ -18,17 +18,17 @@ describe('ReopenFinancialMonthUseCase', function () {
         // Jul/2026: abre com Principal 1.000, entra 2.000, sai 200 e sobra verba
         // de TF2 (que o fechamento devolve). Fechar cria o draft de Ago/2026.
         beforeEach(function () {
-            app(CreateDraftFinancialMonthUseCase::class)->execute(new BootstrapFinancialMonthData(
+            app(CreateDraftFinancialMonthUseCase::class)->execute(new BootstrapFinancialMonthDTO(
                 year: 2026,
                 month: 7,
                 openingBalances: ['principal' => 1000.00, 'tf2' => 500.00],
             ));
-            app(RecordMovementUseCase::class)->execute(new RecordMovementData(
+            app(RecordMovementUseCase::class)->execute(new RecordMovementDTO(
                 category: MovementCategory::Income,
                 account: AccountType::Principal,
                 amount: 2000.00,
             ));
-            app(RecordMovementUseCase::class)->execute(new RecordMovementData(
+            app(RecordMovementUseCase::class)->execute(new RecordMovementDTO(
                 category: MovementCategory::Expense,
                 account: AccountType::Principal,
                 amount: 200.00,
@@ -75,7 +75,7 @@ describe('ReopenFinancialMonthUseCase', function () {
 
     it('throws when the month is not closed', function () {
         app(CreateDraftFinancialMonthUseCase::class)->execute(
-            new BootstrapFinancialMonthData(year: 2026, month: 7)
+            new BootstrapFinancialMonthDTO(year: 2026, month: 7)
         );
         $draft = FinancialMonth::where('status', FinancialMonthStatus::Draft)->first();
 
@@ -85,7 +85,7 @@ describe('ReopenFinancialMonthUseCase', function () {
 
     it('refuses to reopen a closed month that is not the most recent', function () {
         app(CreateDraftFinancialMonthUseCase::class)->execute(
-            new BootstrapFinancialMonthData(year: 2026, month: 7)
+            new BootstrapFinancialMonthDTO(year: 2026, month: 7)
         );
         app(CloseMonthUseCase::class)->execute(); // Jul fechado, Ago draft
         app(CloseMonthUseCase::class)->execute(); // Ago fechado, Set draft

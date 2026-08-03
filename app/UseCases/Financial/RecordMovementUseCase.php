@@ -2,10 +2,10 @@
 
 namespace App\UseCases\Financial;
 
-use App\Domain\Enums\FinancialMonthStatus;
 use App\Domain\Financial\ManualMovement;
-use App\Models\FinancialMonth;
 use App\Models\FinancialMovement;
+use App\Services\Financial\FinancialMonthService;
+use App\UseCases\Financial\DTO\RecordMovementDTO;
 
 /**
  * Lança um movimento simples no fechamento em aberto.
@@ -17,16 +17,19 @@ use App\Models\FinancialMovement;
  *
  * Persiste como manual (`is_generated = false`), anexando os campos que são só
  * de registro (justificativa e data).
+ *
+ * Gera uma linha só, então não passa pelo `MovementRecorder` nem ganha
+ * `group_id`: não há par para manter junto.
  */
 class RecordMovementUseCase
 {
-    public function execute(RecordMovementData $data): FinancialMovement
-    {
-        $month = FinancialMonth::where('status', FinancialMonthStatus::Draft)->first();
+    public function __construct(
+        private readonly FinancialMonthService $financialMonthService,
+    ) {}
 
-        if ($month === null) {
-            throw new \RuntimeException('There is no open financial month.');
-        }
+    public function execute(RecordMovementDTO $data): FinancialMovement
+    {
+        $month = $this->financialMonthService->currentDraftOrFail();
 
         $movement = ManualMovement::make(
             $data->category,

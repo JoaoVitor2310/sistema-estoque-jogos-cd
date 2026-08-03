@@ -35,6 +35,17 @@ final class AccountTransfer
         public readonly ?float $unitPrice,
     ) {}
 
+    /**
+     * Transfere um valor fechado entre duas contas.
+     *
+     * Recusa origem igual ao destino — seria uma linha de débito e uma de
+     * crédito na mesma conta, que se anulam e só poluem o extrato — e recusa
+     * valor não positivo: o sentido do dinheiro é o par de contas, não o sinal,
+     * então um valor negativo seria uma segunda forma de dizer a mesma coisa.
+     *
+     * @param  float  $amount  valor a transferir (R$), sempre positivo
+     * @param  string|null  $description  justificativa; obrigatória se a origem for caixinha
+     */
     public static function between(
         AccountType $source,
         AccountType $destination,

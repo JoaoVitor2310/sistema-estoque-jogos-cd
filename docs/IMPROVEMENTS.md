@@ -80,7 +80,7 @@ Tela de "Configurações" global; vínculo das compras de TF2 ao domínio de tra
 
 O working tree já contém a implementação da spec anterior (cascata automática), **não commitada**. Como merge na `main` dispara deploy, o modelo antigo não deve ser commitado — os tickets abaixo reescrevem o working tree e só o resultado final vira commit.
 
-**Sobrevive intacto:** `Money`, os dois Models, as migrations base, a camada HTTP (rotas/controller/FormRequests com `toData()`/`toManualMovement()`), `FinancialMonthService` (leitura CQRS), o esqueleto de bootstrap/close/reopen e a maior parte dos testes.
+**Sobrevive intacto:** `Money`, os dois Models, as migrations base, a camada HTTP (rotas/controller/FormRequests com `toDTO()`/`toManualMovement()`), `FinancialMonthService` (leitura CQRS), o esqueleto de bootstrap/close/reopen e a maior parte dos testes.
 
 | # | Ticket | O que muda | Testes |
 |---|---|---|---|
@@ -88,7 +88,7 @@ O working tree já contém a implementação da spec anterior (cascata automáti
 | **R2** | **Domain: `PartnerSplit`, `ManualMovement`** | Extrair `PartnerSplit` do `FinancialMonthCalculator` (divisão + centavo órfão) e **deletar** `FinancialMonthCalculator`, `FinancialMonthResult` e `FinancialMonthCalculatorTest`. Reescrever `ManualMovement`: conta escolhida em `income`/`expense`, `tf2_purchase` debitando TF2, `tf2_allocation` e `transfer` novos, justificativa obrigatória em débito de caixinha. | Unit |
 | **R3** | **UseCases de lançamento** | `RecordMovementUseCase` aceita conta escolhida. Novos: `RecordTransferUseCase` (dupla partida + `group_id`, aceita valor ou % do saldo da origem), `RecordTf2AllocationUseCase`, `DistributeToPartnersUseCase` (2 débitos + `PartnerSplit` + `group_id` + `partner_slot`). | Integration |
 | **R4** | **Apagar lançamento** | `DeleteMovementGroupUseCase` — apaga o grupo inteiro, só em mês `draft`, recusa em `closed`. | Integration |
-| **R5** | **Fechar/reabrir** | `CloseMonthUseCase` perde a cascata inteira: gera só o `transfer` de devolução do TF2, marca `closed` e abre o próximo draft (carry-forward uniforme + prefills). `ReopenFinancialMonthUseCase` perde a limpeza de snapshot. `CreateDraftFinancialMonthUseCase`/`BootstrapFinancialMonthData` perdem meta de TF2 e nomes dos sócios, e ganham saldo de abertura da 4ª conta. | Integration |
+| **R5** | **Fechar/reabrir** | `CloseMonthUseCase` perde a cascata inteira: gera só o `transfer` de devolução do TF2, marca `closed` e abre o próximo draft (carry-forward uniforme + prefills). `ReopenFinancialMonthUseCase` perde a limpeza de snapshot. `CreateDraftFinancialMonthUseCase`/`BootstrapFinancialMonthDTO` perdem meta de TF2 e nomes dos sócios, e ganham saldo de abertura da 4ª conta. | Integration |
 | **R6** | **HTTP** | `FinancialMonthController` ganha endpoints de transferência, alocação, distribuição e exclusão; FormRequests correspondentes com `Rule::enum()`; rotas + `GuestAccessTest`. | Feature |
 | **R7** | **Frontend** | `FinancialMonths.vue`: 4º card de saldo, negativo em vermelho, formulários por ação (com prefill de TF2 e das %), ordem do roteiro na tela, botão de apagar lançamento, histórico sem as colunas de cascata. | — |
 | **R8** | **Doc viva** | `CONTEXT.md` (vocabulário), `CLAUDE.md` (domínios/arquitetura), `docs/PRODUCT.md` (fluxo dos 8 passos) e remover esta spec daqui. O ADR [`0005`](adr/0005-financial-month-records-instead-of-calculating.md) já está escrito. | — |

@@ -6,14 +6,14 @@ use App\Domain\Enums\MovementCategory;
 use App\Domain\Enums\MovementDirection;
 use App\Domain\Financial\FinancialMonthDefaults;
 use App\Models\FinancialMonth;
-use App\UseCases\Financial\BootstrapFinancialMonthData;
 use App\UseCases\Financial\CreateDraftFinancialMonthUseCase;
+use App\UseCases\Financial\DTO\BootstrapFinancialMonthDTO;
 use Tests\Support\FinancialMonthFactory;
 
 describe('CreateDraftFinancialMonthUseCase', function () {
 
     it('creates a draft month with the provided percentages', function () {
-        $month = app(CreateDraftFinancialMonthUseCase::class)->execute(new BootstrapFinancialMonthData(
+        $month = app(CreateDraftFinancialMonthUseCase::class)->execute(new BootstrapFinancialMonthDTO(
             year: 2026,
             month: 7,
             reinvestmentPercent: 0.25,
@@ -31,7 +31,7 @@ describe('CreateDraftFinancialMonthUseCase', function () {
     });
 
     it('falls back to domain defaults for percentages when not provided', function () {
-        $month = app(CreateDraftFinancialMonthUseCase::class)->execute(new BootstrapFinancialMonthData);
+        $month = app(CreateDraftFinancialMonthUseCase::class)->execute(new BootstrapFinancialMonthDTO);
 
         expect((float) $month->reinvestment_percent)->toBe(FinancialMonthDefaults::REINVESTMENT_PERCENT)
             ->and((float) $month->emergency_percent)->toBe(FinancialMonthDefaults::EMERGENCY_PERCENT)
@@ -39,7 +39,7 @@ describe('CreateDraftFinancialMonthUseCase', function () {
     });
 
     it('records opening credit movements for all four accounts', function () {
-        $month = app(CreateDraftFinancialMonthUseCase::class)->execute(new BootstrapFinancialMonthData(
+        $month = app(CreateDraftFinancialMonthUseCase::class)->execute(new BootstrapFinancialMonthDTO(
             openingBalances: [
                 'principal' => 3200.00,
                 'tf2' => 1500.00,
@@ -66,10 +66,10 @@ describe('CreateDraftFinancialMonthUseCase', function () {
     });
 
     it('refuses to bootstrap again once any month exists', function () {
-        app(CreateDraftFinancialMonthUseCase::class)->execute(new BootstrapFinancialMonthData(year: 2026, month: 7));
+        app(CreateDraftFinancialMonthUseCase::class)->execute(new BootstrapFinancialMonthDTO(year: 2026, month: 7));
 
         expect(fn () => app(CreateDraftFinancialMonthUseCase::class)->execute(
-            new BootstrapFinancialMonthData(year: 2026, month: 8)
+            new BootstrapFinancialMonthDTO(year: 2026, month: 8)
         ))->toThrow(RuntimeException::class);
 
         expect(FinancialMonth::count())->toBe(1);
@@ -79,7 +79,7 @@ describe('CreateDraftFinancialMonthUseCase', function () {
         FinancialMonthFactory::closed();
 
         expect(fn () => app(CreateDraftFinancialMonthUseCase::class)->execute(
-            new BootstrapFinancialMonthData(year: 2026, month: 8)
+            new BootstrapFinancialMonthDTO(year: 2026, month: 8)
         ))->toThrow(RuntimeException::class);
     });
 });
