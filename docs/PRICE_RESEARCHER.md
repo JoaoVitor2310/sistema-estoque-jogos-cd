@@ -178,6 +178,19 @@ Enfileira a busca de listas de trade de um usuário no SteamTrades. Resposta ime
 
 ---
 
+### 5. `POST /api/suppliers/find-new` — Busca assíncrona de novos fornecedores
+
+Enfileira a busca de novos fornecedores no SteamTrades. Resposta imediata (202); cada fornecedor encontrado é enviado individualmente para `POST /suppliers/prospect` no sistema-estoque conforme processado.
+
+**Response 202** (enfileirado):
+```json
+{ "success": true, "status": "queued" }
+```
+
+> O Sistema-Estoque propaga o `202` e a mensagem "Busca de novos fornecedores enfileirada." para o frontend — o botão "Procurar novos" (`Suppliers.vue`) não espera nem recarrega a lista após a chamada, pois o resultado chega de forma assíncrona pelo callback de `/suppliers/prospect`.
+
+---
+
 ## Comportamento geral de preços
 
 - **Fonte de popularidade:** SteamCharts (pico de jogadores nas últimas 24h)

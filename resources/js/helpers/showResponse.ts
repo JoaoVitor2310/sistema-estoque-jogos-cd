@@ -2,6 +2,10 @@ import { AxiosResponse } from 'axios';
 
 
 export const showResponse = (res: AxiosResponse, toastAdd: Function): void => {
+    if (res.status === 202) {
+        toastAdd({ severity: 'info', summary: 'Processando', detail: res.data.message, life: 5000 });
+        return;
+    }
     if (res.status === 200 || res.status === 201) {
         if(res.data.message === "Jogos cadastrados com sucesso, mas tem pelo menos um com a plataforma não identificada." || res.data.message === "Jogo atualizado, mas a plataforma não foi identificada."){
             toastAdd({ severity: 'warn', summary: 'Atenção', detail: res.data.message, life: 7000 });

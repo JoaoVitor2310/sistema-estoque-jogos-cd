@@ -26,6 +26,10 @@
 |     10. price-researcher retorna erro  → 400
 |     11. price-researcher retorna 200   → 200
 |
+|   POST /suppliers/find-new (findNewSuppliers):
+|     12. price-researcher retorna 202 (queued) → 202 com message
+|     13. price-researcher retorna erro         → propaga o status de erro
+|
 */
 
 use App\Models\AuthorizedUsers;
@@ -201,5 +205,32 @@ describe('POST /suppliers/execute/{id} — executeList', function () {
         $this->actingAs($user)
             ->postJson("/suppliers/execute/{$id}")
             ->assertStatus(200);
+    });
+});
+
+// ── POST /suppliers/find-new ──────────────────────────────────────────────────
+
+describe('POST /suppliers/find-new — findNewSuppliers', function () {
+
+    it('returns 202 with message when price-researcher queues the search', function () {
+        Http::fake(['*' => Http::response(['success' => true, 'status' => 'queued'], 202)]);
+
+        $user = makeSupplierTestUser();
+
+        $response = $this->actingAs($user)
+            ->postJson('/suppliers/find-new')
+            ->assertStatus(202);
+
+        expect($response->json('message'))->toBe('Busca de novos fornecedores enfileirada.');
+    });
+
+    it('propagates the upstream error status when price-researcher fails', function () {
+        Http::fake(['*' => Http::response(['error' => 'service unavailable'], 503)]);
+
+        $user = makeSupplierTestUser();
+
+        $this->actingAs($user)
+            ->postJson('/suppliers/find-new')
+            ->assertStatus(503);
     });
 });

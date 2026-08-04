@@ -76,13 +76,10 @@ class SupplierController extends Controller
             ->post($baseUrl.'/api/suppliers/find-new');
 
         if ($response->failed()) {
-            return response()->json([
-                'message' => 'Erro ao buscar novos fornecedores.',
-                'data' => $response->json(),
-            ], 400);
+            return $this->error($response->status(), 'Erro ao buscar novos fornecedores.', [], $response->json());
         }
 
-        return response()->json($response->json());
+        return $this->response(202, 'Busca de novos fornecedores enfileirada.', $response->json());
     }
 
     public function prospect(ProspectSupplierRequest $request): JsonResponse
