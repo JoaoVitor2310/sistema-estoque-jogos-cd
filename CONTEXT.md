@@ -79,3 +79,51 @@ _Avoid_: scouting.
 **Trade em estoque**:
 Uma trade é considerada "em estoque" quando pelo menos um dos `key_code` ofertados já está presente em alguma Key do estoque — ou seja, já compramos aquele jogo daquele lote.
 _Avoid_: trade concluída, trade fulfilled.
+
+### Fechamento mensal
+
+O caixa da empresa em R$, montado lançamento a lançamento. Não confundir com a **aba Financeiro** (`/financial`), que é análise de vendas em € — domínios distintos que compartilham só o prefixo do nome.
+
+**Fechamento mensal** (`FinancialMonth`):
+Um mês do livro-caixa dos sócios, do estado `draft` (sendo montado) até `closed` (histórico imutável). É a entidade; "fechar" e "reabrir" são atos sobre ela, não estados.
+_Avoid_: mês financeiro, período, competência.
+
+**Conta** (`AccountType`):
+Um dos quatro baldes onde o dinheiro da empresa vive — Principal, TF2, Reinvestimento e Emergência. Nenhuma guarda saldo próprio: o saldo é sempre a soma dos movimentos do mês.
+_Avoid_: carteira, bucket, caixa (isoladamente — "caixa" é o Principal).
+
+**Caixinha**:
+As contas de Reinvestimento e Emergência, as duas que exigem justificativa para serem debitadas. Termo falado pelos sócios.
+_Avoid_: reserva, fundo, poupança.
+
+**Lançamento**:
+Uma ação do usuário que move dinheiro. Vira **uma ou mais linhas** no livro-caixa: uma transferência grava a saída e a entrada, uma distribuição grava um débito por sócio. É a unidade de correção — apagar remove o lançamento inteiro.
+_Avoid_: movimento (isoladamente — movimento é a linha, não a ação).
+
+**Perna**:
+Cada linha individual de um lançamento (`FinancialMovement`). As pernas de um mesmo lançamento compartilham `group_id` e somem juntas.
+_Avoid_: partida, entrada, leg.
+
+**Verba de TF2** (`tf2_allocation`):
+O dinheiro separado no início do mês para comprar TF2 keys — sai do Principal e passa a viver na conta TF2. A meta (quantidade × preço unitário) mora no próprio lançamento. Não confundir com **compra de TF2** (`tf2_purchase`), que é a compra real debitando essa verba.
+_Avoid_: meta de TF2, orçamento, reserva de TF2.
+
+**Sobra da verba**:
+O que restou na conta TF2 no fechamento e volta ao Principal. Se a verba foi estourada (saldo negativo), a "devolução" troca de origem e vira débito no Principal.
+_Avoid_: saldo residual, troco.
+
+**Saque de sócio** (`partner_distribution`):
+A retirada dos dois sócios num único lançamento — dois débitos na mesma conta, identificados por posição (`partner_slot` 1 ou 2). O sistema não guarda nome de sócio.
+_Avoid_: distribuição de lucros, pró-labore, dividendo.
+
+**Centavo órfão**:
+O centavo que sobra numa divisão ímpar entre os sócios. Fica sempre com o Sócio 1, para que a soma reconcilie exatamente com o total sacado.
+_Avoid_: arredondamento, diferença.
+
+**Saldo de abertura** (`opening`):
+O movimento que traz o saldo de uma conta do mês anterior para o corrente. Nasce do fechamento (ou do bootstrap) e não é apagável à mão — é a única memória do dinheiro que atravessou a virada do mês.
+_Avoid_: saldo inicial, carry-over.
+
+**Movimento gerado** (`is_generated`):
+Linha que o sistema lançou sozinho — hoje só a devolução da verba de TF2 no fechamento. Quem a desfaz é o `reopen`, em bloco, nunca a exclusão manual.
+_Avoid_: movimento automático, movimento de sistema.

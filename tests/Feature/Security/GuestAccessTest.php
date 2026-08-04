@@ -166,6 +166,18 @@ describe('Guest — mutations return 403', function () {
     it('blocks POST /financial-months/close', function () {
         $this->postJson('/financial-months/close', [])->assertStatus(403);
     });
+
+    it('blocks POST /financial-months/transfers', function () {
+        $this->postJson('/financial-months/transfers', [])->assertStatus(403);
+    });
+
+    it('blocks POST /financial-months/tf2-allocations', function () {
+        $this->postJson('/financial-months/tf2-allocations', [])->assertStatus(403);
+    });
+
+    it('blocks POST /financial-months/partner-distributions', function () {
+        $this->postJson('/financial-months/partner-distributions', [])->assertStatus(403);
+    });
 });
 
 // PUT/DELETE/execute usam route model binding — precisa de registro existente para o middleware disparar antes do 404
@@ -220,6 +232,25 @@ describe('Guest — financial-month reopen with model binding returns 403', func
 
     it('blocks POST /financial-months/1/reopen', function () {
         $this->postJson('/financial-months/1/reopen')->assertStatus(403);
+    });
+
+    it('blocks DELETE /financial-months/movements/1', function () {
+        DB::table('financial_movements')->insert([
+            'id' => 1,
+            'financial_month_id' => 1,
+            'account_type' => 'principal',
+            'direction' => 'credit',
+            'category' => 'income',
+            'amount' => 100.00,
+            'occurred_at' => now()->toDateString(),
+            'is_generated' => false,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->deleteJson('/financial-months/movements/1')->assertStatus(403);
+
+        expect(DB::table('financial_movements')->count())->toBe(1);
     });
 });
 

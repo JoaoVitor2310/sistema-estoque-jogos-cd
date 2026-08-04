@@ -43,7 +43,14 @@ Route::prefix('financial-months')
     ->controller(FinancialMonthController::class)
     ->group(function () {
         Route::post('/', 'store')->name('financial-months.store');
+        // Um endpoint por tipo de lançamento: cada um valida campos diferentes e
+        // os que geram mais de uma linha precisam do próprio UseCase.
         Route::post('/movements', 'storeMovement')->name('financial-months.movements.store');
+        Route::post('/transfers', 'storeTransfer')->name('financial-months.transfers.store');
+        Route::post('/tf2-allocations', 'storeTf2Allocation')->name('financial-months.tf2-allocations.store');
+        Route::post('/partner-distributions', 'storeDistribution')->name('financial-months.partner-distributions.store');
+        // Apaga o lançamento inteiro a partir de qualquer perna dele.
+        Route::delete('/movements/{financialMovement}', 'destroyMovement')->name('financial-months.movements.destroy');
         Route::post('/close', 'close')->name('financial-months.close');
         Route::post('/{financialMonth}/reopen', 'reopen')->name('financial-months.reopen');
     });

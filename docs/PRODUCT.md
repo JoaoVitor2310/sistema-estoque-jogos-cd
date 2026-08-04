@@ -135,6 +135,66 @@ Barras agrupadas por mês de `sold_at`:
 
 Lista todas as keys vendidas no período (ordenadas por maior lucro), com totais na primeira linha. O total de receita e lucro deve bater com os cards de KPI.
 
+## Fechamento mensal
+
+Livro-caixa dos dois sócios, em **R$**, acessível em `/financial-months`. Domínio distinto da aba Financeiro acima — aquela é análise de vendas em €, esta é o caixa da empresa; compartilham só o prefixo do nome.
+
+O mês é montado **lançamento a lançamento**: nada é distribuído automaticamente. "Fechar" apenas encerra o mês e abre o próximo. Ver [ADR 0005](adr/0005-financial-month-records-instead-of-calculating.md).
+
+### As quatro contas
+
+Nenhum saldo é persistido — o saldo é sempre a soma dos movimentos do mês. Saldo da empresa = soma das quatro contas.
+
+| Conta | Papel |
+|---|---|
+| **Principal** | Caixa operacional. Entra faturamento; saem verba de TF2, despesas, transferências e saques |
+| **TF2** | Verba do mês para comprar TF2 keys. Recebe a alocação do Principal; as compras debitam daqui |
+| **Reinvestimento** | Caixinha. Débito exige justificativa |
+| **Emergência** | Caixinha. Débito exige justificativa |
+
+Saldo negativo é **permitido** e aparece em vermelho — comprar acima da meta é decisão de negócio legítima, e as contas são baldes internos, não contas bancárias.
+
+### Roteiro do mês
+
+Roteiro, não invariante: nada é bloqueado se você pular ou trocar a ordem.
+
+| # | Ação | Efeito | Categoria |
+|---|---|---|---|
+| 1 | Registrar o saque da Gamivo | crédito na conta escolhida | `income` |
+| 2 | Definir a verba de TF2 (qtd × preço) | débito no Principal + crédito no TF2 | `tf2_allocation` |
+| 3 | Lançar gastos (impostos, Claude…) | débito na conta escolhida | `expense` |
+| 4 | Abastecer o Reinvestimento | débito Principal + crédito Reinvestimento | `transfer` |
+| 5 | Abastecer a Emergência | débito Principal + crédito Emergência | `transfer` |
+| 6 | Sacar para os sócios | dois débitos na conta escolhida, um por sócio | `partner_distribution` |
+| 7 | Comprar TF2 ao longo do mês (qtd × preço) | débito no TF2 | `tf2_purchase` |
+| 8 | Fechar o mês | devolve a sobra do TF2 e abre o próximo | `transfer` (gerado) |
+
+**A ordem importa por um motivo só:** quem usa porcentagem (passos 4, 5, 6) a aplica sobre o **saldo atual da conta de origem**. Seguindo o roteiro, o Principal já está pós-TF2 e pós-gastos quando os 20% incidem — o que reproduz naturalmente a antiga cascata automática, sem o sistema rastrear degrau nenhum.
+
+### Regras
+
+- **Verba de TF2 é conta real, não reserva virtual.** O dinheiro sai do Principal de verdade.
+- **A meta mora no movimento.** Definir a meta *é* lançar um `tf2_allocation` com `quantity` × `unit_price` — não há coluna de meta que possa divergir do dinheiro movido. Um segundo lançamento complementa o orçamento no meio do mês. **Não existe incremento automático.**
+- **Transferência é genérica.** Uma categoria `transfer` para qualquer par de contas — o par já declara a intenção. Sempre dupla partida.
+- **Justificativa protege as caixinhas.** `description` é obrigatória em qualquer movimento que **debite** Reinvestimento ou Emergência.
+- **Distribuição:** uma ação (valor + conta + % do Sócio 1) gera **dois** débitos; o Sócio 2 leva o resto exato, então a soma reconcilia e o **centavo órfão fica com o Sócio 1**. Sócios são identificados por posição (`partner_slot` 1 ou 2) — nomes não são guardados.
+- **Fechar não distribui.** Gera **um único** lançamento: um `transfer` TF2→Principal com a sobra da verba. O TF2 fecha em zero e toda conta abre o mês seguinte com o próprio saldo. Se a verba foi estourada (TF2 negativo), a devolução troca de origem e vira débito no Principal.
+- **Ciclo:** no máximo um `draft`. O bootstrap é o único caminho manual de criação e recusa rodar se qualquer mês existir; do segundo mês em diante o draft nasce só do fechamento.
+- **Carry-forward:** o novo draft herda as 3 porcentagens (só como **prefill de formulário**, nunca aplicadas sozinhas) e os saldos, como movimentos `opening`.
+- **Reabrir** só o fechamento mais recente: apaga o draft seguinte, desfaz os movimentos gerados e volta o status.
+
+### Correção de erro
+
+Não há edição — só exclusão, e **por lançamento inteiro**. Um lançamento pode virar mais de uma linha (a transferência grava débito *e* crédito), e as linhas irmãs compartilham `group_id` para sumirem juntas. Apagar só uma delas criaria ou destruiria dinheiro.
+
+Não são apagáveis:
+
+| O quê | Por quê |
+|---|---|
+| Qualquer linha de mês `closed` | Fechado é histórico, e seus saldos já abriram o mês seguinte |
+| Movimento gerado (`is_generated`) | Quem o desfaz é o `reopen`, em bloco |
+| Saldo de abertura (`opening`) | Carrega o mês anterior; sumiria sem nada o repor |
+
 ## Bundles
 
 ### Definição

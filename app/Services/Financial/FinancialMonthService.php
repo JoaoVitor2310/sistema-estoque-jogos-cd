@@ -4,9 +4,11 @@ namespace App\Services\Financial;
 
 use App\Domain\Enums\AccountType;
 use App\Domain\Enums\FinancialMonthStatus;
+use App\Domain\Enums\MovementCategory;
 use App\Domain\Enums\MovementDirection;
 use App\Domain\Financial\Money;
 use App\Models\FinancialMonth;
+use App\Models\FinancialMovement;
 
 /**
  * Lado de leitura do fechamento mensal (CQRS): hidrata a tela e deriva saldos.
@@ -40,7 +42,7 @@ class FinancialMonthService
      * Payload da página: o draft corrente (com movimentos e saldos) e o
      * histórico de meses fechados, do mais recente ao mais antigo.
      *
-     * @return array{current: FinancialMonth|null, balances: array<string, float>|null, closed: \Illuminate\Support\Collection<int, FinancialMonth>}
+     * @return array{current: FinancialMonth|null, balances: array<string, float>|null, closed: \Illuminate\Support\Collection<int, FinancialMonth>, tf2Prefill: array{quantity: float|null, unit_price: float|null}}
      */
     public function overview(): array
     {
@@ -57,6 +59,42 @@ class FinancialMonthService
             'current' => $current,
             'balances' => $current ? $this->accountBalances($current) : null,
             'closed' => $closed,
+            'tf2Prefill' => $this->tf2AllocationPrefill($closed->first()),
+        ];
+    }
+
+    /**
+     * Sugestão de verba de TF2 para o mês corrente, tirada do mês anterior:
+     * quanto foi alocado no total e a que preço unitário da última vez.
+     *
+     * É só prefill de formulário — o sistema nunca aloca sozinho, e não existe
+     * incremento automático de meta (ver docs/adr/0005).
+     *
+     * @return array{quantity: float|null, unit_price: float|null}
+     */
+    public function tf2AllocationPrefill(?FinancialMonth $previous): array
+    {
+        $empty = ['quantity' => null, 'unit_price' => null];
+
+        if ($previous === null) {
+            return $empty;
+        }
+
+        // A alocação grava duas pernas com a mesma quantidade; contar só a que
+        // credita a verba, senão o total dobra.
+        $allocations = $previous->movements()
+            ->where('category', MovementCategory::Tf2Allocation)
+            ->where('account_type', AccountType::Tf2)
+            ->orderBy('id')
+            ->get();
+
+        if ($allocations->isEmpty()) {
+            return $empty;
+        }
+
+        return [
+            'quantity' => (float) $allocations->sum(fn (FinancialMovement $m): float => (float) $m->quantity),
+            'unit_price' => (float) $allocations->last()->unit_price,
         ];
     }
 
