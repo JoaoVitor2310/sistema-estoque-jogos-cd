@@ -3,6 +3,8 @@
 namespace App\UseCases\Financial\DTO;
 
 use App\Domain\Enums\AccountType;
+use App\Domain\Enums\ExpenseCategory;
+use App\Domain\Enums\IncomeCategory;
 use App\Domain\Enums\MovementCategory;
 
 /**
@@ -22,5 +24,7 @@ final class RecordMovementDTO
         public readonly ?float $unitPrice = null,
         public readonly ?string $description = null,
         public readonly ?string $occurredAt = null,
+        public readonly ?ExpenseCategory $expenseCategory = null,
+        public readonly ?IncomeCategory $incomeCategory = null,
     ) {}
 }

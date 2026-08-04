@@ -3,6 +3,8 @@
 namespace App\Http\Requests;
 
 use App\Domain\Enums\AccountType;
+use App\Domain\Enums\ExpenseCategory;
+use App\Domain\Enums\IncomeCategory;
 use App\Domain\Enums\MovementCategory;
 use App\UseCases\Financial\DTO\RecordMovementDTO;
 use Illuminate\Contracts\Validation\Validator;
@@ -44,6 +46,9 @@ class RecordMovementRequest extends FormRequest
             'amount' => ['required_unless:category,tf2_purchase', 'nullable', 'numeric', 'gt:0'],
             'quantity' => ['required_if:category,tf2_purchase', 'nullable', 'numeric', 'gt:0'],
             'unit_price' => ['required_if:category,tf2_purchase', 'nullable', 'numeric', 'gt:0'],
+            // A natureza da saída/entrada, para agrupar depois — sempre exigida no lado correspondente.
+            'expense_category' => ['required_if:category,expense', 'nullable', Rule::enum(ExpenseCategory::class)],
+            'income_category' => ['required_if:category,income', 'nullable', Rule::enum(IncomeCategory::class)],
             // Espelha o invariante de domínio para que o erro caia no campo, e não
             // como exceção genérica: tirar de uma caixinha exige justificativa.
             'description' => [Rule::requiredIf(fn (): bool => $this->debitsReserveFund()), 'nullable', 'string'],
@@ -63,6 +68,8 @@ class RecordMovementRequest extends FormRequest
             unitPrice: isset($data['unit_price']) ? (float) $data['unit_price'] : null,
             description: $data['description'] ?? null,
             occurredAt: $data['occurred_at'] ?? null,
+            expenseCategory: isset($data['expense_category']) ? ExpenseCategory::from($data['expense_category']) : null,
+            incomeCategory: isset($data['income_category']) ? IncomeCategory::from($data['income_category']) : null,
         );
     }
 

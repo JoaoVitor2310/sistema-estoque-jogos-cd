@@ -38,12 +38,16 @@ class RecordMovementUseCase
             quantity: $data->quantity,
             unitPrice: $data->unitPrice,
             description: $data->description,
+            expenseCategory: $data->expenseCategory,
+            incomeCategory: $data->incomeCategory,
         );
 
         return $month->movements()->create([
             'account_type' => $movement->account,
             'direction' => $movement->direction,
             'category' => $movement->category,
+            'expense_category' => $movement->expenseCategory,
+            'income_category' => $movement->incomeCategory,
             'amount' => $movement->amount,
             'quantity' => $movement->quantity,
             'unit_price' => $movement->unitPrice,

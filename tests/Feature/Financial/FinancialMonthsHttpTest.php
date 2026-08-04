@@ -54,21 +54,34 @@ describe('FinancialMonth HTTP contracts', function () {
                 'account' => 'principal',
                 'amount' => 2000.00,
                 'description' => 'Saque da Gamivo',
+                'income_category' => 'gamivo_payout',
             ])->assertStatus(201);
 
             expect(FinancialMonth::first()->movements()->where('category', 'income')->exists())->toBeTrue();
         });
 
         it('rejects an income without an account (422)', function () {
-            $this->postJson('/financial-months/movements', ['category' => 'income', 'amount' => 100])
-                ->assertStatus(422)
-                ->assertJsonValidationErrors(['account']);
+            $this->postJson('/financial-months/movements', [
+                'category' => 'income', 'amount' => 100, 'income_category' => 'gamivo_payout',
+            ])->assertStatus(422)->assertJsonValidationErrors(['account']);
         });
 
         it('rejects an income without an amount (422)', function () {
-            $this->postJson('/financial-months/movements', ['category' => 'income', 'account' => 'principal'])
-                ->assertStatus(422)
-                ->assertJsonValidationErrors(['amount']);
+            $this->postJson('/financial-months/movements', [
+                'category' => 'income', 'account' => 'principal', 'income_category' => 'gamivo_payout',
+            ])->assertStatus(422)->assertJsonValidationErrors(['amount']);
+        });
+
+        it('rejects an income without an income category (422)', function () {
+            $this->postJson('/financial-months/movements', [
+                'category' => 'income', 'account' => 'principal', 'amount' => 100,
+            ])->assertStatus(422)->assertJsonValidationErrors(['income_category']);
+        });
+
+        it('rejects an expense without an expense category (422)', function () {
+            $this->postJson('/financial-months/movements', [
+                'category' => 'expense', 'account' => 'principal', 'amount' => 100,
+            ])->assertStatus(422)->assertJsonValidationErrors(['expense_category']);
         });
 
         it('rejects a category that needs its own endpoint (422)', function () {
@@ -87,6 +100,7 @@ describe('FinancialMonth HTTP contracts', function () {
                 'category' => 'expense',
                 'account' => 'emergency',
                 'amount' => 100.00,
+                'expense_category' => 'other',
             ])->assertStatus(422)->assertJsonValidationErrors(['description']);
         });
 
@@ -96,6 +110,7 @@ describe('FinancialMonth HTTP contracts', function () {
                 'account' => 'emergency',
                 'amount' => 100.00,
                 'description' => 'Emergência médica',
+                'expense_category' => 'other',
             ])->assertStatus(201);
         });
 
@@ -104,6 +119,7 @@ describe('FinancialMonth HTTP contracts', function () {
                 'category' => 'income',
                 'account' => 'emergency',
                 'amount' => 100.00,
+                'income_category' => 'external_investment',
             ])->assertStatus(201);
         });
 

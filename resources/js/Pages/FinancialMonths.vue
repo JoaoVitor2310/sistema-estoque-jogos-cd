@@ -31,6 +31,8 @@ interface Movement {
   account_type: AccountType;
   direction: 'credit' | 'debit';
   category: string;
+  expense_category: string | null;
+  income_category: string | null;
   amount: Numeric;
   description: string | null;
   occurred_at: string;
@@ -95,6 +97,29 @@ const ACCOUNTS: { label: string; value: AccountType }[] = [
 
 const accountLabel = (account: AccountType): string =>
   ACCOUNTS.find((a) => a.value === account)?.label ?? account;
+
+const EXPENSE_CATEGORIES = [
+  { label: 'Impostos', value: 'taxes' },
+  { label: 'Assinaturas', value: 'subscriptions' },
+  { label: 'Outros', value: 'other' },
+];
+
+const INCOME_CATEGORIES = [
+  { label: 'Saque Gamivo', value: 'gamivo_payout' },
+  { label: 'Investimento externo', value: 'external_investment' },
+  { label: 'Outros', value: 'other' },
+];
+
+const subcategoryLabel = (movement: Movement): string => {
+  if (movement.expense_category) {
+    return EXPENSE_CATEGORIES.find((c) => c.value === movement.expense_category)?.label ?? movement.expense_category;
+  }
+  if (movement.income_category) {
+    return INCOME_CATEGORIES.find((c) => c.value === movement.income_category)?.label ?? movement.income_category;
+  }
+
+  return '—';
+};
 
 const brl = (value: Numeric): string =>
   value == null ? '—' : Number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -194,9 +219,13 @@ const movementForm = reactive({
   unit_price: null as number | null,
   description: '',
   occurred_at: '',
+  expense_category: null as string | null,
+  income_category: null as string | null,
 });
 
 const isTf2Purchase = computed(() => movementForm.category === 'tf2_purchase');
+const isExpense = computed(() => movementForm.category === 'expense');
+const isIncome = computed(() => movementForm.category === 'income');
 
 const derivedTf2Total = computed(() => (movementForm.quantity ?? 0) * (movementForm.unit_price ?? 0));
 
@@ -212,6 +241,7 @@ const openMovementDialog = () => {
   Object.assign(movementForm, {
     category: 'income', account: 'principal', amount: null,
     quantity: null, unit_price: null, description: '', occurred_at: '',
+    expense_category: null, income_category: null,
   });
   movementDialog.value = true;
 };
@@ -226,6 +256,8 @@ const submitMovement = async () => {
     payload.account = movementForm.account;
     payload.amount = movementForm.amount;
   }
+  if (isExpense.value) payload.expense_category = movementForm.expense_category;
+  if (isIncome.value) payload.income_category = movementForm.income_category;
   if (movementForm.description) payload.description = movementForm.description;
   if (movementForm.occurred_at) payload.occurred_at = movementForm.occurred_at;
 
@@ -682,6 +714,9 @@ const confirmReopen = (event: Event, month: FinancialMonth) => {
         <Column field="account_type" header="Conta" :style="{ width: '9rem' }">
           <template #body="{ data }">{{ accountLabel(data.account_type) }}</template>
         </Column>
+        <Column header="Categoria" :style="{ width: '9rem' }">
+          <template #body="{ data }">{{ subcategoryLabel(data) }}</template>
+        </Column>
         <Column field="amount" header="Valor" :style="{ width: '9rem' }">
           <template #body="{ data }">
             <span :class="data.direction === 'credit' ? 'text-success' : 'text-danger'">{{ signedAmount(data) }}</span>
@@ -924,6 +959,16 @@ const confirmReopen = (event: Event, month: FinancialMonth) => {
         <div class="d-flex flex-column gap-1">
           <label class="fw-bold">Valor</label>
           <InputNumber v-model="movementForm.amount" mode="currency" currency="BRL" locale="pt-BR" :min="0" fluid />
+        </div>
+        <div v-if="isExpense" class="d-flex flex-column gap-1">
+          <label class="fw-bold">Categoria</label>
+          <Select v-model="movementForm.expense_category" :options="EXPENSE_CATEGORIES"
+            optionLabel="label" optionValue="value" placeholder="Selecione" />
+        </div>
+        <div v-if="isIncome" class="d-flex flex-column gap-1">
+          <label class="fw-bold">Categoria</label>
+          <Select v-model="movementForm.income_category" :options="INCOME_CATEGORIES"
+            optionLabel="label" optionValue="value" placeholder="Selecione" />
         </div>
       </template>
 

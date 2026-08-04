@@ -1,7 +1,9 @@
 <?php
 
 use App\Domain\Enums\AccountType;
+use App\Domain\Enums\ExpenseCategory;
 use App\Domain\Enums\FinancialMonthStatus;
+use App\Domain\Enums\IncomeCategory;
 use App\Domain\Enums\MovementCategory;
 use App\Models\FinancialMonth;
 use App\UseCases\Financial\CloseMonthUseCase;
@@ -27,11 +29,13 @@ describe('ReopenFinancialMonthUseCase', function () {
                 category: MovementCategory::Income,
                 account: AccountType::Principal,
                 amount: 2000.00,
+                incomeCategory: IncomeCategory::GamivoPayout,
             ));
             app(RecordMovementUseCase::class)->execute(new RecordMovementDTO(
                 category: MovementCategory::Expense,
                 account: AccountType::Principal,
                 amount: 200.00,
+                expenseCategory: ExpenseCategory::Taxes,
             ));
             app(CloseMonthUseCase::class)->execute();
         });

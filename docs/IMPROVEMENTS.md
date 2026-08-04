@@ -10,6 +10,18 @@ Ordem: roadmap/qualidade/features primeiro, dívida técnica de code-review no f
 
 ---
 
+## Dashboard de gastos por categoria (FinancialMonth)
+
+**Onde:** provavelmente uma tela nova sob `/financial-months` (ou uma aba dela), consumindo `FinancialMovement.expense_category`/`income_category`.
+
+Depois que os lançamentos de `expense`/`income` passarem a carregar `ExpenseCategory`/`IncomeCategory` (ver `CONTEXT.md`), a agregação por categoria (quanto foi gasto em Impostos vs. Assinaturas, por exemplo) fica disponível para uma tela de análise — hoje `FinancialMonths.vue` só lista o extrato lançamento a lançamento, sem nenhuma visão agregada.
+
+**Ação:** desenhar em sessão própria de `/grill-with-docs` — granularidade temporal (por mês? por período arbitrário?), quais métricas, layout. Só faz sentido depois de haver dados reais categorizados em produção.
+
+**Origem:** sessão de `/grill-with-docs` sobre categorização de movimentos financeiros (2026-08-03) — motivação original do pedido, escopo deliberadamente separado da categorização em si.
+
+---
+
 ## Qualidade de código — endurecer o PHPStan
 
 **Onde:** `phpstan.neon`, `composer.json`.

@@ -3,6 +3,8 @@
 namespace App\Domain\Financial;
 
 use App\Domain\Enums\AccountType;
+use App\Domain\Enums\ExpenseCategory;
+use App\Domain\Enums\IncomeCategory;
 use App\Domain\Enums\MovementCategory;
 use App\Domain\Enums\MovementDirection;
 
@@ -14,8 +16,8 @@ use App\Domain\Enums\MovementDirection;
  * Principal, mas um gasto pode sair de qualquer conta. O que a categoria decide
  * é a **direção** e quais campos a acompanham:
  *
- *  - income       → crédito na conta escolhida
- *  - expense      → débito na conta escolhida
+ *  - income       → crédito na conta escolhida; exige um `IncomeCategory` (a origem)
+ *  - expense      → débito na conta escolhida; exige um `ExpenseCategory` (a natureza)
  *  - tf2_purchase → débito na conta Tf2 (gasta a verba do mês); `amount = qtd × preço`
  *
  * Débito numa caixinha exige justificativa — a regra vive na `JustificationPolicy`,
@@ -33,6 +35,8 @@ final class ManualMovement
         public readonly float $amount,
         public readonly ?float $quantity,
         public readonly ?float $unitPrice,
+        public readonly ?ExpenseCategory $expenseCategory = null,
+        public readonly ?IncomeCategory $incomeCategory = null,
     ) {}
 
     public static function make(
@@ -42,6 +46,8 @@ final class ManualMovement
         ?float $quantity = null,
         ?float $unitPrice = null,
         ?string $description = null,
+        ?ExpenseCategory $expenseCategory = null,
+        ?IncomeCategory $incomeCategory = null,
     ): self {
         $movement = match ($category) {
             MovementCategory::Income => new self(
@@ -51,6 +57,7 @@ final class ManualMovement
                 self::requirePositive($amount, 'amount'),
                 null,
                 null,
+                incomeCategory: self::requireIncomeCategory($incomeCategory),
             ),
             MovementCategory::Expense => new self(
                 self::requireAccount($account),
@@ -59,6 +66,7 @@ final class ManualMovement
                 self::requirePositive($amount, 'amount'),
                 null,
                 null,
+                expenseCategory: self::requireExpenseCategory($expenseCategory),
             ),
             // A compra real sempre gasta a verba do mês, então a conta não é escolhível.
             MovementCategory::Tf2Purchase => self::tf2Purchase(
@@ -105,5 +113,23 @@ final class ManualMovement
         }
 
         return $value;
+    }
+
+    private static function requireExpenseCategory(?ExpenseCategory $expenseCategory): ExpenseCategory
+    {
+        if ($expenseCategory === null) {
+            throw new \InvalidArgumentException('An expense category must be chosen for this movement.');
+        }
+
+        return $expenseCategory;
+    }
+
+    private static function requireIncomeCategory(?IncomeCategory $incomeCategory): IncomeCategory
+    {
+        if ($incomeCategory === null) {
+            throw new \InvalidArgumentException('An income category must be chosen for this movement.');
+        }
+
+        return $incomeCategory;
     }
 }

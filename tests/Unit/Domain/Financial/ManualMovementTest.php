@@ -1,6 +1,8 @@
 <?php
 
 use App\Domain\Enums\AccountType;
+use App\Domain\Enums\ExpenseCategory;
+use App\Domain\Enums\IncomeCategory;
 use App\Domain\Enums\MovementCategory;
 use App\Domain\Enums\MovementDirection;
 use App\Domain\Financial\ManualMovement;
@@ -8,29 +10,58 @@ use App\Domain\Financial\ManualMovement;
 describe('ManualMovement', function () {
 
     it('builds an income as a credit into the chosen account', function () {
-        $movement = ManualMovement::make(MovementCategory::Income, AccountType::Principal, amount: 3257.03);
+        $movement = ManualMovement::make(
+            MovementCategory::Income,
+            AccountType::Principal,
+            amount: 3257.03,
+            incomeCategory: IncomeCategory::GamivoPayout,
+        );
 
         expect($movement->account)->toBe(AccountType::Principal)
             ->and($movement->direction)->toBe(MovementDirection::Credit)
             ->and($movement->category)->toBe(MovementCategory::Income)
             ->and($movement->amount)->toBe(3257.03)
             ->and($movement->quantity)->toBeNull()
-            ->and($movement->unitPrice)->toBeNull();
+            ->and($movement->unitPrice)->toBeNull()
+            ->and($movement->incomeCategory)->toBe(IncomeCategory::GamivoPayout)
+            ->and($movement->expenseCategory)->toBeNull();
     });
 
     it('accepts an income into an account other than principal', function () {
-        $movement = ManualMovement::make(MovementCategory::Income, AccountType::Emergency, amount: 500.00);
+        $movement = ManualMovement::make(
+            MovementCategory::Income,
+            AccountType::Emergency,
+            amount: 500.00,
+            incomeCategory: IncomeCategory::ExternalInvestment,
+        );
 
         expect($movement->account)->toBe(AccountType::Emergency)
             ->and($movement->direction)->toBe(MovementDirection::Credit);
     });
 
+    it('requires an income category for an income', function () {
+        expect(fn () => ManualMovement::make(MovementCategory::Income, AccountType::Principal, amount: 100.00))
+            ->toThrow(InvalidArgumentException::class);
+    });
+
     it('builds an expense as a debit from the chosen account', function () {
-        $movement = ManualMovement::make(MovementCategory::Expense, AccountType::Principal, amount: 207.05);
+        $movement = ManualMovement::make(
+            MovementCategory::Expense,
+            AccountType::Principal,
+            amount: 207.05,
+            expenseCategory: ExpenseCategory::Taxes,
+        );
 
         expect($movement->account)->toBe(AccountType::Principal)
             ->and($movement->direction)->toBe(MovementDirection::Debit)
-            ->and($movement->amount)->toBe(207.05);
+            ->and($movement->amount)->toBe(207.05)
+            ->and($movement->expenseCategory)->toBe(ExpenseCategory::Taxes)
+            ->and($movement->incomeCategory)->toBeNull();
+    });
+
+    it('requires an expense category for an expense', function () {
+        expect(fn () => ManualMovement::make(MovementCategory::Expense, AccountType::Principal, amount: 207.05))
+            ->toThrow(InvalidArgumentException::class);
     });
 
     it('builds a tf2 purchase debiting the tf2 budget', function () {
@@ -51,11 +82,20 @@ describe('ManualMovement', function () {
     });
 
     it('requires a justification to debit a reserve fund', function () {
-        expect(fn () => ManualMovement::make(MovementCategory::Expense, AccountType::Emergency, amount: 100.00))
-            ->toThrow(InvalidArgumentException::class);
+        expect(fn () => ManualMovement::make(
+            MovementCategory::Expense,
+            AccountType::Emergency,
+            amount: 100.00,
+            expenseCategory: ExpenseCategory::Other,
+        ))->toThrow(InvalidArgumentException::class);
 
-        expect(fn () => ManualMovement::make(MovementCategory::Expense, AccountType::Reinvestment, amount: 100.00, description: '  '))
-            ->toThrow(InvalidArgumentException::class);
+        expect(fn () => ManualMovement::make(
+            MovementCategory::Expense,
+            AccountType::Reinvestment,
+            amount: 100.00,
+            expenseCategory: ExpenseCategory::Other,
+            description: '  ',
+        ))->toThrow(InvalidArgumentException::class);
     });
 
     it('allows debiting a reserve fund when justified', function () {
@@ -63,6 +103,7 @@ describe('ManualMovement', function () {
             MovementCategory::Expense,
             AccountType::Emergency,
             amount: 100.00,
+            expenseCategory: ExpenseCategory::Other,
             description: 'Conserto emergencial',
         );
 
@@ -71,23 +112,36 @@ describe('ManualMovement', function () {
     });
 
     it('does not require a justification to credit a reserve fund', function () {
-        $movement = ManualMovement::make(MovementCategory::Income, AccountType::Emergency, amount: 100.00);
+        $movement = ManualMovement::make(
+            MovementCategory::Income,
+            AccountType::Emergency,
+            amount: 100.00,
+            incomeCategory: IncomeCategory::GamivoPayout,
+        );
 
         expect($movement->direction)->toBe(MovementDirection::Credit);
     });
 
     it('requires an account for income and expense', function () {
-        expect(fn () => ManualMovement::make(MovementCategory::Income, amount: 100.00))
+        expect(fn () => ManualMovement::make(MovementCategory::Income, amount: 100.00, incomeCategory: IncomeCategory::GamivoPayout))
             ->toThrow(InvalidArgumentException::class);
-        expect(fn () => ManualMovement::make(MovementCategory::Expense, amount: 100.00))
+        expect(fn () => ManualMovement::make(MovementCategory::Expense, amount: 100.00, expenseCategory: ExpenseCategory::Other))
             ->toThrow(InvalidArgumentException::class);
     });
 
     it('rejects a non-positive amount', function () {
-        expect(fn () => ManualMovement::make(MovementCategory::Income, AccountType::Principal, amount: 0))
-            ->toThrow(InvalidArgumentException::class);
-        expect(fn () => ManualMovement::make(MovementCategory::Expense, AccountType::Principal, amount: -5))
-            ->toThrow(InvalidArgumentException::class);
+        expect(fn () => ManualMovement::make(
+            MovementCategory::Income,
+            AccountType::Principal,
+            amount: 0,
+            incomeCategory: IncomeCategory::GamivoPayout,
+        ))->toThrow(InvalidArgumentException::class);
+        expect(fn () => ManualMovement::make(
+            MovementCategory::Expense,
+            AccountType::Principal,
+            amount: -5,
+            expenseCategory: ExpenseCategory::Other,
+        ))->toThrow(InvalidArgumentException::class);
     });
 
     it('rejects a tf2 purchase with non-positive quantity or price', function () {
