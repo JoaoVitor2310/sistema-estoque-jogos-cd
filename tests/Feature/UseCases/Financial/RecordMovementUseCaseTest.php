@@ -1,6 +1,8 @@
 <?php
 
 use App\Domain\Enums\AccountType;
+use App\Domain\Enums\ExpenseCategory;
+use App\Domain\Enums\IncomeCategory;
 use App\Domain\Enums\MovementCategory;
 use App\Domain\Enums\MovementDirection;
 use App\UseCases\Financial\DTO\RecordMovementDTO;
@@ -18,6 +20,7 @@ describe('RecordMovementUseCase', function () {
             amount: 3257.03,
             description: 'Saque da Gamivo',
             occurredAt: '2026-07-15',
+            incomeCategory: IncomeCategory::GamivoPayout,
         ));
 
         expect($movement->financial_month_id)->toBe($month->id)
@@ -27,6 +30,7 @@ describe('RecordMovementUseCase', function () {
             ->and((float) $movement->amount)->toBe(3257.03)
             ->and($movement->description)->toBe('Saque da Gamivo')
             ->and($movement->occurred_at->toDateString())->toBe('2026-07-15')
+            ->and($movement->income_category)->toBe(IncomeCategory::GamivoPayout)
             ->and($movement->is_generated)->toBeFalse();
     });
 
@@ -54,12 +58,14 @@ describe('RecordMovementUseCase', function () {
             account: AccountType::Emergency,
             amount: 200.00,
             description: 'Emergência médica',
+            expenseCategory: ExpenseCategory::Other,
         ));
 
         expect($movement->account_type)->toBe(AccountType::Emergency)
             ->and($movement->direction)->toBe(MovementDirection::Debit)
             ->and((float) $movement->amount)->toBe(200.00)
-            ->and($movement->description)->toBe('Emergência médica');
+            ->and($movement->description)->toBe('Emergência médica')
+            ->and($movement->expense_category)->toBe(ExpenseCategory::Other);
     });
 
     it('refuses to debit a reserve fund without a justification', function () {
@@ -69,6 +75,17 @@ describe('RecordMovementUseCase', function () {
             category: MovementCategory::Expense,
             account: AccountType::Emergency,
             amount: 200.00,
+            expenseCategory: ExpenseCategory::Other,
+        )))->toThrow(InvalidArgumentException::class);
+    });
+
+    it('refuses an expense without an expense category', function () {
+        FinancialMonthFactory::draft();
+
+        expect(fn () => app(RecordMovementUseCase::class)->execute(new RecordMovementDTO(
+            category: MovementCategory::Expense,
+            account: AccountType::Principal,
+            amount: 50.00,
         )))->toThrow(InvalidArgumentException::class);
     });
 
@@ -79,6 +96,7 @@ describe('RecordMovementUseCase', function () {
             category: MovementCategory::Expense,
             account: AccountType::Principal,
             amount: 50.00,
+            expenseCategory: ExpenseCategory::Taxes,
         ));
 
         expect($movement->occurred_at->toDateString())->toBe(now()->toDateString());
@@ -89,6 +107,7 @@ describe('RecordMovementUseCase', function () {
             category: MovementCategory::Income,
             account: AccountType::Principal,
             amount: 100.00,
+            incomeCategory: IncomeCategory::GamivoPayout,
         )))->toThrow(RuntimeException::class);
     });
 });

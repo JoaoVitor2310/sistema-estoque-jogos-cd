@@ -1,5 +1,8 @@
 {
   "permissions": {
+    "deny": [
+      "Bash(git commit:*)"
+    ],
     "allow": [
       "Bash",
       "Read",
@@ -30,18 +33,7 @@
       "Bash(docker exec *)",
       "Bash(php -v)",
       "Read(///wsl.localhost/ubuntu-24.04/var/www/**)",
-      "Bash(php artisan *)",
-      "Bash(wsl.exe -e bash -lc \"cd /var/www/sistema-estoque-jogos-cd && php artisan test --filter=KeyEligibility 2>&1 | tail -100\")",
-      "Bash(wsl.exe -d Ubuntu-24.04 -e bash -lc 'cd /var/www/sistema-estoque-jogos-cd && pwd && ls artisan')",
-      "Bash(wsl.exe -d Ubuntu-24.04 -e bash -lc 'cd /var/www/sistema-estoque-jogos-cd && php artisan test --filter=KeyEligibility 2>&1 | tail -120')",
-      "Bash(wsl.exe -d Ubuntu-24.04 -e bash -lc 'docker ps -a --format \"{{.Names}}\\\\t{{.Status}}\" 2>&1')",
-      "Bash(wsl.exe -d Ubuntu-24.04 -e bash -lc 'cd /var/www/sistema-estoque-jogos-cd && docker exec app-cd php artisan test --filter=KeyEligibility 2>&1 | tail -150')",
-      "Bash(wsl.exe -d Ubuntu-24.04 -e bash -lc 'docker exec app-cd php -r \"var_dump\\(12.0*0.45\\); var_dump\\(17.40-12.0\\); var_dump\\(\\(17.40-12.0\\) >= \\(12.0*0.45\\)\\);\"')",
-      "Bash(wsl.exe -d Ubuntu-24.04 -e bash -lc 'docker exec app-cd php -r \" *)",
-      "Bash(wsl.exe -d Ubuntu-24.04 -e bash -lc \"docker exec app-cd php -r 'var_dump\\(12.0*0.45\\); var_dump\\(17.42-12.0\\); var_dump\\(\\(17.42-12.0\\) >= \\(12.0*0.45\\)\\); var_dump\\(11.0*0.45\\); var_dump\\(15.95-11.0\\); var_dump\\(\\(15.95-11.0\\)>=\\(11.0*0.45\\)\\);'\")",
-      "Bash(wsl.exe -d Ubuntu-24.04 -e bash -lc 'cd /var/www/sistema-estoque-jogos-cd && docker exec app-cd php artisan test --filter=\"KeyEligibility|AutoSell|ReduceAgingKeysMinPrice\" 2>&1 | tail -180')",
-      "Bash(wsl.exe -d Ubuntu-24.04 -e bash -lc 'cd /var/www/sistema-estoque-jogos-cd && docker exec app-cd php artisan test 2>&1 | tail -40')",
-      "Bash(wsl.exe -d Ubuntu-24.04 -e bash -lc 'cd /var/www/sistema-estoque-jogos-cd && docker exec app-cd ./vendor/bin/pint --test --dirty 2>&1 | tail -60')"
+      "Bash(php artisan *)"
     ]
   }
 }

@@ -104,6 +104,14 @@ _Avoid_: movimento (isoladamente — movimento é a linha, não a ação).
 Cada linha individual de um lançamento (`FinancialMovement`). As pernas de um mesmo lançamento compartilham `group_id` e somem juntas.
 _Avoid_: partida, entrada, leg.
 
+**Categoria de gasto** (`ExpenseCategory`):
+A natureza de uma perna de saída — Impostos, Assinaturas ou Outros. Existe para permitir agrupar gastos por tipo (ex: um dashboard futuro); não confundir com o `category` do lançamento (`MovementCategory`), que classifica a perna em si (income/expense/transfer/...), não o que ela representa.
+_Avoid_: tipo de despesa, subcategoria.
+
+**Categoria de receita** (`IncomeCategory`):
+A origem de uma perna de entrada — Saque Gamivo, Investimento externo ou Outros. Mesmo papel que a Categoria de gasto, do lado da receita; os dois enums não compartilham valores.
+_Avoid_: fonte de receita, subcategoria.
+
 **Verba de TF2** (`tf2_allocation`):
 O dinheiro separado no início do mês para comprar TF2 keys — sai do Principal e passa a viver na conta TF2. A meta (quantidade × preço unitário) mora no próprio lançamento. Não confundir com **compra de TF2** (`tf2_purchase`), que é a compra real debitando essa verba.
 _Avoid_: meta de TF2, orçamento, reserva de TF2.

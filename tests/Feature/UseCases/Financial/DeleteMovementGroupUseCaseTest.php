@@ -1,6 +1,7 @@
 <?php
 
 use App\Domain\Enums\AccountType;
+use App\Domain\Enums\IncomeCategory;
 use App\Domain\Enums\MovementCategory;
 use App\Domain\Enums\MovementDirection;
 use App\Models\FinancialMovement;
@@ -73,6 +74,7 @@ describe('DeleteMovementGroupUseCase', function () {
             category: MovementCategory::Income,
             account: AccountType::Principal,
             amount: 500.00,
+            incomeCategory: IncomeCategory::GamivoPayout,
         ));
 
         expect($movement->group_id)->toBeNull();
@@ -90,6 +92,7 @@ describe('DeleteMovementGroupUseCase', function () {
             category: MovementCategory::Income,
             account: AccountType::Principal,
             amount: 500.00,
+            incomeCategory: IncomeCategory::GamivoPayout,
         ));
 
         $firstTransfer = app(RecordTransferUseCase::class)->execute(new RecordTransferDTO(

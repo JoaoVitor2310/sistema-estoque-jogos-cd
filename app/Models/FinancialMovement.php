@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Domain\Enums\AccountType;
+use App\Domain\Enums\ExpenseCategory;
+use App\Domain\Enums\IncomeCategory;
 use App\Domain\Enums\MovementCategory;
 use App\Domain\Enums\MovementDirection;
 use Illuminate\Database\Eloquent\Model;
@@ -18,6 +20,8 @@ class FinancialMovement extends Model
         'account_type',
         'direction',
         'category',
+        'expense_category',
+        'income_category',
         'amount',
         'description',
         'occurred_at',
@@ -31,6 +35,8 @@ class FinancialMovement extends Model
         'account_type' => AccountType::class,
         'direction' => MovementDirection::class,
         'category' => MovementCategory::class,
+        'expense_category' => ExpenseCategory::class,
+        'income_category' => IncomeCategory::class,
         'amount' => 'decimal:2',
         'occurred_at' => 'date:Y-m-d',
         'quantity' => 'decimal:2',
