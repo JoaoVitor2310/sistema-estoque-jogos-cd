@@ -297,7 +297,18 @@ Chaves usadas: `gamivoPercentualMenor`, `gamivoFixoMenor`, `gamivoPercentualMaio
 - `TradeService::paginate()` — retorna um `LengthAwarePaginator` com filtros (`view`, `date_from/to`, `tf2_min/max`, `title_search`, `supplier_search`, `game_search`), ordenação por whitelist (`date`, `tf2_qty` — sempre com `id DESC` como tiebreaker) e paginação (40/página). Buscas por texto usam `LOWER(col) LIKE %needle%` (cross-DB, Postgres em prod, SQLite em teste); `game_search` casta o JSON `games` para texto e busca substring — falso positivo é desprezível na prática porque `key_code` segue `XXXXX-XXXXX-XXXXX` e `gamivo_id` é numérico. `is_imported` é a fonte única de "trade já foi importada"
 - *Absorveu os antigos `Vip`/`VipList`* — tabelas `vips`/`vip_lists` e `ExecuteVipListUseCase`/`VipListExecutionService` foram removidos (migration `2026_07_05_000001_drop_vips_and_vip_lists_tables.php`); `VipList` virou `Trade` (`supplier_id` + `list_code`), `Vip.id_steam` virou `suppliers.steam_id`.
 
-### 7. Autorização
+### 7. Fechamento mensal (`FinancialMonth`/`FinancialMovement` → tabelas `financial_months`/`financial_movements`)
+
+Livro-caixa dos sócios em **R$** (`/financial-months`). **Não confundir com `FinancialService`/`Financial.vue`** (`/financial`), o dashboard analítico de vendas em € — domínios distintos que compartilham só o prefixo.
+
+- `FinancialMonth` — um mês do ciclo `draft` → `closed`. Campos: `year`, `month`, `status` (`FinancialMonthStatus`), `reinvestment_percent`, `emergency_percent`, `partner_one_share` (as três só como **prefill de formulário**), `closed_at`. No máximo um `draft` por vez
+- `FinancialMovement` — uma linha do extrato. Campos: `group_id` (uuid — liga as linhas do mesmo lançamento), `account_type` (`AccountType`: `principal`/`tf2`/`reinvestment`/`emergency`), `direction` (`MovementDirection`), `category` (`MovementCategory`), `amount` (sempre positivo — a direção decide o sinal), `quantity`/`unit_price` (TF2), `partner_slot` (1 ou 2), `description`, `occurred_at`, `is_generated`
+- **Nenhum saldo é persistido** — é sempre a soma dos movimentos (`FinancialMonthService::accountBalances`). Saldo negativo é permitido
+- Domain: `Money` (centavos inteiros), `AccountTransfer` (dupla partida), `PartnerDistribution` + `PartnerSplit` (divisão + centavo órfão), `ManualMovement`, `MovementLeg`, `JustificationPolicy`, `MovementDeletionPolicy`, `FinancialMonthDefaults`
+- Escrita passa **sempre** pelo `MovementRecorder` quando o lançamento tem mais de uma perna: ele gera um `group_id` único e grava tudo numa transação. É a garantia de que meia transferência nunca é persistida
+- Regras de negócio completas (roteiro dos 8 passos, exclusão, carry-forward): [`docs/PRODUCT.md`](docs/PRODUCT.md) e [`docs/adr/0005`](docs/adr/0005-financial-month-records-instead-of-calculating.md)
+
+### 8. Autorização
 - `AuthorizedUsers` — controla acesso (`can-edit`)
 - Admin: `Gate::define('is-admin', fn($u) => $u->email === env('ADMIN_EMAIL'))`
 
@@ -389,6 +400,16 @@ app/
 │   ├── Trades/
 │   │   ├── CommentPolicy.php            # decide se recomenta um supplier (14 dias / jogos mudaram)
 │   │   └── TradeGameComparison.php
+│   ├── Financial/                        # livro-caixa em R$ (≠ FinancialService, dashboard em €)
+│   │   ├── Money.php                     # centavos inteiros — reconciliação exata
+│   │   ├── AccountTransfer.php           # dupla partida; valor fechado ou % do saldo da origem
+│   │   ├── PartnerDistribution.php       # saque dos sócios: um débito por sócio
+│   │   ├── PartnerSplit.php              # divisão + centavo órfão no Sócio 1
+│   │   ├── ManualMovement.php            # lançamento de uma linha só (income/expense/tf2_purchase)
+│   │   ├── MovementLeg.php               # uma linha do extrato
+│   │   ├── JustificationPolicy.php       # débito em caixinha exige justificativa
+│   │   ├── MovementDeletionPolicy.php    # o que pode ser apagado (mês draft, não gerado, não opening)
+│   │   └── FinancialMonthDefaults.php
 │   └── Enums/
 │       ├── Marketplace.php             # apenas Gamivo por enquanto
 │       ├── KeyPlatform.php
@@ -414,10 +435,25 @@ app/
 │   ├── Suppliers/
 │   │   ├── ProspectSupplierUseCase.php       # avalia lucratividade + decide comentar (CommentPolicy)
 │   │   └── ExecuteSupplierListUseCase.php    # POST price_researcher /api/lists/run
-│   └── Trades/
-│       ├── CreateTradeUseCase.php
-│       ├── StoreListTradeUseCase.php
-│       └── UpdateTradeUseCase.php
+│   ├── Trades/
+│   │   ├── CreateTradeUseCase.php
+│   │   ├── StoreListTradeUseCase.php
+│   │   └── UpdateTradeUseCase.php
+│   └── Financial/
+│       ├── DTO/                              # input tipado, montado pelos FormRequests
+│       │   ├── BootstrapFinancialMonthDTO.php
+│       │   ├── RecordMovementDTO.php
+│       │   ├── RecordTransferDTO.php
+│       │   ├── RecordTf2AllocationDTO.php
+│       │   └── DistributeToPartnersDTO.php
+│       ├── CreateDraftFinancialMonthUseCase.php  # bootstrap — só o primeiro mês
+│       ├── RecordMovementUseCase.php             # income/expense/tf2_purchase (uma linha)
+│       ├── RecordTransferUseCase.php             # dupla partida; valor ou % do saldo
+│       ├── RecordTf2AllocationUseCase.php        # verba do mês: Principal → Tf2
+│       ├── DistributeToPartnersUseCase.php       # saque dos dois sócios
+│       ├── DeleteMovementGroupUseCase.php        # apaga o lançamento inteiro pelo group_id
+│       ├── CloseMonthUseCase.php                 # devolve a sobra do TF2 e abre o próximo draft
+│       └── ReopenFinancialMonthUseCase.php
 │
 ├── Services/
 │   ├── Keys/
@@ -428,6 +464,9 @@ app/
 │   │   └── GameRepository.php
 │   ├── Suppliers/SupplierService.php
 │   ├── Trades/TradeService.php          # paginate() com filtros/sort/paginação; is_stocked scoped-to-page
+│   ├── Financial/
+│   │   ├── FinancialMonthService.php   # leitura (CQRS): saldos derivados, draft corrente, prefill de TF2
+│   │   └── MovementRecorder.php        # escrita: grava as pernas com um group_id só, em transação
 │   ├── ResourceService.php             # conversão de moedas para Assets
 │   └── External/
 │       ├── GamivoApiService.php
@@ -440,6 +479,7 @@ app/
 │   │   │   ├── KeyController.php       # leitura/edição/remoção — GET/PUT/DELETE /keys (sem criação)
 │   │   │   └── KeySaleController.php   # autoSell, updateSoldOffers...
 │   │   ├── Suppliers/SupplierController.php
+│   │   ├── Financial/FinancialMonthController.php  # /financial-months — livro-caixa em R$
 │   │   ├── GameController.php
 │   │   ├── BundleController.php
 │   │   ├── AssetController.php
@@ -457,7 +497,7 @@ app/
     └── Fee.php         → fees
 ```
 
-> Alguns Services documentados acima (ex: `BundleService`, `AssetService`, `FinancialService`) vivem hoje na raiz de `Services/` em vez de subpastas por domínio, e `FinancialService`/`FinancialController` (domínio financeiro, não coberto neste arquivo) nem estão listados aqui. Fora do escopo desta correção pontual — vale uma auditoria própria da árvore de `Services/`/`Controllers/` depois.
+> Alguns Services (ex: `BundleService`, `AssetService`, `FinancialService`) vivem hoje na raiz de `Services/` em vez de subpastas por domínio, e não estão listados acima. `FinancialService`/`FinancialController` são o **dashboard analítico de vendas em €** (`/financial`) — domínio distinto do fechamento mensal e ainda não documentado aqui. Vale uma auditoria própria da árvore de `Services/`/`Controllers/` depois.
 
 ---
 

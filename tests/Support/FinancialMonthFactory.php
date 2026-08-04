@@ -8,6 +8,7 @@ use App\Domain\Enums\MovementCategory;
 use App\Domain\Enums\MovementDirection;
 use App\Models\FinancialMonth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * Seeds compartilhados do domínio financeiro.
@@ -51,6 +52,37 @@ final class FinancialMonthFactory
             'occurred_at' => now()->toDateString(),
             'is_generated' => false,
         ]);
+    }
+
+    /**
+     * Aloca verba de TF2 num mês qualquer, gravando as **duas** pernas com o
+     * mesmo `group_id` — como faz o `MovementRecorder`.
+     *
+     * Existe porque o `RecordTf2AllocationUseCase` só atinge o draft corrente, e
+     * há testes que precisam semear a alocação num mês já fechado.
+     */
+    public static function allocateTf2(FinancialMonth $month, float $quantity, float $unitPrice): void
+    {
+        $groupId = (string) Str::uuid();
+
+        $legs = [
+            [AccountType::Principal, MovementDirection::Debit],
+            [AccountType::Tf2, MovementDirection::Credit],
+        ];
+
+        foreach ($legs as [$account, $direction]) {
+            $month->movements()->create([
+                'group_id' => $groupId,
+                'account_type' => $account,
+                'direction' => $direction,
+                'category' => MovementCategory::Tf2Allocation,
+                'amount' => $quantity * $unitPrice,
+                'quantity' => $quantity,
+                'unit_price' => $unitPrice,
+                'occurred_at' => now()->toDateString(),
+                'is_generated' => false,
+            ]);
+        }
     }
 
     /**

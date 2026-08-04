@@ -37,6 +37,17 @@ describe('FinancialMonthService', function () {
             expect($closed)->toHaveCount(2)
                 ->and($closed->first()->month)->toBe(7);
         });
+
+        it('carries the tf2 prefill from the most recent closed month', function () {
+            $older = FinancialMonthFactory::closed(['year' => 2026, 'month' => 6]);
+            FinancialMonthFactory::allocateTf2($older, 100, 5.00);
+
+            $recent = FinancialMonthFactory::closed(['year' => 2026, 'month' => 7]);
+            FinancialMonthFactory::allocateTf2($recent, 300, 10.00);
+
+            expect(app(FinancialMonthService::class)->overview()['tf2Prefill'])
+                ->toBe(['quantity' => 300.0, 'unit_price' => 10.00]);
+        });
     });
 
     describe('accountBalances()', function () {
@@ -86,6 +97,39 @@ describe('FinancialMonthService', function () {
             ]);
 
             expect(app(FinancialMonthService::class)->accountBalances($month)['tf2'])->toBe(-500.00);
+        });
+    });
+
+    describe('tf2AllocationPrefill()', function () {
+
+        it('returns nulls when there is no previous month', function () {
+            expect(app(FinancialMonthService::class)->tf2AllocationPrefill(null))
+                ->toBe(['quantity' => null, 'unit_price' => null]);
+        });
+
+        it('returns nulls when the previous month allocated nothing', function () {
+            $previous = FinancialMonthFactory::closed();
+
+            expect(app(FinancialMonthService::class)->tf2AllocationPrefill($previous))
+                ->toBe(['quantity' => null, 'unit_price' => null]);
+        });
+
+        it('sums the allocated quantity and takes the last unit price', function () {
+            $previous = FinancialMonthFactory::closed();
+            FinancialMonthFactory::allocateTf2($previous, 300, 10.00);
+            FinancialMonthFactory::allocateTf2($previous, 50, 11.50);
+
+            expect(app(FinancialMonthService::class)->tf2AllocationPrefill($previous))
+                ->toBe(['quantity' => 350.0, 'unit_price' => 11.50]);
+        });
+
+        it('counts each allocation once, not once per leg', function () {
+            $previous = FinancialMonthFactory::closed();
+            FinancialMonthFactory::allocateTf2($previous, 300, 10.00);
+
+            // A alocação grava duas pernas com a mesma quantidade; somar as duas
+            // devolveria 600.
+            expect(app(FinancialMonthService::class)->tf2AllocationPrefill($previous)['quantity'])->toBe(300.0);
         });
     });
 });
