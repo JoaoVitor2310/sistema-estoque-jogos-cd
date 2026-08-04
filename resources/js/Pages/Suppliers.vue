@@ -23,7 +23,6 @@ import { useConfirm } from 'primevue/useconfirm';
 // Inertia / Helpers
 import axiosInstance from '../axios';
 import { showResponse } from '../helpers/showResponse';
-import { router } from '@inertiajs/vue3';
 
 interface Supplier {
     id: number;
@@ -202,7 +201,6 @@ const findNewSuppliers = async () => {
     try {
         const res = await axiosInstance.post('/suppliers/find-new');
         showResponse(res, toast.add);
-        router.reload({ only: ['suppliers'] });
     } catch (error: any) {
         if (error.response) {
             showResponse(error.response, toast.add);
