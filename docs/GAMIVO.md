@@ -158,8 +158,7 @@ Definidos em `routes/console.php`, fuso `America/Sao_Paulo`:
 
 | Expressão CRON | Fuso | Use Case | Finalidade |
 |---|---|---|---|
-| `*/5 * * * *` | America/Sao_Paulo | `UpdateOffersUseCase(WeAreLowest)` | A cada 5min: sobe o preço das ofertas onde já somos os mais baratos |
-| `5 * * * *` | America/Sao_Paulo | `UpdateOffersUseCase(WeAreNotLowest)` | De hora em hora: tenta recuperar posição nas ofertas onde não somos os mais baratos |
+| `* * * * *` | America/Sao_Paulo | `UpdateOffersUseCase` (sem mode) | A cada minuto: sobe o preço onde já somos os mais baratos e desce onde não somos, numa única passada |
 | `0 6,18 * * *` | America/Sao_Paulo | `UpdateSoldOffersUseCase::executeFromGamivo` | Dá baixa nas vendas — janela de 2 dias |
 | `0 7 * * *` | America/Sao_Paulo | `UpdatePopularityUseCase` | Atualiza popularidade via SteamCharts |
 | `0 7 * * *` | America/Sao_Paulo | `KeyService::checkExpiringKeys` | Alerta de keys expirando |
@@ -169,7 +168,7 @@ Definidos em `routes/console.php`, fuso `America/Sao_Paulo`:
 | `5 * * * *` | UTC | `SyncBundlesFromApiUseCase` | Sincroniza bundles da API GG.deals |
 | **Manual** | — | `gamivo:auto-sell` (artisan) | `AutoSellUseCase` — **não roda em cron**, precisa ser disparado manualmente |
 
-> ⚠️ **`UpdateOffersUseCase(WeAreLowest)` roda nos minutos `0,5,10,15...` e `UpdateOffersUseCase(WeAreNotLowest)` roda no minuto `5` de cada hora — colidem todo minuto `:05`.** Nenhum dos dois usa `->withoutOverlapping()`. Ver `docs/IMPROVEMENTS.md` ("UpdateOffersUseCase — sobreposição de execuções agendadas").
+> `UpdateOffersUseCase` roda como um único `Schedule::call()` a cada minuto, sem `mode` — processa subida e descida de preço na mesma passada, com `->name()->withoutOverlapping()` (se uma execução ultrapassar 1 min, o(s) tick(s) seguinte(s) são pulados até o mutex liberar, sem empilhar processos concorrentes). O filtro `OffersUpdateMode` (`WeAreLowest`/`WeAreNotLowest`) continua existindo na assinatura de `execute()` para uso manual/pontual, mas o cron não passa mais `mode` — eliminou de vez a possibilidade de dois processos do scheduler concorrendo pela mesma API.
 
 ---
 

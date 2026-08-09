@@ -1,6 +1,5 @@
 <?php
 
-use App\Domain\Enums\OffersUpdateMode;
 use App\Services\AssetService;
 use App\Services\Games\GameService;
 use App\Services\KeyService;
@@ -45,13 +44,13 @@ Schedule::call(fn () => app(UpdateSoldOffersUseCase::class)->executeFromGamivo()
 Schedule::call(fn () => app(UpdatePopularityUseCase::class)->execute())
     ->cron('0 7 * * *')->timezone('America/Sao_Paulo')->environments('production');
 
-// Reprecificação a cada 5 min para ofertas onde somos o mais barato (subir preço)
-Schedule::call(fn () => app(UpdateOffersUseCase::class)->execute(OffersUpdateMode::WeAreLowest))
-    ->cron('*/5 * * * *')->timezone('America/Sao_Paulo')->environments('production');
-
-// Reprecificação horária para ofertas onde não somos o mais barato (recuperar posição)
-Schedule::call(fn () => app(UpdateOffersUseCase::class)->execute(OffersUpdateMode::WeAreNotLowest))
-    ->cron('5 * * * *')->timezone('America/Sao_Paulo')->environments('production');
+// Reprecificação a cada minuto: uma única passada processa todas as ofertas ativas,
+// subindo preço onde já somos os mais baratos e descendo onde não somos — um único
+// processo por tick evita qualquer concorrência entre os dois sentidos contra a API Gamivo
+Schedule::call(fn () => app(UpdateOffersUseCase::class)->execute())
+    ->name('update-offers')
+    ->withoutOverlapping()
+    ->cron('* * * * *')->timezone('America/Sao_Paulo')->environments('production');
 
 Artisan::command('gamivo:auto-sell', function () {
     $listed = app(AutoSellUseCase::class)->execute();

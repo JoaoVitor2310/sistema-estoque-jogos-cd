@@ -252,7 +252,7 @@ Fluxo principal:
 3. `RegulateMinApiUseCase` (scheduler 07:30) — recalcula `min_api` de todas as keys não vendidas via `MinimumMarginPolicy`
 4. `AutoSellUseCase` lista keys elegíveis na Gamivo, **agrupadas por `gamivo_id`** (exclui bundles com < 21 dias; keys ≥8 meses têm `max_api` travado no preço de listagem)
 5. `UpdateSoldOffersUseCase` atualiza com dados de venda da API Gamivo
-6. `UpdateOffersUseCase` reprecifica ofertas ativas contra concorrentes via `ComparisonAlgorithm` (detecção de price dumpers, bots concorrentes conhecidos, wholesale) — roda a cada 5 min quando somos os mais baratos (`OffersUpdateMode::WeAreLowest`, só sobe o preço) e a cada hora caso contrário (`WeAreNotLowest`, tenta recuperar posição)
+6. `UpdateOffersUseCase` reprecifica ofertas ativas contra concorrentes via `ComparisonAlgorithm` (detecção de price dumpers, bots concorrentes conhecidos, wholesale) — roda a cada minuto, sem `mode`, numa única passada que sobe o preço onde já somos os mais baratos e desce onde não somos (`OffersUpdateMode::WeAreLowest`/`WeAreNotLowest` seguem disponíveis para uso manual pontual via artisan)
 
 ### 2. Cálculo de lucro (`KeyCalculationService` + `Domain/Pricing`)
 
@@ -429,7 +429,7 @@ app/
 │   │       ├── AutoSellUseCase.php           # agrupa por gamivo_id (FIFO); trava max_api de keys >= 8 meses
 │   │       ├── RegulateMinApiUseCase.php     # recalcula min_api via MinimumMarginPolicy (07:30)
 │   │       ├── UpdateSoldOffersUseCase.php
-│   │       ├── UpdateOffersUseCase.php       # reprecifica via ComparisonAlgorithm — 5min/1h por posição
+│   │       ├── UpdateOffersUseCase.php       # reprecifica via ComparisonAlgorithm — 1min, passada única (sobe e desce)
 │   │       └── UpdatePopularityUseCase.php   # scraping SteamCharts — migração Gamivo Fase 2
 │   ├── Bundles/
 │   │   └── SyncBundlesFromApiUseCase.php
