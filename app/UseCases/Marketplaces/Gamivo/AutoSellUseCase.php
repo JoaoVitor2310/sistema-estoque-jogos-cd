@@ -4,7 +4,6 @@ namespace App\UseCases\Marketplaces\Gamivo;
 
 use App\Domain\Keys\KeyEligibility;
 use App\Domain\Pricing\ComparisonAlgorithm;
-use App\Domain\Pricing\MinMaxPriceCalculator;
 use App\Domain\Pricing\OfferData;
 use App\Domain\Pricing\ValueObjects\MarketplaceFee;
 use App\Models\Key;
@@ -146,7 +145,7 @@ class AutoSellUseCase
     /**
      * Processa um grupo de keys do mesmo gamivo_id (uma única oferta na Gamivo).
      *
-     * A listagem é decidida por key (marketClearsMinApi): entra quem tem o mercado cobrindo o
+     * A listagem é decidida por key: entra quem tem o mercado cobrindo o
      * próprio min_api (que já embute a idade da key via MinimumMarginPolicy). A governante
      * — mais antiga (menor id) ENTRE AS APROVADAS — define o seller_price único, pois a
      * Gamivo vende FIFO. As keys aprovadas são enviadas num único uploadKeys, em ordem de id ASC.
@@ -172,9 +171,9 @@ class AutoSellUseCase
 
         // Decisão de LISTAR é por key: entra quem tem o mercado cobrindo o próprio min_api
         // (a idade já está embutida no min_api pela MinimumMarginPolicy). As demais são
-        // puladas individualmente.
+        // puladas individualmente. A governante é escolhida depois, entre as que passam aqui.
         [$toList, $skippedKeys] = $groupKeys->partition(
-            fn (Key $key) => $this->marketClearsMinApi($key, $marketPrice)
+            fn (Key $key) => $this->resolveSellerPrice($marketPrice, (float) $key->min_api, (float) $key->max_api) !== null
         );
 
         $skipped = $skippedKeys->map(fn (Key $key) => [
@@ -195,14 +194,11 @@ class AutoSellUseCase
         }
 
         // Governante = mais antiga (menor id) ENTRE AS APROVADAS. Como vende primeiro,
-        // ela define o seller_price único da oferta. Por ter passado em marketClearsMinApi,
+        // ela define o seller_price único da oferta. Por ter passado no filtro acima,
         // resolveSellerPrice nunca retorna null aqui.
         $governingKey = $toList->first();
 
-        $minApi = $governingKey->min_api !== null ? (float) $governingKey->min_api : MinMaxPriceCalculator::FLOOR;
-        $maxApi = $governingKey->max_api !== null ? (float) $governingKey->max_api : MinMaxPriceCalculator::CEILING;
-
-        $sellerPrice = $this->resolveSellerPrice($marketPrice, $minApi, $maxApi);
+        $sellerPrice = $this->resolveSellerPrice($marketPrice, (float) $governingKey->min_api, (float) $governingKey->max_api);
 
         // Cria ou reativa a oferta na Gamivo (retail, sem wholesale por padrão no auto-sell)
         $offerId = $this->gamivoApi->createOffer([
@@ -294,20 +290,6 @@ class AutoSellUseCase
             'skipped' => $skipped,
             'errors' => $errors,
         ];
-    }
-
-    /**
-     * Verifica se o preço-alvo de mercado cobre o min_api da própria key (que já embute
-     * a idade, pois a policy rebaixa o min_api ao FLOOR para keys velhas) — o portão que
-     * decide se ela entra na listagem. A governante é escolhida depois, entre as keys que
-     * passam aqui.
-     */
-    private function marketClearsMinApi(Key $key, float $marketPrice): bool
-    {
-        $minApi = $key->min_api !== null ? (float) $key->min_api : MinMaxPriceCalculator::FLOOR;
-        $maxApi = $key->max_api !== null ? (float) $key->max_api : MinMaxPriceCalculator::CEILING;
-
-        return $this->resolveSellerPrice($marketPrice, $minApi, $maxApi) !== null;
     }
 
     /**

@@ -33,6 +33,8 @@ function insertRepoKey(array $overrides = []): int
         'key_code' => 'REPO-KEY-'.uniqid(),
         'market_price' => 5.00,
         'individual_cost' => 2.00,
+        'min_api' => 1.00,
+        'max_api' => 10.00,
         'purchase_profit_percent' => 25.00,
         'supplier_url' => 'https://steamcommunity.com/id/test',
         'supplier_id' => 1,
@@ -225,5 +227,77 @@ describe('KeyRepository', function () {
                 ->and($codes)->not->toContain('NO-ID-KEY-001')
                 ->and($codes)->not->toContain('SOLD-MIX-001');
         });
+    });
+
+    // ── findGoverningKeyByGamivoId ────────────────────────────────────────────
+
+    describe('findGoverningKeyByGamivoId()', function () {
+
+        it('returns the key with the earliest listed_at among listed, unsold keys sharing gamivo_id', function () {
+            insertRepoKey([
+                'gamivo_id' => '900001',
+                'key_code' => 'NEWER-LISTED',
+                'listed_at' => Carbon::now()->subDays(2)->toDateString(),
+            ]);
+            $olderId = insertRepoKey([
+                'gamivo_id' => '900001',
+                'key_code' => 'OLDER-LISTED',
+                'listed_at' => Carbon::now()->subDays(10)->toDateString(),
+            ]);
+
+            $governing = app(KeyRepository::class)->findGoverningKeyByGamivoId(900001);
+
+            expect($governing)->not->toBeNull()
+                ->and($governing->id)->toBe($olderId)
+                ->and($governing->key_code)->toBe('OLDER-LISTED');
+        });
+
+        it('breaks a tie on the same listed_at date by the smallest id, mirroring the batch upload order', function () {
+            // listed_at is a `date` column (no time component), so both rows below
+            // tie exactly — the normal case for keys confirmed in the same
+            // AutoSellUseCase batch. The smaller id was uploaded first in that
+            // batch (uploadKeys receives keys sorted by id ASC), so it must win.
+            $sameDate = Carbon::now()->subDays(3)->toDateString();
+
+            $smallerId = insertRepoKey(['gamivo_id' => '900002', 'key_code' => 'TIE-SMALLER-ID', 'listed_at' => $sameDate]);
+            insertRepoKey(['gamivo_id' => '900002', 'key_code' => 'TIE-LARGER-ID', 'listed_at' => $sameDate]);
+
+            $governing = app(KeyRepository::class)->findGoverningKeyByGamivoId(900002);
+
+            expect($governing->id)->toBe($smallerId);
+        });
+
+        it('excludes keys that are not yet listed', function () {
+            insertRepoKey(['gamivo_id' => '900003', 'key_code' => 'NOT-LISTED', 'listed_at' => null]);
+            $listedId = insertRepoKey([
+                'gamivo_id' => '900003',
+                'key_code' => 'IS-LISTED',
+                'listed_at' => Carbon::now()->subDay()->toDateString(),
+            ]);
+
+            $governing = app(KeyRepository::class)->findGoverningKeyByGamivoId(900003);
+
+            expect($governing->id)->toBe($listedId);
+        });
+
+        it('excludes keys already sold', function () {
+            insertRepoKey([
+                'gamivo_id' => '900004',
+                'key_code' => 'SOLD-GOV',
+                'listed_at' => Carbon::now()->subDays(5)->toDateString(),
+                'sold_at' => Carbon::now()->toDateString(),
+            ]);
+
+            $governing = app(KeyRepository::class)->findGoverningKeyByGamivoId(900004);
+
+            expect($governing)->toBeNull();
+        });
+
+        it('returns null when no key shares the gamivo_id', function () {
+            $governing = app(KeyRepository::class)->findGoverningKeyByGamivoId(900999);
+
+            expect($governing)->toBeNull();
+        });
+
     });
 });

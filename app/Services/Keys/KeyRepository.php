@@ -37,42 +37,27 @@ class KeyRepository
     }
 
     /**
-     * Retorna os limites de preço min/max para um produto Gamivo.
-     * Considera apenas keys listadas (listed_at não nulo) e ainda não vendidas (sold_at nulo).
-     * Quando múltiplas keys compartilham o mesmo gamivo_id (cópias do mesmo jogo),
-     * usa min(min_api) como piso e max(max_api) como teto.
+     * Retorna a key governante de um produto Gamivo: entre as listadas e ainda não
+     * vendidas que compartilham o mesmo gamivo_id, a mais antiga na oferta — quem a
+     * Gamivo vende primeiro (FIFO). Usada pelo UpdateOffersUseCase tanto para o clamp
+     * de min_api/max_api quanto para o game_name do log, com uma query só.
      *
-     * @return array{min_api: float, max_api: float}|null Null se não há keys ativas com esse gamivo_id.
+     * Ordena por listed_at ASC, com id ASC como desempate: listed_at é uma coluna
+     * `date` (sem hora), então keys confirmadas no mesmo lote do AutoSellUseCase
+     * empatam na mesma data — nesse caso, a de menor id foi enviada primeiro no
+     * uploadKeys em lote (ver AutoSellUseCase::processGroup). Ver docs/adr/0006.
+     *
+     * min_api/max_api são NOT NULL desde 2026-08-08 — toda key nasce com os dois
+     * calculados (RegisterKeyUseCase), então o retorno aqui sempre traz valores
+     * concretos, nunca precisando de fallback.
      */
-    public function findMinMaxByGamivoId(int $productId): ?array
-    {
-        $result = Key::where('gamivo_id', (string) $productId)
-            ->whereNotNull('listed_at')
-            ->whereNull('sold_at')
-            ->whereNotNull('min_api')
-            ->whereNotNull('max_api')
-            ->selectRaw('MIN(min_api) as min_api, MAX(max_api) as max_api')
-            ->first();
-
-        if ($result === null || $result->min_api === null) {
-            return null;
-        }
-
-        return [
-            'min_api' => (float) $result->min_api,
-            'max_api' => (float) $result->max_api,
-        ];
-    }
-
-    /**
-     * Retorna a primeira key listada e não vendida para um produto Gamivo.
-     * Usada para obter game_name e key_code nos logs do UpdateOffersUseCase.
-     */
-    public function findFirstListedByGamivoId(int $productId): ?Key
+    public function findGoverningKeyByGamivoId(int $productId): ?Key
     {
         return Key::where('gamivo_id', (string) $productId)
             ->whereNotNull('listed_at')
             ->whereNull('sold_at')
+            ->orderBy('listed_at')
+            ->orderBy('id')
             ->first();
     }
 

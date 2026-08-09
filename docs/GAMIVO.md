@@ -208,12 +208,18 @@ A lógica tem **duas etapas, nessa ordem** — a distinção é fundamental:
 
 Demais regras:
 
-- **Escopo = keys elegíveis (não listadas).** O grupo contém apenas keys ainda **não listadas** (`findEligibleForAutoSell` já filtra `listed_at IS NULL`). Se o produto já tem keys listadas de rodadas anteriores, elas **não entram no grupo** — a governante é a mais antiga **entre as elegíveis aprovadas**, não a mais antiga absoluta do produto. O `seller_price` é recalculado por ela e sobrescreve o da oferta; o `UpdateOffersUseCase` reajusta em seguida considerando todas as keys. *(Decisão de negócio confirmada — 2026-07-20.)*
+- **Escopo = keys elegíveis (não listadas).** O grupo contém apenas keys ainda **não listadas** (`findEligibleForAutoSell` já filtra `listed_at IS NULL`). Se o produto já tem keys listadas de rodadas anteriores, elas **não entram no grupo** — a governante é a mais antiga **entre as elegíveis aprovadas**, não a mais antiga absoluta do produto. O `seller_price` é recalculado por ela e sobrescreve o da oferta; o `UpdateOffersUseCase` reajusta em seguida usando a governante **da oferta já listada** (ver abaixo). *(Decisão de negócio confirmada — 2026-07-20.)*
 - **Upload em ordem de `id` ASC** (`findEligibleForAutoSell` já retorna `orderBy('id')`), espelhando a ordem de venda da Gamivo.
 - **`max_api`** é travado no preço praticado apenas nas keys **individualmente** velhas (≥ `OLD_KEY_MONTHS`) — o único ponto do auto-sell que ainda avalia a idade diretamente, já que a `MinimumMarginPolicy` cobre só o `min_api`, não o `max_api`.
 - **Confirmação parcial:** após o upload, verifica na oferta quais códigos apareceram e marca `listed_at` **só nos confirmados**; os não confirmados seguem elegíveis na próxima rodada. Isso vale inclusive quando a própria governante não confirma — as keys mais novas confirmadas são listadas e a governante tenta de novo depois (a eventual inversão de ordem FIFO é aceita por ser rara). *(Decisão de negócio confirmada — 2026-07-20.)*
 
-> ⚠️  **Dívida relacionada:** `KeyRepository::findMinMaxByGamivoId` (usado pelo `UpdateOffersUseCase`) usa uma política de `MIN/MAX` diferente da governante FIFO — ver `docs/IMPROVEMENTS.md`.
+### Reprecificação: a mesma governante, agora por `listed_at`
+
+O `UpdateOffersUseCase` reajusta o preço de ofertas **já listadas**, minutos ou dias depois do auto-sell — nesse ponto, todas as keys do grupo já têm `listed_at` preenchido, então a governante deixa de ser "menor `id`" (só fazia sentido pré-listagem, quando `listed_at` ainda não existia) e passa a ser **`listed_at` ASC, com `id` ASC como desempate** (`KeyRepository::findGoverningKeyByGamivoId`). O desempate é necessário porque `listed_at` é uma coluna `date` (sem hora): toda vez que o `AutoSellUseCase` confirma um lote inteiro na mesma rodada, essas keys empatam na mesma data, e a de menor `id` foi a primeira enviada no `uploadKeys` daquele lote.
+
+O clamp de `min_api`/`max_api` usa **só** os limites da governante — não mais um `MIN(min_api)`/`MAX(max_api)` agregado do grupo. Isso fecha a lacuna que existia antes: uma governante velha (com `max_api` travado no preço de listagem, ver acima) podia ter o preço reajustado para cima porque uma key mais nova do mesmo grupo tinha `max_api` mais alto — o agregado furava a trava de idade. Se a governante tiver `min_api`/`max_api` nulo (não deveria acontecer, já que o `RegulateMinApiUseCase` mantém isso preenchido diariamente), o clamp cai para `MinMaxPriceCalculator::FLOOR`/`CEILING`, mesmo fallback que o `AutoSellUseCase` já usa.
+
+A governante **não** é obtida consultando a Gamivo (ex: ordem de retorno de `GET /offers/{id}/keys/active`) — decisão registrada em [`docs/adr/0006`](adr/0006-governing-key-order-from-local-data.md): a API não documenta garantia de ordenação, e a chamada extra por produto a cada ciclo (5 min quando somos os mais baratos) não compensaria o ganho.
 
 ### Testar sem chamar a API real
 

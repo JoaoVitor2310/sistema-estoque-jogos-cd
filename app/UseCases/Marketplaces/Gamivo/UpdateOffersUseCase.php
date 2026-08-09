@@ -129,15 +129,19 @@ class UpdateOffersUseCase
             return null;
         }
 
-        $sellerPrice = MinMaxPriceCalculator::clamp($result->sellerPrice, $this->keyRepository->findMinMaxByGamivoId($productId));
+        $governingKey = $this->keyRepository->findGoverningKeyByGamivoId($productId);
+        $limits = $governingKey !== null ? [
+            'min_api' => (float) $governingKey->min_api,
+            'max_api' => (float) $governingKey->max_api,
+        ] : null;
+
+        $sellerPrice = MinMaxPriceCalculator::clamp($result->sellerPrice, $limits);
         $data = $this->buildUpdatePayload($sellerPrice, $result);
 
         $this->gamivoApi->updateOffer($result->offerId, $data);
 
-        $keyInfo = $this->keyRepository->findFirstListedByGamivoId($productId);
-
         return [
-            'game_name' => $keyInfo?->game_name ?? 'unknown',
+            'game_name' => $governingKey?->game_name ?? 'unknown',
             'old_retail' => $oldRetail,
             'new_retail' => round($result->targetRetail, 2),
         ];

@@ -68,6 +68,34 @@ function fakeActiveOffers(array $productIds): array
     return array_map(fn ($id) => ['product_id' => $id, 'status' => 1], $productIds);
 }
 
+function insertGoverningTestKey(int $gamivoId, string $keyCode, ?string $listedAt, float $minApi, float $maxApi): void
+{
+    DB::table('suppliers')->insertOrIgnore([
+        'id' => 99,
+        'url' => 'https://steamcommunity.com/id/update-offers-test',
+    ]);
+
+    DB::table('keys')->insertOrIgnore([
+        'game_name' => "Game {$gamivoId}",
+        'gamivo_id' => (string) $gamivoId,
+        'key_code' => $keyCode,
+        'market_price' => 5.00,
+        'individual_cost' => 2.00,
+        'min_api' => $minApi,
+        'max_api' => $maxApi,
+        'purchase_profit_percent' => 25.00,
+        'supplier_url' => 'https://steamcommunity.com/id/update-offers-test',
+        'supplier_id' => 99,
+        'claim_type' => 'Nenhuma',
+        'key_format' => 'RK',
+        'sell_platform' => 'Gamivo',
+        'listed_at' => $listedAt,
+        'sold_at' => null,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('UpdateOffersUseCase', function () {
@@ -185,6 +213,74 @@ describe('UpdateOffersUseCase', function () {
             }
 
             return $req->data()['seller_price'] === 2.00;
+        });
+    });
+
+    // ── Governante (menor listed_at, id como desempate) ──────────────────────
+
+    it('clamps using the governing (oldest listed) key min_api, not the group aggregate', function () {
+        // Duas keys do mesmo gamivo_id: a mais nova tem min_api baixo (1.00), a mais
+        // antiga — a governante — tem min_api alto (5.00). O agregado antigo usaria
+        // MIN(min_api) = 1.00 e não clamparia o preço calculado (~2.56). A governante
+        // deve mandar: o preço tem que subir até 5.00.
+        insertGoverningTestKey(950, 'NEWER-950', listedAt: now()->subDays(2)->toDateString(), minApi: 1.00, maxApi: 50.00);
+        insertGoverningTestKey(950, 'OLDER-950', listedAt: now()->subDays(10)->toDateString(), minApi: 5.00, maxApi: 10.00);
+
+        Http::fake([
+            '*/api/public/v1/offers/191*' => Http::response(191, 200),
+            '*/api/public/v1/products/950/offers' => Http::response([
+                ['id' => 190, 'seller_name' => 'CompetitorA', 'retail_price' => 3.00, 'completed_orders' => 5000, 'wholesale_mode' => 0],
+                ['id' => 191, 'seller_name' => 'CarcaDeals', 'retail_price' => 3.30, 'completed_orders' => 1000, 'wholesale_mode' => 0],
+            ], 200),
+            '*/api/public/v1/offers*' => Http::response(fakeActiveOffers([950]), 200),
+        ]);
+
+        app(UpdateOffersUseCase::class)->execute();
+
+        Http::assertSent(function ($req) {
+            if (! str_contains($req->url(), '/offers/191')) {
+                return false;
+            }
+
+            return $req->data()['seller_price'] === 5.00;
+        });
+    });
+
+    it('falls back to FLOOR/CEILING and logs game_name "unknown" when no local key matches the product', function () {
+        // Produto 960 tem oferta ativa na Gamivo mas nenhuma key local com esse gamivo_id
+        // (dado desatualizado, key removida, etc.). findGoverningKeyByGamivoId retorna
+        // null — o clamp cai só para FLOOR/CEILING (sem key para travar um min/max
+        // específico) e o game_name do log vira 'unknown' em vez de quebrar.
+        Http::fake([
+            '*/api/public/v1/offers/211*' => Http::response(211, 200),
+            '*/api/public/v1/products/960/offers' => Http::response([
+                ['id' => 210, 'seller_name' => 'CompetitorA', 'retail_price' => 3.00, 'completed_orders' => 5000, 'wholesale_mode' => 0],
+                ['id' => 211, 'seller_name' => 'CarcaDeals', 'retail_price' => 3.30, 'completed_orders' => 1000, 'wholesale_mode' => 0],
+            ], 200),
+            '*/api/public/v1/offers*' => Http::response(fakeActiveOffers([960]), 200),
+        ]);
+
+        $captured = [];
+        Log::listen(function (\Illuminate\Log\Events\MessageLogged $event) use (&$captured) {
+            if ($event->message === 'UpdateOffersUseCase') {
+                $captured = $event->context;
+            }
+        });
+
+        app(UpdateOffersUseCase::class)->execute();
+
+        $details = $captured['updated_details'][0] ?? null;
+
+        expect($details)->not->toBeNull()
+            ->and($details['game_name'])->toBe('unknown');
+
+        Http::assertSent(function ($req) {
+            if (! str_contains($req->url(), '/offers/211')) {
+                return false;
+            }
+
+            // Sem key local: FLOOR/CEILING não interferem no preço calculado (~2.56)
+            return $req->data()['seller_price'] === 2.56;
         });
     });
 

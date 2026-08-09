@@ -11,7 +11,7 @@ Uma chave de jogo digital comprada e/ou vendida — a unidade central de estoque
 _Avoid_: licença, item, código (isoladamente).
 
 **Governante**:
-Entre as keys aprovadas para entrar na mesma oferta (compartilham o mesmo produto no marketplace), a mais antiga — define o preço único da oferta, pois o marketplace vende por ordem de chegada (FIFO).
+Entre as keys que compartilham a mesma oferta (mesmo produto no marketplace), a mais antiga — define os limites de preço (`min_api`/`max_api`) da oferta inteira, pois o marketplace vende por ordem de chegada (FIFO). Antes de listada (decisão do `AutoSellUseCase`, entre as aprovadas para entrar), "mais antiga" é a de menor `id` — ainda não existe `listed_at` pra comparar. Depois de listada (reprecificação do `UpdateOffersUseCase`, entre as já na oferta), "mais antiga" é a de menor `listed_at`, com `id` como desempate (`listed_at` é `date`, sem hora — keys do mesmo lote empatam).
 _Avoid_: key primária, key líder.
 
 **min_api / max_api**:

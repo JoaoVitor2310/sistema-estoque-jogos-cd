@@ -33,6 +33,8 @@ class KeyFactory extends Factory
             'total_paid' => (string) $this->faker->randomFloat(2, 0, 100),
             'tf2_quantity' => $this->faker->randomFloat(2, 0.1, 100),
             'individual_cost' => $this->faker->randomFloat(2, 0, 100),
+            'min_api' => $this->faker->randomFloat(2, 0.5, 5),
+            'max_api' => $this->faker->randomFloat(2, 10, 50),
             'purchase_profit' => $this->faker->randomFloat(2, 0, 100),
             'purchase_profit_percent' => $this->faker->randomFloat(2, 0, 100),
             'sold_price' => $this->faker->randomFloat(2, 0.1, 100),

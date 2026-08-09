@@ -165,6 +165,8 @@ describe('RegisterKeyUseCase', function () {
     it('marks is_duplicate=true when the key code already exists in the database', function () {
         // Insere uma key com a mesma chave no banco antes do execute
         DB::table('keys')->insert(array_merge(makeGameInput(), [
+            'min_api' => 1.00,
+            'max_api' => 10.00,
             'supplier_id' => DB::table('suppliers')->insertGetId(['url' => 'https://steamcommunity.com/id/seed']),
             'created_at' => now(),
             'updated_at' => now(),
