@@ -252,54 +252,6 @@ especulativo.
 
 ---
 
-## UpdateOffersUseCase — sobreposição de execuções agendadas
-
-**Onde:** `routes/console.php:48-54` (dois `Schedule::call()` para
-`UpdateOffersUseCase::execute()`).
-
-Dois problemas distintos de sobreposição, ambos agravados (não causados) pelo
-retry de action-lock adicionado em `GamivoApiService::sendWithActionLockRetry()`
-— cada `updateOffer()` sob contenção agora pode bloquear até ~8s a mais por
-produto, aumentando a chance de uma execução ainda estar rodando quando a
-próxima é disparada:
-
-1. **Auto-sobreposição:** nenhum dos dois `Schedule::call()` usa
-  `->withoutOverlapping()`. Se o job de `WeAreLowest` (a cada 5 min) demorar
-   mais que 5 minutos — mais provável agora com o retry —, o próximo disparo
-   começa uma segunda execução concorrente sobre as mesmas ofertas.
-2. **Colisão entre os dois modos:** `*/5 * * * `* (WeAreLowest) dispara nos
-  minutos 0, 5, 10, 15... e `5 * * * *` (WeAreNotLowest) dispara no minuto 5
-   de cada hora — ou seja, **os dois modos rodam simultaneamente todo minuto
-   :05**, processando as mesmas ofertas ativas ao mesmo tempo. Antes do fix
-   de retry, essa colisão provavelmente já causava o 400 "Wait for the
-   current action" silenciosamente engolido pelo `updateOffer` antigo (preço
-   não aplicado, sem erro visível). Agora ela aparece como retry — melhor que
-   preço perdido silenciosamente, mas o ideal é eliminar a colisão.
-
-**Ação:**
-
-- Adicionar `->name(...)->withoutOverlapping()` aos dois `Schedule::call()`
-(o mutex do Laravel exige `->name()` para closures, já que não há um
-comando com string própria para derivar a chave):
-  ```php
-  Schedule::call(fn () => app(UpdateOffersUseCase::class)->execute(OffersUpdateMode::WeAreLowest))
-      ->name('update-offers-we-are-lowest')
-      ->withoutOverlapping()
-      ->cron('*/5 * * * *')->timezone('America/Sao_Paulo')->environments('production');
-
-  Schedule::call(fn () => app(UpdateOffersUseCase::class)->execute(OffersUpdateMode::WeAreNotLowest))
-      ->name('update-offers-we-are-not-lowest')
-      ->withoutOverlapping()
-      ->cron('35 * * * *')->timezone('America/Sao_Paulo')->environments('production');
-  ```
-- Trocar o cron do modo `WeAreNotLowest` de `5 * * * *` para um minuto que
-não coincida com nenhum múltiplo de 5 do outro job (ex: `35 * * * *`) —
-elimina a colisão estrutural entre os dois modos.
-
-**Origem:** code-review do fix de action-lock em `GamivoApiService` (2026-07-20).
-
----
-
 ## Polimentos adiados do domínio Financial
 
 **Onde:** `app/UseCases/Financial/`, `tests/Feature/UseCases/Financial/`, `tests/Feature/Services/Financial/`.

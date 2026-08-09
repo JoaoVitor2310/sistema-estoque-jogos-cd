@@ -13,11 +13,12 @@ use App\Services\Keys\KeyRepository;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Reprecifica ofertas ativas na Gamivo com frequência variável por posição:
+ * Reprecifica ofertas ativas na Gamivo contra concorrentes via ComparisonAlgorithm.
  *
- *  - WeAreLowest    : somos o 1º mais barato → roda a cada 5 minutos para subir o preço
- *  - WeAreNotLowest : não somos o 1º → roda a cada hora para recuperar posição
- *  - null (padrão)  : processa todos (útil para execução manual via artisan)
+ * O scheduler roda execute() sem mode a cada minuto — uma única passada decide por
+ * produto se sobe o preço (já somos o 1º mais barato) ou desce (não somos), evitando
+ * dois processos concorrentes batendo na mesma API. O filtro por OffersUpdateMode
+ * (WeAreLowest/WeAreNotLowest) continua disponível para execução manual/pontual.
  *
  * Documentação: docs/GAMIVO.md — seção "Algoritmos de Precificação".
  *
