@@ -42,6 +42,8 @@ describe('GameService', function () {
                 'gamivo_id' => 'gam-from-key',
                 'market_price' => 5.00,
                 'individual_cost' => 2.00,
+                'min_api' => 1.00,
+                'max_api' => 10.00,
                 'purchase_profit_percent' => 25.00,
                 'supplier_url' => 'https://steamcommunity.com/id/seed',
                 'supplier_id' => 1,

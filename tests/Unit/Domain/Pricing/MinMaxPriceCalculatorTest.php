@@ -106,3 +106,55 @@ describe('MinMaxPriceCalculator::calculate()', function () {
         )->with('min/max domain scenarios');
     });
 });
+
+describe('MinMaxPriceCalculator::clamp()', function () {
+
+    it('does not silently collapse the price when $limits carries a null value', function () {
+        // Regression guard: PHP's min(null, x) returns null, not x. clamp() only
+        // guards against $limits being null as a whole (no key/product in the
+        // DB) — callers must never pass an array with a null min_api/max_api
+        // inside it (keys.min_api/max_api are NOT NULL since 2026-08-08, so
+        // every real caller already gets concrete floats from the model).
+        $limits = ['min_api' => 3.50, 'max_api' => 12.00];
+
+        expect(MinMaxPriceCalculator::clamp(9999.0, $limits))->toBe(12.00);
+    });
+
+    it('returns the price unchanged when it already falls within min_api/max_api', function () {
+        $limits = ['min_api' => 1.00, 'max_api' => 10.00];
+
+        expect(MinMaxPriceCalculator::clamp(5.00, $limits))->toBe(5.00);
+    });
+
+    it('raises the price up to min_api when it falls below it', function () {
+        $limits = ['min_api' => 3.00, 'max_api' => 10.00];
+
+        expect(MinMaxPriceCalculator::clamp(1.00, $limits))->toBe(3.00);
+    });
+
+    it('caps the price down to max_api when it exceeds it', function () {
+        $limits = ['min_api' => 1.00, 'max_api' => 10.00];
+
+        expect(MinMaxPriceCalculator::clamp(50.00, $limits))->toBe(10.00);
+    });
+
+    it('applies only FLOOR/CEILING when $limits is null (no key/product found)', function () {
+        expect(MinMaxPriceCalculator::clamp(0.001, null))->toBe(MinMaxPriceCalculator::FLOOR)
+            ->and(MinMaxPriceCalculator::clamp(9999.0, null))->toBe(MinMaxPriceCalculator::CEILING)
+            ->and(MinMaxPriceCalculator::clamp(5.00, null))->toBe(5.00);
+    });
+
+    it('still enforces the absolute FLOOR when min_api itself is below it', function () {
+        // Cenário defensivo: um min_api corrompido/abaixo do piso absoluto não pode
+        // abrir uma brecha para vender mais barato que o FLOOR.
+        $limits = ['min_api' => 0.001, 'max_api' => 10.00];
+
+        expect(MinMaxPriceCalculator::clamp(0.001, $limits))->toBe(MinMaxPriceCalculator::FLOOR);
+    });
+
+    it('still enforces the absolute CEILING when max_api itself is above it', function () {
+        $limits = ['min_api' => 1.00, 'max_api' => 1000.00];
+
+        expect(MinMaxPriceCalculator::clamp(999.00, $limits))->toBe(MinMaxPriceCalculator::CEILING);
+    });
+});

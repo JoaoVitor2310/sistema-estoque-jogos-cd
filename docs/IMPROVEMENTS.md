@@ -220,33 +220,6 @@ em que a extração passa a se justificar.
 
 ---
 
-## `findMinMaxByGamivoId` — alinhar à regra da governante FIFO
-
-**Onde:** `app/Services/Keys/KeyRepository.php::findMinMaxByGamivoId()`, consumido por
-`app/UseCases/Marketplaces/Gamivo/UpdateOffersUseCase.php` (`MinMaxPriceCalculator::clamp`).
-
-O `AutoSellUseCase` já lista keys do mesmo `gamivo_id` agrupadas por venda **FIFO**:
-a key mais antiga aprovada (**menor `id`** — governante) define o `seller_price` de
-toda a oferta, e o upload segue ordem de `id` ASC (implementado em 2026-07-20).
-
-Mas o `UpdateOffersUseCase`, que reprecifica a oferta minutos depois, ainda usa
-`findMinMaxByGamivoId` — que agrega `MIN(min_api)`/`MAX(max_api)` entre **todas** as
-keys listadas do produto, uma política **diferente** da governante. Consequência
-concreta: uma oferta cuja governante é uma key velha (com `max_api` travado baixo na
-listagem) pode ter o preço reajustado **para cima** pelo reprecificador, porque o
-`MAX(max_api)` das keys mais novas ainda é alto — derrotando parcialmente o propósito
-da trava de `max_api` das keys velhas.
-
-**Ação:** substituir `findMinMaxByGamivoId` por uma consulta que retorne os limites
-da **governante** (menor `id` entre as keys listadas e não vendidas do `gamivo_id`),
-alinhando o `UpdateOffersUseCase` à mesma regra FIFO do `AutoSellUseCase`. Avaliar
-remover o método agregado após a migração de todos os callers.
-
-**Origem:** code-review do agrupamento por `gamivo_id` no `AutoSellUseCase` (2026-07-20);
-regra FIFO definida pelo dono do produto.
-
----
-
 ## KeySaleController::autoSell — endpoint HTTP síncrono para retomar no futuro
 
 **Onde:** `app/Http/Controllers/Keys/KeySaleController.php::autoSell()`, rota
