@@ -40,7 +40,7 @@ use Carbon\Carbon;
 final class MinimumMarginPolicy
 {
     /** Margem padrão quando nenhum outro tier se aplica (€1 ≤ custo ≤ €10, key jovem). */
-    public const DEFAULT_MARGIN = 0.60;
+    public const DEFAULT_MARGIN = 0.50;
 
     /** Margem exigida para keys de custo muito baixo (< €1) — margem relativa maior compensa o valor absoluto baixo. */
     public const LOW_COST_MARGIN = 0.55;
@@ -94,7 +94,7 @@ final class MinimumMarginPolicy
     public const UNLISTED_MODERATE_MARGIN = 0.40;
 
     /**
-     * Margem mínima (percentual, ex: 0.60 = 60%) exigida para uma key com o
+     * Margem mínima (percentual, ex: 0.50 = 50%) exigida para uma key com o
      * custo, idade e status de listagem dados.
      *
      * Quando $listedAt é informado, o decaimento por tempo listado substitui
