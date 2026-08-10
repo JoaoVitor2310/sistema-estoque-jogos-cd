@@ -10,6 +10,7 @@ namespace App\Domain\Enums;
  */
 enum ExpenseCategory: string
 {
+    case GamePurchase = 'game_purchase';
     case Taxes = 'taxes';
     case Subscriptions = 'subscriptions';
     case Other = 'other';

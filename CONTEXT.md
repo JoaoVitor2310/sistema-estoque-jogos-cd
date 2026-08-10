@@ -105,11 +105,11 @@ Cada linha individual de um lançamento (`FinancialMovement`). As pernas de um m
 _Avoid_: partida, entrada, leg.
 
 **Categoria de gasto** (`ExpenseCategory`):
-A natureza de uma perna de saída — Impostos, Assinaturas ou Outros. Existe para permitir agrupar gastos por tipo (ex: um dashboard futuro); não confundir com o `category` do lançamento (`MovementCategory`), que classifica a perna em si (income/expense/transfer/...), não o que ela representa.
+A natureza de uma perna de saída — Compra de Jogo, Impostos, Assinaturas ou Outros. Existe para permitir agrupar gastos por tipo (ex: um dashboard futuro); não confundir com o `category` do lançamento (`MovementCategory`), que classifica a perna em si (income/expense/transfer/...), não o que ela representa.
 _Avoid_: tipo de despesa, subcategoria.
 
 **Categoria de receita** (`IncomeCategory`):
-A origem de uma perna de entrada — Saque Gamivo, Investimento externo ou Outros. Mesmo papel que a Categoria de gasto, do lado da receita; os dois enums não compartilham valores.
+A origem de uma perna de entrada — Saque Gamivo, Investimento externo, Rendimentos ou Outros. Mesmo papel que a Categoria de gasto, do lado da receita; os dois enums não compartilham valores.
 _Avoid_: fonte de receita, subcategoria.
 
 **Verba de TF2** (`tf2_allocation`):

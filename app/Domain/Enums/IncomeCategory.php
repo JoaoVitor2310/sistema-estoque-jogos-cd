@@ -12,5 +12,6 @@ enum IncomeCategory: string
 {
     case GamivoPayout = 'gamivo_payout';
     case ExternalInvestment = 'external_investment';
+    case Yield = 'yield';
     case Other = 'other';
 }
