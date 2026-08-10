@@ -172,6 +172,21 @@ Definidos em `routes/console.php`, fuso `America/Sao_Paulo`:
 
 ---
 
+## Ferramentas de diagnóstico (manuais, read-only)
+
+Dois comandos artisan para investigar se o `min_api` está deixando dinheiro na mesa (preço mais alto que o mercado aceitaria) ou represando keys sem venda. Nenhum dos dois muta nada — só `GET`, nunca `PUT`/`POST`. Não têm agendamento (`routes/console.php`); rodar manualmente quando quiser reavaliar `MinimumMarginPolicy`.
+
+| Comando | O que simula | Escopo |
+|---|---|---|
+| `gamivo:min-api-floor-report` | `ComparisonAlgorithm` (mesma chamada do `UpdateOffersUseCase`) sem aplicar o clamp de `min_api`/`max_api`, para medir o preço "natural" de mercado vs. o piso praticado | Ofertas **já ativas** na Gamivo (`GET /offers` + 1x `GET /products/{id}/offers` por produto) |
+| `gamivo:unlisted-min-api-report` | `ComparisonAlgorithm` com `detectDumpers: false, requireOurOffer: false` (mesma chamada do `AutoSellUseCase::processGroup`), key a key, para achar quem nunca chega a ser listado hoje | Keys elegíveis para auto-sell **ainda não listadas** (`KeyRepository::findEligibleForAutoSell()` + 1x `GET /products/{id}/offers` por produto) |
+
+Ambos aceitam `--limit=N` (testar num subconjunto antes do run completo) e `--delay-ms` (pausa de cortesia entre chamadas por produto, padrão 150ms) e gravam um JSON detalhado em `storage/app/diagnostics/`.
+
+Os dois separam, no resultado, ofertas com **margem de mercado negativa** (preço atual abaixo do `individual_cost`) das com margem positiva mas abaixo do exigido — só o segundo grupo é sinal de que um tier de `MinimumMarginPolicy` está alto demais; o primeiro é estoque com o preço de mercado desabado, ver [`docs/IMPROVEMENTS.md`](IMPROVEMENTS.md#processo-para-estoque-morto-keys-com-mercado-abaixo-do-custo-de-compra).
+
+---
+
 ## Notas de Implementação
 
 ### Formato de datas Gamivo

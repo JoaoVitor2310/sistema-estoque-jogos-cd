@@ -101,6 +101,28 @@ Quando faltam 30 dias, o sistema já envia alerta por e-mail e a `MinimumMarginP
 
 ---
 
+## Processo para estoque morto (keys com mercado abaixo do custo de compra)
+
+**Onde:** provavelmente um novo UseCase em `app/UseCases/Marketplaces/Gamivo/` (ou `app/UseCases/Keys/`, já que o problema também afeta keys ainda não listadas) + alguma superfície pra revisão manual (relatório recorrente, tela ou export). `app/Domain/Pricing/MinimumMarginPolicy.php` não é o lugar — ver "Origem" abaixo sobre por que isso não é ajuste de margem.
+
+Rodando `gamivo:min-api-floor-report` e `gamivo:unlisted-min-api-report` (ver `docs/GAMIVO.md`) contra um snapshot de produção (2026-08-09), boa parte das keys "travadas no `min_api`" não é caso de margem conservadora demais — é o **preço de mercado atual abaixo do próprio custo de compra** (`individual_cost`). Nesses casos, baixar a margem exigida não resolve nada: o piso já está protegendo contra uma venda no prejuízo.
+
+Volume identificado nesse snapshot:
+- **45 keys nunca listadas** (de 162 elegíveis para auto-sell) com mercado abaixo do custo — €56,72 de custo parado, gerando **zero receita** porque nem chegam a ser listadas pelo `AutoSellUseCase`.
+- **5 ofertas já listadas** no mesmo caso (Descenders, Until Then ×2, Suicide Guy, The Darkness II) — ficam presas no `min_api` (que também não cobre o mercado), sem vender.
+
+Hoje não existe processo para identificar ou decidir o que fazer com esse grupo — as keys só ficam invisíveis, sem alerta, acumulando.
+
+**Ação (possíveis soluções, a decidir):**
+- [ ] Job/relatório recorrente que roda a mesma comparação (mercado vs. `individual_cost`) e persiste o resultado, em vez de exigir rodar os comandos manualmente toda vez — os dois comandos atuais chamam a API Gamivo (read-only) e não têm agendamento
+- [ ] Definir um limiar de tempo "underwater" (ex: mercado abaixo do custo por ≥ N meses) que dispara alerta por e-mail, no mesmo padrão do alerta de expiração (`KeyService::checkExpiringKeys`)
+- [ ] Decidir a política de liquidação: vender abaixo do custo pra liberar capital (após X tempo) vs. segurar indefinidamente — provavelmente uma decisão de negócio, não só técnica
+- [ ] Avaliar se o processo de compra deveria checar tendência de preço recente antes de fechar a trade (o sistema já verifica giveaways via `gamerpower.com/api-read`, ver `docs/PRODUCT.md` — pode ser o mesmo tipo de checagem preventiva, olhando queda de preço em vez de giveaway)
+
+**Origem:** sessão de diagnóstico de `min_api` (2026-08-09) — a investigação original era sobre `MinimumMarginPolicy::DEFAULT_MARGIN` (ajustado de 60% para 50%, ver `MinimumMarginPolicyTest.php`), mas separar os casos "mercado abaixo do custo" dos casos "margem alta demais" revelou que boa parte do volume travado é estoque morto, não ajuste de tier.
+
+---
+
 ## Estrutura para um segundo marketplace (multi-marketplace)
 
 **Onde:** `app/UseCases/Marketplaces/`, `app/Domain/Pricing/`.

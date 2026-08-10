@@ -75,12 +75,12 @@ describe('RegulateMinApiUseCase', function () {
         expect((float) DB::table('keys')->where('gamivo_id', '440')->value('min_api'))->toBe(2.80);
     });
 
-    it('applies the default cost tier for an unlisted key acquired less than UNLISTED_MODERATE_MONTHS ago (60%)', function () {
+    it('applies the default cost tier for an unlisted key acquired less than UNLISTED_MODERATE_MONTHS ago (50%)', function () {
         insertRegulateKey('440', ['individual_cost' => 2.00, 'acquired_at' => now()->subMonths(1)->toDateString()]);
 
         app(RegulateMinApiUseCase::class)->execute();
 
-        expect((float) DB::table('keys')->where('gamivo_id', '440')->value('min_api'))->toBe(3.20);
+        expect((float) DB::table('keys')->where('gamivo_id', '440')->value('min_api'))->toBe(3.00);
     });
 
     // ── Listada — decaimento por listed_at ────────────────────────────────────
@@ -122,7 +122,7 @@ describe('RegulateMinApiUseCase', function () {
         expect((float) DB::table('keys')->where('gamivo_id', '440')->value('min_api'))->toBe(2.80);
     });
 
-    it('applies the default cost tier for a key listed less than LISTED_EARLY_MONTHS ago (60%)', function () {
+    it('applies the default cost tier for a key listed less than LISTED_EARLY_MONTHS ago (50%)', function () {
         insertRegulateKey('440', [
             'individual_cost' => 2.00,
             'acquired_at' => now()->subMonth()->toDateString(),
@@ -131,7 +131,7 @@ describe('RegulateMinApiUseCase', function () {
 
         app(RegulateMinApiUseCase::class)->execute();
 
-        expect((float) DB::table('keys')->where('gamivo_id', '440')->value('min_api'))->toBe(3.20);
+        expect((float) DB::table('keys')->where('gamivo_id', '440')->value('min_api'))->toBe(3.00);
     });
 
     // ── FLOORs incondicionais ─────────────────────────────────────────────────

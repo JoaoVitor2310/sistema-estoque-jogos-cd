@@ -25,19 +25,19 @@ use Carbon\Carbon;
 dataset('min/max domain scenarios', [
     // custo, clientPrice, expectedMin (key jovem), expectedMax
     'high individualCost (>10)' => [15.0, 10.0, 21.75, 120.0],  // >10 tier → 45%
-    'mid individualCost (>4, <=10)' => [5.0, 5.0, 8.0, 40.0],   // default → 60%
-    'low individualCost (<=4, >=1)' => [4.0, 4.0, 6.4, 32.0],   // default → 60%
-    'low individualCost (<4, >=1)' => [2.0, 2.0, 3.2, 16.0],    // default → 60%
+    'mid individualCost (>4, <=10)' => [5.0, 5.0, 7.5, 40.0],   // default → 50%
+    'low individualCost (<=4, >=1)' => [4.0, 4.0, 6.0, 32.0],   // default → 50%
+    'low individualCost (<4, >=1)' => [2.0, 2.0, 3.0, 16.0],    // default → 50%
     'very low individualCost (<1)' => [0.5, 0.3, 0.78, 15.0],   // <1 tier → 55%
 ]);
 
 describe('MinMaxPriceCalculator::calculate()', function () {
 
     describe('minimum delegation to MinimumMarginPolicy', function () {
-        it('uses the cost tier for a young key (default margin, 60%)', function () {
+        it('uses the cost tier for a young key (default margin, 50%)', function () {
             $result = MinMaxPriceCalculator::calculate(5.0, 5.0, Carbon::now());
 
-            expect($result['min'])->toEqualWithDelta(8.0, 0.001);
+            expect($result['min'])->toEqualWithDelta(7.5, 0.001);
         });
 
         it('uses the aging tier for an old key, idade vence o custo (15%)', function () {

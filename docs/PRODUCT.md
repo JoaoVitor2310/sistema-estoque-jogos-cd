@@ -69,7 +69,7 @@ A margem-base varia por faixa de custo (jogo caro tolera margem menor; jogo muit
 | Custo individual | Margem-base |
 |---|---|
 | < €1 | 55% |
-| €1–€10 | 60% (default) |
+| €1–€10 | 50% (default) |
 | €10–€15 | 45% |
 | > €15 | 40% |
 

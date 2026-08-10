@@ -13,7 +13,7 @@
 |   valorPago > 15  → 40%
 |   valorPago > 10  → 45%
 |   valorPago < 1   → 55%
-|   demais          → 60%
+|   demais          → 50%
 |
 | Max:
 |   valorPago < 1         → valorPago × 30
@@ -29,9 +29,9 @@ use App\Services\Keys\KeyCalculationService;
 dataset('min/max price scenarios', [
     // valorPago, precoCliente, expectedMin (jovem), expectedMax
     'high valorPago (>10)' => [15.0, 10.0, 21.75, 120.0],  // >10 tier → 45%
-    'mid valorPago (>4, <=10)' => [5.0, 5.0, 8.0, 40.0],    // default → 60%
-    'low valorPago (<=4, >=1)' => [4.0, 4.0, 6.4, 32.0],    // default → 60%
-    'low valorPago (<4, >=1)' => [2.0, 2.0, 3.2, 16.0],     // default → 60%
+    'mid valorPago (>4, <=10)' => [5.0, 5.0, 7.5, 40.0],    // default → 50%
+    'low valorPago (<=4, >=1)' => [4.0, 4.0, 6.0, 32.0],    // default → 50%
+    'low valorPago (<4, >=1)' => [2.0, 2.0, 3.0, 16.0],     // default → 50%
     'very low valorPago (<1)' => [0.5, 0.3, 0.78, 15.0],    // <1 tier → 55%
 ]);
 
@@ -55,11 +55,11 @@ describe('CalculateService::calculateMinMaxApi()', function () {
             expect($result['min_api'])->toEqualWithDelta(21.75, 0.001);
         });
 
-        it('is valorPago × 1.6 in the default tier', function () use ($game) {
-            // 5 → 60% → 8.0
+        it('is valorPago × 1.5 in the default tier', function () use ($game) {
+            // 5 → 50% → 7.5
             $result = $this->service->calculateMinMaxApi($game(5.0, 5.0));
 
-            expect($result['min_api'])->toEqualWithDelta(8.0, 0.001);
+            expect($result['min_api'])->toEqualWithDelta(7.5, 0.001);
         });
 
         it('is valorPago × 1.55 when valorPago is below €1', function () use ($game) {

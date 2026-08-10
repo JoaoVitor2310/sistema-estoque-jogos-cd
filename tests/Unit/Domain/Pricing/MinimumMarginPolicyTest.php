@@ -48,7 +48,7 @@ describe('MinimumMarginPolicy::requiredMargin()', function () {
             ->toEqualWithDelta(MinimumMarginPolicy::UNLISTED_MODERATE_MARGIN, 0.0001);
     });
 
-    it('falls through to cost tiers for a key just under UNLISTED_MODERATE_MONTHS (60%)', function () {
+    it('falls through to cost tiers for a key just under UNLISTED_MODERATE_MONTHS (50%)', function () {
         expect(MinimumMarginPolicy::requiredMargin(5.0, Carbon::now()->subMonths(2)))
             ->toEqualWithDelta(MinimumMarginPolicy::DEFAULT_MARGIN, 0.0001);
     });
@@ -80,7 +80,7 @@ describe('MinimumMarginPolicy::requiredMargin()', function () {
             ->toEqualWithDelta(MinimumMarginPolicy::DEFAULT_MARGIN, 0.0001);
     });
 
-    it('requires the default margin between LOW_COST_THRESHOLD and HIGH_COST_THRESHOLD (60%)', function () {
+    it('requires the default margin between LOW_COST_THRESHOLD and HIGH_COST_THRESHOLD (50%)', function () {
         expect(MinimumMarginPolicy::requiredMargin(5.0, Carbon::now()))
             ->toEqualWithDelta(MinimumMarginPolicy::DEFAULT_MARGIN, 0.0001);
     });
@@ -102,7 +102,7 @@ describe('MinimumMarginPolicy::minApi()', function () {
 
     it('applies the required margin to the cost', function () {
         expect(MinimumMarginPolicy::minApi(5.0, Carbon::now()))
-            ->toEqualWithDelta(8.00, 0.001);
+            ->toEqualWithDelta(7.50, 0.001);
     });
 
     it('uses the aging margin for an old (but not floor-eligible) key', function () {
