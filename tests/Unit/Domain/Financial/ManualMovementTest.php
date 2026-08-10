@@ -39,6 +39,17 @@ describe('ManualMovement', function () {
             ->and($movement->direction)->toBe(MovementDirection::Credit);
     });
 
+    it('accepts a yield income category', function () {
+        $movement = ManualMovement::make(
+            MovementCategory::Income,
+            AccountType::Principal,
+            amount: 45.20,
+            incomeCategory: IncomeCategory::Yield,
+        );
+
+        expect($movement->incomeCategory)->toBe(IncomeCategory::Yield);
+    });
+
     it('requires an income category for an income', function () {
         expect(fn () => ManualMovement::make(MovementCategory::Income, AccountType::Principal, amount: 100.00))
             ->toThrow(InvalidArgumentException::class);
@@ -57,6 +68,17 @@ describe('ManualMovement', function () {
             ->and($movement->amount)->toBe(207.05)
             ->and($movement->expenseCategory)->toBe(ExpenseCategory::Taxes)
             ->and($movement->incomeCategory)->toBeNull();
+    });
+
+    it('accepts a game purchase expense category', function () {
+        $movement = ManualMovement::make(
+            MovementCategory::Expense,
+            AccountType::Principal,
+            amount: 89.90,
+            expenseCategory: ExpenseCategory::GamePurchase,
+        );
+
+        expect($movement->expenseCategory)->toBe(ExpenseCategory::GamePurchase);
     });
 
     it('requires an expense category for an expense', function () {

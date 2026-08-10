@@ -95,10 +95,16 @@ const ACCOUNTS: { label: string; value: AccountType }[] = [
   { label: 'Emergência', value: 'emergency' },
 ];
 
+// A TF2 tem painel dedicado (saldo + progresso da meta), então sai do grid
+// genérico de saldos — mas continua uma conta como qualquer outra em ACCOUNTS
+// (selects de conta, cálculo do total da empresa etc.).
+const BALANCE_GRID_ACCOUNTS = ACCOUNTS.filter((a) => a.value !== 'tf2');
+
 const accountLabel = (account: AccountType): string =>
   ACCOUNTS.find((a) => a.value === account)?.label ?? account;
 
 const EXPENSE_CATEGORIES = [
+  { label: 'Compra de Jogo', value: 'game_purchase' },
   { label: 'Impostos', value: 'taxes' },
   { label: 'Assinaturas', value: 'subscriptions' },
   { label: 'Outros', value: 'other' },
@@ -107,6 +113,7 @@ const EXPENSE_CATEGORIES = [
 const INCOME_CATEGORIES = [
   { label: 'Saque Gamivo', value: 'gamivo_payout' },
   { label: 'Investimento externo', value: 'external_investment' },
+  { label: 'Rendimentos', value: 'yield' },
   { label: 'Outros', value: 'other' },
 ];
 
@@ -150,6 +157,26 @@ const tf2AllocatedQuantity = computed(() => {
   return movements
     .filter((m) => m.category === 'tf2_allocation' && m.account_type === 'tf2')
     .reduce((sum, m) => sum + Number(m.quantity ?? 0), 0);
+});
+
+// Soma das compras reais do mês — o que já saiu da verba, independente de ter
+// sido confirmado na Gamivo ou não (a categoria já garante que é TF2 pago).
+const tf2PurchasedQuantity = computed(() => {
+  const movements = props.current?.movements ?? [];
+
+  return movements
+    .filter((m) => m.category === 'tf2_purchase')
+    .reduce((sum, m) => sum + Number(m.quantity ?? 0), 0);
+});
+
+// Negativo quando a meta foi batida — a UI trata esse caso como destaque, não
+// como "falta comprar -30".
+const tf2RemainingQuantity = computed(() => tf2AllocatedQuantity.value - tf2PurchasedQuantity.value);
+
+const tf2ProgressPercent = computed(() => {
+  if (tf2AllocatedQuantity.value <= 0) return 0;
+
+  return Math.min(100, Math.round((tf2PurchasedQuantity.value / tf2AllocatedQuantity.value) * 100));
 });
 
 const mostRecentClosedId = computed(() => (props.closed.length ? props.closed[0].id : null));
@@ -201,81 +228,6 @@ const submitBootstrap = async () => {
   }
 };
 
-// ── Lançar movimento simples ──────────────────────────────────────────────────
-
-const MOVEMENT_CATEGORIES = [
-  { label: 'Entrada', value: 'income' },
-  { label: 'Saída', value: 'expense' },
-  { label: 'Compra de TF2', value: 'tf2_purchase' },
-];
-
-const movementDialog = ref(false);
-const savingMovement = ref(false);
-const movementForm = reactive({
-  category: 'income',
-  account: 'principal' as AccountType,
-  amount: null as number | null,
-  quantity: null as number | null,
-  unit_price: null as number | null,
-  description: '',
-  occurred_at: '',
-  expense_category: null as string | null,
-  income_category: null as string | null,
-});
-
-const isTf2Purchase = computed(() => movementForm.category === 'tf2_purchase');
-const isExpense = computed(() => movementForm.category === 'expense');
-const isIncome = computed(() => movementForm.category === 'income');
-
-const derivedTf2Total = computed(() => (movementForm.quantity ?? 0) * (movementForm.unit_price ?? 0));
-
-// Debitar uma caixinha exige justificativa — mesma regra do domínio.
-const requiresJustification = computed(
-  () => movementForm.category === 'expense'
-    && (movementForm.account === 'reinvestment' || movementForm.account === 'emergency'),
-);
-
-// Um único diálogo cobre entrada, saída e compra de TF2 — a categoria é
-// escolhida pelo próprio select, no mesmo padrão do diálogo de Transferência.
-const openMovementDialog = () => {
-  Object.assign(movementForm, {
-    category: 'income', account: 'principal', amount: null,
-    quantity: null, unit_price: null, description: '', occurred_at: '',
-    expense_category: null, income_category: null,
-  });
-  movementDialog.value = true;
-};
-
-const submitMovement = async () => {
-  const payload: Record<string, unknown> = { category: movementForm.category };
-
-  if (isTf2Purchase.value) {
-    payload.quantity = movementForm.quantity;
-    payload.unit_price = movementForm.unit_price;
-  } else {
-    payload.account = movementForm.account;
-    payload.amount = movementForm.amount;
-  }
-  if (isExpense.value) payload.expense_category = movementForm.expense_category;
-  if (isIncome.value) payload.income_category = movementForm.income_category;
-  if (movementForm.description) payload.description = movementForm.description;
-  if (movementForm.occurred_at) payload.occurred_at = movementForm.occurred_at;
-
-  savingMovement.value = true;
-  try {
-    const res = await axiosInstance.post('/financial-months/movements', payload);
-    showResponse(res, toast.add);
-    if (res.status === 201) {
-      movementDialog.value = false;
-      refresh();
-    }
-  } catch (error: any) {
-    reportError(error);
-  } finally {
-    savingMovement.value = false;
-  }
-};
-
 // ── Porcentagens do mês (só prefill — nada é aplicado sozinho) ────────────────
 
 const percentOf = (value: Numeric): number => Math.round(Number(value ?? 0) * 100);
@@ -288,33 +240,65 @@ const monthPercents = computed(() => ({
 
 const balanceOf = (account: AccountType): number => props.balances?.[account] ?? 0;
 
-// ── Transferência entre contas ────────────────────────────────────────────────
+// ── Lançar movimento ──────────────────────────────────────────────────────────
 
-const transferDialog = ref(false);
-const savingTransfer = ref(false);
-const transferForm = reactive({
-  source: 'principal' as AccountType,
-  destination: 'reinvestment' as AccountType,
-  mode: 'percent' as 'amount' | 'percent',
+// Um único diálogo cobre os quatro tipos — Compra de TF2, Entrada, Saída e
+// Transferência —, o tipo escolhido no select decide quais campos aparecem e
+// para qual endpoint o formulário é enviado. Compra de TF2 vem selecionada por
+// padrão por ser o lançamento mais frequente.
+const MOVEMENT_CATEGORIES = [
+  { label: 'Compra de TF2', value: 'tf2_purchase' },
+  { label: 'Entrada', value: 'income' },
+  { label: 'Saída', value: 'expense' },
+  { label: 'Transferência', value: 'transfer' },
+];
+
+const movementDialog = ref(false);
+const savingMovement = ref(false);
+const movementForm = reactive({
+  category: 'tf2_purchase',
+  account: 'principal' as AccountType,
   amount: null as number | null,
-  percent: null as number | null,
+  quantity: null as number | null,
+  unit_price: null as number | null,
   description: '',
   occurred_at: '',
+  expense_category: null as string | null,
+  income_category: null as string | null,
+  source: 'principal' as AccountType,
+  destination: 'reinvestment' as AccountType,
+  mode: 'amount' as 'amount' | 'percent',
+  percent: null as number | null,
 });
 
-// A porcentagem incide sobre o saldo atual da origem; sem saldo positivo o
-// domínio recusa, então a tela nem oferece a opção (evita erro desnecessário).
-const sourceHasPositiveBalance = computed(() => balanceOf(transferForm.source) > 0);
+const isTf2Purchase = computed(() => movementForm.category === 'tf2_purchase');
+const isExpense = computed(() => movementForm.category === 'expense');
+const isIncome = computed(() => movementForm.category === 'income');
+const isTransfer = computed(() => movementForm.category === 'transfer');
+
+const derivedTf2Total = computed(() => (movementForm.quantity ?? 0) * (movementForm.unit_price ?? 0));
+
+// Debitar uma caixinha (Saída) ou tirar dela numa Transferência exige
+// justificativa — mesma regra do domínio, coberta pelos dois tipos que fazem isso.
+const requiresJustification = computed(() => {
+  if (movementForm.category === 'expense') {
+    return movementForm.account === 'reinvestment' || movementForm.account === 'emergency';
+  }
+  if (movementForm.category === 'transfer') {
+    return movementForm.source === 'reinvestment' || movementForm.source === 'emergency';
+  }
+  return false;
+});
+
+// A porcentagem de transferência incide sobre o saldo atual da origem; sem
+// saldo positivo o domínio recusa, então a tela nem oferece a opção.
+const sourceHasPositiveBalance = computed(() => balanceOf(movementForm.source) > 0);
 
 const transferPreview = computed(() => {
-  if (transferForm.mode === 'amount') return transferForm.amount ?? 0;
+  if (movementForm.mode === 'amount') return movementForm.amount ?? 0;
 
-  return Math.round(balanceOf(transferForm.source) * ((transferForm.percent ?? 0) / 100) * 100) / 100;
+  return Math.round(balanceOf(movementForm.source) * ((movementForm.percent ?? 0) / 100) * 100) / 100;
 });
-
-const transferNeedsJustification = computed(
-  () => transferForm.source === 'reinvestment' || transferForm.source === 'emergency',
-);
 
 // Reinvestimento e Emergência têm % sugerida; qualquer outro destino não tem
 // sugestão — é uma transferência de valor fechado.
@@ -324,59 +308,83 @@ const suggestedPercentFor = (destination: AccountType): number | null => {
   return null;
 };
 
-// Um único diálogo cobre qualquer par de contas — "o que fazer" é escolhido
-// pelos próprios selects de origem/destino, não por um botão dedicado. A
-// sugestão de % reage à escolha, então trocar o destino já reaplica o prefill.
-const applyPrefillForCurrentSelection = () => {
-  const suggested = transferForm.source === 'principal' ? suggestedPercentFor(transferForm.destination) : null;
+// A sugestão de % reage à escolha de origem/destino — trocar qualquer um dos
+// dois (ou entrar no tipo Transferência) já reaplica o prefill.
+const applyPrefillForTransferSelection = () => {
+  const suggested = movementForm.source === 'principal' ? suggestedPercentFor(movementForm.destination) : null;
 
-  transferForm.percent = suggested;
-  transferForm.mode = suggested !== null && sourceHasPositiveBalance.value ? 'percent' : 'amount';
+  movementForm.percent = suggested;
+  movementForm.mode = suggested !== null && sourceHasPositiveBalance.value ? 'percent' : 'amount';
 };
 
-watch([() => transferForm.source, () => transferForm.destination], applyPrefillForCurrentSelection);
+watch(
+  [() => movementForm.category, () => movementForm.source, () => movementForm.destination],
+  () => {
+    if (movementForm.category === 'transfer') applyPrefillForTransferSelection();
+  },
+);
 
-const openTransferDialog = () => {
-  Object.assign(transferForm, {
+const openMovementDialog = () => {
+  Object.assign(movementForm, {
+    category: 'tf2_purchase',
+    account: 'principal',
+    amount: null,
+    quantity: null,
+    unit_price: null,
+    description: '',
+    occurred_at: '',
+    expense_category: null,
+    income_category: null,
     source: 'principal',
     destination: 'reinvestment',
     mode: 'amount',
-    amount: null,
     percent: null,
-    description: '',
-    occurred_at: '',
   });
-  applyPrefillForCurrentSelection();
-  transferDialog.value = true;
+  movementDialog.value = true;
 };
 
-const submitTransfer = async () => {
-  const payload: Record<string, unknown> = {
-    source: transferForm.source,
-    destination: transferForm.destination,
-  };
+const submitMovement = async () => {
+  const payload: Record<string, unknown> = {};
+  let url: string;
 
-  // Valor ou fração, nunca os dois — o backend recusa se vierem juntos.
-  if (transferForm.mode === 'percent') {
-    payload.fraction = (transferForm.percent ?? 0) / 100;
+  if (isTransfer.value) {
+    url = '/financial-months/transfers';
+    payload.source = movementForm.source;
+    payload.destination = movementForm.destination;
+    // Valor ou fração, nunca os dois — o backend recusa se vierem juntos.
+    if (movementForm.mode === 'percent') {
+      payload.fraction = (movementForm.percent ?? 0) / 100;
+    } else {
+      payload.amount = movementForm.amount;
+    }
   } else {
-    payload.amount = transferForm.amount;
+    url = '/financial-months/movements';
+    payload.category = movementForm.category;
+    if (isTf2Purchase.value) {
+      payload.quantity = movementForm.quantity;
+      payload.unit_price = movementForm.unit_price;
+    } else {
+      payload.account = movementForm.account;
+      payload.amount = movementForm.amount;
+    }
+    if (isExpense.value) payload.expense_category = movementForm.expense_category;
+    if (isIncome.value) payload.income_category = movementForm.income_category;
   }
-  if (transferForm.description) payload.description = transferForm.description;
-  if (transferForm.occurred_at) payload.occurred_at = transferForm.occurred_at;
+  if (movementForm.description) payload.description = movementForm.description;
+  if (movementForm.occurred_at) payload.occurred_at = movementForm.occurred_at;
 
-  savingTransfer.value = true;
+  savingMovement.value = true;
   try {
-    const res = await axiosInstance.post('/financial-months/transfers', payload);
+    const res = await axiosInstance.post(url, payload);
     showResponse(res, toast.add);
     if (res.status === 201) {
-      transferDialog.value = false;
+      movementDialog.value = false;
       refresh();
     }
   } catch (error: any) {
     reportError(error);
   } finally {
-    savingTransfer.value = false;
+    savingMovement.value = false;
   }
 };
 
@@ -531,14 +539,13 @@ const confirmDelete = (event: Event, movement: Movement) => {
 
 // A ordem dos passos do negócio (docs/PRODUCT.md) segue valendo para como as
 // porcentagens de transferência incidem — mas na tela ela deixou de ser 1:1
-// com os botões: Saque/Gastos/Compra de TF2 dividem um só "Lançar movimento"
-// (a categoria é o select lá dentro), e Reinvestimento/Emergência dividem a
-// Transferência (o destino é o select lá dentro).
+// com os botões: Entrada/Saída/Compra de TF2/Transferência dividem um só
+// "Lançar movimento" (o tipo é o select lá dentro; Reinvestimento/Emergência
+// são o destino de uma Transferência, também escolhido lá dentro). Verba de
+// TF2 saiu daqui — o botão mora no próprio painel de TF2, junto do progresso.
 const routineSteps = computed(() => [
   { step: 1, label: 'Lançar movimento', icon: 'pi pi-wallet', run: () => openMovementDialog() },
-  { step: 2, label: 'Verba de TF2', icon: 'pi pi-bullseye', run: () => openAllocationDialog() },
-  { step: 3, label: 'Transferência', icon: 'pi pi-arrow-right-arrow-left', run: () => openTransferDialog() },
-  { step: 4, label: 'Sacar sócios', icon: 'pi pi-users', run: () => openDistributionDialog() },
+  { step: 2, label: 'Sacar sócios', icon: 'pi pi-users', run: () => openDistributionDialog() },
 ]);
 
 // ── Fechar / Reabrir ──────────────────────────────────────────────────────────
@@ -676,17 +683,59 @@ const confirmReopen = (event: Event, month: FinancialMonth) => {
         </div>
       </div>
 
-      <!-- Saldos das 4 contas -->
+      <!-- Verba de TF2: painel dedicado, com mais evidência que um card do grid -->
+      <div class="card mb-4 border-primary" v-if="balances">
+        <div class="card-body">
+          <div class="d-flex flex-wrap align-items-center justify-content-between mb-3">
+            <h6 class="card-title mb-0"><i class="pi pi-key me-2"></i>Verba de TF2</h6>
+            <Button label="Verba de TF2" icon="pi pi-key" size="small" outlined
+              @click="openAllocationDialog()" />
+          </div>
+
+          <div class="row g-3">
+            <div class="col-6 col-md-3">
+              <div class="text-muted small">Saldo</div>
+              <div class="fs-5 fw-bold" :class="{ 'text-danger': balances.tf2 < 0 }">{{ brl(balances.tf2) }}</div>
+            </div>
+
+            <template v-if="tf2AllocatedQuantity > 0">
+              <div class="col-6 col-md-3">
+                <div class="text-muted small">Meta</div>
+                <div class="fs-5 fw-bold">{{ tf2AllocatedQuantity }} TF2</div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="text-muted small">Comprado</div>
+                <div class="fs-5 fw-bold">{{ tf2PurchasedQuantity }} TF2</div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="text-muted small">{{ tf2RemainingQuantity >= 0 ? 'Falta comprar' : 'Meta batida' }}</div>
+                <div class="fs-5 fw-bold" :class="{ 'text-success': tf2RemainingQuantity < 0 }">
+                  {{ tf2RemainingQuantity >= 0
+                    ? `${tf2RemainingQuantity} TF2`
+                    : `+${-tf2RemainingQuantity} TF2 além da meta` }}
+                </div>
+              </div>
+            </template>
+            <div v-else class="col">
+              <div class="text-muted small d-flex align-items-center h-100">Nenhuma verba definida este mês.</div>
+            </div>
+          </div>
+
+          <div v-if="tf2AllocatedQuantity > 0" class="progress mt-3" style="height: 8px;">
+            <div class="progress-bar" :class="tf2RemainingQuantity < 0 ? 'bg-success' : 'bg-primary'"
+              :style="{ width: `${tf2ProgressPercent}%` }" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Saldos das demais contas -->
       <div class="row g-3 mb-4" v-if="balances">
-        <div class="col-6 col-md-3" v-for="account in ACCOUNTS" :key="account.value">
+        <div class="col-6 col-md-4" v-for="account in BALANCE_GRID_ACCOUNTS" :key="account.value">
           <div class="card h-100">
             <div class="card-body text-center">
               <div class="text-muted small">{{ account.label }}</div>
               <div class="fs-5 fw-bold" :class="{ 'text-danger': balances[account.value] < 0 }">
                 {{ brl(balances[account.value]) }}
-              </div>
-              <div v-if="account.value === 'tf2' && tf2AllocatedQuantity > 0" class="text-muted small">
-                ({{ tf2AllocatedQuantity }})
               </div>
             </div>
           </div>
@@ -762,78 +811,6 @@ const confirmReopen = (event: Event, month: FinancialMonth) => {
       </div>
     </div>
   </div>
-
-  <!-- ── Dialog: transferência ─────────────────────────────────────────────── -->
-  <Dialog v-model:visible="transferDialog" modal header="Transferência" :style="{ width: '460px' }">
-    <div class="d-flex flex-column gap-3 mb-3">
-      <div class="row g-2">
-        <div class="col-6 d-flex flex-column gap-1">
-          <label class="fw-bold">De</label>
-          <Select v-model="transferForm.source" :options="ACCOUNTS" optionLabel="label" optionValue="value" />
-        </div>
-        <div class="col-6 d-flex flex-column gap-1">
-          <label class="fw-bold">Para</label>
-          <Select v-model="transferForm.destination" :options="ACCOUNTS" optionLabel="label" optionValue="value" />
-        </div>
-      </div>
-
-      <div v-if="transferForm.source === transferForm.destination" class="alert alert-warning py-2 mb-0 small">
-        Origem e destino precisam ser contas diferentes.
-      </div>
-
-      <div class="d-flex flex-column gap-1">
-        <label class="fw-bold">Quanto</label>
-        <div class="btn-group" role="group">
-          <Button label="Valor" size="small" :severity="transferForm.mode === 'amount' ? 'primary' : 'secondary'"
-            :outlined="transferForm.mode !== 'amount'" @click="transferForm.mode = 'amount'" />
-          <Button label="Porcentagem" size="small" :disabled="!sourceHasPositiveBalance"
-            :severity="transferForm.mode === 'percent' ? 'primary' : 'secondary'"
-            :outlined="transferForm.mode !== 'percent'" @click="transferForm.mode = 'percent'" />
-        </div>
-        <small v-if="!sourceHasPositiveBalance" class="text-muted">
-          {{ accountLabel(transferForm.source) }} não tem saldo positivo — só dá para transferir um valor fechado.
-        </small>
-      </div>
-
-      <div v-if="transferForm.mode === 'amount'" class="d-flex flex-column gap-1">
-        <label class="fw-bold">Valor</label>
-        <InputNumber v-model="transferForm.amount" mode="currency" currency="BRL" locale="pt-BR" :min="0" fluid />
-      </div>
-
-      <div v-else class="d-flex flex-column gap-1">
-        <label class="fw-bold">Porcentagem do saldo de {{ accountLabel(transferForm.source) }}</label>
-        <InputNumber v-model="transferForm.percent" suffix=" %" :min="0" :max="100" fluid />
-        <small class="text-muted">
-          Saldo atual: <strong>{{ brl(balanceOf(transferForm.source)) }}</strong> →
-          transfere <strong>{{ brl(transferPreview) }}</strong>
-        </small>
-      </div>
-
-      <div class="d-flex flex-column gap-1">
-        <label class="fw-bold">
-          Descrição
-          <span v-if="transferNeedsJustification" class="text-danger">*</span>
-        </label>
-        <InputText v-model="transferForm.description"
-          :placeholder="transferNeedsJustification ? 'Justificativa obrigatória' : 'Opcional'" />
-        <small v-if="transferNeedsJustification" class="text-muted">
-          Tirar dinheiro de uma caixinha exige justificativa.
-        </small>
-      </div>
-
-      <div class="d-flex flex-column gap-1">
-        <label class="fw-bold">Data</label>
-        <input type="date" class="form-control" v-model="transferForm.occurred_at" />
-        <small class="text-muted">Em branco usa a data de hoje.</small>
-      </div>
-    </div>
-
-    <div class="d-flex justify-content-end gap-2">
-      <Button type="button" label="Cancelar" severity="secondary" @click="transferDialog = false" />
-      <Button type="button" label="Transferir" :loading="savingTransfer"
-        :disabled="savingTransfer || transferForm.source === transferForm.destination" @click="submitTransfer" />
-    </div>
-  </Dialog>
 
   <!-- ── Dialog: verba de TF2 ──────────────────────────────────────────────── -->
   <Dialog v-model:visible="allocationDialog" modal header="Definir a verba de TF2" :style="{ width: '460px' }">
@@ -951,6 +928,51 @@ const confirmReopen = (event: Event, month: FinancialMonth) => {
         </div>
       </template>
 
+      <template v-else-if="isTransfer">
+        <div class="row g-2">
+          <div class="col-6 d-flex flex-column gap-1">
+            <label class="fw-bold">De</label>
+            <Select v-model="movementForm.source" :options="ACCOUNTS" optionLabel="label" optionValue="value" />
+          </div>
+          <div class="col-6 d-flex flex-column gap-1">
+            <label class="fw-bold">Para</label>
+            <Select v-model="movementForm.destination" :options="ACCOUNTS" optionLabel="label" optionValue="value" />
+          </div>
+        </div>
+
+        <div v-if="movementForm.source === movementForm.destination" class="alert alert-warning py-2 mb-0 small">
+          Origem e destino precisam ser contas diferentes.
+        </div>
+
+        <div class="d-flex flex-column gap-1">
+          <label class="fw-bold">Quanto</label>
+          <div class="btn-group" role="group">
+            <Button label="Valor" size="small" :severity="movementForm.mode === 'amount' ? 'primary' : 'secondary'"
+              :outlined="movementForm.mode !== 'amount'" @click="movementForm.mode = 'amount'" />
+            <Button label="Porcentagem" size="small" :disabled="!sourceHasPositiveBalance"
+              :severity="movementForm.mode === 'percent' ? 'primary' : 'secondary'"
+              :outlined="movementForm.mode !== 'percent'" @click="movementForm.mode = 'percent'" />
+          </div>
+          <small v-if="!sourceHasPositiveBalance" class="text-muted">
+            {{ accountLabel(movementForm.source) }} não tem saldo positivo — só dá para transferir um valor fechado.
+          </small>
+        </div>
+
+        <div v-if="movementForm.mode === 'amount'" class="d-flex flex-column gap-1">
+          <label class="fw-bold">Valor</label>
+          <InputNumber v-model="movementForm.amount" mode="currency" currency="BRL" locale="pt-BR" :min="0" fluid />
+        </div>
+
+        <div v-else class="d-flex flex-column gap-1">
+          <label class="fw-bold">Porcentagem do saldo de {{ accountLabel(movementForm.source) }}</label>
+          <InputNumber v-model="movementForm.percent" suffix=" %" :min="0" :max="100" fluid />
+          <small class="text-muted">
+            Saldo atual: <strong>{{ brl(balanceOf(movementForm.source)) }}</strong> →
+            transfere <strong>{{ brl(transferPreview) }}</strong>
+          </small>
+        </div>
+      </template>
+
       <template v-else>
         <div class="d-flex flex-column gap-1">
           <label class="fw-bold">Conta</label>
@@ -993,7 +1015,9 @@ const confirmReopen = (event: Event, month: FinancialMonth) => {
 
     <div class="d-flex justify-content-end gap-2">
       <Button type="button" label="Cancelar" severity="secondary" @click="movementDialog = false" />
-      <Button type="button" label="Lançar" :loading="savingMovement" :disabled="savingMovement" @click="submitMovement" />
+      <Button type="button" label="Lançar" :loading="savingMovement"
+        :disabled="savingMovement || (isTransfer && movementForm.source === movementForm.destination)"
+        @click="submitMovement" />
     </div>
   </Dialog>
 </template>
