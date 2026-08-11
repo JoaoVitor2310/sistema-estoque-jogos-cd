@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreAssetRequest;
 use App\Models\Asset;
-use App\Services\AssetService;
+use App\Services\External\CurrencyConversionService;
 use App\Traits\HttpResponses;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -14,12 +14,9 @@ class AssetController extends Controller
 {
     use HttpResponses;
 
-    private AssetService $assetService;
-
-    public function __construct()
-    {
-        $this->assetService = new AssetService;
-    }
+    public function __construct(
+        private readonly CurrencyConversionService $currencyService,
+    ) {}
 
     public function show(Request $request)
     {
@@ -95,7 +92,18 @@ class AssetController extends Controller
         }
 
         $data = $request->validated();
-        $data = $this->assetService->getAssetsCurrency($data);
+
+        $baseField = CurrencyConversionService::PRICE_FIELD_BY_CURRENCY[$data['currentCurrency'] ?? ''] ?? null;
+
+        // Sem moeda base declarada, os três preços vêm prontos do formulário.
+        // Conversão que falha não entra no retorno, então o valor enviado
+        // permanece — nunca sobrescrito por um número não convertido.
+        if ($baseField !== null) {
+            $data = array_merge($data, $this->currencyService->convertAll(
+                $data['currentCurrency'],
+                (float) $data[$baseField],
+            ));
+        }
 
         $result = $asset->update($data);
 

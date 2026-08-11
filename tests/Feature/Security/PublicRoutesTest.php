@@ -5,8 +5,8 @@
 | PublicRoutes — characterization tests
 |--------------------------------------------------------------------------
 |
-| Verifica que as rotas anteriormente públicas agora exigem autenticação
-| via CheckPermission (Gate 'can-edit').
+| Verifica que estas rotas exigem autenticação via CheckPermission
+| (Gate 'can-edit').
 |
 | Um usuário não autenticado deve receber 403 em todas essas rotas.
 | Um usuário autenticado e autorizado deve conseguir acessar.

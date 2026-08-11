@@ -12,6 +12,44 @@ use Illuminate\Support\Facades\Log;
 class CurrencyConversionService
 {
     /**
+     * Campo de preço correspondente a cada moeda suportada.
+     */
+    public const PRICE_FIELD_BY_CURRENCY = [
+        'BRL' => 'price_brl',
+        'EUR' => 'price_euro',
+        'USD' => 'price_dollar',
+    ];
+
+    /**
+     * Converte um valor para as três moedas do sistema de uma vez.
+     *
+     * **Só devolve o que converteu.** `convertCurrency` responde com o valor de
+     * entrada quando a API falha, então incluir a moeda mesmo assim faria
+     * `price_dollar` valer o montante em real — número plausível e errado, que
+     * o chamador não teria como distinguir de uma cotação real. Omitir a chave
+     * obriga a tratar a ausência.
+     *
+     * A moeda de origem sempre está presente: ela não passa por conversão.
+     *
+     * @param  string  $from  BRL, USD ou EUR
+     * @return array<string, float> subconjunto de price_brl / price_euro / price_dollar
+     */
+    public function convertAll(string $from, float $amount): array
+    {
+        $prices = [];
+
+        foreach (self::PRICE_FIELD_BY_CURRENCY as $currency => $field) {
+            $converted = $this->convertCurrency($from, $currency, $amount);
+
+            if ($converted['success']) {
+                $prices[$field] = (float) $converted['amount'];
+            }
+        }
+
+        return $prices;
+    }
+
+    /**
      * Converte um valor entre duas moedas.
      *
      * @return array{success: bool, message: string, amount: float}

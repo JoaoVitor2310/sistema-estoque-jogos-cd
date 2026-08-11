@@ -10,7 +10,7 @@ Ordem: roadmap/qualidade/features primeiro, dívida técnica de code-review no f
 
 ---
 
-## Refatoração de camadas — orquestração fora de Use Case (fatias 1 a 4)
+## Refatoração de camadas — orquestração fora de Use Case (fatias 2 a 4)
 
 **Onde:** `routes/console.php`, `app/Services/`, `app/Http/Controllers/`, `app/UseCases/`.
 
@@ -20,22 +20,14 @@ Controller ou Service. O critério de promoção ficou definido assim: **um UseC
 e-mail, chama API externa) e coordena 2+ colaboradores**. Leitura pura nunca vira
 UseCase; CRUD de um agregado só, sem colaborador extra, fica no Service.
 
-A Fatia 0 (whitelist de filtros em `POST /keys/search`) já foi entregue. Falta:
+Fatias 0 (whitelist de filtros em `POST /keys/search`) e 1 (crons) já foram
+entregues; o critério está registrado em [`docs/adr/0007`](adr/0007-usecase-promotion-criteria.md). Falta:
 
-- [ ] **Fatia 1 — crons.** `KeyService::checkExpiringKeys` → `UseCases/Keys/AlertExpiringKeysUseCase`;
-  `AssetService::checkDollarAlert` → `UseCases/Assets/AlertDollarVariationUseCase`;
-  `GameService::searchGamesIdSteam` → `UseCases/Games/ResolveSteamIdsUseCase`.
-  Os 5 `Mail::send` com destinatário hardcoded (`KeyService`, `AssetService`,
-  `GameService`, `SyncBundlesFromApiUseCase` ×2) viram Mailables no padrão de
-  `GamivoTokenExpiredMail`, com `config('app.admin_email')`.
-  **Pré-requisito de merge:** confirmar `ADMIN_EMAIL` no `.env` da VPS — sem ele
-  os alertas passam a ir para lugar nenhum, em silêncio. Incluir fallback e teste
-  de guarda. `App\Services\KeyService` e `App\Services\AssetService` morrem aqui.
-  Novos termos para o `CONTEXT.md`: "Variação do dólar" e "Steam ID não resolvido".
 - [ ] **Fatia 2 — controllers com orquestração.** `SupplierController::findNewSuppliers`
   (hoje faz `Http::post` cru no controller) → `UseCases/Suppliers/FindNewSuppliersUseCase`;
-  `AssetController::update` → `UseCases/Assets/UpdateAssetPricesUseCase` (o controller
-  ainda faz `new AssetService` em vez de DI); `GameController::store` →
+  `AssetController::update` → `UseCases/Assets/UpdateAssetPricesUseCase` (a Fatia 1
+  já trocou o `new AssetService` por injeção do `CurrencyConversionService`, mas a
+  orquestração segue no controller); `GameController::store` →
   `RegisterGamesUseCase`; `GameController::update` → `UpdateGameUseCase`.
   `GameController::search` recebe o mesmo tratamento da Fatia 0 (`IndexGamesRequest`
   + `GameRepository::paginate`) — mesmo padrão de filtro dinâmico, mas a rota exige
@@ -49,14 +41,12 @@ A Fatia 0 (whitelist de filtros em `POST /keys/search`) já foi entregue. Falta:
   (é cliente da GG.deals); `BundleService` → `Services/Bundles/`; `FinancialService`
   → `Services/Sales/SalesDashboardService` (**não** `Services/Financial/`, que é o
   livro-caixa em R$ — juntar os dois apaga a distinção que o `CONTEXT.md` mantém);
-  `AssetService::getAssetsCurrency` → `CurrencyConversionService::convertAll()`.
   Esta é a "auditoria da árvore de `Services/`" que o `CLAUDE.md` já registrava.
+  (`AssetService::getAssetsCurrency` já virou `CurrencyConversionService::convertAll()`
+  na Fatia 1, junto com a morte do `AssetService`.)
 
 Ficam **deliberadamente** como estão: `FeeController` e `AuthorizedUsersController`
 falando Eloquent direto (CRUD trivial de um modelo) e `BundleController::index`.
-
-**Ação:** registrar o critério em `docs/adr/0007-usecase-promotion-criteria.md` na
-Fatia 1, referenciando o ADR 0001 como decisão-pai.
 
 **Origem:** sessão de `/grill-with-docs` sobre responsabilidades de camada (2026-08-10).
 
@@ -145,7 +135,7 @@ Modalidade de venda em atacado (wholesale, divisor `1.035`), ainda não implemen
 
 ## Expiração — remover oferta da Gamivo no dia em que expira
 
-**Onde:** fluxo de expiração (scheduler / `KeyService`).
+**Onde:** fluxo de expiração (scheduler / `AlertExpiringKeysUseCase`).
 
 Quando faltam 30 dias, o sistema já envia alerta por e-mail e a `MinimumMarginPolicy` rebaixa o `min_api` ao piso. Falta: no dia em que a key expira, remover a oferta da Gamivo e avisar por e-mail.
 
@@ -167,7 +157,7 @@ Hoje não existe processo para identificar ou decidir o que fazer com esse grupo
 
 **Ação (possíveis soluções, a decidir):**
 - [ ] Job/relatório recorrente que roda a mesma comparação (mercado vs. `individual_cost`) e persiste o resultado, em vez de exigir rodar os comandos manualmente toda vez — os dois comandos atuais chamam a API Gamivo (read-only) e não têm agendamento
-- [ ] Definir um limiar de tempo "underwater" (ex: mercado abaixo do custo por ≥ N meses) que dispara alerta por e-mail, no mesmo padrão do alerta de expiração (`KeyService::checkExpiringKeys`)
+- [ ] Definir um limiar de tempo "underwater" (ex: mercado abaixo do custo por ≥ N meses) que dispara alerta por e-mail, no mesmo padrão do `AlertExpiringKeysUseCase`
 - [ ] Decidir a política de liquidação: vender abaixo do custo pra liberar capital (após X tempo) vs. segurar indefinidamente — provavelmente uma decisão de negócio, não só técnica
 - [ ] Avaliar se o processo de compra deveria checar tendência de preço recente antes de fechar a trade (o sistema já verifica giveaways via `gamerpower.com/api-read`, ver `docs/PRODUCT.md` — pode ser o mesmo tipo de checagem preventiva, olhando queda de preço em vez de giveaway)
 
@@ -217,6 +207,27 @@ por texto livre no `Trades.vue` e enviado diretamente pelo `price_researcher`.
 **Ação:** trocar os checks `empty(...)` por `$game['gamivo_id'] === null || $game['gamivo_id'] === ''` (ou equivalente que não trate `'0'` como vazio).
 
 **Origem:** code-review da feature `gamivo_id` em trades (2026-07-17).
+
+---
+
+## `ResolveSteamIdsUseCase` — "não encontrado" e "sem dados" viram o mesmo carimbo
+
+**Onde:** `app/UseCases/Games/ResolveSteamIdsUseCase.php` (marcação de `games.steamcharts_searched_at`).
+
+Hoje o desfecho da busca é binário: **todo** jogo enviado ao `price_researcher` recebe `steamcharts_searched_at = now()` quando a requisição volta bem-sucedida, e isso o remove permanentemente da fila (`whereNull('steamcharts_searched_at')`). O carimbo, porém, cobre desfechos que não são equivalentes:
+
+| Desfecho | Hoje | Deveria |
+|---|---|---|
+| Jogo veio com `id_steam` | carimbado, `steam_id` gravado | igual — resolvido |
+| Jogo veio sem `id_steam` — SteamCharts não conhece o título | carimbado, nunca reprocessado | igual — conclusivo, procurar de novo não muda nada |
+| Jogo veio, existe no SteamCharts, mas **sem dados** (sem `id_steam` utilizável / sem série de players) | carimbado junto com o caso acima | separar: existe, então o retorno não é conclusivo sobre o `steam_id` |
+| Jogo **ausente** da resposta (lote parcial, timeout no meio da varredura) | carimbado mesmo assim — o `update` usa os ids enviados, não os recebidos | não carimbar: nada foi concluído sobre ele |
+
+As duas últimas linhas aposentam jogos que ainda seriam resolvíveis, e o efeito é silencioso e permanente — o jogo simplesmente nunca mais aparece na fila, sem log nem alerta. Como `steam_id` é pré-requisito do `UpdatePopularityUseCase`, o jogo também fica sem popularidade para sempre.
+
+**Ação:** trocar o carimbo único por um desfecho por jogo. Carimbar apenas o que a resposta declarou conclusivamente (encontrado, ou inexistente no SteamCharts); deixar o que não voltou — ou voltou sem dados — elegível para a próxima rodada. Exige acertar antes o contrato da resposta com o `price_researcher`: hoje `data.games` não distingue "não existe" de "não consegui olhar". Avaliar se a distinção cabe numa coluna de status em `games` ou num contador de tentativas, para que "sem dados" não vire loop infinito de retentativa.
+
+**Origem:** teste manual do UseCase após a extração do `GameService` (2026-08-11).
 
 ---
 

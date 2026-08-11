@@ -24,7 +24,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Gate::define('is-admin', function (User $user) {
-            $adminEmail = config('app.admin_email');
+            $adminEmail = config('app.admin_gate_email');
 
             return ! empty($adminEmail) && $user->email === $adminEmail;
         });

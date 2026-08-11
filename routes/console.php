@@ -1,9 +1,9 @@
 <?php
 
-use App\Services\AssetService;
-use App\Services\Games\GameService;
-use App\Services\KeyService;
+use App\UseCases\Assets\AlertDollarVariationUseCase;
 use App\UseCases\Bundles\SyncBundlesFromApiUseCase;
+use App\UseCases\Games\ResolveSteamIdsUseCase;
+use App\UseCases\Keys\AlertExpiringKeysUseCase;
 use App\UseCases\Marketplaces\Gamivo\AutoSellUseCase;
 use App\UseCases\Marketplaces\Gamivo\RegulateMinApiUseCase;
 use App\UseCases\Marketplaces\Gamivo\UpdateOffersUseCase;
@@ -17,16 +17,21 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote')->hourly();
 
-Schedule::call(fn () => app(KeyService::class)->checkExpiringKeys())
+// Avisa sobre keys perto de expirar — depois do prazo elas não valem mais nada
+Schedule::call(fn () => app(AlertExpiringKeysUseCase::class)->execute())
     ->cron('0 7 * * *')->timezone('America/Sao_Paulo')->environments('production');
 
-Schedule::call(fn () => app(AssetService::class)->checkDollarAlert())
+// Avisa quando a cotação guardada do TF2 se afasta da real, distorcendo o custo
+// calculado das trades novas
+Schedule::call(fn () => app(AlertDollarVariationUseCase::class)->execute())
     ->cron('0 7 * * *')->timezone('America/Sao_Paulo')->environments('production');
 
 Schedule::call(fn () => app(SyncBundlesFromApiUseCase::class)->execute())
     ->cron('5 * * * *')->timezone('UTC')->environments('production');
 
-Schedule::call(fn () => app(GameService::class)->searchGamesIdSteam())
+// Descobre o steam_id dos jogos que ainda não têm um, via price_researcher.
+// Pré-requisito da atualização de popularidade, que roda uma hora depois.
+Schedule::call(fn () => app(ResolveSteamIdsUseCase::class)->execute())
     ->cron('0 6 * * *')->timezone('America/Sao_Paulo')->environments('production');
 
 // Recalcula min_api de todas as keys não vendidas (listadas ou não) a partir

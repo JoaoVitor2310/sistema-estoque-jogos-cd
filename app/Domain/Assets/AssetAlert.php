@@ -12,4 +12,15 @@ final class AssetAlert
      * Se abs(preçoAtual - preçoArmazenado) >= este valor, o alerta é enviado.
      */
     public const DOLLAR_PRICE_VARIATION_THRESHOLD = 0.20;
+
+    /**
+     * A cotação guardada se afastou o bastante da real para exigir revisão?
+     *
+     * Limiar inclusivo, e a direção não importa: dólar que cai distorce o custo
+     * calculado tanto quanto dólar que sobe.
+     */
+    public static function hasDrifted(float $storedPrice, float $currentPrice): bool
+    {
+        return abs($currentPrice - $storedPrice) >= self::DOLLAR_PRICE_VARIATION_THRESHOLD;
+    }
 }

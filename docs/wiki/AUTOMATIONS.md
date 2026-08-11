@@ -14,10 +14,10 @@ Ordenado do mais frequente ao mais raro. Fuso `America/Sao_Paulo`, exceto onde i
 | de hora em hora | `5 * * * *` | `UpdateOffersUseCase(WeAreNotLowest)` | Onde não somos os mais baratos: tenta recuperar posição |
 | de hora em hora | `5 * * * *` (UTC) | `SyncBundlesFromApiUseCase` | Sincroniza bundles novos da API GG.deals |
 | 2×/dia | `0 6,18 * * *` | `UpdateSoldOffersUseCase` | Dá baixa nas keys vendidas (janela de 2 dias) |
-| diário 06:00 | `0 6 * * *` | `GameService::searchGamesIdSteam` | Busca Steam IDs ainda não descobertos |
+| diário 06:00 | `0 6 * * *` | `ResolveSteamIdsUseCase` | Busca Steam IDs ainda não descobertos |
 | diário 07:00 | `0 7 * * *` | `UpdatePopularityUseCase` | Atualiza popularidade via scraping do SteamCharts |
-| diário 07:00 | `0 7 * * *` | `KeyService::checkExpiringKeys` | E-mail de alerta de keys expirando |
-| diário 07:00 | `0 7 * * *` | `AssetService::checkDollarAlert` | E-mail de alerta de variação do câmbio |
+| diário 07:00 | `0 7 * * *` | `AlertExpiringKeysUseCase` | E-mail de alerta de keys expirando |
+| diário 07:00 | `0 7 * * *` | `AlertDollarVariationUseCase` | E-mail de alerta de variação do câmbio |
 | diário 07:30 | `30 7 * * *` | `RegulateMinApiUseCase` | Recalcula o `min_api` de todas as keys não vendidas |
 | **manual** | — | `gamivo:auto-sell` (`AutoSellUseCase`) | Lista keys elegíveis na Gamivo — **não tem cron**, só disparo manual |
 

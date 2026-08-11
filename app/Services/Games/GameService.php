@@ -5,9 +5,6 @@ namespace App\Services\Games;
 use App\Domain\Games\GameNameNormalizer;
 use App\Models\Game;
 use App\Models\Key;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 /**
  * Infraestrutura para operações sobre jogos.
@@ -16,7 +13,6 @@ use Illuminate\Support\Facades\Mail;
  *  - Lookup de gamivo_id (em keys e games)
  *  - Preenchimento de gamivo_id na tabela games
  *  - Criação de jogo na tabela games (quando não existe)
- *  - Busca de IDs no Steamcharts via price_researcher
  */
 class GameService
 {
@@ -122,64 +118,5 @@ class GameService
                 'gamivo_id' => $game['gamivo_id'],
                 'steam_id' => $game['steam_id'] ?? null,
             ]));
-    }
-
-    /**
-     * Busca IDs do Steamcharts para jogos que ainda não foram pesquisados.
-     * Delega a busca ao price_researcher via HTTP.
-     *
-     * Distingue dois casos que antes eram indistinguíveis via steam_id IS NULL:
-     *   - Nunca buscado:     steam_id IS NULL AND steamcharts_searched_at IS NULL
-     *   - Buscado, não achou: steam_id IS NULL AND steamcharts_searched_at NOT NULL
-     *
-     * Ao concluir com sucesso, marca todos os jogos enviados com steamcharts_searched_at,
-     * evitando que o cron reprocesse indefinidamente jogos ausentes no Steamcharts.
-     * Em caso de falha HTTP, não marca — não sabemos o resultado da busca.
-     */
-    public function searchGamesIdSteam(): void
-    {
-        $games = Game::whereNull('steam_id')
-            ->whereNull('steamcharts_searched_at')
-            ->select('id', 'name')
-            ->get()
-            ->map(fn ($game) => ['id' => $game->id, 'name' => $game->name])
-            ->all();
-
-        if (empty($games)) {
-            return;
-        }
-
-        $response = Http::timeout(3200)->post(
-            config('services.price_researcher.base_url').'/api/games/search-id-steam',
-            ['games' => $games]
-        );
-
-        if (! $response->successful() || ! ($response->json()['success'] ?? false)) {
-            Log::error('Erro na requisição do Price Researcher: '.$response->status().' - '.$response->body());
-            Mail::raw('Erro na requisição do Price Researcher: '.$response->body(), function ($message) use ($response) {
-                $message->to('carcadeals@gmail.com')
-                    ->subject('Erro na requisição do Price Researcher: '.$response->status());
-            });
-
-            return;
-        }
-
-        $data = $response->json();
-
-        // Marca todos os jogos enviados como pesquisados, independente de terem sido encontrados
-        $sentIds = array_column($games, 'id');
-        Game::whereIn('id', $sentIds)->update(['steamcharts_searched_at' => now()]);
-
-        $updates = collect($data['data']['games'])
-            ->filter(fn ($game) => isset($game['id_steam']))
-            ->map(fn ($game) => ['id' => $game['id'], 'steam_id' => $game['id_steam']])
-            ->values()
-            ->all();
-
-        if (! empty($updates)) {
-            Game::upsert($updates, uniqueBy: ['id'], update: ['steam_id']);
-        }
-
-        Log::info('Id Steam dos jogos atualizados com sucesso: '.count($updates));
     }
 }

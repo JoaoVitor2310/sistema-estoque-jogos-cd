@@ -133,6 +133,16 @@ return [
     |
     */
 
+    // Destinatário dos alertas. Sem fallback: ADMIN_EMAIL é garantido em todos
+    // os ambientes, e endereço padrão embutido no código só serviria para
+    // esconder um ambiente mal configurado — o alerta chegaria na caixa errada
+    // em vez de falhar.
     'admin_email' => env('ADMIN_EMAIL'),
+
+    // Chave separada de propósito, apesar de hoje ler o mesmo env: entrega e
+    // autorização erram para lados opostos. Se um dia voltar um fallback para
+    // o e-mail (melhor mandar ao padrão que não mandar), ele não pode vazar
+    // para cá e conceder admin por omissão de config.
+    'admin_gate_email' => env('ADMIN_EMAIL'),
 
 ];

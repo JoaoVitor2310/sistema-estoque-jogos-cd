@@ -27,6 +27,7 @@
         <env name="MAIL_MAILER" value="array" force="true"/>
         <env name="PULSE_ENABLED" value="false" force="true"/>
         <env name="QUEUE_CONNECTION" value="sync" force="true"/>
+        <env name="ADMIN_EMAIL" value="admin@carcadeals.test" force="true"/>
         <env name="API_PRICE_RESEARCHER" value="http://fake-price-researcher" force="true"/>
         <env name="API_GAMIVO_URL" value="http://fake-gamivo" force="true"/>
         <env name="API_KEY_GAMIVO" value="fake-token" force="true"/>

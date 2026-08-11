@@ -88,6 +88,13 @@ Atue sempre como arquiteto de software sênior com conhecimento profundo de Lara
 - **Permissões são obrigatórias** — toda rota nova deve declarar explicitamente quem pode acessá-la. Perguntas a responder antes de registrar qualquer rota: (a) guest pode acessar? (b) requer autenticação (`RequireAuth`)? (c) requer `can-edit` (`CheckPermission`)? (d) requer admin (`CheckAdmin`)? Rotas de página usam `RequireAuth` (redirect para `/login`); rotas de API/mutação usam `CheckPermission` (retorna 403 JSON). Nunca deixar rota sem middleware assumindo que "ninguém vai acessar". Após adicionar rotas, adicionar testes de acesso em `tests/Feature/Security/GuestAccessTest.php` cobrindo: guest bloqueado, usuário autorizado liberado.
 - **Em rota pública, esconder o campo não basta — o filtro também é superfície.** Mascarar a saída (`only(GUEST_VISIBLE_FIELDS)`) enquanto o filtro aceita qualquer coluna deixa um **oráculo cego**: a linha some, mas o total de resultados ainda responde "existe registro com esse valor?", e repetir a pergunta com prefixos crescentes reconstrói o dado escondido. Todo endpoint de busca declara a whitelist de filtros num FormRequest, e a whitelist é **escopada pela mesma permissão que escopa a resposta** — se o visitante não recebe a coluna, ele não pode filtrar por ela. Filtro proibido devolve 403; ignorar em silêncio mentiria sobre o resultado. Nunca monte query a partir de `$request->all()`/`except()`: além do vazamento, nome de coluna vindo do cliente vira 500 assim que uma coluna é renomeada. *(Aconteceu: `POST /keys/search` permitia enumerar `key_code`, `supplier_url` e `notes` — ver `IndexKeysRequest`.)*
 - **Validação com enums usa `Rule::enum()`** — nunca use `'in:valor1,valor2'` para validar um campo que tem enum correspondente. Use `Rule::enum(MinhaEnum::class)` no FormRequest. Assim a validação se mantém sincronizada automaticamente quando o enum crescer.
+- **Alerta por e-mail é um Mailable, e o destinatário vem da config.** Nada de `Mail::send`/`Mail::raw` com closure e endereço no meio do código: cada alerta é uma classe em `app/Mail/` (padrão de `GamivoTokenExpiredMail`) enviada para `config('app.admin_email')`, declarado em `config/app.php` **sem fallback** — `ADMIN_EMAIL` é garantido em todos os ambientes, e endereço embutido no código só esconderia um ambiente mal configurado. Envio de alerta vai **sempre** em `try/catch` com log, sem exceção: além de o SMTP poder cair, `Mail::to(null)` lança `An email must have a "To" header`, e uma config faltando não pode derrubar a tarefa que detectou o problema.
+- **Fallback de config depende do que a ausência causa.** Antes de escrever um default, pergunte de que lado erra melhor: para *entrega*, mandar ao endereço padrão pode ser melhor que não mandar; para *autorização*, conceder acesso por omissão de config é o pior desfecho possível. Por isso `admin_email` (entrega) e `admin_gate_email` (Gate `is-admin`) são chaves separadas mesmo lendo hoje o mesmo `ADMIN_EMAIL` sem fallback — a separação existe para que um default reintroduzido de um lado nunca vaze para o outro.
+- **`.env.example` é ambiente de verdade.** O CI faz `cp .env.example .env` e todo clone novo nasce dele: variável obrigatória deixada em branco ali significa suíte rodando com config vazia e sistema novo nascendo quebrado. Ao remover um fallback, preencha o `.env.example` no mesmo passo.
+- **Serviço fora do ar não é status HTTP.** `Http::get`/`post` lança `ConnectionException` quando não conecta — host que não resolve, porta fechada, timeout — e nesse caso **não existe `$response` para inspecionar**: checar `$response->failed()` nunca roda. Onde houver caminho de alerta para falha HTTP, a falha de conexão tem que chegar **no mesmo caminho** — o `try/catch` vai em volta da própria chamada, não só do envio de e-mail. É o modo de falha mais provável dos dois. *(Já aconteceu: `price-researcher-dev` parado derrubou o `ResolveSteamIdsUseCase` com stack trace e nenhum e-mail.)*
+
+  Não é regra de capturar sempre: em `GamivoApiService` a `ConnectionException` **deve** escapar. Ali `handleResponse` traduz erro HTTP em `RuntimeException` e `getMyOfferForProduct` traduz isso em `null` = "não há oferta" — capturar a falha de conexão no mesmo lugar faria a Gamivo inacessível parecer "produto sem oferta" e o sistema criaria oferta duplicada. Deixar estourar faz o scheduler pular o ciclo e tentar de novo no minuto seguinte, que é o desfecho certo. Antes de capturar, pergunte em que a exceção vai virar.
+- **Serviço externo que falha não pode devolver número plausível.** `CurrencyConversionService::convertCurrency` responde com o valor de *entrada* quando a API cai. Quem agrega esse retorno tem que **omitir** o que não converteu (ver `convertAll`), nunca repassar: um `price_dollar` que na verdade é o montante em real passa por cotação real e vira alerta falso ou preço gravado errado. Regra geral: falha de integração vira ausência explícita, não valor default.
 - **Nunca faça commits automáticos** — apenas prepare as alterações e informe o que foi modificado. O commit é sempre feito pelo usuário.
 
 ## Code style (Pint — preset Laravel)
@@ -338,11 +345,21 @@ Livro-caixa dos sócios em **R$** (`/financial-months`). **Não confundir com `F
 
 ### Quando usar UseCase vs Service direto
 
-| Situação | Caminho |
-|----------|---------|
-| Workflow multi-step (cruza domínios) | Controller → UseCase → Services + Domain |
-| CRUD simples | Controller → Service |
-| Regra de negócio pura | Domain direto |
+**Critério:** um UseCase é uma operação disparada de fora (HTTP, cron, CLI) que **causa efeito** — grava, envia e-mail, chama API externa — **e coordena 2+ colaboradores**. Ver [`docs/adr/0007`](docs/adr/0007-usecase-promotion-criteria.md) para as alternativas descartadas.
+
+Ordenado do caso mais comum para o mais raro:
+
+| Situação | Caminho | Exemplo |
+|---|---|---|
+| Leitura, com ou sem filtro | Controller → Repository/Service | `KeyRepository::paginate()` |
+| Operação trivial sobre **um** modelo (find/create/update/delete, sem branch) | Controller → Eloquent | `FeeController::destroy` |
+| Escrita com transação, 2+ statements ou query não trivial | Controller → Service | `BundleService::create()` |
+| Efeito + 2 colaboradores | Controller/Scheduler → UseCase → Services + Domain | `AlertExpiringKeysUseCase` |
+| Regra de negócio pura | Domain direto | `MinimumMarginPolicy` |
+
+**Leitura nunca vira UseCase**, por mais filtro que tenha — vai para Repository/Service, com a whitelist de filtros declarada num FormRequest.
+
+A assimetria é proposital: `FeeController` fala Eloquent direto enquanto `GameController` delega a um UseCase. O que separa os dois é a contagem de colaboradores, não o tamanho do arquivo — não "uniformize" sem ler o ADR 0007.
 
 ### Wrappers privados — regra
 
@@ -429,8 +446,13 @@ app/
 │
 ├── UseCases/
 │   ├── Keys/                             # operações agnósticas de marketplace
+│   │   ├── AlertExpiringKeysUseCase.php  # alerta diário de keys perto de expirar
 │   │   ├── RegisterKeyUseCase.php        # único caminho de entrada de keys (exige uma Trade)
 │   │   └── UpdateKeyUseCase.php          # edição inline; recalcula o lote da trade
+│   ├── Assets/
+│   │   └── AlertDollarVariationUseCase.php  # cotação guardada do TF2 x cotação real
+│   ├── Games/
+│   │   └── ResolveSteamIdsUseCase.php    # descobre steam_id via price_researcher
 │   ├── Marketplaces/                     # orquestrações específicas por marketplace
 │   │   └── Gamivo/                       # quando vier outro: Eneba/, G2A/, etc.
 │   │       ├── AutoSellUseCase.php           # agrupa por gamivo_id (FIFO); trava max_api de keys >= 8 meses
@@ -462,6 +484,8 @@ app/
 │       ├── DeleteMovementGroupUseCase.php        # apaga o lançamento inteiro pelo group_id
 │       ├── CloseMonthUseCase.php                 # devolve a sobra do TF2 e abre o próximo draft
 │       └── ReopenFinancialMonthUseCase.php
+│
+├── Mail/                               # um Mailable por alerta; destinatário sempre config('app.admin_email')
 │
 ├── Services/
 │   ├── Keys/
@@ -505,7 +529,7 @@ app/
     └── Fee.php         → fees
 ```
 
-> Alguns Services (ex: `BundleService`, `AssetService`, `FinancialService`) vivem hoje na raiz de `Services/` em vez de subpastas por domínio, e não estão listados acima. `FinancialService`/`FinancialController` são o **dashboard analítico de vendas em €** (`/financial`) — domínio distinto do fechamento mensal e ainda não documentado aqui. Vale uma auditoria própria da árvore de `Services/`/`Controllers/` depois.
+> Alguns Services (ex: `BundleService`, `FinancialService`) vivem hoje na raiz de `Services/` em vez de subpastas por domínio, e não estão listados acima. `FinancialService`/`FinancialController` são o **dashboard analítico de vendas em €** (`/financial`) — domínio distinto do fechamento mensal e ainda não documentado aqui. Vale uma auditoria própria da árvore de `Services/`/`Controllers/` depois.
 
 ---
 
@@ -561,6 +585,11 @@ GOOGLE_CLIENT_SECRET=
 GOOGLE_REDIRECT_URI=
 
 # Sistema
+# ADMIN_EMAIL alimenta DUAS configs, ambas SEM fallback:
+#   config('app.admin_email')      → destinatário de todos os alertas
+#   config('app.admin_gate_email') → identidade do admin (Gate 'is-admin')
+# Em branco: ninguém é admin e nenhum alerta é entregue (o envio lança e cai no
+# log). Obrigatória em todo ambiente, inclusive no .env.example que o CI copia.
 ADMIN_EMAIL=carcadeals@gmail.com
 EXTERNAL_SECRET=            # Bearer token exigido de serviços externos que chamam o Sistema Estoque
 ```

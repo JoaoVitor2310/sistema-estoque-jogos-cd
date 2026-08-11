@@ -161,10 +161,10 @@ Definidos em `routes/console.php`, fuso `America/Sao_Paulo`:
 | `* * * * *` | America/Sao_Paulo | `UpdateOffersUseCase` (sem mode) | A cada minuto: sobe o preço onde já somos os mais baratos e desce onde não somos, numa única passada |
 | `0 6,18 * * *` | America/Sao_Paulo | `UpdateSoldOffersUseCase::executeFromGamivo` | Dá baixa nas vendas — janela de 2 dias |
 | `0 7 * * *` | America/Sao_Paulo | `UpdatePopularityUseCase` | Atualiza popularidade via SteamCharts |
-| `0 7 * * *` | America/Sao_Paulo | `KeyService::checkExpiringKeys` | Alerta de keys expirando |
-| `0 7 * * *` | America/Sao_Paulo | `AssetService::checkDollarAlert` | Alerta de câmbio |
+| `0 7 * * *` | America/Sao_Paulo | `AlertExpiringKeysUseCase` | Alerta de keys expirando |
+| `0 7 * * *` | America/Sao_Paulo | `AlertDollarVariationUseCase` | Alerta de câmbio |
 | `30 7 * * *` | America/Sao_Paulo | `RegulateMinApiUseCase` | Recalcula `min_api` de todas as keys não vendidas (via `MinimumMarginPolicy`) — roda antes do auto-sell |
-| `0 6 * * *` | America/Sao_Paulo | `GameService::searchGamesIdSteam` | Busca Steam IDs pendentes |
+| `0 6 * * *` | America/Sao_Paulo | `ResolveSteamIdsUseCase` | Busca Steam IDs pendentes |
 | `5 * * * *` | UTC | `SyncBundlesFromApiUseCase` | Sincroniza bundles da API GG.deals |
 | **Manual** | — | `gamivo:auto-sell` (artisan) | `AutoSellUseCase` — **não roda em cron**, precisa ser disparado manualmente |
 
