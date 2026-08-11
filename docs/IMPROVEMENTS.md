@@ -10,6 +10,58 @@ Ordem: roadmap/qualidade/features primeiro, dívida técnica de code-review no f
 
 ---
 
+## Refatoração de camadas — orquestração fora de Use Case (fatias 1 a 4)
+
+**Onde:** `routes/console.php`, `app/Services/`, `app/Http/Controllers/`, `app/UseCases/`.
+
+Auditoria arquitetural de 2026-08-10 mapeou 16 pontos onde orquestração vive em
+Controller ou Service. O critério de promoção ficou definido assim: **um UseCase
+é uma operação disparada de fora (HTTP, cron, CLI) que causa efeito (grava, envia
+e-mail, chama API externa) e coordena 2+ colaboradores**. Leitura pura nunca vira
+UseCase; CRUD de um agregado só, sem colaborador extra, fica no Service.
+
+A Fatia 0 (whitelist de filtros em `POST /keys/search`) já foi entregue. Falta:
+
+- [ ] **Fatia 1 — crons.** `KeyService::checkExpiringKeys` → `UseCases/Keys/AlertExpiringKeysUseCase`;
+  `AssetService::checkDollarAlert` → `UseCases/Assets/AlertDollarVariationUseCase`;
+  `GameService::searchGamesIdSteam` → `UseCases/Games/ResolveSteamIdsUseCase`.
+  Os 5 `Mail::send` com destinatário hardcoded (`KeyService`, `AssetService`,
+  `GameService`, `SyncBundlesFromApiUseCase` ×2) viram Mailables no padrão de
+  `GamivoTokenExpiredMail`, com `config('app.admin_email')`.
+  **Pré-requisito de merge:** confirmar `ADMIN_EMAIL` no `.env` da VPS — sem ele
+  os alertas passam a ir para lugar nenhum, em silêncio. Incluir fallback e teste
+  de guarda. `App\Services\KeyService` e `App\Services\AssetService` morrem aqui.
+  Novos termos para o `CONTEXT.md`: "Variação do dólar" e "Steam ID não resolvido".
+- [ ] **Fatia 2 — controllers com orquestração.** `SupplierController::findNewSuppliers`
+  (hoje faz `Http::post` cru no controller) → `UseCases/Suppliers/FindNewSuppliersUseCase`;
+  `AssetController::update` → `UseCases/Assets/UpdateAssetPricesUseCase` (o controller
+  ainda faz `new AssetService` em vez de DI); `GameController::store` →
+  `RegisterGamesUseCase`; `GameController::update` → `UpdateGameUseCase`.
+  `GameController::search` recebe o mesmo tratamento da Fatia 0 (`IndexGamesRequest`
+  + `GameRepository::paginate`) — mesmo padrão de filtro dinâmico, mas a rota exige
+  `can-edit`, então lá é dívida técnica, não vazamento.
+- [ ] **Fatia 3 — CRUD e atomicidade.** `BundleController` (`store`, `addGames`,
+  `removeGames`, `update`) → `BundleService`; `removeGames` está sem FormRequest.
+  Os 5 `destroyArray` (`Key`, `Game`, `Asset`, `Fee`, `AuthorizedUsers`) viram
+  `Service::deleteMany()` transacional: hoje **4 dos 5 não têm transação** e, ao
+  falhar no meio do loop, deletam parcialmente e ainda respondem erro.
+- [ ] **Fatia 4 — árvore de `Services/`.** `APIService` → `External/GgDealsApiService`
+  (é cliente da GG.deals); `BundleService` → `Services/Bundles/`; `FinancialService`
+  → `Services/Sales/SalesDashboardService` (**não** `Services/Financial/`, que é o
+  livro-caixa em R$ — juntar os dois apaga a distinção que o `CONTEXT.md` mantém);
+  `AssetService::getAssetsCurrency` → `CurrencyConversionService::convertAll()`.
+  Esta é a "auditoria da árvore de `Services/`" que o `CLAUDE.md` já registrava.
+
+Ficam **deliberadamente** como estão: `FeeController` e `AuthorizedUsersController`
+falando Eloquent direto (CRUD trivial de um modelo) e `BundleController::index`.
+
+**Ação:** registrar o critério em `docs/adr/0007-usecase-promotion-criteria.md` na
+Fatia 1, referenciando o ADR 0001 como decisão-pai.
+
+**Origem:** sessão de `/grill-with-docs` sobre responsabilidades de camada (2026-08-10).
+
+---
+
 ## Dashboard de gastos por categoria (FinancialMonth)
 
 **Onde:** provavelmente uma tela nova sob `/financial-months` (ou uma aba dela), consumindo `FinancialMovement.expense_category`/`income_category`.

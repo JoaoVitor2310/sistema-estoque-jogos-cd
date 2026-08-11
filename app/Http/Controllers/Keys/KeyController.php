@@ -5,10 +5,13 @@ namespace App\Http\Controllers\Keys;
 use App\Domain\Enums\ClaimType;
 use App\Domain\Enums\KeyFormat;
 use App\Domain\Enums\SellPlatform;
+use App\Domain\Keys\GuestKeyVisibility;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\IndexKeysRequest;
 use App\Http\Requests\StoreGameRequest;
 use App\Http\Resources\KeyResource;
 use App\Models\Key;
+use App\Services\Keys\KeyRepository;
 use App\Traits\HttpResponses;
 use App\UseCases\Keys\UpdateKeyUseCase;
 use Illuminate\Http\Request;
@@ -26,27 +29,9 @@ class KeyController extends Controller
 {
     use HttpResponses;
 
-    /**
-     * Campos visíveis para visitantes não autenticados na página /keys.
-     * Qualquer outro campo (key_code, gamivo_id, supplier_url, etc.) é ocultado.
-     */
-    private const GUEST_VISIBLE_FIELDS = [
-        'identified_platform',
-        'game_name',
-        'region',
-        'market_price',
-        'individual_cost',
-        'min_api',
-        'max_api',
-        'purchase_profit',
-        'purchase_profit_percent',
-        'acquired_at',
-        'sold_at',
-        'expires_at',
-    ];
-
     public function __construct(
         private readonly UpdateKeyUseCase $updateKeyUseCase,
+        private readonly KeyRepository $keyRepository,
     ) {}
 
     /**
@@ -63,7 +48,7 @@ class KeyController extends Controller
 
         $items = $canEdit
             ? $games->items()
-            : collect($games->items())->map(fn ($k) => $k->only(self::GUEST_VISIBLE_FIELDS))->all();
+            : collect($games->items())->map(fn ($k) => $k->only(GuestKeyVisibility::FIELDS))->all();
 
         return Inertia::render('Keys', [
             'games' => $items,
@@ -93,7 +78,7 @@ class KeyController extends Controller
 
         $displayGames = $canEdit
             ? $games
-            : $games->through(fn ($k) => $k->only(self::GUEST_VISIBLE_FIELDS));
+            : $games->through(fn ($k) => $k->only(GuestKeyVisibility::FIELDS));
 
         return $this->response(200, 'Página de jogos atualizada com sucesso.', [
             'games' => $displayGames,
@@ -107,90 +92,24 @@ class KeyController extends Controller
     }
 
     /**
-     * Busca paginada com filtros dinâmicos.
+     * Busca paginada.
+     *
+     * Os filtros aceitos e quem pode usar cada um são decididos pelo
+     * IndexKeysRequest; a montagem da query vive no KeyRepository.
      */
-    public function search(Request $request)
+    public function search(IndexKeysRequest $request)
     {
-        $filters = $request->except('page');
-
-        $query = Key::when(Gate::allows('can-edit'), fn ($q) => $q->with(['supplier']));
-
-        foreach ($filters as $key => $value) {
-            if (! $value) {
-                continue;
-            }
-
-            if (is_array($value)) {
-                $query->whereIn($key, $value);
-
-                continue;
-            }
-
-            if (is_string($value)) {
-                // Filtros de range de data: sufixo _from → >= / sufixo _to → <=
-                // Ex: acquired_at_from, listed_at_to, sold_at_from, expires_at_to…
-                if (str_ends_with($key, '_from')) {
-                    $column = substr($key, 0, -5); // remove "_from"
-                    $query->where($column, '>=', $value);
-
-                    continue;
-                }
-
-                if (str_ends_with($key, '_to')) {
-                    $column = substr($key, 0, -3); // remove "_to"
-                    $query->where($column, '<=', $value);
-
-                    continue;
-                }
-
-                // Campos de data: filtro por presença/ausência (sim/nao)
-                if (in_array($key, ['listed_at', 'sold_at', 'expires_at'])) {
-                    match ($value) {
-                        'sim' => $query->whereNotNull($key),
-                        'nao' => $query->whereNull($key),
-                        default => $query->where($key, 'ILIKE', "%{$value}%"),
-                    };
-
-                    continue;
-                }
-
-                // Filtro de presença de observação
-                if ($key === 'notes_filled') {
-                    match ($value) {
-                        'sim' => $query->whereNotNull('notes')->where('notes', '!=', ''),
-                        'nao' => $query->where(fn ($q) => $q->whereNull('notes')->orWhere('notes', '')),
-                        default => null,
-                    };
-
-                    continue;
-                }
-
-                // Filtro especial: existência do gamivo_id
-                if ($key === 'hasIdGamivo') {
-                    match ($value) {
-                        'sim' => $query->whereNotNull('gamivo_id'),
-                        'nao' => $query->whereNull('gamivo_id'),
-                        default => null,
-                    };
-
-                    continue;
-                }
-
-                $query->where($key, 'ILIKE', "%{$value}%");
-
-                continue;
-            }
-
-            $query->where($key, $value);
-        }
-
-        $limit = $filters['limit'] ?? 100;
         $canEdit = Gate::allows('can-edit');
-        $games = $query->orderBy('id', 'desc')->paginate($limit);
+
+        $games = $this->keyRepository->paginate(
+            $request->filters(),
+            $request->perPage(),
+            withSupplier: $canEdit,
+        );
 
         $displayGames = $canEdit
             ? $games
-            : $games->through(fn ($k) => $k->only(self::GUEST_VISIBLE_FIELDS));
+            : $games->through(fn ($k) => $k->only(GuestKeyVisibility::FIELDS));
 
         return $this->response(200, 'Pesquisa realizada com sucesso.', [
             'games' => $displayGames,
