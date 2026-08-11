@@ -64,8 +64,8 @@
 <body>
     <div class="header">
         <h2 class="alert-title">⚠️ Alerta de Expiração - Sistema de Estoque</h2>
-        <p>Os seguintes jogos expirarão em até 30 dias:</p>
-        <p><strong>Total de jogos:</strong> {{ $jogos->count() }}</p>
+        <p>Os seguintes jogos expirarão em até {{ $alertDays }} dias:</p>
+        <p><strong>Total de jogos:</strong> {{ $keys->count() }}</p>
     </div>
 
     <table class="games-table">
@@ -79,29 +79,29 @@
             </tr>
         </thead>
         <tbody>
-            @foreach($jogos as $jogo)
+            @foreach($keys as $key)
                 @php
-                    $diasRestantes = floor(\Carbon\Carbon::now()->diffInDays(\Carbon\Carbon::parse($jogo->expires_at)));
-                    $classeCor = '';
-                    if ($diasRestantes <= 7) {
-                        $classeCor = 'urgent';
-                    } elseif ($diasRestantes <= 30) {
-                        $classeCor = 'warning';
+                    $daysLeft = floor(\Carbon\Carbon::now()->diffInDays(\Carbon\Carbon::parse($key->expires_at)));
+                    $rowClass = '';
+                    if ($daysLeft <= 7) {
+                        $rowClass = 'urgent';
+                    } elseif ($daysLeft <= $alertDays) {
+                        $rowClass = 'warning';
                     }
                 @endphp
-                <tr class="{{ $classeCor }}">
-                    <td>{{ $jogo->game_name ?? 'N/A' }}</td>
-                    <td>{{ $jogo->key_code ?? 'N/A' }}</td>
-                    <td>{{ $jogo->expires_at ? \Carbon\Carbon::parse($jogo->expires_at)->format('d/m/Y') : 'N/A' }}</td>
+                <tr class="{{ $rowClass }}">
+                    <td>{{ $key->game_name ?? 'N/A' }}</td>
+                    <td>{{ $key->key_code ?? 'N/A' }}</td>
+                    <td>{{ $key->expires_at ? \Carbon\Carbon::parse($key->expires_at)->format('d/m/Y') : 'N/A' }}</td>
                     <td>
-                        {{ $diasRestantes }} dia{{ $diasRestantes != 1 ? 's' : '' }}
-                        @if($diasRestantes <= 3)
+                        {{ $daysLeft }} dia{{ $daysLeft != 1 ? 's' : '' }}
+                        @if($daysLeft <= 3)
                             🚨
-                        @elseif($diasRestantes <= 7)
+                        @elseif($daysLeft <= 7)
                             ⚠️
                         @endif
                     </td>
-                    <td>{{ $jogo->fornecedor->supplier_url ?? 'Não encontrado' }}</td>
+                    <td>{{ $key->supplier?->url ?? 'Não encontrado' }}</td>
                 </tr>
             @endforeach
         </tbody>
@@ -110,7 +110,7 @@
     <div class="footer">
         <p><strong>Legenda:</strong></p>
         <p>🚨 = Expira em 7 dias ou menos (URGENTE)</p>
-        <p>⚠️ = Expira em 30 dias ou menos (ATENÇÃO)</p>
+        <p>⚠️ = Expira em {{ $alertDays }} dias ou menos (ATENÇÃO)</p>
         <br>
         <p>Este email foi enviado automaticamente pelo Sistema Estoque do Carca Deals.</p>
         <p>Data e hora do envio: {{ \Carbon\Carbon::now()->format('d/m/Y H:i:s') }}</p>

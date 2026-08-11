@@ -8,8 +8,6 @@ use Illuminate\Support\Facades\Log;
 /**
  * Cliente HTTP para a API GGDeals.
  * Infraestrutura pura — sem lógica de negócio.
- *
- * Conversão de moedas foi extraída para Services/External/CurrencyConversionService.
  */
 class APIService
 {

@@ -62,6 +62,16 @@ _Avoid_: bot, vendedor automático.
 Modo de venda no atacado — o comprador leva mais de 10 unidades de uma vez, pagando menos por jogo, e o marketplace cobra uma taxa fixa menor sobre a venda do que cobraria no modo retail padrão.
 _Avoid_: modo atacado (isolado, sem explicar o mecanismo), bulk.
 
+### Jogos e ativos
+
+**Steam ID não resolvido**:
+Um jogo cujo `steam_id` ainda não foi descoberto. Dois casos que parecem iguais, mas não são: **nunca procurado** (elegível para uma nova busca) e **procurado sem sucesso** (o SteamCharts não conhece o jogo — procurar de novo não muda nada). Sem essa distinção, a busca recorrente reprocessaria os mesmos jogos ausentes para sempre.
+_Avoid_: jogo sem steam_id, jogo não encontrado.
+
+**Variação do dólar**:
+O afastamento entre o preço em dólar guardado para o TF2 e o que a conversão atual do preço em real devolve. Ultrapassado o limiar, o sistema alerta para que os preços do ativo sejam reavaliados manualmente — quem corrige é uma pessoa, porque trocar o preço do ativo muda o custo calculado de toda trade nova.
+_Avoid_: câmbio, desvio, cotação.
+
 ### Suppliers e Trades
 
 **Supplier**:

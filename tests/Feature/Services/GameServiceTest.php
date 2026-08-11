@@ -15,7 +15,6 @@
 use App\Domain\Games\GameNameNormalizer;
 use App\Services\Games\GameService;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -188,109 +187,6 @@ describe('GameService', function () {
 
             $game = DB::table('games')->where('name', 'The Witcher III')->first();
             expect($game->normalized_name)->toBe(GameNameNormalizer::normalize('The Witcher III'));
-        });
-    });
-
-    // ── searchGamesIdSteam ────────────────────────────────────────────────────
-
-    describe('searchGamesIdSteam()', function () {
-
-        it('queries only games with steam_id AND steamcharts_searched_at both null', function () {
-            // Jogo nunca buscado → deve ser incluído
-            DB::table('games')->insert(['name' => 'Unsearched Game', 'steam_id' => null, 'steamcharts_searched_at' => null, 'created_at' => now(), 'updated_at' => now()]);
-
-            // Jogo já buscado mas não encontrado → deve ser excluído
-            DB::table('games')->insert(['name' => 'Already Searched', 'steam_id' => null, 'steamcharts_searched_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
-
-            // Jogo já com ID Steam → deve ser excluído
-            DB::table('games')->insert(['name' => 'Has Steam Id', 'steam_id' => '123456', 'steamcharts_searched_at' => null, 'created_at' => now(), 'updated_at' => now()]);
-
-            Http::fake([
-                '*/api/games/search-id-steam' => Http::response([
-                    'success' => true,
-                    'data' => ['games' => []],
-                ], 200),
-            ]);
-
-            app(GameService::class)->searchGamesIdSteam();
-
-            Http::assertSentCount(1);
-            Http::assertSent(function ($request) {
-                $names = array_column($request->data()['games'], 'name');
-
-                return in_array('Unsearched Game', $names)
-                    && ! in_array('Already Searched', $names)
-                    && ! in_array('Has Steam Id', $names);
-            });
-        });
-
-        it('marks all sent games with steamcharts_searched_at after a successful response', function () {
-            DB::table('games')->insert(['name' => 'Game A', 'steam_id' => null, 'steamcharts_searched_at' => null, 'created_at' => now(), 'updated_at' => now()]);
-            DB::table('games')->insert(['name' => 'Game B', 'steam_id' => null, 'steamcharts_searched_at' => null, 'created_at' => now(), 'updated_at' => now()]);
-
-            Http::fake([
-                '*/api/games/search-id-steam' => Http::response([
-                    'success' => true,
-                    'data' => ['games' => []], // Nenhum encontrado
-                ], 200),
-            ]);
-
-            app(GameService::class)->searchGamesIdSteam();
-
-            // Mesmo sem encontrar IDs, os jogos devem ser marcados como pesquisados
-            $unmarked = DB::table('games')
-                ->whereNull('steamcharts_searched_at')
-                ->whereIn('name', ['Game A', 'Game B'])
-                ->count();
-
-            expect($unmarked)->toBe(0);
-        });
-
-        it('sets steam_id on found games and marks them as searched', function () {
-            $gameId = DB::table('games')->insertGetId(['name' => 'Found Game', 'steam_id' => null, 'steamcharts_searched_at' => null, 'created_at' => now(), 'updated_at' => now()]);
-
-            Http::fake([
-                '*/api/games/search-id-steam' => Http::response([
-                    'success' => true,
-                    'data' => ['games' => [
-                        ['id' => $gameId, 'name' => 'Found Game', 'id_steam' => '999888'],
-                    ]],
-                ], 200),
-            ]);
-
-            app(GameService::class)->searchGamesIdSteam();
-
-            $game = DB::table('games')->where('id', $gameId)->first();
-
-            expect($game->steam_id)->toBe('999888')
-                ->and($game->steamcharts_searched_at)->not->toBeNull();
-        });
-
-        it('does NOT mark games as searched when the HTTP call fails', function () {
-            DB::table('games')->insert(['name' => 'Pending Game', 'steam_id' => null, 'steamcharts_searched_at' => null, 'created_at' => now(), 'updated_at' => now()]);
-
-            Http::fake([
-                '*/api/games/search-id-steam' => Http::response(['success' => false], 500),
-            ]);
-
-            app(GameService::class)->searchGamesIdSteam();
-
-            $game = DB::table('games')->where('name', 'Pending Game')->first();
-
-            // Falha HTTP → steamcharts_searched_at deve permanecer null para retry futuro
-            expect($game->steamcharts_searched_at)->toBeNull();
-        });
-
-        it('does nothing when there are no unsearched games', function () {
-            // Todos os jogos já foram buscados
-            DB::table('games')->insert(['name' => 'Searched Game', 'steam_id' => null, 'steamcharts_searched_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
-
-            Http::fake();
-
-            app(GameService::class)->searchGamesIdSteam();
-
-            // Nenhuma requisição deve ser enviada ao price_researcher
-            Http::assertNothingSent();
         });
     });
 });

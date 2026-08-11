@@ -5,9 +5,9 @@
 | KeySearchTest — contrato de POST /keys/search
 |--------------------------------------------------------------------------
 |
-| Cobre o comportamento dos filtros legítimos depois que a montagem da query
-| saiu do controller para KeyRepository::paginate(), com a whitelist de
-| IndexKeysRequest na fronteira HTTP.
+| Cobre o comportamento dos filtros legítimos: a whitelist vive em
+| IndexKeysRequest, na fronteira HTTP, e a montagem da query em
+| KeyRepository::paginate().
 |
 | O eixo de segurança (guest não pode filtrar por campo que não enxerga)
 | vive em tests/Feature/Security/GuestAccessTest.php — aqui só o caminho
@@ -251,9 +251,9 @@ it('rejects a presence filter value outside the enum', function () {
     $this->postJson('/keys/search', ['listed_at_filled' => 'sim'])->assertStatus(422);
 });
 
-it('rejects the bare column name now that presence uses the _filled suffix', function () {
-    // `listed_at` sozinho deixou de ser filtro: presença é listed_at_filled,
-    // intervalo é listed_at_from/_to.
+it('rejects the bare column name of a presence filter', function () {
+    // `listed_at` sozinho não é filtro: presença é listed_at_filled, intervalo
+    // é listed_at_from/_to.
     $this->postJson('/keys/search', ['listed_at' => 'filled'])->assertStatus(422);
 });
 

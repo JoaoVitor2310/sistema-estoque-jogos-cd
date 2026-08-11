@@ -229,8 +229,7 @@ describe('AutoSellUseCase', function () {
     it('lists a key once the market price clears min_api, with no separate margin check', function () {
         // min_api já embute a margem mínima correta (MinimumMarginPolicy).
         // Concorrente a €2.50 > min_api (2.00) — mesmo com lucro relativo baixo
-        // (0.50, bem abaixo dos 60% que o antigo hasMinimumProfitForAutoSell exigiria),
-        // não há mais uma segunda checagem de margem: superar o min_api já é suficiente.
+        // (0.50), não há segunda checagem de margem: superar o min_api basta.
         Http::fake([
             '*/products/*/offers' => Http::response([
                 ['id' => 99, 'seller_name' => 'Rival', 'retail_price' => 2.50,

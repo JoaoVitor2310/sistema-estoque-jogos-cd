@@ -372,6 +372,12 @@ class GamivoApiService
      */
     private function notifyTokenExpired(): void
     {
-        Mail::to(config('app.admin_email'))->send(new GamivoTokenExpiredMail);
+        // Falha de envio não pode derrubar a chamada à API que a detectou —
+        // sem destinatário configurado, `Mail::to(null)` lança.
+        try {
+            Mail::to(config('app.admin_email'))->send(new GamivoTokenExpiredMail);
+        } catch (\Exception $e) {
+            Log::error('Failed to send Gamivo token expired alert: '.$e->getMessage());
+        }
     }
 }

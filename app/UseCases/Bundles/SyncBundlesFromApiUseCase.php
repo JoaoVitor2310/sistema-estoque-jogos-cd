@@ -4,6 +4,8 @@ namespace App\UseCases\Bundles;
 
 use App\Domain\Bundles\BundleTypeResolver;
 use App\Domain\Games\GameNameNormalizer;
+use App\Mail\BundlePriceConversionFailedMail;
+use App\Mail\NewChoiceBundleMail;
 use App\Models\Asset;
 use App\Models\Bundle;
 use App\Models\Game;
@@ -79,12 +81,7 @@ class SyncBundlesFromApiUseCase
 
             // Alerta por e-mail ao detectar um novo Choice
             if ($type === 'choice' && $bundle->wasRecentlyCreated) {
-                Mail::raw(
-                    'Choice novo detectado: '.$bundle->name."\n\nURL: ".$bundle->url,
-                    fn ($message) => $message
-                        ->to('carcadeals@gmail.com')
-                        ->subject('🎮 Choice novo: '.$bundle->name)
-                );
+                Mail::to(config('app.admin_email'))->send(new NewChoiceBundleMail($bundle));
             }
 
             $topTierBundle = max($apiBundle['tiers']);
@@ -136,11 +133,8 @@ class SyncBundlesFromApiUseCase
                 $priceDolar = $converted['amount'];
             } else {
                 Log::error('Não foi possível converter preço do bundle: '.$apiBundle['title']);
-                Mail::raw(
-                    'Não foi possível converter preço do bundle: '.$apiBundle['title'],
-                    fn ($message) => $message
-                        ->to('carcadeals@gmail.com')
-                        ->subject('🎮 Erro ao converter preço do bundle: '.$apiBundle['title'])
+                Mail::to(config('app.admin_email'))->send(
+                    new BundlePriceConversionFailedMail($apiBundle['title'])
                 );
 
                 return false;
