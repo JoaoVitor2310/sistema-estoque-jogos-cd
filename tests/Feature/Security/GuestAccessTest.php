@@ -303,10 +303,6 @@ describe('Guest — sensitive fields absent from /keys/search', function () {
 
     beforeEach(fn () => seedGuestKey());
 
-    // String filters use ILIKE (PostgreSQL only — not supported by SQLite test DB).
-    // Sending an empty body triggers the query without filters, which is sufficient
-    // to validate that field filtering works regardless of the applied filters.
-
     it('returns no sensitive fields', function () {
         $items = $this->postJson('/keys/search', [])
             ->assertStatus(200)
@@ -331,6 +327,101 @@ describe('Guest — sensitive fields absent from /keys/search', function () {
         foreach (GUEST_ALLOWED as $field) {
             expect($items[0])->toHaveKey($field);
         }
+    });
+});
+
+// ── 4b. Visitante não pode FILTRAR por campo que não enxerga ─────────────────
+//
+// Mascarar só a saída deixava um oráculo cego: a linha ficava escondida, mas o
+// total de resultados ainda respondia "existe key com esse key_code?". Repetir
+// a pergunta com prefixos crescentes enumera o key_code — o próprio produto
+// vendido — além de supplier_url e notes. A whitelist de filtros precisa ser
+// escopada pelo can-edit, não só o corpo da resposta.
+
+describe('Guest — forbidden filters on /keys/search return 403', function () {
+
+    beforeEach(fn () => seedGuestKey());
+
+    it('blocks filtering by key_code', function () {
+        $this->postJson('/keys/search', ['key_code' => 'AAAAA'])->assertStatus(403);
+    });
+
+    it('blocks filtering by supplier_url', function () {
+        $this->postJson('/keys/search', ['supplier_url' => 'steamcommunity'])->assertStatus(403);
+    });
+
+    it('blocks filtering by notes', function () {
+        $this->postJson('/keys/search', ['notes' => 'x'])->assertStatus(403);
+    });
+
+    it('blocks filtering by gamivo_id', function () {
+        $this->postJson('/keys/search', ['gamivo_id' => 'GV-99999'])->assertStatus(403);
+    });
+
+    it('blocks filtering by total_paid', function () {
+        $this->postJson('/keys/search', ['total_paid' => '10'])->assertStatus(403);
+    });
+
+    it('blocks filtering by listed_at_filled, which guests do not receive', function () {
+        $this->postJson('/keys/search', ['listed_at_filled' => 'filled'])->assertStatus(403);
+    });
+
+    it('closes the oracle: no key_code probe changes the result count', function () {
+        // Um acerto (AAAAA-BBBBB-CCCCC existe) e um erro devolvem exatamente a
+        // mesma resposta — é isso que mata a enumeração por prefixo.
+        $hit = $this->postJson('/keys/search', ['key_code' => 'AAAAA']);
+        $miss = $this->postJson('/keys/search', ['key_code' => 'ZZZZZ']);
+
+        expect($hit->status())->toBe($miss->status())->toBe(403);
+    });
+});
+
+describe('Guest — allowed filters on /keys/search still work', function () {
+
+    beforeEach(fn () => seedGuestKey());
+
+    it('allows filtering by game_name', function () {
+        $response = $this->postJson('/keys/search', ['game_name' => 'Test'])->assertStatus(200);
+
+        expect($response->json('data.totalGames'))->toBe(1);
+    });
+
+    it('allows filtering by region and acquired_at range', function () {
+        $this->postJson('/keys/search', [
+            'region' => 'EU',
+            'acquired_at_from' => '2020-01-01',
+        ])->assertStatus(200);
+    });
+
+    it('accepts the empty payload the Keys.vue form sends', function () {
+        // buildSearchPayload() envia todos os campos, inclusive os proibidos,
+        // porém vazios. Vazio é descartado antes da checagem — senão o guest
+        // levaria 403 numa busca legítima.
+        $this->postJson('/keys/search', [
+            'key_code' => '',
+            'supplier_url' => '',
+            'notes' => '',
+            'gamivo_id' => '',
+            'listed_at_filled' => '',
+            'claim_type' => [],
+            'game_name' => 'Test',
+        ])->assertStatus(200);
+    });
+});
+
+describe('Authorized user (can-edit) — may filter by sensitive fields', function () {
+
+    beforeEach(fn () => seedGuestKey());
+
+    it('allows filtering by key_code', function () {
+        $user = User::factory()->create();
+        AuthorizedUsers::create(['name' => $user->name, 'email' => $user->email, 'status' => true]);
+
+        $response = $this->actingAs($user)
+            ->postJson('/keys/search', ['key_code' => 'AAAAA'])
+            ->assertStatus(200);
+
+        expect($response->json('data.totalGames'))->toBe(1);
     });
 });
 

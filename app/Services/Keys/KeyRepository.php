@@ -2,9 +2,12 @@
 
 namespace App\Services\Keys;
 
+use App\Domain\Enums\PresenceFilter;
 use App\Domain\Keys\KeyEligibility;
 use App\Models\Key;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 /**
  * Queries complexas sobre a tabela keys.
@@ -12,6 +15,188 @@ use Illuminate\Database\Eloquent\Collection;
  */
 class KeyRepository
 {
+    /** Multi-seleção: casa com qualquer um dos valores (whereIn). */
+    public const LIST_FILTERS = ['claim_type', 'key_format', 'sell_platform'];
+
+    /** Busca textual por substring, sem diferenciar maiúsculas. */
+    public const TEXT_FILTERS = [
+        'game_name',
+        'region',
+        'identified_platform',
+        'key_code',
+        'gamivo_id',
+        'steam_id',
+        'notes',
+        'supplier_url',
+        // varchar com rótulo legível ("2x TF2 Keys / 5"), montado por
+        // SalePriceCalculator::tradeCostLabel — nunca foi coluna numérica.
+        'total_paid',
+    ];
+
+    /** Colunas de data que aceitam range pelos sufixos _from / _to. */
+    public const DATE_RANGE_FILTERS = ['acquired_at', 'listed_at', 'sold_at', 'expires_at'];
+
+    /**
+     * Filtros de presença: mapa `nome do filtro` => `coluna consultada`.
+     *
+     * O sufixo `_filled` separa presença de intervalo — `listed_at_filled`
+     * pergunta se a coluna tem valor, `listed_at_from`/`_to` delimitam um
+     * período. Sem o sufixo, o mesmo prefixo carregava os dois sentidos.
+     *
+     * O mapa também é o que permite derivar a whitelist do visitante a partir
+     * das colunas que ele enxerga (ver filtersFor).
+     */
+    public const PRESENCE_FILTERS = [
+        'listed_at_filled' => 'listed_at',
+        'sold_at_filled' => 'sold_at',
+        'expires_at_filled' => 'expires_at',
+        'notes_filled' => 'notes',
+        'gamivo_id_filled' => 'gamivo_id',
+    ];
+
+    public const DEFAULT_LIMIT = 100;
+
+    public const MAX_LIMIT = 500;
+
+    /**
+     * Todo nome de filtro que paginate() sabe aplicar.
+     *
+     * @return string[]
+     */
+    public static function allowedFilters(): array
+    {
+        $keys = array_merge(
+            self::LIST_FILTERS,
+            self::TEXT_FILTERS,
+            array_keys(self::PRESENCE_FILTERS),
+        );
+
+        foreach (self::DATE_RANGE_FILTERS as $field) {
+            $keys[] = $field.'_from';
+            $keys[] = $field.'_to';
+        }
+
+        return array_values(array_unique($keys));
+    }
+
+    /**
+     * Subconjunto de allowedFilters() que só toca as colunas informadas.
+     *
+     * Deriva a whitelist de quem enxerga um recorte da tabela (o visitante não
+     * autenticado, ver GuestKeyVisibility) em vez de mantê-la escrita à mão em
+     * paralelo — duas listas manuais divergem, e divergir aqui reabre o
+     * vazamento.
+     *
+     * @param  string[]  $columns
+     * @return string[]
+     */
+    public static function filtersFor(array $columns): array
+    {
+        $filters = [];
+
+        foreach (array_merge(self::TEXT_FILTERS, self::LIST_FILTERS) as $field) {
+            if (in_array($field, $columns, true)) {
+                $filters[] = $field;
+            }
+        }
+
+        foreach (self::DATE_RANGE_FILTERS as $field) {
+            if (in_array($field, $columns, true)) {
+                $filters[] = $field.'_from';
+                $filters[] = $field.'_to';
+            }
+        }
+
+        foreach (self::PRESENCE_FILTERS as $filter => $column) {
+            if (in_array($column, $columns, true)) {
+                $filters[] = $filter;
+            }
+        }
+
+        return array_values(array_unique($filters));
+    }
+
+    /**
+     * Busca paginada de keys a partir dos filtros já validados pelo
+     * IndexKeysRequest. Nenhum nome de coluna vem do request: as chaves são
+     * comparadas contra as constantes da whitelist antes de virarem SQL.
+     *
+     * Ordem fixa por `id` desc: o endpoint não recebe critério de ordenação.
+     *
+     * @param  array<string, mixed>  $filters
+     */
+    public function paginate(
+        array $filters,
+        int $perPage = self::DEFAULT_LIMIT,
+        bool $withSupplier = false,
+    ): LengthAwarePaginator {
+        $query = Key::query()->when($withSupplier, fn (Builder $q) => $q->with('supplier'));
+
+        foreach ($filters as $field => $value) {
+            $this->applyFilter($query, $field, $value);
+        }
+
+        return $query->orderBy('id', 'desc')->paginate($perPage);
+    }
+
+    private function applyFilter(Builder $query, string $field, mixed $value): void
+    {
+        if (in_array($field, self::LIST_FILTERS, true)) {
+            $query->whereIn($field, (array) $value);
+
+            return;
+        }
+
+        if (in_array($field, self::TEXT_FILTERS, true)) {
+            // LOWER(col) LIKE — cross-DB (Postgres em prod, SQLite em teste).
+            // O ILIKE anterior é exclusivo do Postgres, o que impedia qualquer
+            // teste automatizado de exercitar este caminho.
+            $query->whereRaw(
+                'LOWER('.$field.') LIKE ?',
+                ['%'.mb_strtolower(trim((string) $value)).'%'],
+            );
+
+            return;
+        }
+
+        if (str_ends_with($field, '_from')) {
+            $query->whereDate(substr($field, 0, -5), '>=', $value);
+
+            return;
+        }
+
+        if (str_ends_with($field, '_to')) {
+            $query->whereDate(substr($field, 0, -3), '<=', $value);
+
+            return;
+        }
+
+        // Presença/ausência.
+        //
+        // Em coluna de texto, string vazia conta como ausente — mesmo critério
+        // de Key::scopeWithGamivoId, que trata '' como sem gamivo_id. Em coluna
+        // de data, comparar com '' é erro de tipo no Postgres
+        // ("invalid input syntax for type date"), então ali só cabe o teste de
+        // nulo. O SQLite dos testes aceita as duas formas e não acusa a
+        // diferença — ver o teste de bindings em KeySearchTest.
+        $column = self::PRESENCE_FILTERS[$field];
+        $isText = in_array($column, self::TEXT_FILTERS, true);
+
+        if ($value === PresenceFilter::Filled->value) {
+            $query->whereNotNull($column);
+
+            if ($isText) {
+                $query->where($column, '!=', '');
+            }
+
+            return;
+        }
+
+        $isText
+            ? $query->where(fn (Builder $q) => $q->whereNull($column)->orWhere($column, ''))
+            : $query->whereNull($column);
+    }
+
     /**
      * Busca uma key pelo código de ativação.
      * Quando $excludeId é fornecido, ignora o próprio registro (útil no update).

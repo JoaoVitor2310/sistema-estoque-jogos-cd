@@ -62,6 +62,7 @@ Atue sempre como arquiteto de software sênior com conhecimento profundo de Lara
 - **Idioma por camada**:
   - **Inglês**: todo código — nomes de variáveis/classes/métodos/constantes, **chaves de array e de payload** (`['line' => ...]`, nunca `['linha' => ...]`), strings de sistema, logs, git hooks, scripts de terminal, textos de CI/CD
   - **Português**: comentários no código (para facilitar manutenção) e texto visível ao usuário no frontend (labels, botões, mensagens de validação)
+  - **Descrição de teste é inglês**, não português: o texto dentro de `it(...)`/`describe(...)` é string de sistema, não comentário. `it('blocks filtering by key_code')`, nunca `it('bloqueia filtro por key_code')`. Os comentários *dentro* do teste continuam em português
   - **Comentário descreve a própria camada**: não vaze presentation no backend. Um UseCase/Service não comenta sobre "a aba", "a tela" ou "o modal" — descreve a regra/efeito no domínio (ex: "marca a trade como importada", não "a trade sai da aba")
 - Colunas do banco sempre em inglês e snake_case
 - Mantenha boas práticas (SOLID, Clean Code, Design Patterns)
@@ -80,7 +81,12 @@ Atue sempre como arquiteto de software sênior com conhecimento profundo de Lara
   - Contratos HTTP (status codes, campos da resposta, middleware) → Feature test via HTTP
   - Não duplicar: se a lógica já está coberta no Unit, o Feature test não precisa repetir todos os casos — só o caminho feliz e o erro principal
   - Padrão: Pest. Use `DB::table()` para seeds, nunca Factories quando o dado é simples.
+  - **Cuidado com asserções variádicas do Pest.** `toContain()` aceita vários needles, então `expect($x)->not->toContain('', 'minha mensagem')` trata a mensagem como um segundo needle e a asserção afrouxa em silêncio — passa mesmo quando `''` está presente. Quando precisar de mensagem, use o método do PHPUnit (`$this->assertNotContains($needle, $haystack, $message)`). *(Já aconteceu: uma guarda de regressão nasceu verde e inútil.)*
+  - **Teste novo tem que falhar sem a correção.** Antes de fechar, reverta a implementação e confirme o vermelho. Guarda que passa nos dois estados não guarda nada.
+
+- **Produção é Postgres, teste é SQLite — a diferença esconde bugs.** O SQLite não tem tipagem de coluna e aceita calado o que o Postgres rejeita: `data != ''` estoura `invalid input syntax for type date`, e `ILIKE` não existe fora do Postgres. Escreva SQL que roda nos dois (`LOWER(col) LIKE ?` em vez de `ILIKE`; só compare com `''` coluna de texto) e, quando a diferença não puder ser exercitada pela suíte, teste o **SQL gerado** — capture com `DB::listen()` e asserte sobre `sql`/`bindings`. *(Já aconteceu duas vezes: `ILIKE` deixou `KeyController::search` sem nenhum teste possível, e comparar `listed_at` com `''` derrubou a busca em produção com 500.)*
 - **Permissões são obrigatórias** — toda rota nova deve declarar explicitamente quem pode acessá-la. Perguntas a responder antes de registrar qualquer rota: (a) guest pode acessar? (b) requer autenticação (`RequireAuth`)? (c) requer `can-edit` (`CheckPermission`)? (d) requer admin (`CheckAdmin`)? Rotas de página usam `RequireAuth` (redirect para `/login`); rotas de API/mutação usam `CheckPermission` (retorna 403 JSON). Nunca deixar rota sem middleware assumindo que "ninguém vai acessar". Após adicionar rotas, adicionar testes de acesso em `tests/Feature/Security/GuestAccessTest.php` cobrindo: guest bloqueado, usuário autorizado liberado.
+- **Em rota pública, esconder o campo não basta — o filtro também é superfície.** Mascarar a saída (`only(GUEST_VISIBLE_FIELDS)`) enquanto o filtro aceita qualquer coluna deixa um **oráculo cego**: a linha some, mas o total de resultados ainda responde "existe registro com esse valor?", e repetir a pergunta com prefixos crescentes reconstrói o dado escondido. Todo endpoint de busca declara a whitelist de filtros num FormRequest, e a whitelist é **escopada pela mesma permissão que escopa a resposta** — se o visitante não recebe a coluna, ele não pode filtrar por ela. Filtro proibido devolve 403; ignorar em silêncio mentiria sobre o resultado. Nunca monte query a partir de `$request->all()`/`except()`: além do vazamento, nome de coluna vindo do cliente vira 500 assim que uma coluna é renomeada. *(Aconteceu: `POST /keys/search` permitia enumerar `key_code`, `supplier_url` e `notes` — ver `IndexKeysRequest`.)*
 - **Validação com enums usa `Rule::enum()`** — nunca use `'in:valor1,valor2'` para validar um campo que tem enum correspondente. Use `Rule::enum(MinhaEnum::class)` no FormRequest. Assim a validação se mantém sincronizada automaticamente quando o enum crescer.
 - **Nunca faça commits automáticos** — apenas prepare as alterações e informe o que foi modificado. O commit é sempre feito pelo usuário.
 
@@ -418,6 +424,7 @@ app/
 │       ├── KeyFormat.php
 │       ├── SellPlatform.php
 │       ├── OffersUpdateMode.php         # WeAreLowest / WeAreNotLowest
+│       ├── PresenceFilter.php           # filled / empty — filtro por coluna preenchida
 │       └── SupplierCategory.php         # vip / blocked
 │
 ├── UseCases/
@@ -459,7 +466,7 @@ app/
 ├── Services/
 │   ├── Keys/
 │   │   ├── KeyCalculationService.php   # taxas com cache, conversão para VOs
-│   │   └── KeyRepository.php           # queries complexas
+│   │   └── KeyRepository.php           # queries complexas + paginate() com whitelist de filtros
 │   ├── Games/
 │   │   ├── GameService.php
 │   │   └── GameRepository.php

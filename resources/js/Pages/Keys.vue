@@ -150,26 +150,25 @@ const searchFilter = reactive({
   claim_type: [],
   steam_id: '',
   key_format: [],
-  dont_sell: false,
   key_code: '',
   identified_platform: '',
   game_name: '',
   region: '',
   gamivo_id: '',
-  hasIdGamivo: '',
+  gamivo_id_filled: '',
   notes: '',
   notes_filled: '',
   sell_platform: [],
   total_paid: '',
   acquired_at_from: null as Date | null,
   acquired_at_to: null as Date | null,
-  listed_at: '',
+  listed_at_filled: '',
   listed_at_from: null as Date | null,
   listed_at_to: null as Date | null,
-  sold_at: '',
+  sold_at_filled: '',
   sold_at_from: null as Date | null,
   sold_at_to: null as Date | null,
-  expires_at: '',
+  expires_at_filled: '',
   expires_at_from: null as Date | null,
   expires_at_to: null as Date | null,
   supplier_url: '',
@@ -397,9 +396,10 @@ const exportCSV = () => {
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
             <InputText v-model="searchFilter.gamivo_id" type="text" placeholder="Pesquisar por ID" />
-            <Select v-model="searchFilter.hasIdGamivo" :options="[
-              { name: 'Sim', value: 'sim' },
-              { name: 'Não', value: 'nao' }
+            <Select v-model="searchFilter.gamivo_id_filled" :options="[
+              { name: 'Todos', value: '' },
+              { name: 'Sim', value: 'filled' },
+              { name: 'Não', value: 'empty' }
             ]" placeholder="Possui id Gamivo?" optionLabel="name" optionValue="value" style="min-width: 14rem">
             </Select>
           </template>
@@ -415,8 +415,8 @@ const exportCSV = () => {
               <InputText v-model="searchFilter.notes" type="text" placeholder="Pesquisar" />
               <Select v-model="searchFilter.notes_filled" :options="[
                 { name: 'Todos', value: '' },
-                { name: 'Sim', value: 'sim' },
-                { name: 'Não', value: 'nao' }
+                { name: 'Sim', value: 'filled' },
+                { name: 'Não', value: 'empty' }
               ]" placeholder="Preenchido?" optionLabel="name" optionValue="value" />
             </div>
           </template>
@@ -522,10 +522,10 @@ const exportCSV = () => {
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
             <div class="d-flex flex-column gap-1" style="min-width: 14rem">
-              <Select v-model="searchFilter.listed_at" :options="[
+              <Select v-model="searchFilter.listed_at_filled" :options="[
                 { name: 'Todos', value: '' },
-                { name: 'Sim', value: 'sim' },
-                { name: 'Não', value: 'nao' }
+                { name: 'Sim', value: 'filled' },
+                { name: 'Não', value: 'empty' }
               ]" placeholder="Já posto a venda?" optionLabel="name" optionValue="value" />
               <DatePicker v-model="searchFilter.listed_at_from" dateFormat="dd/mm/yy" placeholder="De"
                 showButtonBar showIcon fluid />
@@ -544,10 +544,10 @@ const exportCSV = () => {
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
             <div class="d-flex flex-column gap-1" style="min-width: 14rem">
-              <Select v-model="searchFilter.sold_at" :options="[
+              <Select v-model="searchFilter.sold_at_filled" :options="[
                 { name: 'Todos', value: '' },
-                { name: 'Sim', value: 'sim' },
-                { name: 'Não', value: 'nao' }
+                { name: 'Sim', value: 'filled' },
+                { name: 'Não', value: 'empty' }
               ]" placeholder="Já vendido?" optionLabel="name" optionValue="value" />
               <DatePicker v-model="searchFilter.sold_at_from" dateFormat="dd/mm/yy" placeholder="De"
                 showButtonBar showIcon fluid />
@@ -566,10 +566,10 @@ const exportCSV = () => {
           :showFilterMatchModes="false" :showApplyButton="false" :showClearButton="false" class="text-center p-0">
           <template #filter>
             <div class="d-flex flex-column gap-1" style="min-width: 14rem">
-              <Select v-model="searchFilter.expires_at" :options="[
+              <Select v-model="searchFilter.expires_at_filled" :options="[
                 { name: 'Todos', value: '' },
-                { name: 'Sim', value: 'sim' },
-                { name: 'Não', value: 'nao' }
+                { name: 'Sim', value: 'filled' },
+                { name: 'Não', value: 'empty' }
               ]" placeholder="Expira?" optionLabel="name" optionValue="value" />
               <DatePicker v-model="searchFilter.expires_at_from" dateFormat="dd/mm/yy" placeholder="De"
                 showButtonBar showIcon fluid />
