@@ -6,7 +6,7 @@ use App\Http\Requests\AddBundleGamesRequest;
 use App\Http\Requests\RemoveBundleGamesRequest;
 use App\Http\Requests\StoreBundleRequest;
 use App\Models\Bundle;
-use App\Services\BundleService;
+use App\Services\Bundles\BundleService;
 use App\Traits\HttpResponses;
 use App\UseCases\Bundles\AddGamesToBundleUseCase;
 use App\UseCases\Bundles\CreateBundleUseCase;

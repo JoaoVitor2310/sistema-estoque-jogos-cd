@@ -100,7 +100,7 @@ Quando uma key tem problema, a Gamivo nos dá a opção de reembolsar o cliente 
 
 ## Financeiro
 
-Aba de análise financeira do negócio, acessível em `/financial`. Permite filtrar por mês e ano. Todas as métricas de venda são baseadas em `sold_at` (data de venda); métricas de compra são baseadas em `acquired_at`.
+Aba de análise financeira do negócio, acessível em `/sales`. Permite filtrar por mês e ano. Todas as métricas de venda são baseadas em `sold_at` (data de venda); métricas de compra são baseadas em `acquired_at`.
 
 ### Cards de KPI (período filtrado)
 

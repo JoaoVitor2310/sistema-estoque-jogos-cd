@@ -6,10 +6,10 @@ use App\Http\Controllers\AuthorizedUsersController;
 use App\Http\Controllers\BundleController;
 use App\Http\Controllers\FeeController;
 use App\Http\Controllers\Financial\FinancialMonthController;
-use App\Http\Controllers\FinancialController;
 use App\Http\Controllers\GameController;
 use App\Http\Controllers\Keys\KeyController;
 use App\Http\Controllers\Keys\KeySaleController;
+use App\Http\Controllers\SalesDashboardController;
 use App\Http\Controllers\Suppliers\SupplierController;
 use App\Http\Controllers\TradeController;
 use App\Http\Middleware\CheckAdmin;
@@ -31,7 +31,9 @@ Route::get('/assets', [AssetController::class, 'show'])->name('assets')->middlew
 
 Route::get('/bundles', [BundleController::class, 'index'])->name('bundles'); // público — visitantes podem ver
 
-Route::get('/financial', [FinancialController::class, 'show'])->name('financial')->middleware(RequireAuth::class);
+// Dashboard analítico de vendas em €. Não confundir com /financial-months, que é
+// o livro-caixa dos sócios em R$ — domínios distintos.
+Route::get('/sales', [SalesDashboardController::class, 'show'])->name('sales')->middleware(RequireAuth::class);
 
 // Fechamento mensal (FinancialMonth). Página: RequireAuth (redirect). Mutações: CheckPermission (403).
 Route::get('/financial-months', [FinancialMonthController::class, 'index'])

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Bundles;
 
 use App\Domain\Bundles\BundleGameLookup;
 use App\Domain\Games\GameNameNormalizer;

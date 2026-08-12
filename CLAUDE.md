@@ -58,7 +58,7 @@ Atue sempre como arquiteto de software sênior com conhecimento profundo de Lara
 - Nunca coloque lógica de negócio fora do Domain
 - **Números mágicos são lógica de negócio** — qualquer literal numérico com significado de domínio (janelas de tempo, limiares, limites de preço) deve ser uma constante `public const` na classe de Domain correspondente (ex: `KeyEligibility::EXPIRY_ALERT_DAYS`, `KeyEligibility::BUNDLE_EXCLUSION_DAYS`, `MinMaxPriceCalculator::FLOOR`). Services e UseCases referenciam a constante, nunca o número diretamente
 - Ao sugerir onde um novo arquivo deve viver, justifique com base na camada correta
-- **Nomes sempre em inglês** — variáveis, classes, arquivos, rotas, nomes de página Vue, métodos e constantes. Nunca criar `FinanceiroService`, `financeiro.vue` ou rota `/financeiro` — o correto é `FinancialService`, `Financial.vue`, `/financial`
+- **Nomes sempre em inglês** — variáveis, classes, arquivos, rotas, nomes de página Vue, métodos e constantes. Nunca criar `FinanceiroService`, `financeiro.vue` ou rota `/financeiro` — o correto é `SalesDashboardController`, `SalesDashboard.vue`, `/sales`
 - **Idioma por camada**:
   - **Inglês**: todo código — nomes de variáveis/classes/métodos/constantes, **chaves de array e de payload** (`['line' => ...]`, nunca `['linha' => ...]`), strings de sistema, logs, git hooks, scripts de terminal, textos de CI/CD
   - **Português**: comentários no código (para facilitar manutenção) e texto visível ao usuário no frontend (labels, botões, mensagens de validação)
@@ -314,7 +314,7 @@ Chaves usadas: `gamivoPercentualMenor`, `gamivoFixoMenor`, `gamivoPercentualMaio
 
 ### 7. Fechamento mensal (`FinancialMonth`/`FinancialMovement` → tabelas `financial_months`/`financial_movements`)
 
-Livro-caixa dos sócios em **R$** (`/financial-months`). **Não confundir com `FinancialService`/`Financial.vue`** (`/financial`), o dashboard analítico de vendas em € — domínios distintos que compartilham só o prefixo.
+Livro-caixa dos sócios em **R$** (`/financial-months`). **Não confundir com o dashboard analítico de vendas em €** (`Services/Sales/SalesDashboardService`, `SalesDashboard.vue`, `/sales`) — domínios distintos, hoje também com nomes distintos.
 
 - `FinancialMonth` — um mês do ciclo `draft` → `closed`. Campos: `year`, `month`, `status` (`FinancialMonthStatus`), `reinvestment_percent`, `emergency_percent`, `partner_one_share` (as três só como **prefill de formulário**), `closed_at`. No máximo um `draft` por vez
 - `FinancialMovement` — uma linha do extrato. Campos: `group_id` (uuid — liga as linhas do mesmo lançamento), `account_type` (`AccountType`: `principal`/`tf2`/`reinvestment`/`emergency`), `direction` (`MovementDirection`), `category` (`MovementCategory`), `expense_category` (`ExpenseCategory`, só quando `category = expense`), `income_category` (`IncomeCategory`, só quando `category = income`), `amount` (sempre positivo — a direção decide o sinal), `quantity`/`unit_price` (TF2), `partner_slot` (1 ou 2), `description`, `occurred_at`, `is_generated`
@@ -427,7 +427,7 @@ app/
 │   ├── Trades/
 │   │   ├── CommentPolicy.php            # decide se recomenta um supplier (14 dias / jogos mudaram)
 │   │   └── TradeGameComparison.php
-│   ├── Financial/                        # livro-caixa em R$ (≠ FinancialService, dashboard em €)
+│   ├── Financial/                        # livro-caixa em R$ (≠ Sales/, dashboard de vendas em €)
 │   │   ├── Money.php                     # centavos inteiros — reconciliação exata
 │   │   ├── AccountTransfer.php           # dupla partida; valor fechado ou % do saldo da origem
 │   │   ├── PartnerDistribution.php       # saque dos sócios: um débito por sócio
@@ -497,6 +497,8 @@ app/
 ├── Mail/                               # um Mailable por alerta; destinatário sempre config('app.admin_email')
 │
 ├── Services/
+│   ├── Bundles/BundleService.php        # queries e escrita sobre bundles + pivot
+│   ├── Sales/SalesDashboardService.php  # dashboard analítico de vendas em € (/financial)
 │   ├── Keys/
 │   │   ├── KeyCalculationService.php   # taxas com cache, conversão para VOs
 │   │   └── KeyRepository.php           # queries complexas + paginate() com whitelist de filtros
@@ -511,6 +513,7 @@ app/
 │   ├── ResourceService.php             # conversão de moedas para Assets
 │   └── External/
 │       ├── GamivoApiService.php
+│       ├── GgDealsApiService.php        # cliente da API GG.deals (bundles ativos)
 │       ├── CurrencyConversionService.php
 │       └── SteamChartsService.php
 │
@@ -538,7 +541,7 @@ app/
     └── Fee.php         → fees
 ```
 
-> Alguns Services (ex: `BundleService`, `FinancialService`) vivem hoje na raiz de `Services/` em vez de subpastas por domínio, e não estão listados acima. `FinancialService`/`FinancialController` são o **dashboard analítico de vendas em €** (`/financial`) — domínio distinto do fechamento mensal e ainda não documentado aqui. Vale uma auditoria própria da árvore de `Services/`/`Controllers/` depois.
+> `Services/Sales/` é o **dashboard analítico de vendas em €** (`SalesDashboardController`, `SalesDashboard.vue`, `/sales`); `Services/Financial/` é o **fechamento mensal em R$** (`/financial-months`). Os dois já dividiam só o prefixo do nome e agora nem isso.
 
 ---
 

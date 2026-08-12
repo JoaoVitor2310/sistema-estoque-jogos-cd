@@ -93,8 +93,8 @@ describe('Guest — page routes redirect to /login', function () {
         $this->get('/acesso')->assertRedirectToRoute('login');
     });
 
-    it('blocks GET /financial', function () {
-        $this->get('/financial')->assertRedirectToRoute('login');
+    it('blocks GET /sales', function () {
+        $this->get('/sales')->assertRedirectToRoute('login');
     });
 
     it('blocks GET /financial-months', function () {
@@ -530,11 +530,11 @@ describe('Authorized user (can-edit) — accesses pages blocked for guests', fun
         $this->actingAs($user)->get('/games')->assertStatus(200);
     });
 
-    it('accesses GET /financial', function () {
+    it('accesses GET /sales', function () {
         $user = User::factory()->create();
         AuthorizedUsers::create(['name' => $user->name, 'email' => $user->email, 'status' => true]);
 
-        $this->actingAs($user)->get('/financial')->assertStatus(200);
+        $this->actingAs($user)->get('/sales')->assertStatus(200);
     });
 
     it('accesses GET /financial-months', function () {

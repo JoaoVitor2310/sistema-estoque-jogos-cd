@@ -13,7 +13,7 @@ A importação é **atômica**: ou o lote inteiro entra, ou nada entra. Isso é 
 ## Considered Options
 
 - **Recalcular só a key editada, mantendo `individual_cost` congelado** — corrige a inconsistência interna da key, mas o custo do lote continua errado. Rejeitado: não resolve o problema real.
-- **Agrupar por `(total_paid, acquired_at)`** — chave composta que o `FinancialService` já usa. Não exige migration, mas é frágil (duas trades com o mesmo rótulo e data colidiriam) e não usa a tabela `trades` que já existe. Rejeitado em favor da FK.
+- **Agrupar por `(total_paid, acquired_at)`** — chave composta que o `SalesDashboardService` já usa. Não exige migration, mas é frágil (duas trades com o mesmo rótulo e data colidiriam) e não usa a tabela `trades` que já existe. Rejeitado em favor da FK.
 - **FK `trade_id` em `keys`** — escolhido. Vínculo explícito e robusto, aproveitando a tabela `trades`. Custo: migration + popular o `trade_id` no fluxo de import.
 
 ## Consequences

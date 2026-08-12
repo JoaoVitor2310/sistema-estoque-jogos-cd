@@ -92,7 +92,7 @@ _Avoid_: trade concluída, trade fulfilled.
 
 ### Fechamento mensal
 
-O caixa da empresa em R$, montado lançamento a lançamento. Não confundir com a **aba Financeiro** (`/financial`), que é análise de vendas em € — domínios distintos que compartilham só o prefixo do nome.
+O caixa da empresa em R$, montado lançamento a lançamento. Não confundir com a **aba Financeiro** (`/sales`), que é análise de vendas em € — domínios distintos que compartilham só o prefixo do nome.
 
 **Fechamento mensal** (`FinancialMonth`):
 Um mês do livro-caixa dos sócios, do estado `draft` (sendo montado) até `closed` (histórico imutável). É a entidade; "fechar" e "reabrir" são atos sobre ela, não estados.

@@ -1,8 +1,5 @@
 {
   "permissions": {
-    "deny": [
-      "Bash(git commit:*)"
-    ],
     "allow": [
       "Bash",
       "Read",
@@ -33,7 +30,11 @@
       "Bash(docker exec *)",
       "Bash(php -v)",
       "Read(///wsl.localhost/ubuntu-24.04/var/www/**)",
-      "Bash(php artisan *)"
+      "Bash(php artisan *)",
+      "Artifact"
+    ],
+    "deny": [
+      "Bash(git commit:*)"
     ]
   }
 }

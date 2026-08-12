@@ -1,12 +1,12 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Sales;
 
 use App\Domain\Keys\KeyEligibility;
 use App\Models\Key;
 use Illuminate\Support\Carbon;
 
-class FinancialService
+class SalesDashboardService
 {
     /**
      * @param  int  $month  0 = ano completo, 1–12 = mês específico

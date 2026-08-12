@@ -58,7 +58,7 @@ Retorna todos os bundles ativos no momento da chamada.
 ## Fluxo de sincronização (`SyncBundlesFromApiUseCase::execute`)
 
 ```
-APIService::getBundles()
+GgDealsApiService::getBundles()
   └── GET /v1/bundles/active/
         │
         ▼
@@ -70,7 +70,7 @@ SyncBundlesFromApiUseCase::syncBundles()
   │   ├── Se for "choice" recém-criado → envia e-mail de alerta
   │   │
   │   ├── Pega o tier de maior preço (max dos tiers)
-  │   ├── Converte preço para USD se necessário (via APIService::convertCurrency)
+  │   ├── Converte preço para USD se necessário (via CurrencyConversionService::convertAll)
   │   ├── Calcula minimum_price_tf2 = price_dolar / tf2_price_dolar (tabela recursos)
   │   ├── Salva bundle com price_dolar e minimum_price_tf2
   │   │
@@ -97,7 +97,7 @@ Apenas o **tier de maior preço** (`max($api_bundle['tiers'])`) é processado. O
 
 ### Preço do bundle
 - Se o tier já está em USD, usa diretamente.
-- Caso contrário, converte para USD via `APIService::convertCurrency` (AwesomeAPI).
+- Caso contrário, converte para USD via `CurrencyConversionService` (AwesomeAPI).
 - O `minimum_price_tf2` é calculado dividindo o `price_dolar` pelo preço atual da TF2 Key em dólar (tabela `recursos`, nome `TF2`).
 
 ### Preço de lançamento dos jogos (`bundle_launch_price`)

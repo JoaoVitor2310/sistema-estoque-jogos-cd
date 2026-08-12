@@ -2,12 +2,13 @@
 
 /*
 |--------------------------------------------------------------------------
-| FinancialDashboard — feature tests
+| SalesDashboard — feature tests
 |--------------------------------------------------------------------------
 |
-| Cobre o controller HTTP e cada método do FinancialService:
+| Dashboard analítico de vendas em € (/sales). Cobre o controller HTTP e cada
+| método do SalesDashboardService:
 |
-|   - Segurança: rota protegida por CheckPermission
+|   - Segurança: rota protegida por RequireAuth
 |   - getMonthlySales  — contagem, receita, lucro, margem por mês/ano; month=0
 |   - getMonthlyPurchases — contagem e total investido; month=0
 |   - getTf2Spent — desduplicação por (total_paid, acquired_at)
@@ -20,7 +21,7 @@
 use App\Models\AuthorizedUsers;
 use App\Models\Key;
 use App\Models\User;
-use App\Services\FinancialService;
+use App\Services\Sales\SalesDashboardService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -85,25 +86,25 @@ function stockKey(array $overrides = []): Key
 
 // ── Security ──────────────────────────────────────────────────────────────────
 
-describe('GET /financial', function () {
+describe('GET /sales', function () {
 
     it('redirects unauthenticated requests to login (RequireAuth middleware)', function () {
-        $this->get('/financial')->assertRedirectToRoute('login');
+        $this->get('/sales')->assertRedirectToRoute('login');
     });
 
     it('returns 200 for authorized users', function () {
         $user = makeAuthorizedFinancialUser();
 
-        $this->actingAs($user)->get('/financial')->assertStatus(200);
+        $this->actingAs($user)->get('/sales')->assertStatus(200);
     });
 
     it('passes year and month props to the view', function () {
         $user = makeAuthorizedFinancialUser();
 
         $this->actingAs($user)
-            ->get('/financial?year=2025&month=6')
+            ->get('/sales?year=2025&month=6')
             ->assertInertia(fn ($page) => $page
-                ->component('Financial')
+                ->component('SalesDashboard')
                 ->where('year', 2025)
                 ->where('month', 6)
             );
@@ -113,7 +114,7 @@ describe('GET /financial', function () {
         $user = makeAuthorizedFinancialUser();
 
         $this->actingAs($user)
-            ->get('/financial')
+            ->get('/sales')
             ->assertInertia(fn ($page) => $page
                 ->where('year', now()->year)
                 ->where('month', now()->month)
@@ -123,7 +124,7 @@ describe('GET /financial', function () {
 
 // ── getMonthlySales ───────────────────────────────────────────────────────────
 
-describe('FinancialService::getMonthlySales', function () {
+describe('SalesDashboardService::getMonthlySales', function () {
 
     it('counts sold keys and sums revenue/profit for the given month', function () {
         $sid = seedSupplier();
@@ -132,7 +133,7 @@ describe('FinancialService::getMonthlySales', function () {
         // key de outro mês — não deve entrar
         soldKey(['supplier_id' => $sid, 'sold_at' => Carbon::create(2025, 5, 15), 'sold_price' => 50.00, 'sale_profit' => 20.00, 'sale_profit_percent' => 40.0]);
 
-        $result = app(FinancialService::class)->getDashboard(2025, 6);
+        $result = app(SalesDashboardService::class)->getDashboard(2025, 6);
 
         expect($result['monthly_sales']['count'])->toBe(2);
         expect($result['monthly_sales']['gross_revenue'])->toBe(30.00);
@@ -141,7 +142,7 @@ describe('FinancialService::getMonthlySales', function () {
     });
 
     it('returns zeros when there are no sales in the month', function () {
-        $result = app(FinancialService::class)->getDashboard(2025, 6);
+        $result = app(SalesDashboardService::class)->getDashboard(2025, 6);
 
         expect($result['monthly_sales']['count'])->toBe(0);
         expect($result['monthly_sales']['gross_revenue'])->toBe(0.0);
@@ -155,7 +156,7 @@ describe('FinancialService::getMonthlySales', function () {
         // outro ano — não deve entrar
         soldKey(['supplier_id' => $sid, 'sold_at' => Carbon::create(2024, 6, 1), 'sold_price' => 100.00, 'sale_profit' => 50.00, 'sale_profit_percent' => 50.0]);
 
-        $result = app(FinancialService::class)->getDashboard(2025, 0);
+        $result = app(SalesDashboardService::class)->getDashboard(2025, 0);
 
         expect($result['monthly_sales']['count'])->toBe(2);
         expect($result['monthly_sales']['gross_revenue'])->toBe(30.00);
@@ -165,7 +166,7 @@ describe('FinancialService::getMonthlySales', function () {
 
 // ── getMonthlyPurchases ───────────────────────────────────────────────────────
 
-describe('FinancialService::getMonthlyPurchases', function () {
+describe('SalesDashboardService::getMonthlyPurchases', function () {
 
     it('counts purchased keys and sums individual_cost for the given month', function () {
         $sid = seedSupplier();
@@ -174,7 +175,7 @@ describe('FinancialService::getMonthlyPurchases', function () {
         // outro mês
         Key::factory()->create(['supplier_id' => $sid, 'acquired_at' => Carbon::create(2025, 5, 1), 'individual_cost' => 50.00, 'sold_at' => null]);
 
-        $result = app(FinancialService::class)->getDashboard(2025, 6);
+        $result = app(SalesDashboardService::class)->getDashboard(2025, 6);
 
         expect($result['monthly_purchases']['count'])->toBe(2);
         expect($result['monthly_purchases']['total_invested'])->toBe(10.00);
@@ -187,7 +188,7 @@ describe('FinancialService::getMonthlyPurchases', function () {
         // outro ano
         Key::factory()->create(['supplier_id' => $sid, 'acquired_at' => Carbon::create(2024, 6, 1), 'individual_cost' => 100.00, 'sold_at' => null]);
 
-        $result = app(FinancialService::class)->getDashboard(2025, 0);
+        $result = app(SalesDashboardService::class)->getDashboard(2025, 0);
 
         expect($result['monthly_purchases']['count'])->toBe(2);
         expect($result['monthly_purchases']['total_invested'])->toBe(10.00);
@@ -196,7 +197,7 @@ describe('FinancialService::getMonthlyPurchases', function () {
 
 // ── getTf2Spent ───────────────────────────────────────────────────────────────
 
-describe('FinancialService::getTf2Spent', function () {
+describe('SalesDashboardService::getTf2Spent', function () {
 
     it('sums tf2_quantity without double-counting the same trade', function () {
         $sid = seedSupplier();
@@ -210,7 +211,7 @@ describe('FinancialService::getTf2Spent', function () {
         // Trade B diferente no mesmo mês
         Key::factory()->create(['supplier_id' => $sid, 'acquired_at' => Carbon::create(2025, 6, 15), 'total_paid' => '2.00', 'tf2_quantity' => 2.0, 'sold_at' => null]);
 
-        $result = app(FinancialService::class)->getDashboard(2025, 6);
+        $result = app(SalesDashboardService::class)->getDashboard(2025, 6);
 
         // 5.5 (trade A, contada 1x) + 2.0 (trade B) = 7.5
         expect($result['tf2_spent'])->toBe(7.5);
@@ -222,7 +223,7 @@ describe('FinancialService::getTf2Spent', function () {
         // outro mês
         Key::factory()->create(['supplier_id' => $sid, 'acquired_at' => Carbon::create(2025, 5, 1), 'total_paid' => '10.00', 'tf2_quantity' => 10.0, 'sold_at' => null]);
 
-        $result = app(FinancialService::class)->getDashboard(2025, 6);
+        $result = app(SalesDashboardService::class)->getDashboard(2025, 6);
 
         expect($result['tf2_spent'])->toBe(3.0);
     });
@@ -234,7 +235,7 @@ describe('FinancialService::getTf2Spent', function () {
         // outro ano
         Key::factory()->create(['supplier_id' => $sid, 'acquired_at' => Carbon::create(2024, 6, 1), 'total_paid' => '99.00', 'tf2_quantity' => 99.0, 'sold_at' => null]);
 
-        $result = app(FinancialService::class)->getDashboard(2025, 0);
+        $result = app(SalesDashboardService::class)->getDashboard(2025, 0);
 
         expect($result['tf2_spent'])->toBe(5.0);
     });
@@ -242,7 +243,7 @@ describe('FinancialService::getTf2Spent', function () {
 
 // ── getStockSummary ───────────────────────────────────────────────────────────
 
-describe('FinancialService::getStockSummary', function () {
+describe('SalesDashboardService::getStockSummary', function () {
 
     it('counts only unsold keys regardless of date filter', function () {
         $sid = seedSupplier();
@@ -250,7 +251,7 @@ describe('FinancialService::getStockSummary', function () {
         stockKey(['supplier_id' => $sid, 'individual_cost' => 6.00, 'simulated_income' => 12.00]);
         soldKey(['supplier_id' => $sid]); // não deve entrar
 
-        $result = app(FinancialService::class)->getDashboard(2025, 6);
+        $result = app(SalesDashboardService::class)->getDashboard(2025, 6);
 
         expect($result['stock']['total_count'])->toBe(2);
         expect($result['stock']['total_invested'])->toBe(10.00);
@@ -263,7 +264,7 @@ describe('FinancialService::getStockSummary', function () {
         stockKey(['supplier_id' => $sid, 'listed_at' => now()]);
         stockKey(['supplier_id' => $sid, 'listed_at' => null]);
 
-        $result = app(FinancialService::class)->getDashboard(2025, 6);
+        $result = app(SalesDashboardService::class)->getDashboard(2025, 6);
 
         expect($result['stock']['listed_count'])->toBe(2);
         expect($result['stock']['unlisted_count'])->toBe(1);
@@ -276,7 +277,7 @@ describe('FinancialService::getStockSummary', function () {
         stockKey(['supplier_id' => $sid, 'expires_at' => now()->addDays(31)]); // fora da janela
         stockKey(['supplier_id' => $sid, 'expires_at' => null]);               // sem expiração
 
-        $result = app(FinancialService::class)->getDashboard(2025, 6);
+        $result = app(SalesDashboardService::class)->getDashboard(2025, 6);
 
         expect($result['stock']['expiring_count'])->toBe(2);
     });
@@ -285,8 +286,8 @@ describe('FinancialService::getStockSummary', function () {
         $sid = seedSupplier();
         stockKey(['supplier_id' => $sid]);
 
-        $resultJune = app(FinancialService::class)->getDashboard(2025, 6);
-        $resultDec = app(FinancialService::class)->getDashboard(2025, 12);
+        $resultJune = app(SalesDashboardService::class)->getDashboard(2025, 6);
+        $resultDec = app(SalesDashboardService::class)->getDashboard(2025, 12);
 
         expect($resultJune['stock']['total_count'])->toBe($resultDec['stock']['total_count']);
     });
@@ -294,14 +295,14 @@ describe('FinancialService::getStockSummary', function () {
 
 // ── getSoldGames ──────────────────────────────────────────────────────────────
 
-describe('FinancialService::getSoldGames', function () {
+describe('SalesDashboardService::getSoldGames', function () {
 
     it('returns sold games ordered by profit descending', function () {
         $sid = seedSupplier();
         soldKey(['supplier_id' => $sid, 'sold_at' => Carbon::create(2025, 6, 1), 'game_name' => 'Low Profit Game', 'sale_profit' => 1.00]);
         soldKey(['supplier_id' => $sid, 'sold_at' => Carbon::create(2025, 6, 2), 'game_name' => 'High Profit Game', 'sale_profit' => 9.00]);
 
-        $result = app(FinancialService::class)->getDashboard(2025, 6);
+        $result = app(SalesDashboardService::class)->getDashboard(2025, 6);
 
         expect($result['sold_games'][0]['game_name'])->toBe('High Profit Game');
         expect($result['sold_games'][1]['game_name'])->toBe('Low Profit Game');
@@ -311,7 +312,7 @@ describe('FinancialService::getSoldGames', function () {
         $sid = seedSupplier();
         soldKey(['supplier_id' => $sid, 'sold_at' => Carbon::create(2025, 6, 15), 'game_name' => 'Test Game', 'region' => 'EU', 'sold_price' => 10.00, 'sale_profit' => 4.00, 'sale_profit_percent' => 40.0]);
 
-        $result = app(FinancialService::class)->getDashboard(2025, 6);
+        $result = app(SalesDashboardService::class)->getDashboard(2025, 6);
 
         expect($result['sold_games'])->toHaveCount(1);
         expect($result['sold_games'][0])->toHaveKeys(['game_name', 'region', 'sold_price', 'sale_profit', 'sale_profit_percent', 'sold_at']);
@@ -325,14 +326,14 @@ describe('FinancialService::getSoldGames', function () {
         soldKey(['supplier_id' => $sid, 'sold_at' => Carbon::create(2025, 6, 1), 'game_name' => 'June Game']);
         soldKey(['supplier_id' => $sid, 'sold_at' => Carbon::create(2025, 5, 1), 'game_name' => 'May Game']);
 
-        $result = app(FinancialService::class)->getDashboard(2025, 6);
+        $result = app(SalesDashboardService::class)->getDashboard(2025, 6);
 
         expect($result['sold_games'])->toHaveCount(1);
         expect($result['sold_games'][0]['game_name'])->toBe('June Game');
     });
 
     it('returns empty array when there are no sales', function () {
-        $result = app(FinancialService::class)->getDashboard(2025, 6);
+        $result = app(SalesDashboardService::class)->getDashboard(2025, 6);
 
         expect($result['sold_games'])->toBeArray()->toBeEmpty();
     });
@@ -340,13 +341,13 @@ describe('FinancialService::getSoldGames', function () {
 
 // ── getMonthlyTrend ───────────────────────────────────────────────────────────
 
-describe('FinancialService::getMonthlyTrend', function () {
+describe('SalesDashboardService::getMonthlyTrend', function () {
 
     it('returns entries with correct structure', function () {
         $sid = seedSupplier();
         soldKey(['supplier_id' => $sid, 'sold_at' => now()->subMonths(2)->startOfMonth(), 'sold_price' => 10.00, 'sale_profit' => 4.00]);
 
-        $result = app(FinancialService::class)->getDashboard(2025, 6);
+        $result = app(SalesDashboardService::class)->getDashboard(2025, 6);
 
         expect($result['trend'])->not->toBeEmpty();
         expect($result['trend'][0])->toHaveKeys(['month', 'count', 'gross_revenue', 'net_profit']);
@@ -358,7 +359,7 @@ describe('FinancialService::getMonthlyTrend', function () {
         soldKey(['supplier_id' => $sid, 'sold_at' => $month, 'sold_price' => 10.00, 'sale_profit' => 4.00]);
         soldKey(['supplier_id' => $sid, 'sold_at' => $month->copy()->addDays(5), 'sold_price' => 20.00, 'sale_profit' => 8.00]);
 
-        $result = app(FinancialService::class)->getDashboard(2025, 6);
+        $result = app(SalesDashboardService::class)->getDashboard(2025, 6);
 
         $monthKey = $month->format('Y-m');
         $entry = collect($result['trend'])->firstWhere('month', $monthKey);
@@ -372,7 +373,7 @@ describe('FinancialService::getMonthlyTrend', function () {
         $sid = seedSupplier();
         soldKey(['supplier_id' => $sid, 'sold_at' => now()->subMonths(13)]);
 
-        $result = app(FinancialService::class)->getDashboard(2025, 6);
+        $result = app(SalesDashboardService::class)->getDashboard(2025, 6);
 
         $oldMonth = now()->subMonths(13)->format('Y-m');
         $entry = collect($result['trend'])->firstWhere('month', $oldMonth);
@@ -384,8 +385,8 @@ describe('FinancialService::getMonthlyTrend', function () {
         $sid = seedSupplier();
         soldKey(['supplier_id' => $sid, 'sold_at' => now()->subMonths(2)]);
 
-        $resultJune = app(FinancialService::class)->getDashboard(2025, 6);
-        $resultDec = app(FinancialService::class)->getDashboard(2025, 12);
+        $resultJune = app(SalesDashboardService::class)->getDashboard(2025, 6);
+        $resultDec = app(SalesDashboardService::class)->getDashboard(2025, 12);
 
         expect($resultJune['trend'])->toEqual($resultDec['trend']);
     });
