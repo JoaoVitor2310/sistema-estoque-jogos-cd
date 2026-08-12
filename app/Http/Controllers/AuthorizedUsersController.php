@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\AuthorizedUserRequest;
+use App\Http\Requests\DeleteAuthorizedUsersRequest;
 use App\Models\AuthorizedUsers;
 use App\Traits\HttpResponses;
 use Illuminate\Http\Request;
@@ -58,27 +59,13 @@ class AuthorizedUsersController extends Controller
         return $this->response(200, 'Usuário deletado com sucesso', $authorizedUser);
     }
 
-    public function destroyArray(Request $request)
+    public function destroyArray(DeleteAuthorizedUsersRequest $request)
     {
-        $items = $request->input('items');
-        if (! $items) {
-            return $this->error(404, 'Usuários não enviados', ['errors' => 'Usuários não enviados']);
-        }
+        $ids = $request->ids();
 
-        foreach ($items as $item) {
+        AuthorizedUsers::whereIn('id', $ids)->delete();
 
-            $item = AuthorizedUsers::select('*')->where('id', $item['id'])->first();
-            if (! $item) {
-                return $this->error(404, 'Usuário não encontrada');
-            }
-
-            $result = AuthorizedUsers::where('id', $item['id'])->delete();
-            if (! $result) {
-                return $this->error(500, 'Erro interno ao deletar usuário');
-            }
-        }
-
-        return $this->response(200, 'Usuários deletados com sucesso', $items);
+        return $this->response(200, 'Usuários deletados com sucesso', $ids);
     }
 
     public function update(AuthorizedUserRequest $request, AuthorizedUsers $authorizedUser)

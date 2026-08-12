@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\DeleteFeesRequest;
 use App\Http\Requests\StoreFeeRequest;
 use App\Http\Requests\UpdateFeeRequest;
 use App\Models\Fee;
@@ -72,25 +73,12 @@ class FeeController extends Controller
         return $this->response(200, 'Taxa deletada com sucesso', $fee);
     }
 
-    public function destroyArray(Request $request)
+    public function destroyArray(DeleteFeesRequest $request)
     {
-        $fees = $request->input('taxas');
-        if (! $fees) {
-            return $this->error(404, 'Taxas não enviadas', ['taxas' => 'Taxas não enviadas']);
-        }
+        $ids = $request->ids();
 
-        foreach ($fees as $fee) {
-            $item = Fee::select('*')->where('id', $fee['id'])->first();
-            if (! $item) {
-                return $this->error(404, 'Taxa não encontrada');
-            }
+        Fee::whereIn('id', $ids)->delete();
 
-            $result = Fee::where('id', $fee['id'])->delete();
-            if (! $result) {
-                return $this->error(500, 'Erro interno ao deletar taxa');
-            }
-        }
-
-        return $this->response(200, 'Taxas deletadas com sucesso', $fees);
+        return $this->response(200, 'Taxas deletadas com sucesso', $ids);
     }
 }

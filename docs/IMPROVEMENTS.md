@@ -10,7 +10,7 @@ Ordem: roadmap/qualidade/features primeiro, dívida técnica de code-review no f
 
 ---
 
-## Refatoração de camadas — orquestração fora de Use Case (fatias 2 a 4)
+## Refatoração de camadas — orquestração fora de Use Case (fatia 4)
 
 **Onde:** `routes/console.php`, `app/Services/`, `app/Http/Controllers/`, `app/UseCases/`.
 
@@ -21,15 +21,10 @@ sem contar colaboradores. Leitura nunca vira UseCase (vai para Repository/Servic
 com a whitelist de filtros num FormRequest), porque a separação escrita/leitura é o
 que prepara o CQRS pretendido; statement único sobre um modelo só fica onde está.
 
-Fatias 0 (whitelist de filtros em `POST /keys/search`), 1 (crons) e 2 (controllers
-com orquestração) já foram entregues; o critério está registrado em
-[`docs/adr/0007`](adr/0007-usecase-promotion-criteria.md). Falta:
+Fatias 0 (whitelist de filtros em `POST /keys/search`), 1 (crons), 2 (controllers
+com orquestração) e 3 (CRUD e atomicidade) já foram entregues; o critério está
+registrado em [`docs/adr/0007`](adr/0007-usecase-promotion-criteria.md). Falta:
 
-- [ ] **Fatia 3 — CRUD e atomicidade.** `BundleController` (`store`, `addGames`,
-  `removeGames`, `update`) → `BundleService`; `removeGames` está sem FormRequest.
-  Os 5 `destroyArray` (`Key`, `Game`, `Asset`, `Fee`, `AuthorizedUsers`) viram
-  `Service::deleteMany()` transacional: hoje **4 dos 5 não têm transação** e, ao
-  falhar no meio do loop, deletam parcialmente e ainda respondem erro.
 - [ ] **Fatia 4 — árvore de `Services/`.** `APIService` → `External/GgDealsApiService`
   (é cliente da GG.deals); `BundleService` → `Services/Bundles/`; `FinancialService`
   → `Services/Sales/SalesDashboardService` (**não** `Services/Financial/`, que é o
@@ -38,8 +33,10 @@ com orquestração) já foram entregues; o critério está registrado em
   (`AssetService::getAssetsCurrency` já virou `CurrencyConversionService::convertAll()`
   na Fatia 1, junto com a morte do `AssetService`.)
 
-Ficam **deliberadamente** como estão: `FeeController` e `AuthorizedUsersController`
-falando Eloquent direto (CRUD trivial de um modelo) e `BundleController::index`.
+Ficam **deliberadamente** como estão: `FeeController`, `AuthorizedUsersController`,
+`BundleController::update`/`destroy` e os 5 `destroyArray` falando Eloquent direto —
+todos são statement único sobre um modelo, com a validação na fronteira HTTP.
+`BundleController::index` idem, por ser leitura.
 
 **Origem:** sessão de `/grill-with-docs` sobre responsabilidades de camada (2026-08-10).
 
