@@ -7,6 +7,7 @@ use App\Domain\Enums\KeyFormat;
 use App\Domain\Enums\SellPlatform;
 use App\Domain\Keys\GuestKeyVisibility;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\DeleteKeysRequest;
 use App\Http\Requests\IndexKeysRequest;
 use App\Http\Requests\StoreGameRequest;
 use App\Http\Resources\KeyResource;
@@ -146,24 +147,12 @@ class KeyController extends Controller
     /**
      * Remove um lote de keys pelos IDs recebidos.
      */
-    public function destroyArray(Request $request)
+    public function destroyArray(DeleteKeysRequest $request)
     {
-        $games = $request->input('games');
+        $ids = $request->ids();
 
-        if (! $games) {
-            return $this->error(404, 'Jogos não enviados', ['games' => 'Jogos não enviados']);
-        }
+        Key::whereIn('id', $ids)->delete();
 
-        foreach ($games as $game) {
-            $item = Key::find($game['id']);
-
-            if (! $item) {
-                return $this->error(404, 'Jogo não encontrado');
-            }
-
-            $item->delete();
-        }
-
-        return $this->response(200, 'Jogos deletados com sucesso', $games);
+        return $this->response(200, 'Keys deletadas com sucesso', $ids);
     }
 }

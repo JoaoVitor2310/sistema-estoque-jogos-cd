@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\DeleteGamesRequest;
 use App\Http\Requests\GameRequest;
 use App\Http\Requests\GameRequestArray;
 use App\Http\Requests\IndexGamesRequest;
@@ -12,7 +13,6 @@ use App\UseCases\Games\RegisterGamesUseCase;
 use App\UseCases\Games\UpdateGameUseCase;
 use Exception;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
@@ -134,36 +134,12 @@ class GameController extends Controller
         return $this->response(200, 'Jogo deletado com sucesso', $game);
     }
 
-    public function destroyArray(Request $request)
+    public function destroyArray(DeleteGamesRequest $request)
     {
-        try {
-            DB::beginTransaction();
-            $games = $request->input('games');
-            if (! $games) {
-                return $this->error(404, 'Jogos não enviados', ['games' => 'Jogos não enviados']);
-            }
-            // return $this->response(200, 'a', $jogos);
-            foreach ($games as $game) {
+        $ids = $request->ids();
 
-                $item = Game::select('*')->where('id', $game['id'])->first();
-                if (! $item) {
-                    return $this->error(404, 'Jogo não encontrado');
-                }
+        Game::whereIn('id', $ids)->delete();
 
-                $result = Game::where('id', $game['id'])->delete();
-                if (! $result) {
-                    return $this->error(500, 'Erro interno ao deletar jogo');
-                }
-            }
-
-            DB::commit();
-        } catch (Exception $e) {
-            DB::rollBack();
-            Log::error('Erro ao deletar jogos', [$e->getMessage()]);
-
-            return $this->error(500, 'Erro interno ao deletar jogos', [$e->getMessage()]);
-        }
-
-        return $this->response(200, 'Jogos deletados com sucesso', $games);
+        return $this->response(200, 'Jogos deletados com sucesso', $ids);
     }
 }

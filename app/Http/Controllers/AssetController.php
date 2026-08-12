@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\DeleteAssetsRequest;
 use App\Http\Requests\StoreAssetRequest;
 use App\Models\Asset;
 use App\Traits\HttpResponses;
@@ -54,26 +55,13 @@ class AssetController extends Controller
         return $this->response(200, 'Recurso deletado com sucesso', $asset);
     }
 
-    public function destroyArray(Request $request)
+    public function destroyArray(DeleteAssetsRequest $request)
     {
-        $assets = $request->input('assets');
-        if (! $assets) {
-            return $this->error(404, 'Recursos não enviados', ['assets' => 'Recursos não enviados']);
-        }
+        $ids = $request->ids();
 
-        foreach ($assets as $asset) {
-            $item = Asset::select('*')->where('id', $asset['id'])->first();
-            if (! $item) {
-                return $this->error(404, 'Recurso não encontrado');
-            }
+        Asset::whereIn('id', $ids)->delete();
 
-            $result = Asset::where('id', $asset['id'])->delete();
-            if (! $result) {
-                return $this->error(500, 'Erro interno ao deletar recurso');
-            }
-        }
-
-        return $this->response(200, 'Recursos deletados com sucesso', $assets);
+        return $this->response(200, 'Recursos deletados com sucesso', $ids);
     }
 
     public function update(StoreAssetRequest $request, Asset $asset)
