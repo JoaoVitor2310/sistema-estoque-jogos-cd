@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\External;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Log;
  * Cliente HTTP para a API GGDeals.
  * Infraestrutura pura — sem lógica de negócio.
  */
-class APIService
+class GgDealsApiService
 {
     /**
      * Busca bundles ativos na API GGDeals.

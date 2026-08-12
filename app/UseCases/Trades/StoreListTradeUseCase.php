@@ -4,7 +4,7 @@ namespace App\UseCases\Trades;
 
 use App\Domain\Games\GameNameNormalizer;
 use App\Models\Trade;
-use App\Services\BundleService;
+use App\Services\Bundles\BundleService;
 use App\Services\Suppliers\SupplierService;
 
 class StoreListTradeUseCase

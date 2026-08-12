@@ -73,7 +73,7 @@ const currentYear = new Date().getFullYear();
 const years = Array.from({ length: currentYear - 2023 }, (_, i) => 2024 + i).reverse();
 
 function applyFilter() {
-  router.get(route('financial'), { year: selectedYear.value, month: selectedMonth.value }, { preserveState: true });
+  router.get(route('sales'), { year: selectedYear.value, month: selectedMonth.value }, { preserveState: true });
 }
 
 function onFilterChange() {

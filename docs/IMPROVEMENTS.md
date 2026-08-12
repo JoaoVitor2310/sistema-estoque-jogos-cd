@@ -10,38 +10,6 @@ Ordem: roadmap/qualidade/features primeiro, dívida técnica de code-review no f
 
 ---
 
-## Refatoração de camadas — orquestração fora de Use Case (fatia 4)
-
-**Onde:** `routes/console.php`, `app/Services/`, `app/Http/Controllers/`, `app/UseCases/`.
-
-Auditoria arquitetural de 2026-08-10 mapeou 16 pontos onde orquestração vive em
-Controller ou Service. O critério de promoção ficou definido assim: **um UseCase é
-uma operação de escrita disparada de fora (HTTP, cron, CLI) que orquestra passos** —
-sem contar colaboradores. Leitura nunca vira UseCase (vai para Repository/Service,
-com a whitelist de filtros num FormRequest), porque a separação escrita/leitura é o
-que prepara o CQRS pretendido; statement único sobre um modelo só fica onde está.
-
-Fatias 0 (whitelist de filtros em `POST /keys/search`), 1 (crons), 2 (controllers
-com orquestração) e 3 (CRUD e atomicidade) já foram entregues; o critério está
-registrado em [`docs/adr/0007`](adr/0007-usecase-promotion-criteria.md). Falta:
-
-- [ ] **Fatia 4 — árvore de `Services/`.** `APIService` → `External/GgDealsApiService`
-  (é cliente da GG.deals); `BundleService` → `Services/Bundles/`; `FinancialService`
-  → `Services/Sales/SalesDashboardService` (**não** `Services/Financial/`, que é o
-  livro-caixa em R$ — juntar os dois apaga a distinção que o `CONTEXT.md` mantém);
-  Esta é a "auditoria da árvore de `Services/`" que o `CLAUDE.md` já registrava.
-  (`AssetService::getAssetsCurrency` já virou `CurrencyConversionService::convertAll()`
-  na Fatia 1, junto com a morte do `AssetService`.)
-
-Ficam **deliberadamente** como estão: `FeeController`, `AuthorizedUsersController`,
-`BundleController::update`/`destroy` e os 5 `destroyArray` falando Eloquent direto —
-todos são statement único sobre um modelo, com a validação na fronteira HTTP.
-`BundleController::index` idem, por ser leitura.
-
-**Origem:** sessão de `/grill-with-docs` sobre responsabilidades de camada (2026-08-10).
-
----
-
 ## Dashboard de gastos por categoria (FinancialMonth)
 
 **Onde:** provavelmente uma tela nova sob `/financial-months` (ou uma aba dela), consumindo `FinancialMovement.expense_category`/`income_category`.
@@ -71,7 +39,7 @@ Já concluído: PHPStan (`phpstan/phpstan ^2.1`) e Pint rodam no CI (`.github/wo
 
 ## Mover `tf2_quantity` de `keys` para `trades`
 
-**Onde:** `database/migrations/` (nova migration), `app/Models/Key.php`, `app/Models/Trade.php`, `app/Domain/Pricing/ProfitCalculator.php` (`individualCost`), `app/UseCases/Keys/RegisterKeyUseCase.php`, `app/Services/FinancialService.php` (`getTf2Spent`).
+**Onde:** `database/migrations/` (nova migration), `app/Models/Key.php`, `app/Models/Trade.php`, `app/Domain/Pricing/ProfitCalculator.php` (`individualCost`), `app/UseCases/Keys/RegisterKeyUseCase.php`, `app/Services/Sales/SalesDashboardService.php` (`getTf2Spent`).
 
 `tf2_quantity` é o total de TF2 keys pago pela **trade**, não por cada key — hoje está duplicado em toda key do lote (mesmo valor repetido) e não deveria ser editável no nível da key. O lugar correto é `trades.tf2_qty` (que já existe). O rateio de `individual_cost` passaria a ler a quantidade da trade, e o `getTf2Spent` deixaria de precisar deduplicar por `(total_paid, acquired_at)`.
 

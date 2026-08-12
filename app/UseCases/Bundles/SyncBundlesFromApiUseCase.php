@@ -9,8 +9,8 @@ use App\Mail\NewChoiceBundleMail;
 use App\Models\Asset;
 use App\Models\Bundle;
 use App\Models\Game;
-use App\Services\APIService;
 use App\Services\External\CurrencyConversionService;
+use App\Services\External\GgDealsApiService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\Mail;
  * Orquestra a sincronização de bundles com a API GGDeals.
  *
  * Responsabilidades:
- *  - Buscar bundles na API GGDeals (APIService)
+ *  - Buscar bundles na API GGDeals (GgDealsApiService)
  *  - Criar/atualizar Bundle e Games no banco (Eloquent)
  *  - Converter moedas para USD quando necessário (CurrencyConversionService)
  *  - Buscar preços de lançamento de jogos novos (price_researcher)
@@ -30,14 +30,14 @@ use Illuminate\Support\Facades\Mail;
 class SyncBundlesFromApiUseCase
 {
     public function __construct(
-        private readonly APIService $apiService,
+        private readonly GgDealsApiService $ggDealsApi,
         private readonly CurrencyConversionService $currencyService,
     ) {}
 
     public function execute(): void
     {
         try {
-            $response = $this->apiService->getBundles();
+            $response = $this->ggDealsApi->getBundles();
 
             if (! $response['success']) {
                 Log::error('Erro ao buscar bundles: '.$response['message']);

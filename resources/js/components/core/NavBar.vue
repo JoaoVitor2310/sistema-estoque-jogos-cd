@@ -77,7 +77,7 @@ const handleLogout = async () => {
                 <Link class="nav-link" :href="route('assets')">Recursos</Link>
               </li>
               <li>
-                <Link class="nav-link" :href="route('financial')">Financeiro</Link>
+                <Link class="nav-link" :href="route('sales')">Financeiro</Link>
               </li>
               <li>
                 <Link class="nav-link" :href="route('financial-months')">Mensal</Link>
