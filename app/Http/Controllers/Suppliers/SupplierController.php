@@ -8,9 +8,9 @@ use App\Http\Requests\SaveSupplierRequest;
 use App\Models\Supplier;
 use App\Traits\HttpResponses;
 use App\UseCases\Suppliers\ExecuteSupplierListUseCase;
+use App\UseCases\Suppliers\FindNewSuppliersUseCase;
 use App\UseCases\Suppliers\ProspectSupplierUseCase;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Http;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -21,6 +21,7 @@ class SupplierController extends Controller
     public function __construct(
         private readonly ProspectSupplierUseCase $prospectSupplierUseCase,
         private readonly ExecuteSupplierListUseCase $executeSupplierListUseCase,
+        private readonly FindNewSuppliersUseCase $findNewSuppliersUseCase,
     ) {}
 
     public function index(): Response
@@ -70,16 +71,13 @@ class SupplierController extends Controller
 
     public function findNewSuppliers(): JsonResponse
     {
-        $baseUrl = rtrim(config('services.price_researcher.base_url'), '/');
+        $result = $this->findNewSuppliersUseCase->execute();
 
-        $response = Http::withToken(config('services.external_secret'))
-            ->post($baseUrl.'/api/suppliers/find-new');
-
-        if ($response->failed()) {
-            return $this->error($response->status(), 'Erro ao buscar novos fornecedores.', [], $response->json());
+        if (! $result['success']) {
+            return $this->error($result['code'], $result['message'], [], $result['data']);
         }
 
-        return $this->response(202, 'Busca de novos fornecedores enfileirada.', $response->json());
+        return $this->response(202, 'Busca de novos fornecedores enfileirada.', $result['data']);
     }
 
     public function prospect(ProspectSupplierRequest $request): JsonResponse

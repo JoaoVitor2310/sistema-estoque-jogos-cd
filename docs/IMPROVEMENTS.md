@@ -15,23 +15,16 @@ Ordem: roadmap/qualidade/features primeiro, dívida técnica de code-review no f
 **Onde:** `routes/console.php`, `app/Services/`, `app/Http/Controllers/`, `app/UseCases/`.
 
 Auditoria arquitetural de 2026-08-10 mapeou 16 pontos onde orquestração vive em
-Controller ou Service. O critério de promoção ficou definido assim: **um UseCase
-é uma operação disparada de fora (HTTP, cron, CLI) que causa efeito (grava, envia
-e-mail, chama API externa) e coordena 2+ colaboradores**. Leitura pura nunca vira
-UseCase; CRUD de um agregado só, sem colaborador extra, fica no Service.
+Controller ou Service. O critério de promoção ficou definido assim: **um UseCase é
+uma operação de escrita disparada de fora (HTTP, cron, CLI) que orquestra passos** —
+sem contar colaboradores. Leitura nunca vira UseCase (vai para Repository/Service,
+com a whitelist de filtros num FormRequest), porque a separação escrita/leitura é o
+que prepara o CQRS pretendido; statement único sobre um modelo só fica onde está.
 
-Fatias 0 (whitelist de filtros em `POST /keys/search`) e 1 (crons) já foram
-entregues; o critério está registrado em [`docs/adr/0007`](adr/0007-usecase-promotion-criteria.md). Falta:
+Fatias 0 (whitelist de filtros em `POST /keys/search`), 1 (crons) e 2 (controllers
+com orquestração) já foram entregues; o critério está registrado em
+[`docs/adr/0007`](adr/0007-usecase-promotion-criteria.md). Falta:
 
-- [ ] **Fatia 2 — controllers com orquestração.** `SupplierController::findNewSuppliers`
-  (hoje faz `Http::post` cru no controller) → `UseCases/Suppliers/FindNewSuppliersUseCase`;
-  `AssetController::update` → `UseCases/Assets/UpdateAssetPricesUseCase` (a Fatia 1
-  já trocou o `new AssetService` por injeção do `CurrencyConversionService`, mas a
-  orquestração segue no controller); `GameController::store` →
-  `RegisterGamesUseCase`; `GameController::update` → `UpdateGameUseCase`.
-  `GameController::search` recebe o mesmo tratamento da Fatia 0 (`IndexGamesRequest`
-  + `GameRepository::paginate`) — mesmo padrão de filtro dinâmico, mas a rota exige
-  `can-edit`, então lá é dívida técnica, não vazamento.
 - [ ] **Fatia 3 — CRUD e atomicidade.** `BundleController` (`store`, `addGames`,
   `removeGames`, `update`) → `BundleService`; `removeGames` está sem FormRequest.
   Os 5 `destroyArray` (`Key`, `Game`, `Asset`, `Fee`, `AuthorizedUsers`) viram

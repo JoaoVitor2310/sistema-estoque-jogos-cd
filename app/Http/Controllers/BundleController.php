@@ -87,7 +87,7 @@ class BundleController extends Controller
         }
     }
 
-    public function addGames(Request $request, $bundleId)
+    public function addGames(Request $request, Bundle $bundle)
     {
         try {
             $request->validate([
@@ -95,7 +95,6 @@ class BundleController extends Controller
                 'games.*' => 'exists:games,id',
             ]);
 
-            $bundle = Bundle::findOrFail($bundleId);
             $gameIds = $request->input('games');
 
             $existingGameIds = $bundle->games()->whereIn('games.id', $gameIds)->pluck('games.id')->toArray();
@@ -123,10 +122,9 @@ class BundleController extends Controller
         return $this->response(200, 'Jogos adicionados ao bundle com sucesso', $bundle);
     }
 
-    public function removeGames(Request $request, $bundleId)
+    public function removeGames(Request $request, Bundle $bundle)
     {
         try {
-            $bundle = Bundle::findOrFail($bundleId);
             $gameIds = $request->input('games');
             // dd($gameIds, $bundle);
             $bundle->games()->detach($gameIds);
@@ -139,15 +137,10 @@ class BundleController extends Controller
         return $this->response(200, 'Jogos removidos do bundle com sucesso', $bundle);
     }
 
-    public function destroy(string $id)
+    public function destroy(Bundle $bundle)
     {
         try {
-            $bundle = Bundle::findOrFail($id);
-
-            $result = $bundle->delete();
-            if (! $result) {
-                return $this->error(500, 'Erro interno ao deletar bundle');
-            }
+            $bundle->delete();
         } catch (\Exception $e) {
             Log::error('Erro ao deletar bundle', [$e->getMessage()]);
 
@@ -157,18 +150,11 @@ class BundleController extends Controller
         return $this->response(200, 'Bundle deletado com sucesso', $bundle);
     }
 
-    public function update(StoreBundleRequest $request, string $id)
+    public function update(StoreBundleRequest $request, Bundle $bundle)
     {
         try {
-            $data = $request->validated();
-            $bundle = Bundle::findOrFail($id);
-            // dd($data, $id, $bundle);
-
-            $result = $bundle->update($data);
-
-            if (! $result) {
-                return $this->error(500, 'Erro interno ao atualizar bundle');
-            }
+            $bundle->fill($request->validated());
+            $bundle->save();
         } catch (\Exception $e) {
             Log::error('Erro ao atualizar bundle', [$e->getMessage()]);
 

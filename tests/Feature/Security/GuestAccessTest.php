@@ -180,13 +180,60 @@ describe('Guest — mutations return 403', function () {
     });
 });
 
-// PUT/DELETE/execute usam route model binding — precisa de registro existente para o middleware disparar antes do 404
+// Rotas com route model binding: a autorização roda ANTES do binding
+// (prioridade declarada em bootstrap/app.php), então o visitante leva 403
+// exista ou não o registro.
 describe('Guest — key mutations with model binding return 403', function () {
 
     beforeEach(fn () => seedGuestKey());
 
     it('blocks PUT /keys/1', function () {
         $this->putJson('/keys/1', [])->assertStatus(403);
+    });
+
+    it('blocks DELETE /keys/1', function () {
+        $this->deleteJson('/keys/1')->assertStatus(403);
+    });
+});
+
+describe('Guest — model binding does not leak whether a record exists', function () {
+
+    // Se a autorização rodasse depois do binding, o id inexistente devolveria
+    // 404 e o existente 403: variando o id da URL, um visitante enumeraria o
+    // que há no banco sem nunca passar pelo gate. Os dois casos têm que
+    // responder igual.
+    it('answers 403 for both an existing and a missing key', function () {
+        seedGuestKey();
+
+        expect($this->deleteJson('/keys/1')->status())
+            ->toBe($this->deleteJson('/keys/999999')->status())
+            ->toBe(403);
+    });
+
+    it('answers 403 for both an existing and a missing game', function () {
+        DB::table('games')->insert([
+            'id' => 1,
+            'name' => 'Portal 2',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        expect($this->deleteJson('/games/1')->status())
+            ->toBe($this->deleteJson('/games/999999')->status())
+            ->toBe(403);
+    });
+
+    it('answers 403 for both an existing and a missing supplier', function () {
+        DB::table('suppliers')->insert([
+            'id' => 1,
+            'url' => 'https://steamcommunity.com/id/test',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        expect($this->deleteJson('/suppliers/1')->status())
+            ->toBe($this->deleteJson('/suppliers/999999')->status())
+            ->toBe(403);
     });
 });
 

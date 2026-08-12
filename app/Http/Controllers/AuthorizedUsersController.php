@@ -51,19 +51,11 @@ class AuthorizedUsersController extends Controller
         }
     }
 
-    public function destroy(string $id)
+    public function destroy(AuthorizedUsers $authorizedUser)
     {
-        $email = AuthorizedUsers::select('*')->where('id', $id)->first();
-        if (! $email) {
-            return $this->error(404, 'Usuário não encontrado');
-        }
+        $authorizedUser->delete();
 
-        $result = AuthorizedUsers::where('id', $id)->delete();
-        if (! $result) {
-            return $this->error(500, 'Erro interno ao deletar usuário');
-        }
-
-        return $this->response(200, 'Usuário deletado com sucesso', $email);
+        return $this->response(200, 'Usuário deletado com sucesso', $authorizedUser);
     }
 
     public function destroyArray(Request $request)
@@ -89,21 +81,11 @@ class AuthorizedUsersController extends Controller
         return $this->response(200, 'Usuários deletados com sucesso', $items);
     }
 
-    public function update(AuthorizedUserRequest $request, string $id)
+    public function update(AuthorizedUserRequest $request, AuthorizedUsers $authorizedUser)
     {
-        $item = AuthorizedUsers::select('*')->where('id', $id)->first();
-        if (! $item) {
-            return $this->error(404, 'Usuário não encontrado');
-        }
+        $authorizedUser->fill($request->validated());
+        $authorizedUser->save();
 
-        $data = $request->validated();
-
-        $result = AuthorizedUsers::where('id', $id)->update($data);
-
-        if (! $result) {
-            return $this->error(500, 'Erro interno ao atualizar taxa');
-        }
-
-        return $this->response(200, 'Usuário atualizado com sucesso', $data);
+        return $this->response(200, 'Usuário atualizado com sucesso', $authorizedUser);
     }
 }

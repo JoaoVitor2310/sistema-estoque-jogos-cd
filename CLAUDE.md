@@ -345,21 +345,22 @@ Livro-caixa dos sócios em **R$** (`/financial-months`). **Não confundir com `F
 
 ### Quando usar UseCase vs Service direto
 
-**Critério:** um UseCase é uma operação disparada de fora (HTTP, cron, CLI) que **causa efeito** — grava, envia e-mail, chama API externa — **e coordena 2+ colaboradores**. Ver [`docs/adr/0007`](docs/adr/0007-usecase-promotion-criteria.md) para as alternativas descartadas.
+**Critério:** um UseCase é uma operação de **escrita** disparada de fora (HTTP, cron, CLI) que **orquestra passos**. Orquestrar passos basta — não conte colaboradores, não exija que cruze domínios: montar URL, autenticar, chamar serviço externo e traduzir a falha já é orquestração, mesmo com um colaborador só. Ver [`docs/adr/0007`](docs/adr/0007-usecase-promotion-criteria.md) para as alternativas descartadas.
 
 Ordenado do caso mais comum para o mais raro:
 
 | Situação | Caminho | Exemplo |
 |---|---|---|
-| Leitura, com ou sem filtro | Controller → Repository/Service | `KeyRepository::paginate()` |
-| Operação trivial sobre **um** modelo (find/create/update/delete, sem branch) | Controller → Eloquent | `FeeController::destroy` |
-| Escrita com transação, 2+ statements ou query não trivial | Controller → Service | `BundleService::create()` |
-| Efeito + 2 colaboradores | Controller/Scheduler → UseCase → Services + Domain | `AlertExpiringKeysUseCase` |
+| **Leitura**, com ou sem filtro | Controller → Repository/Service | `KeyRepository::paginate()` |
+| **Escrita** que orquestra passos | Controller/Scheduler → UseCase → Services + Domain | `AlertExpiringKeysUseCase` |
+| Statement único sobre **um** modelo (find/create/update/delete, sem branch, sem efeito secundário) | Controller → Eloquent | `FeeController::destroy` |
 | Regra de negócio pura | Domain direto | `MinimumMarginPolicy` |
 
-**Leitura nunca vira UseCase**, por mais filtro que tenha — vai para Repository/Service, com a whitelist de filtros declarada num FormRequest.
+**Leitura nunca vira UseCase**, por mais filtro que tenha — vai para Repository/Service, com a whitelist de filtros declarada num FormRequest. Isso não é sobre tamanho: separar os dois lados desde já é o que torna barata a adoção de **CQRS**, direção pretendida para o sistema.
 
-A assimetria é proposital: `FeeController` fala Eloquent direto enquanto `GameController` delega a um UseCase. O que separa os dois é a contagem de colaboradores, não o tamanho do arquivo — não "uniformize" sem ler o ADR 0007.
+A assimetria é proposital: `FeeController` fala Eloquent direto enquanto `GameController` delega a um UseCase. O que separa os dois é a **natureza da operação** — statement único versus passos orquestrados — não o tamanho do arquivo. Não "uniformize" sem ler o ADR 0007.
+
+Corolário que envelhece na prática: operação que hoje é statement único e amanhã ganha uma segunda etapa (um log, uma chamada externa, uma validação que consulta outra tabela) cruzou a linha e vira UseCase **no mesmo commit**.
 
 ### Wrappers privados — regra
 
@@ -450,9 +451,12 @@ app/
 │   │   ├── RegisterKeyUseCase.php        # único caminho de entrada de keys (exige uma Trade)
 │   │   └── UpdateKeyUseCase.php          # edição inline; recalcula o lote da trade
 │   ├── Assets/
-│   │   └── AlertDollarVariationUseCase.php  # cotação guardada do TF2 x cotação real
+│   │   ├── AlertDollarVariationUseCase.php  # cotação guardada do TF2 x cotação real
+│   │   └── UpdateAssetPricesUseCase.php     # converte a partir da moeda âncora (currentCurrency)
 │   ├── Games/
-│   │   └── ResolveSteamIdsUseCase.php    # descobre steam_id via price_researcher
+│   │   ├── ResolveSteamIdsUseCase.php    # descobre steam_id via price_researcher
+│   │   ├── RegisterGamesUseCase.php      # lote transacional; duplicata é pulada, não aborta
+│   │   └── UpdateGameUseCase.php         # deriva normalized_name e busca gamivo_id no estoque
 │   ├── Marketplaces/                     # orquestrações específicas por marketplace
 │   │   └── Gamivo/                       # quando vier outro: Eneba/, G2A/, etc.
 │   │       ├── AutoSellUseCase.php           # agrupa por gamivo_id (FIFO); trava max_api de keys >= 8 meses
@@ -464,7 +468,8 @@ app/
 │   │   └── SyncBundlesFromApiUseCase.php
 │   ├── Suppliers/
 │   │   ├── ProspectSupplierUseCase.php       # avalia lucratividade + decide comentar (CommentPolicy)
-│   │   └── ExecuteSupplierListUseCase.php    # POST price_researcher /api/lists/run
+│   │   ├── ExecuteSupplierListUseCase.php    # POST price_researcher /api/lists/run
+│   │   └── FindNewSuppliersUseCase.php       # POST price_researcher /api/suppliers/find-new
 │   ├── Trades/
 │   │   ├── CreateTradeUseCase.php
 │   │   ├── StoreListTradeUseCase.php
@@ -492,8 +497,8 @@ app/
 │   │   ├── KeyCalculationService.php   # taxas com cache, conversão para VOs
 │   │   └── KeyRepository.php           # queries complexas + paginate() com whitelist de filtros
 │   ├── Games/
-│   │   ├── GameService.php
-│   │   └── GameRepository.php
+│   │   ├── GameService.php              # lookup/preenchimento de gamivo_id e steam_id
+│   │   └── GameRepository.php           # paginate() com whitelist de filtros (IndexGamesRequest)
 │   ├── Suppliers/SupplierService.php
 │   ├── Trades/TradeService.php          # paginate() com filtros/sort/paginação; is_stocked scoped-to-page
 │   ├── Financial/

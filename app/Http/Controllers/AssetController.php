@@ -4,8 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreAssetRequest;
 use App\Models\Asset;
-use App\Services\External\CurrencyConversionService;
 use App\Traits\HttpResponses;
+use App\UseCases\Assets\UpdateAssetPricesUseCase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
@@ -15,7 +15,7 @@ class AssetController extends Controller
     use HttpResponses;
 
     public function __construct(
-        private readonly CurrencyConversionService $currencyService,
+        private readonly UpdateAssetPricesUseCase $updateAssetPricesUseCase,
     ) {}
 
     public function show(Request $request)
@@ -47,17 +47,9 @@ class AssetController extends Controller
         }
     }
 
-    public function destroy(string $id)
+    public function destroy(Asset $asset)
     {
-        $asset = Asset::select('*')->where('id', $id)->first();
-        if (! $asset) {
-            return $this->error(404, 'Recurso não encontrado');
-        }
-
-        $result = Asset::where('id', $id)->delete();
-        if (! $result) {
-            return $this->error(500, 'Erro interno ao deletar recurso');
-        }
+        $asset->delete();
 
         return $this->response(200, 'Recurso deletado com sucesso', $asset);
     }
@@ -84,36 +76,9 @@ class AssetController extends Controller
         return $this->response(200, 'Recursos deletados com sucesso', $assets);
     }
 
-    public function update(StoreAssetRequest $request, string $id)
+    public function update(StoreAssetRequest $request, Asset $asset)
     {
-        $asset = Asset::select('*')->where('id', $id)->first();
-        if (! $asset) {
-            return $this->error(404, 'Recurso não encontrado');
-        }
-
-        $data = $request->validated();
-
-        $baseField = CurrencyConversionService::PRICE_FIELD_BY_CURRENCY[$data['currentCurrency'] ?? ''] ?? null;
-
-        // Sem moeda base declarada, os três preços vêm prontos do formulário.
-        // Conversão que falha não entra no retorno, então o valor enviado
-        // permanece — nunca sobrescrito por um número não convertido.
-        if ($baseField !== null) {
-            $data = array_merge($data, $this->currencyService->convertAll(
-                $data['currentCurrency'],
-                (float) $data[$baseField],
-            ));
-        }
-
-        $result = $asset->update($data);
-
-        $asset['price_euro'] = $data['price_euro'];
-        $asset['price_dollar'] = $data['price_dollar'];
-        $asset['price_brl'] = $data['price_brl'];
-
-        if (! $result) {
-            return $this->error(500, 'Erro interno ao atualizar recurso');
-        }
+        $asset = $this->updateAssetPricesUseCase->execute($asset, $request->validated());
 
         return $this->response(200, 'Recurso atualizado com sucesso', $asset);
     }
