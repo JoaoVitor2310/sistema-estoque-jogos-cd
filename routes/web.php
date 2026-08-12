@@ -119,8 +119,8 @@ Route::prefix('fees')
     ->middleware(CheckAdmin::class)
     ->controller(FeeController::class)->group(function () {
         Route::post('/', 'store')->name('fees.store');
-        Route::put('/{id}', 'update')->name('fees.update');
-        Route::delete('/{id}', 'destroy')->name('fees.destroy');
+        Route::put('/{fee}', 'update')->name('fees.update');
+        Route::delete('/{fee}', 'destroy')->name('fees.destroy');
         Route::delete('/', 'destroyArray')->name('fees.destroyArray');
     });
 
@@ -130,8 +130,8 @@ Route::prefix('games')
         Route::get('/paginated', 'paginated')->name('games.paginated');
         Route::post('/search', 'search')->name('games.search');
         Route::post('/', 'store')->name('games.store');
-        Route::put('/{id}', 'update')->name('games.update');
-        Route::delete('/{id}', 'destroy')->name('games.destroy');
+        Route::put('/{game}', 'update')->name('games.update');
+        Route::delete('/{game}', 'destroy')->name('games.destroy');
         Route::delete('/', 'destroyArray')->name('games.destroyArray');
     });
 
@@ -139,10 +139,10 @@ Route::prefix('bundles')
     ->middleware(CheckPermission::class)
     ->controller(BundleController::class)->group(function () {
         Route::post('/', 'store')->name('bundles.store');
-        Route::put('/{id}', 'update')->name('bundles.update');
-        Route::delete('/{id}', 'destroy')->name('bundles.destroy');
-        Route::post('/{id}/games', 'addGames')->name('bundles.addGames');
-        Route::delete('/{id}/games', 'removeGames')->name('bundles.removeGames');
+        Route::put('/{bundle}', 'update')->name('bundles.update');
+        Route::delete('/{bundle}', 'destroy')->name('bundles.destroy');
+        Route::post('/{bundle}/games', 'addGames')->name('bundles.addGames');
+        Route::delete('/{bundle}/games', 'removeGames')->name('bundles.removeGames');
     });
 
 Route::prefix('assets')
@@ -150,8 +150,8 @@ Route::prefix('assets')
     ->controller(AssetController::class)
     ->group(function () {
         Route::post('/', 'store')->name('assets.store');
-        Route::put('/{id}', 'update')->name('assets.update');
-        Route::delete('/{id}', 'destroy')->name('assets.destroy');
+        Route::put('/{asset}', 'update')->name('assets.update');
+        Route::delete('/{asset}', 'destroy')->name('assets.destroy');
         Route::delete('/', 'destroyArray')->name('assets.destroyArray');
     });
 
@@ -161,7 +161,7 @@ Route::prefix('keys')
         // KeyController — edição/remoção (mutações exigem permissão).
         // Não há rota de criação: keys entram só via POST /trades/{trade}/import.
         Route::put('/{key}', [KeyController::class, 'update'])->name('keys.update');
-        Route::delete('/{id}', [KeyController::class, 'destroy'])->name('keys.destroy');
+        Route::delete('/{key}', [KeyController::class, 'destroy'])->name('keys.destroy');
         Route::delete('/', [KeyController::class, 'destroyArray'])->name('keys.destroyArray');
 
         // KeySaleController — operações de venda
@@ -172,8 +172,8 @@ Route::prefix('authorize') // Gerenciar quem tem acesso
     ->middleware(CheckAdmin::class) // Somente o admin poderá acessar essas rotas
     ->controller(AuthorizedUsersController::class)->group(function () {
         Route::post('/', 'store')->name('authorize.store');
-        Route::put('/{id}', 'update')->name('authorize.update');
-        Route::delete('/{id}', 'destroy')->name('authorize.destroy');
+        Route::put('/{authorizedUser}', 'update')->name('authorize.update');
+        Route::delete('/{authorizedUser}', 'destroy')->name('authorize.destroy');
         Route::delete('/', 'destroyArray')->name('authorize.destroyArray');
     });
 

@@ -2,9 +2,11 @@
 
 namespace App\Http\Requests;
 
+use App\Services\External\CurrencyConversionService;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Validation\Rule;
 
 class StoreAssetRequest extends FormRequest
 {
@@ -23,7 +25,13 @@ class StoreAssetRequest extends FormRequest
             'price_euro' => ['required', 'decimal:0,3'],
             'price_dollar' => ['required', 'decimal:0,3'],
             'price_brl' => ['required', 'decimal:0,3'],
-            'currentCurrency' => ['nullable', 'string', 'in:EUR,USD,BRL'],
+            // Moedas aceitas derivam do mapa do serviço de conversão: uma lista
+            // escrita à mão aqui aceitaria moeda que o conversor não conhece.
+            'currentCurrency' => [
+                'nullable',
+                'string',
+                Rule::in(array_keys(CurrencyConversionService::PRICE_FIELD_BY_CURRENCY)),
+            ],
         ];
     }
 

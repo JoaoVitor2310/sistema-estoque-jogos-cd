@@ -13,6 +13,10 @@
 | comportamento quando a config falta: o envio lança, e o UseCase precisa
 | absorver a exceção para não derrubar as outras tarefas do scheduler.
 |
+| A suíte em si roda com ADMIN_EMAIL fixado no phpunit.xml. Deixá-la depender do
+| .env de quem executa faria os testes de alerta ficarem vermelhos por
+| configuração de máquina, não por regressão.
+|
 */
 
 use App\Mail\ExpiringKeysAlertMail;

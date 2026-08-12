@@ -136,17 +136,11 @@ class KeyController extends Controller
     /**
      * Remove uma key.
      */
-    public function destroy(string $id)
+    public function destroy(Key $key)
     {
-        $game = Key::find($id);
+        $key->delete();
 
-        if (! $game) {
-            return $this->error(404, 'Jogo não encontrado');
-        }
-
-        $game->delete();
-
-        return $this->response(200, 'Jogo deletado com sucesso', new KeyResource($game));
+        return $this->response(200, 'Key deletada com sucesso', new KeyResource($key));
     }
 
     /**

@@ -52,32 +52,12 @@ class FeeController extends Controller
     }
 
     /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
-    {
-        //
-    }
-
-    /**
      * Update the specified resource in storage.
      */
-    public function update(UpdateFeeRequest $request, string $id)
+    public function update(UpdateFeeRequest $request, Fee $fee)
     {
-        $fee = Fee::select('*')->where('id', $id)->first();
-        if (! $fee) {
-            return $this->error(404, 'Taxa não encontrada');
-        }
-
-        $data = $request->validated();
-
-        $result = Fee::where('id', $id)->update($data);
-
-        if (! $result) {
-            return $this->error(500, 'Erro interno ao atualizar taxa');
-        }
-
-        $fee['preco'] = $data['preco'];
+        $fee->fill($request->validated());
+        $fee->save();
 
         return $this->response(200, 'Taxa atualizada com sucesso', $fee);
     }
@@ -85,17 +65,9 @@ class FeeController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(string $id)
+    public function destroy(Fee $fee)
     {
-        $fee = Fee::select('*')->where('id', $id)->first();
-        if (! $fee) {
-            return $this->error(404, 'Taxa não encontrada');
-        }
-
-        $result = Fee::where('id', $id)->delete();
-        if (! $result) {
-            return $this->error(500, 'Erro interno ao deletar taxa');
-        }
+        $fee->delete();
 
         return $this->response(200, 'Taxa deletada com sucesso', $fee);
     }

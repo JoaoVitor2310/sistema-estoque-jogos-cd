@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use App\Domain\Games\GameNameNormalizer;
 use App\Http\Requests\GameRequest;
 use App\Http\Requests\GameRequestArray;
+use App\Http\Requests\IndexGamesRequest;
 use App\Models\Game;
-use App\Services\Games\GameService;
+use App\Services\Games\GameRepository;
 use App\Traits\HttpResponses;
+use App\UseCases\Games\RegisterGamesUseCase;
+use App\UseCases\Games\UpdateGameUseCase;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,7 +21,9 @@ class GameController extends Controller
     use HttpResponses;
 
     public function __construct(
-        private readonly GameService $gameService,
+        private readonly GameRepository $gameRepository,
+        private readonly RegisterGamesUseCase $registerGamesUseCase,
+        private readonly UpdateGameUseCase $updateGameUseCase,
     ) {}
 
     /**
@@ -74,90 +78,24 @@ class GameController extends Controller
     public function store(GameRequestArray $request)
     {
         try {
-            DB::beginTransaction();
-            $data = $request->validated();
-
-            $repeatedGames = [];
-            $fullGames = [];
-
-            foreach ($data['games'] as $game) {
-                $repeatedGame = Game::where('name', $game['name'])->where('region', $game['region'])->first();
-
-                if ($repeatedGame) {
-                    $repeatedGames[] = $game['name'];
-
-                    continue;
-                }
-
-                // Busca idGamivo nas keys existentes quando não veio na request
-                if (empty($game['gamivo_id'])) {
-                    $idGamivo = $this->gameService->getIdGamivo($game['name'], $game['region']);
-                    if ($idGamivo) {
-                        $game['gamivo_id'] = $idGamivo;
-                    }
-                }
-
-                $game['normalized_name'] = GameNameNormalizer::normalize($game['name']);
-
-                // create() lança exceção em falha — o if ($created) era código morto
-                $created = Game::create($game);
-                $fullGames[] = $created->load('bundles');
-            }
-
-            DB::commit();
+            $result = $this->registerGamesUseCase->execute($request->validated()['games']);
         } catch (Exception $e) {
-            DB::rollBack();
             Log::error('Erro ao cadastrar novo jogo', [$e->getMessage()]);
 
             return $this->error(500, 'Erro interno ao cadastrar novo jogo', [$e->getMessage()]);
         }
 
-        if (! empty($repeatedGames)) {
+        if (! empty($result['skipped'])) {
             return $this->response(201, 'Jogos cadastrados com sucesso, mas tem pelo menos um com o nome repetido:
-            '.implode(', ', $repeatedGames), $fullGames);
+            '.implode(', ', $result['skipped']), $result['created']);
         }
 
-        return $this->response(201, 'Jogos cadastrados com sucesso', $fullGames);
+        return $this->response(201, 'Jogos cadastrados com sucesso', $result['created']);
     }
 
-    public function search(Request $request)
+    public function search(IndexGamesRequest $request)
     {
-        $filters = $request->except('page'); // Filtra todos os campos, exceto 'page'
-
-        // Iniciando a consulta
-        $query = Game::with([
-            'bundles',
-        ]);
-
-        // return $this->response(200, 'DEBUG.', $filters);
-        foreach ($filters as $key => $value) {
-            if ($value) {
-                if (is_array($value)) {
-                    $query->whereIn($key, $value);
-                } elseif (is_string($value)) {
-                    // Tratamento especial para o filtro dataVenda
-                    if ($key === 'release_date') {
-                        if ($value === 'sim') {
-                            $query->whereNotNull($key);
-                        } elseif ($value === 'nao') {
-                            $query->whereNull($key);
-                        } else {
-                            $query->where($key, 'ILIKE', '%'.$value.'%');
-                        }
-                    } else {
-                        $query->where($key, 'ILIKE', '%'.$value.'%');
-                    }
-                } elseif (is_bool($value) && str_starts_with($key, 'data')) {
-                    $query->whereNull($key);
-                } else {
-                    $query->where($key, $value);
-                }
-            }
-        }
-
-        // Paginação
-        $limit = $filters['limit'] ?? 100;
-        $games = $query->orderBy('id', 'desc')->paginate($limit);
+        $games = $this->gameRepository->paginate($request->filters(), $request->perPage());
 
         return $this->response(200, 'Pesquisa realizada com sucesso.', [
             'games' => $games,
@@ -173,39 +111,11 @@ class GameController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(GameRequest $request, string $id)
+    public function update(GameRequest $request, Game $game)
     {
         try {
-            DB::beginTransaction();
-            $game = Game::with('bundles')->find($id);
-
-            if (! $game) {
-                return $this->error(404, 'Jogo não encontrado');
-            }
-
-            $updatedGame = $request->validated();
-
-            if (empty($updatedGame['gamivo_id'])) {
-                $idGamivo = $this->gameService->getIdGamivo(
-                    $updatedGame['name'] ?? $game->name,
-                    $updatedGame['region'] ?? $game->region,
-                );
-                if ($idGamivo) {
-                    $updatedGame['gamivo_id'] = $idGamivo;
-                }
-            }
-
-            if (isset($updatedGame['name'])) {
-                $updatedGame['normalized_name'] = GameNameNormalizer::normalize($updatedGame['name']);
-            }
-
-            $game->fill($updatedGame);
-            $game->save();
-            $game->load('bundles');
-
-            DB::commit();
+            $game = $this->updateGameUseCase->execute($game, $request->validated());
         } catch (Exception $e) {
-            DB::rollBack();
             Log::error('Erro ao atualizar jogo', [$e->getMessage()]);
 
             return $this->error(500, 'Erro interno ao atualizar jogo', [$e->getMessage()]);
@@ -217,17 +127,9 @@ class GameController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(string $id)
+    public function destroy(Game $game)
     {
-        $game = Game::select('*')->where('id', $id)->first();
-        if (! $game) {
-            return $this->error(404, 'Jogo não encontrado');
-        }
-
-        $result = Game::where('id', $id)->delete();
-        if (! $result) {
-            return $this->error(500, 'Erro interno ao deletar jogo');
-        }
+        $game->delete();
 
         return $this->response(200, 'Jogo deletado com sucesso', $game);
     }
