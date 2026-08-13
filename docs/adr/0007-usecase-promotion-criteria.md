@@ -33,7 +33,7 @@ transformar uma decisão de camada numa contagem.
 
 **Todo write vira UseCase, sem exceção.** Consistência máxima (controller nunca toca Eloquent),
 ao custo de ~25 classes anêmicas do tipo `DeleteFeeUseCase` chamando só `->delete()`. Rejeitado
-pela regra de wrappers do próprio `CLAUDE.md` — mas note que o critério adotado fica bem
+pela regra de wrappers (ver [`docs/agents/architecture.md`](../agents/architecture.md)) — mas note que o critério adotado fica bem
 próximo deste: a exceção é estreita de propósito.
 
 **Só o que cruza 2+ domínios.** Mais restritivo — o alerta de expiração (Key + Mail) não seria

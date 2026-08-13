@@ -1,15 +1,15 @@
 # Triage Labels
 
-The skills speak in terms of five canonical triage roles. This file maps those roles to the actual label strings used in this repo's issue tracker.
+As skills falam em termos de cinco papéis canônicos de triagem. Este repositório não usa labels de um tracker externo — os papéis viram o valor de uma linha `**Status:**` dentro da própria entrada em [`docs/IMPROVEMENTS.md`](../IMPROVEMENTS.md) (ver [`issue-tracker.md`](issue-tracker.md#triage-state)).
 
-| Label in mattpocock/skills | Label in our tracker | Meaning                                  |
-| --------------------------- | --------------------- | ----------------------------------------- |
-| `needs-triage`              | `needs-triage`        | Maintainer needs to evaluate this issue   |
-| `needs-info`                | `needs-info`          | Waiting on reporter for more information  |
-| `ready-for-agent`           | `ready-for-agent`     | Fully specified, ready for an AFK agent   |
-| `ready-for-human`           | `ready-for-human`     | Requires human implementation             |
-| `wontfix`                   | `wontfix`             | Will not be actioned                      |
+| Papel em mattpocock/skills | Valor de `Status:` neste repo | Significado |
+| --- | --- | --- |
+| `needs-triage` | `needs-triage` | Alguém do time precisa avaliar o item |
+| `needs-info` | `needs-info` | Falta informação de quem reportou |
+| `ready-for-agent` | `ready-for-agent` | Totalmente especificado, um agente AFK pode pegar |
+| `ready-for-human` | `ready-for-human` | Exige implementação humana |
+| `wontfix` | *(sem valor — a entrada é removida)* | Não será feito |
 
-When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the corresponding label string from this table.
+Quando uma skill menciona um papel (ex: "aplique o label de pronto para agente"), use o valor correspondente na linha `**Status:**` da entrada. `wontfix` é o único papel que não persiste como Status — ele remove a seção inteira de `docs/IMPROVEMENTS.md`.
 
-Edit the right-hand column to match whatever vocabulary you actually use.
+Uma entrada sem linha `Status:` é tratada como `ready-for-human` por padrão (ver `issue-tracker.md`).

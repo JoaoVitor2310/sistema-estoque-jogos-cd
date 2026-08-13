@@ -1,24 +1,45 @@
 # CLAUDE.md — Sistema Estoque Jogos CD
 
-## O que é este sistema
+Sistema de inventário e automação para trading de keys de jogos digitais: registra chaves compradas, calcula lucro pelo marketplace Gamivo, gerencia bundles e executa automações via serviço externo (`price_researcher`).
 
-Sistema de inventário e automação para trading de keys de jogos digitais. Registra chaves compradas, calcula lucro pelo marketplace Gamivo, gerencia bundles e executa automações via serviço externo (`price_researcher`).
+## Comandos
 
-## Documentação complementar
+```bash
+composer install && npm install   # setup
+npm run dev                       # frontend (Vite)
+npm run build                     # build de produção
+./vendor/bin/pint --test          # lint PHP (--test = check; sem flag = fix)
+./vendor/bin/phpstan analyse --configuration=phpstan.neon --memory-limit=512M
+php artisan test --no-coverage    # suíte Pest completa
+```
 
-Consulte quando o contexto for relevante. **Esta lista é o inventário completo de documentação do projeto** — se um arquivo `.md` novo nascer, ele entra aqui.
+## Documentação
 
-- [`CLAUDE.md`](CLAUDE.md) — este arquivo: convenções, domínios, arquitetura, regras de negócio
+**Esta lista é o inventário completo de documentação do projeto** — se um arquivo `.md` novo nascer, ele entra aqui. Consulte cada um quando o contexto for relevante; não carregue tudo de uma vez.
+
+**Domínio e produto**
 - [`CONTEXT.md`](CONTEXT.md) — glossário do domínio (linguagem ubíqua)
 - [`README.md`](README.md) — visão externa do projeto (arquitetura, stack, setup)
-- [`docs/wiki/`](docs/wiki/README.md) — **wiki** em tabelas: domínio, fluxos de negócio, automações e tiers — porta de entrada; aponta para os docs de referência abaixo quando o detalhe técnico importa
+- [`docs/wiki/`](docs/wiki/README.md) — wiki em tabelas: domínio, fluxos de negócio, automações e tiers — porta de entrada; aponta para os docs de referência abaixo quando o detalhe técnico importa
+- [`docs/PRODUCT.md`](docs/PRODUCT.md) — regras de negócio e fluxos
 - [`docs/adr/`](docs/adr/) — decisões arquiteturais registradas
 - [`docs/IMPROVEMENTS.md`](docs/IMPROVEMENTS.md) — **fonte única de pendências** (roadmap, features, dívida técnica)
-- [`docs/PRODUCT.md`](docs/PRODUCT.md) — regras de negócio e fluxos
+
+**Integrações externas**
 - [`docs/PRICE_RESEARCHER.md`](docs/PRICE_RESEARCHER.md) — integração com buscador de preços próprio
 - [`docs/GAMIVO.md`](docs/GAMIVO.md) — **referência completa** da integração com a Gamivo: algoritmos de precificação, fluxos, contratos de API e notas de implementação
 - [`docs/GG_DEALS.md`](docs/GG_DEALS.md) — integração com API de dados de bundles
 - [`docs/GAMIVO_Merchant-pricing.pdf`](docs/GAMIVO_Merchant-pricing.pdf) — **tabela oficial de taxas Gamivo** (retail, wholesale, payouts); fonte de verdade para todas as fórmulas de precificação
+
+**Convenções de engenharia** (como trabalhar neste repo)
+- [`docs/agents/architecture.md`](docs/agents/architecture.md) — Clean Architecture podada, camadas, UseCase vs Service, VOs, DTOs, estrutura de arquivos
+- [`docs/agents/domain-map.md`](docs/agents/domain-map.md) — mapa de modelos/tabelas/campos por domínio
+- [`docs/agents/testing.md`](docs/agents/testing.md) — as três camadas de teste, Pest, armadilhas Postgres/SQLite
+- [`docs/agents/code-style.md`](docs/agents/code-style.md) — convenções Pint
+- [`docs/agents/security-and-guardrails.md`](docs/agents/security-and-guardrails.md) — Gamivo em produção, permissões, lotes atômicos, e outros incidentes já corrigidos
+- [`docs/agents/deploy.md`](docs/agents/deploy.md) — CI/CD e deploy automático
+- [`docs/agents/env.md`](docs/agents/env.md) — variáveis de ambiente
+- [`docs/agents/skills-workflow.md`](docs/agents/skills-workflow.md) — fluxo das skills mattpocock/skills (`/grill-with-docs` → `/to-spec` → `/to-tickets` → `/implement`), issue tracker e triage labels
 
 ### Manter a documentação viva — obrigatório
 
@@ -30,8 +51,8 @@ Antes de encerrar qualquer tarefa, percorra este mapa:
 |---|---|
 | criou, renomeou ou moveu classe/método/arquivo | todo `.md` que cita o nome antigo — `grep` pelo símbolo antes de fechar |
 | removeu código, tabela ou integração | todo `.md` que o referencia; se o assunto morreu, remova a seção inteira |
-| mudou regra de negócio, fórmula, limiar ou constante de domínio | `docs/PRODUCT.md`, a seção "Regras de negócio" deste arquivo e `CONTEXT.md` (se o termo mudou de sentido) |
-| mudou/adicionou campo, coluna ou enum | seção "Domínios do sistema" deste arquivo + o doc da integração afetada |
+| mudou regra de negócio, fórmula, limiar ou constante de domínio | `docs/PRODUCT.md`, [`docs/agents/domain-map.md`](docs/agents/domain-map.md) e `CONTEXT.md` (se o termo mudou de sentido) |
+| mudou/adicionou campo, coluna ou enum | [`docs/agents/domain-map.md`](docs/agents/domain-map.md) + o doc da integração afetada |
 | mudou scheduler, rota, permissão ou fluxo | `docs/GAMIVO.md` (agendamentos) e/ou o doc do fluxo correspondente |
 | mudou integração externa (Gamivo, GG.deals, price_researcher) | o doc daquela integração |
 | **concluiu** algo que estava pendente | remova o item de `docs/IMPROVEMENTS.md` |
@@ -39,7 +60,7 @@ Antes de encerrar qualquer tarefa, percorra este mapa:
 | introduziu termo de domínio novo | `CONTEXT.md` |
 | tomou decisão difícil de reverter | novo ADR em `docs/adr/` |
 
-**Como apresentar:** prefira **tabelas a fluxogramas**, e ordene sempre **do caso mais comum/padrão para o mais raro/extremo** — tabela permite comparar linhas lado a lado e a pessoa encontra primeiro o caso que mais acontece. Quando a ordem de leitura for o inverso da ordem de avaliação do código (ex: no `min_api` o código checa os pisos absolutos *antes* das margens), diga isso explicitamente numa nota — a apresentação segue a preferência, mas nunca pode induzir a erro sobre o comportamento real.
+**Como apresentar:** prefira **tabelas a fluxogramas**, e ordene sempre **do caso mais comum/padrão para o mais raro/extremo**. Quando a ordem de leitura for o inverso da ordem de avaliação do código (ex: no `min_api` o código checa os pisos absolutos *antes* das margens), diga isso explicitamente numa nota — a apresentação segue a preferência, mas nunca pode induzir a erro sobre o comportamento real.
 
 **Quatro regras que evitam o apodrecimento** (cada uma vem de um drift real já encontrado neste repo):
 
@@ -48,560 +69,27 @@ Antes de encerrar qualquer tarefa, percorra este mapa:
 3. **Nunca documente como pendente algo já feito.** Antes de escrever "pendente/futuro", confirme no código que realmente não existe. *(Já aconteceu: roadmap pedindo instalar PHPStan que já rodava no CI.)*
 4. **Doc descreve o presente.** Se um trecho descreve serviço ou fluxo desligado, remova — não marque como "legado". *(Já aconteceu: um doc inteiro descrevia um serviço Node decomissionado.)*
 
----
+Essa mesma regra vale **entre** docs, não só código→doc: se dois arquivos `.md` descrevem o mesmo fato (uma fórmula, uma constante, um agendamento), um deles não é fonte da verdade — ou um aponta para o outro, ou o fato não deveria estar duplicado. *(Já aconteceu: a tabela de agendamento em `docs/wiki/AUTOMATIONS.md` ficou descrevendo um schedule antigo — "5 min se mais barato, senão hora em hora" — enquanto `routes/console.php` e `docs/GAMIVO.md` já refletiam a passada única por minuto. Revisar antes de confiar cegamente numa tabela de doc.)*
 
 ## Papel do Claude neste projeto
 
 Atue sempre como arquiteto de software sênior com conhecimento profundo de Laravel e Clean Architecture.
 - Questione decisões quando houver práticas consolidadas no mercado que apontem em outra direção
 - Explique o raciocínio antes de implementar — nunca apenas execute sem contextualizar
-- Nunca coloque lógica de negócio fora do Domain
-- **Números mágicos são lógica de negócio** — qualquer literal numérico com significado de domínio (janelas de tempo, limiares, limites de preço) deve ser uma constante `public const` na classe de Domain correspondente (ex: `KeyEligibility::EXPIRY_ALERT_DAYS`, `KeyEligibility::BUNDLE_EXCLUSION_DAYS`, `MinMaxPriceCalculator::FLOOR`). Services e UseCases referenciam a constante, nunca o número diretamente
-- Ao sugerir onde um novo arquivo deve viver, justifique com base na camada correta
-- **Nomes sempre em inglês** — variáveis, classes, arquivos, rotas, nomes de página Vue, métodos e constantes. Nunca criar `FinanceiroService`, `financeiro.vue` ou rota `/financeiro` — o correto é `SalesDashboardController`, `SalesDashboard.vue`, `/sales`
-- **Idioma por camada**:
-  - **Inglês**: todo código — nomes de variáveis/classes/métodos/constantes, **chaves de array e de payload** (`['line' => ...]`, nunca `['linha' => ...]`), strings de sistema, logs, git hooks, scripts de terminal, textos de CI/CD
-  - **Português**: comentários no código (para facilitar manutenção) e texto visível ao usuário no frontend (labels, botões, mensagens de validação)
-  - **Descrição de teste é inglês**, não português: o texto dentro de `it(...)`/`describe(...)` é string de sistema, não comentário. `it('blocks filtering by key_code')`, nunca `it('bloqueia filtro por key_code')`. Os comentários *dentro* do teste continuam em português
-  - **Comentário descreve a própria camada**: não vaze presentation no backend. Um UseCase/Service não comenta sobre "a aba", "a tela" ou "o modal" — descreve a regra/efeito no domínio (ex: "marca a trade como importada", não "a trade sai da aba")
-- Colunas do banco sempre em inglês e snake_case
-- Mantenha boas práticas (SOLID, Clean Code, Design Patterns)
-- Identifique Code Smells e proponha soluções
-- **Testes são obrigatórios** — nunca entregar uma implementação sem os testes correspondentes no mesmo passo. O projeto usa três camadas de teste, cada uma com responsabilidade distinta:
+- Ao sugerir onde um novo arquivo deve viver, justifique com base na camada correta (ver [`docs/agents/architecture.md`](docs/agents/architecture.md))
+- **Nunca coloque lógica de negócio fora do Domain.** Números mágicos são lógica de negócio — qualquer literal numérico com significado de domínio (janelas de tempo, limiares, limites de preço) é uma constante `public const` na classe de Domain correspondente, nunca um literal espalhado em Services/UseCases. Camadas e critérios completos: [`docs/agents/architecture.md`](docs/agents/architecture.md)
+- **Testes são obrigatórios** — nunca entregar uma implementação sem os testes correspondentes no mesmo passo. Distribuição por camada (Unit/Integration/Feature) e armadilhas conhecidas: [`docs/agents/testing.md`](docs/agents/testing.md)
+- **Nunca faça commits automáticos** — apenas prepare as alterações e informe o que foi modificado. O commit é sempre feito pelo usuário
+- **API Gamivo é produção real.** `API_KEY_GAMIVO`/`API_GAMIVO_URL` apontam para produção; qualquer chamada real pode afetar estoque e vendas imediatamente. Nunca chamar um endpoint Gamivo sem autorização explícita do usuário na sessão. Regras completas: [`docs/agents/security-and-guardrails.md`](docs/agents/security-and-guardrails.md)
+- Código segue o preset Pint `laravel`: [`docs/agents/code-style.md`](docs/agents/code-style.md)
 
-  | Camada | Localização | O que testa | Exemplo |
-  |--------|-------------|-------------|---------|
-  | **Unit** | `tests/Unit/Domain/` | Lógica pura de Domain — sem banco, sem framework, sem `app()` | `TradeGameComparison::hasChanged()` com arrays literais |
-  | **Integration** | `tests/Feature/UseCases/` | Orquestração de UseCases — chama `app(UseCase::class)->execute()` direto, com banco real | `ProspectSupplierUseCase` retorna `last_commented_at` e `games_changed` corretos |
-  | **Feature** | `tests/Feature/` | HTTP ponta a ponta — auth, validação, persistência, estrutura da resposta | `POST /suppliers/prospect` retorna 401 sem token |
+### Idioma por camada
 
-  **Regras de distribuição:**
-  - Lógica de comparação, cálculo ou decisão que vive no Domain → Unit test
-  - Comportamento do UseCase (o que orquestra, o que persiste, o que retorna) → Integration test via `app()`
-  - Contratos HTTP (status codes, campos da resposta, middleware) → Feature test via HTTP
-  - Não duplicar: se a lógica já está coberta no Unit, o Feature test não precisa repetir todos os casos — só o caminho feliz e o erro principal
-  - Padrão: Pest. Use `DB::table()` para seeds, nunca Factories quando o dado é simples.
-  - **Cuidado com asserções variádicas do Pest.** `toContain()` aceita vários needles, então `expect($x)->not->toContain('', 'minha mensagem')` trata a mensagem como um segundo needle e a asserção afrouxa em silêncio — passa mesmo quando `''` está presente. Quando precisar de mensagem, use o método do PHPUnit (`$this->assertNotContains($needle, $haystack, $message)`). *(Já aconteceu: uma guarda de regressão nasceu verde e inútil.)*
-  - **Teste novo tem que falhar sem a correção.** Antes de fechar, reverta a implementação e confirme o vermelho. Guarda que passa nos dois estados não guarda nada.
-
-- **Produção é Postgres, teste é SQLite — a diferença esconde bugs.** O SQLite não tem tipagem de coluna e aceita calado o que o Postgres rejeita: `data != ''` estoura `invalid input syntax for type date`, e `ILIKE` não existe fora do Postgres. Escreva SQL que roda nos dois (`LOWER(col) LIKE ?` em vez de `ILIKE`; só compare com `''` coluna de texto) e, quando a diferença não puder ser exercitada pela suíte, teste o **SQL gerado** — capture com `DB::listen()` e asserte sobre `sql`/`bindings`. *(Já aconteceu duas vezes: `ILIKE` deixou `KeyController::search` sem nenhum teste possível, e comparar `listed_at` com `''` derrubou a busca em produção com 500.)*
-- **Lote é `whereIn`, não loop.** Exclusão/atualização em massa não itera chamando `find()` + `delete()` por item: se um id falha no meio, os anteriores já foram gravados e a resposta de erro descreve um estado que mudou pela metade. Valide a existência **na fronteira** (`exists:tabela,id` no FormRequest, ver `DeleteManyRequest`) e execute num statement só — assim o lote é atômico por construção, sem precisar de transação, e ainda deixa de ser N+1. *(Já aconteceu: 4 dos 5 `destroyArray` apagavam parcialmente e respondiam erro.)*
-- **`detach()` sem argumento apaga tudo.** No Eloquent, `$model->relation()->detach(null)` desvincula **todos** os registros, não nenhum — então rota de remoção sem FormRequest transforma payload vazio em "esvazie a relação inteira", respondendo 200. Toda rota que remove vínculo declara `required|array|min:1`. *(Já aconteceu: `DELETE /bundles/{bundle}/games` sem `games` limpava o bundle inteiro.)*
-- **Permissões são obrigatórias** — toda rota nova deve declarar explicitamente quem pode acessá-la. Perguntas a responder antes de registrar qualquer rota: (a) guest pode acessar? (b) requer autenticação (`RequireAuth`)? (c) requer `can-edit` (`CheckPermission`)? (d) requer admin (`CheckAdmin`)? Rotas de página usam `RequireAuth` (redirect para `/login`); rotas de API/mutação usam `CheckPermission` (retorna 403 JSON). Nunca deixar rota sem middleware assumindo que "ninguém vai acessar". Após adicionar rotas, adicionar testes de acesso em `tests/Feature/Security/GuestAccessTest.php` cobrindo: guest bloqueado, usuário autorizado liberado.
-- **Em rota pública, esconder o campo não basta — o filtro também é superfície.** Mascarar a saída (`only(GUEST_VISIBLE_FIELDS)`) enquanto o filtro aceita qualquer coluna deixa um **oráculo cego**: a linha some, mas o total de resultados ainda responde "existe registro com esse valor?", e repetir a pergunta com prefixos crescentes reconstrói o dado escondido. Todo endpoint de busca declara a whitelist de filtros num FormRequest, e a whitelist é **escopada pela mesma permissão que escopa a resposta** — se o visitante não recebe a coluna, ele não pode filtrar por ela. Filtro proibido devolve 403; ignorar em silêncio mentiria sobre o resultado. Nunca monte query a partir de `$request->all()`/`except()`: além do vazamento, nome de coluna vindo do cliente vira 500 assim que uma coluna é renomeada. *(Aconteceu: `POST /keys/search` permitia enumerar `key_code`, `supplier_url` e `notes` — ver `IndexKeysRequest`.)*
-- **Validação com enums usa `Rule::enum()`** — nunca use `'in:valor1,valor2'` para validar um campo que tem enum correspondente. Use `Rule::enum(MinhaEnum::class)` no FormRequest. Assim a validação se mantém sincronizada automaticamente quando o enum crescer.
-- **Alerta por e-mail é um Mailable, e o destinatário vem da config.** Nada de `Mail::send`/`Mail::raw` com closure e endereço no meio do código: cada alerta é uma classe em `app/Mail/` (padrão de `GamivoTokenExpiredMail`) enviada para `config('app.admin_email')`, declarado em `config/app.php` **sem fallback** — `ADMIN_EMAIL` é garantido em todos os ambientes, e endereço embutido no código só esconderia um ambiente mal configurado. Envio de alerta vai **sempre** em `try/catch` com log, sem exceção: além de o SMTP poder cair, `Mail::to(null)` lança `An email must have a "To" header`, e uma config faltando não pode derrubar a tarefa que detectou o problema.
-- **Fallback de config depende do que a ausência causa.** Antes de escrever um default, pergunte de que lado erra melhor: para *entrega*, mandar ao endereço padrão pode ser melhor que não mandar; para *autorização*, conceder acesso por omissão de config é o pior desfecho possível. Por isso `admin_email` (entrega) e `admin_gate_email` (Gate `is-admin`) são chaves separadas mesmo lendo hoje o mesmo `ADMIN_EMAIL` sem fallback — a separação existe para que um default reintroduzido de um lado nunca vaze para o outro.
-- **`.env.example` é ambiente de verdade.** O CI faz `cp .env.example .env` e todo clone novo nasce dele: variável obrigatória deixada em branco ali significa suíte rodando com config vazia e sistema novo nascendo quebrado. Ao remover um fallback, preencha o `.env.example` no mesmo passo.
-- **Serviço fora do ar não é status HTTP.** `Http::get`/`post` lança `ConnectionException` quando não conecta — host que não resolve, porta fechada, timeout — e nesse caso **não existe `$response` para inspecionar**: checar `$response->failed()` nunca roda. Onde houver caminho de alerta para falha HTTP, a falha de conexão tem que chegar **no mesmo caminho** — o `try/catch` vai em volta da própria chamada, não só do envio de e-mail. É o modo de falha mais provável dos dois. *(Já aconteceu: `price-researcher-dev` parado derrubou o `ResolveSteamIdsUseCase` com stack trace e nenhum e-mail.)*
-
-  Não é regra de capturar sempre: em `GamivoApiService` a `ConnectionException` **deve** escapar. Ali `handleResponse` traduz erro HTTP em `RuntimeException` e `getMyOfferForProduct` traduz isso em `null` = "não há oferta" — capturar a falha de conexão no mesmo lugar faria a Gamivo inacessível parecer "produto sem oferta" e o sistema criaria oferta duplicada. Deixar estourar faz o scheduler pular o ciclo e tentar de novo no minuto seguinte, que é o desfecho certo. Antes de capturar, pergunte em que a exceção vai virar.
-- **Serviço externo que falha não pode devolver número plausível.** `CurrencyConversionService::convertCurrency` responde com o valor de *entrada* quando a API cai. Quem agrega esse retorno tem que **omitir** o que não converteu (ver `convertAll`), nunca repassar: um `price_dollar` que na verdade é o montante em real passa por cotação real e vira alerta falso ou preço gravado errado. Regra geral: falha de integração vira ausência explícita, não valor default.
-- **Nunca faça commits automáticos** — apenas prepare as alterações e informe o que foi modificado. O commit é sempre feito pelo usuário.
-
-## Code style (Pint — preset Laravel)
-
-O projeto usa o Pint sem `pint.json`, portanto aplica o preset `laravel` padrão. Todo código gerado deve já respeitar essas regras para não gerar diff desnecessário no `pint --fix`.
-
-**Espaçamento e indentação**
-- 4 espaços (sem tabs)
-- Sem trailing whitespace; arquivo termina com `\n`
-- Linha em branco após `namespace` e após o bloco de `use`
-- Linha em branco antes de `return` quando há código acima — exceto quando o corpo do método tem só uma linha
-
-**Chaves e quebras de linha**
-- Chave de abertura de classe e método na **mesma linha** da assinatura (K&R style): `function foo(): void {`
-- `if`, `foreach`, `while` sempre com chaves, mesmo para uma linha
-- Chave de fechamento de classe/método em linha própria
-
-**Arrays**
-- Nunca alinhar `=>` com espaços extras — espaçamento simples: `'key' => $value`
-- Arrays curtos (inline) sem espaço após `[` e antes de `]`: `['a', 'b']`
-- Arrays multilinha: cada item em sua própria linha, vírgula trailing na última entrada
-
-**Tipos e declarações**
-- `declare(strict_types=1)` **não** é usado neste projeto (preset Laravel não o exige)
-- Tipos nativos sempre que possível (`int`, `string`, `float`, `bool`, `array`, `?Type`)
-- `return type` obrigatório em todos os métodos
-- Propriedades de classe sempre tipadas
-
-**Imports**
-- Um `use` por linha, sem grupos
-- Ordenados alfabeticamente dentro de cada bloco (classes, functions, constants)
-- Sem `use` não utilizado
-
-**Visibilidade e modificadores**
-- Sempre declarar visibilidade (`public`, `protected`, `private`) em propriedades e métodos
-- Ordem dos modificadores: `final`/`abstract` → visibilidade → `static` → nome
-
-**Strings**
-- Aspas simples por padrão; aspas duplas só quando há interpolação ou caractere especial que exija
-
-**Operadores**
-- Espaço antes e depois de operadores binários (`===`, `!==`, `+`, `-`, etc.)
-- Sem espaço entre operador unário e operando (`!$flag`, `-$value`)
-- **API Gamivo é produção real — nunca chamar sem autorização explícita.** `API_KEY_GAMIVO` e `API_GAMIVO_URL` apontam para o ambiente de produção. Qualquer chamada real à API Gamivo (criar oferta, atualizar preço, fazer upload de chave, etc.) pode ter efeito imediato no estoque e nas vendas. Regras:
-  1. **Nunca executar um endpoint Gamivo sem o usuário autorizar explicitamente** naquela sessão.
-  2. **Sempre que precisar de um produto/oferta para testar**, perguntar ao usuário qual pode ser usado — nunca assumir ou inventar.
-  3. Em testes automatizados, usar sempre `Http::fake()` — jamais permitir que um teste chegue à API real.
-  4. Em desenvolvimento local, preferir o endpoint `calculate-customer-price` / `calculate-seller-price` (somente leitura) para validar cálculos antes de qualquer PUT/POST.
-
----
-
-## Skills de engenharia disponíveis (mattpocock/skills)
-
-Instaladas em `.claude/skills/` (symlinks) → `.agents/skills/` (conteúdo real), do repositório [mattpocock/skills](https://github.com/mattpocock/skills). Orquestram *como* o trabalho é conduzido (entrevista → spec → tickets → implementação → revisão) — **não substituem nenhuma convenção deste arquivo** (arquitetura, testes em 3 camadas, idioma por camada etc.), operam dentro delas. Quando `/implement` ou `/tdd` rodar testes, deve seguir a distribuição Unit/Integration/Feature já definida acima, nunca inventar a própria.
-
-**Setup:** `/setup-matt-pocock-skills` já foi executado neste repositório — tracker de issues, rótulos de triagem e layout de docs de domínio estão configurados na seção [Agent skills](#agent-skills) abaixo.
-
-**⚠️ Colisão de nome:** este pacote instala uma skill própria chamada `code-review`, que **sobrepõe** o `/code-review` nativo do Claude Code. Neste repositório, `/code-review` agora roda a versão do mattpocock: duas revisões em paralelo (Standards + Spec) contra um ponto fixo (commit/branch/PR) — não mais a revisão de efficiency/correctness por nível de esforço.
-
-### Fluxo principal — ideia → entrega
-
-1. **`/grill-with-docs`** — entrevista para lapidar a ideia; mantém estado em `CONTEXT.md`/ADRs. Ponto de partida padrão (há codebase). *(Sem codebase → `/grill-me`, mesmo motor `/grilling`, mas sem persistir nada.)*
-2. Se alguma pergunta só se resolve rodando código (UI, modelo de estado, lógica) → desviar para `/prototype`, entrando/saindo com `/handoff`.
-3. O trabalho cabe numa sessão?
-   - **Não** (multi-sessão) → `/to-spec` (vira spec) → `/to-tickets` (quebra em tickets com dependências declaradas) → `/implement` **por ticket**, limpando o contexto entre eles.
-   - **Sim** → `/implement` direto, na mesma janela.
-
-   Em ambos os casos, `/implement` roda `/tdd` internamente (um ciclo vermelho-verde por fatia) e fecha com `/code-review` antes de commitar — lembrando: nunca commitar sem o usuário pedir, por instrução deste arquivo.
-
-   **Higiene de contexto:** manter os passos 1–3 na mesma janela sem compactar — só depois do `/to-tickets`. Cada `/implement` recomeça do zero, a partir do ticket.
-
-### Pontos de entrada (on-ramps)
-
-- **Bugs/pedidos chegando de fora** → `/triage` (só para o que não foi criado por nós — issues, bug reports; tickets que já saíram de `/to-tickets` **não** passam por triage).
-- **Algo quebrado, difícil de reproduzir** → `/diagnosing-bugs` — exige um loop de feedback apertado (um comando que já falha nesse bug específico) antes de teorizar.
-- **Esforço gigante e nebuloso** (feature enorme, greenfield) → `/wayfinder` — mapeia decisões como tickets no tracker, resolve uma de cada vez; ao final, converge em `/to-spec` como as demais.
-
-### Saúde do código
-
-- **`/improve-codebase-architecture`** — rodar periodicamente (a cada poucos dias); escaneia oportunidades de "deepening" e gera relatório HTML. Escolher uma oportunidade alimenta o fluxo principal em `/grill-with-docs`.
-
-### Vocabulário (usado por outras skills)
-
-- **`/domain-modeling`** — lapida a linguagem ubíqua do projeto (termos, ADRs para decisões difíceis de reverter).
-- **`/codebase-design`** — vocabulário de módulos profundos (interface, seam, profundidade) para desenhar a forma de um módulo.
-
-### Cruzando sessões
-
-- **`/handoff`** — compacta a conversa atual num arquivo para uma sessão nova referenciar. Usar quando quiser sessão nova mas preservar o raciocínio.
-- **`/compact`** (nativo) — resume na mesma conversa; usar em pausas intencionais entre fases, nunca no meio de uma.
-
-### Standalone
-
-- **`/grill-me`** — mesma entrevista do `/grill-with-docs`, mas sem codebase/persistência.
-- **`/prototype`** — protótipo descartável para responder uma pergunta de design (estado, lógica ou UI).
-- **`/research`** — pesquisa delegada a um agente em background, com fontes citadas; alimenta o fluxo principal.
-- **`/teach`** — ensina um conceito ao usuário ao longo de várias sessões.
-- **`/writing-great-skills`** — referência para escrever/editar skills.
-
-### Tabela de referência
-
-| Skill | Acionamento | Quando usar |
-|---|---|---|
-| `ask-matt` | Manual | Não sabe qual skill usar — router |
-| `grill-with-docs` | Manual | Início do fluxo principal, com codebase |
-| `grill-me` | Manual | Início do fluxo principal, sem codebase |
-| `grilling` | Automático | Motor por trás dos dois acima |
-| `to-spec` | Manual | Sintetizar conversa em spec |
-| `to-tickets` | Manual | Quebrar spec em tickets com dependências |
-| `wayfinder` | Manual | Esforço maior que uma sessão aguenta |
-| `implement` | Manual | Executar spec/tickets com TDD embutido |
-| `tdd` | Automático | Construir uma funcionalidade concreta, teste-first |
-| `diagnosing-bugs` | Automático | Bug difícil, intermitente, regressão |
-| `code-review` | Automático (ver colisão acima) | Revisar branch/PR contra padrões + spec |
-| `codebase-design` | Automático | Desenhar/melhorar interface de um módulo |
-| `improve-codebase-architecture` | Manual | Manutenção periódica de arquitetura |
-| `triage` | Manual | Processar issues/PRs externos |
-| `domain-modeling` | Automático | Fixar terminologia, registrar ADR |
-| `prototype` | Automático | Validar modelo de estado ou UI |
-| `research` | Automático | Delegar leitura/investigação |
-| `handoff` | Manual | Compactar sessão para outra retomar |
-| `teach` | Manual | Ensinar conceito ao longo de sessões |
-| `resolving-merge-conflicts` | Automático | Resolver merge/rebase em andamento |
-| `writing-great-skills` | Manual | Referência para escrever skills |
-| `setup-matt-pocock-skills` | Manual | **Rodar 1x, antes de tudo** — já executado |
+- **Inglês**: todo código — nomes de variáveis/classes/métodos/constantes, **chaves de array e de payload** (`['line' => ...]`, nunca `['linha' => ...]`), strings de sistema, logs, git hooks, scripts de terminal, textos de CI/CD, descrição de testes (`it('blocks filtering by key_code')`, nunca em português). Colunas do banco: inglês, `snake_case`
+- **Português**: comentários no código (para facilitar manutenção) e texto visível ao usuário no frontend (labels, botões, mensagens de validação); comentários *dentro* de um teste continuam em português
+- **Comentário descreve a própria camada**: não vaze presentation no backend. Um UseCase/Service não comenta sobre "a aba", "a tela" ou "o modal" — descreve a regra/efeito no domínio
+- Nomes sempre em inglês em variáveis, classes, arquivos, rotas, nomes de página Vue, métodos e constantes: `SalesDashboardController`/`SalesDashboard.vue`/`/sales`, nunca `FinanceiroService`/`financeiro.vue`/`/financeiro`
 
 ## Agent skills
 
-### Issue tracker
-
-Issues live as GitHub Issues in `JoaoVitor2310/sistema-estoque-jogos-cd`, managed via the `gh` CLI. See `docs/agents/issue-tracker.md`.
-
-### Triage labels
-
-Default canonical labels (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
-
-### Domain docs
-
-Single-context layout — `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
-
----
-
-## Domínios do sistema
-
-### 1. Keys (`Key` → tabela `keys`)
-Modelo central. Representa keys compradas e/ou vendidas.
-
-Campos relevantes:
-- `claim_type` — enum do tipo de problema que ocorreu na key
-- `steam_id` — ID na Steam
-- `game_name`, `region` — nome do jogo e região de bloqueio (ex: EU)
-- `individual_cost` — custo individual da key
-- `tf2_quantity` — quantidade de TF2 keys pagas pela trade
-- `market_price` — preço no marketplace na data de compra
-- `simulated_income` — receita líquida após taxas Gamivo
-- `purchase_profit`, `purchase_profit_percent` — lucro na compra
-- `sold_price`, `sale_profit`, `sale_profit_percent` — dados da venda
-- `gamivo_id` — ID externo no marketplace Gamivo
-- `key_code` — código da key entregue ao cliente
-- `acquired_at`, `listed_at`, `sold_at`, `expires_at` — datas do ciclo de vida
-- `supplier_url` — URL do perfil do fornecedor
-- `trade_id` — FK → `trades.id` (nullable): a trade/lote de onde a key veio; populado só no import por trade. Usado para recalcular o rateio de custo ao editar (ver `docs/adr/0004`)
-- `min_api`, `max_api` — limites de preço aceitos pela API Gamivo
-
-Fluxo principal:
-1. Key inserida **exclusivamente** pela importação de uma trade (`POST /trades/{trade}/import`) — não há cadastro avulso nem importação XLSX
-2. `KeyCalculationService` calcula fórmulas de lucro e preço
-3. `RegulateMinApiUseCase` (scheduler 07:30) — recalcula `min_api` de todas as keys não vendidas via `MinimumMarginPolicy`
-4. `AutoSellUseCase` lista keys elegíveis na Gamivo, **agrupadas por `gamivo_id`** (exclui bundles com < 21 dias; keys ≥8 meses têm `max_api` travado no preço de listagem)
-5. `UpdateSoldOffersUseCase` atualiza com dados de venda da API Gamivo
-6. `UpdateOffersUseCase` reprecifica ofertas ativas contra concorrentes via `ComparisonAlgorithm` (detecção de price dumpers, bots concorrentes conhecidos, wholesale) — roda a cada minuto, sem `mode`, numa única passada que sobe o preço onde já somos os mais baratos e desce onde não somos (`OffersUpdateMode::WeAreLowest`/`WeAreNotLowest` seguem disponíveis para uso manual pontual via artisan)
-
-### 2. Cálculo de lucro (`KeyCalculationService` + `Domain/Pricing`)
-
-Gamivo tem 2 tiers de taxa para **game keys** (categoria padrão):
-
-| Tier | Condição | % sobre preço | Taxa fixa | Fórmula `simulated_income` |
-|------|----------|:---:|:---:|---|
-| Baixo | `market_price < €8` | 6% | €0,25 | `price × (1 - 0.060) - 0.25` |
-| Alto | `market_price ≥ €8` | 8% | €0,40 | `price × (1 - 0.080) - 0.40` |
-
-Wholesale (mode 1/2): **3,5%** sem taxa fixa → divisor `1.035`.
-
-> **Fonte oficial:** [`docs/GAMIVO_Merchant-pricing.pdf`](docs/GAMIVO_Merchant-pricing.pdf) — contém a tabela completa incluindo gift cards, software, PSN/Xbox e métodos de payout.
-
-`min_api` = `individual_cost × 1.4–1.6` (tier por faixa de preço); `max_api` = `individual_cost × 8–30`.
-
-### 3. Bundles
-Agrupamento de jogos (`bundle` ou `choice`). Many-to-many com `Game` via `bundle_games`.
-
-**Janela de exclusão de bundle:**
-
-| Constante | Dias | Significado |
-|-----------|------|-------------|
-| `KeyEligibility::BUNDLE_EXCLUSION_DAYS` | 21 | **Janela de venda inicial do bundle.** Enquanto o bundle está "em cartaz" (< 21 dias desde o lançamento), ninguém comprou a key ainda — o `AutoSellUseCase` exclui essas keys pois o preço ainda está em queda livre. |
-
-A **regra dos 21 dias** está implementada em `AutoSellUseCase` via `scopeWithoutRecentBundle`.
-
-### 4. Assets (`Asset` → tabela `assets`)
-Representa ativos de troca (ex: TF2 key). Campos: `price_euro`, `price_dollar`, `price_brl`.
-Usado por `KeyCalculationService` para converter o custo da trade em euros.
-
-### 5. Fees (`Fee` → tabela `fees`)
-Taxas do marketplace. Campos: `name`, `preco`.
-Chaves usadas: `gamivoPercentualMenor`, `gamivoFixoMenor`, `gamivoPercentualMaior`, `gamivoFixoMaior`.
-
-### 6. Suppliers e Trades (`Supplier`/`Trade` → tabelas `suppliers`/`trades`)
-- `Supplier` — fornecedor Steam. Campos: `steam_id`, `url`, `region`, `initial_offer_pct`, `is_added` (marcado manualmente como adicionado à lista de trade), `has_traded`, `category` (enum `SupplierCategory`: `vip` | `blocked`)
-- `Trade` — registro de uma lista de jogos comentada/ofertada a um supplier. Campos: `supplier_id`, `list_code`, `last_commented_at`, `title`, `date`, `message_sent`, `is_imported`, `tf2_qty`, `games` (JSON). `Trade hasMany Key` via `keys.trade_id` — as keys efetivamente compradas daquele lote (populado no `POST /trades/{trade}/import`)
-  - `is_imported` — importar as keys da trade (sem erros) marca `is_imported = true`. A trade importada permanece no banco (o vínculo `keys.trade_id` continua válido — não excluir a trade após importar). A aba de Trades usa `TradeService::paginate(filters, sort, dir, perPage)` com o filtro `view` (`open`/`imported`/`all`); default `open` esconde importadas — comportamento equivalente ao histórico. Ver [`docs/adr/0004`](docs/adr/0004-recalculate-trade-on-key-edit.md)
-- Fluxo: `ProspectSupplierUseCase` avalia a lucratividade dos jogos do supplier (`IncomeCalculator` + `OfferCalculator`, margem `OfferCalculator::NEW_SUPPLIER_PROFIT_PERCENT` = 70%), decide comentar via `Domain/Trades/CommentPolicy` (recomenta se os jogos mudaram desde a última vez — `TradeGameComparison::hasChanged()` — ou se já passaram `CommentPolicy::INTERVAL_DAYS` = 14 dias sem comentário) e persiste um `Trade`
-- `ExecuteSupplierListUseCase` → POST `price_researcher` (`/api/lists/run`) para rodar a lista de jogos do supplier
-- `TradeService::paginate()` — retorna um `LengthAwarePaginator` com filtros (`view`, `date_from/to`, `tf2_min/max`, `title_search`, `supplier_search`, `game_search`), ordenação por whitelist (`date`, `tf2_qty` — sempre com `id DESC` como tiebreaker) e paginação (40/página). Buscas por texto usam `LOWER(col) LIKE %needle%` (cross-DB, Postgres em prod, SQLite em teste); `game_search` casta o JSON `games` para texto e busca substring — falso positivo é desprezível na prática porque `key_code` segue `XXXXX-XXXXX-XXXXX` e `gamivo_id` é numérico. `is_imported` é a fonte única de "trade já foi importada"
-- *Absorveu os antigos `Vip`/`VipList`* — tabelas `vips`/`vip_lists` e `ExecuteVipListUseCase`/`VipListExecutionService` foram removidos (migration `2026_07_05_000001_drop_vips_and_vip_lists_tables.php`); `VipList` virou `Trade` (`supplier_id` + `list_code`), `Vip.id_steam` virou `suppliers.steam_id`.
-
-### 7. Fechamento mensal (`FinancialMonth`/`FinancialMovement` → tabelas `financial_months`/`financial_movements`)
-
-Livro-caixa dos sócios em **R$** (`/financial-months`). **Não confundir com o dashboard analítico de vendas em €** (`Services/Sales/SalesDashboardService`, `SalesDashboard.vue`, `/sales`) — domínios distintos, hoje também com nomes distintos.
-
-- `FinancialMonth` — um mês do ciclo `draft` → `closed`. Campos: `year`, `month`, `status` (`FinancialMonthStatus`), `reinvestment_percent`, `emergency_percent`, `partner_one_share` (as três só como **prefill de formulário**), `closed_at`. No máximo um `draft` por vez
-- `FinancialMovement` — uma linha do extrato. Campos: `group_id` (uuid — liga as linhas do mesmo lançamento), `account_type` (`AccountType`: `principal`/`tf2`/`reinvestment`/`emergency`), `direction` (`MovementDirection`), `category` (`MovementCategory`), `expense_category` (`ExpenseCategory`, só quando `category = expense`), `income_category` (`IncomeCategory`, só quando `category = income`), `amount` (sempre positivo — a direção decide o sinal), `quantity`/`unit_price` (TF2), `partner_slot` (1 ou 2), `description`, `occurred_at`, `is_generated`
-- **Categoria de gasto/receita** (`ExpenseCategory`: `GamePurchase`/`Taxes`/`Subscriptions`/`Other`; `IncomeCategory`: `GamivoPayout`/`ExternalInvestment`/`Yield`/`Other`) — enums fixos, obrigatórios em `income`/`expense`, com `Other` sempre como fallback. Existem para agrupar lançamentos por tipo (pré-requisito de um dashboard futuro, ver `docs/IMPROVEMENTS.md`); não substituem `description`, que continua livre e obrigatória ao debitar uma caixinha
-- **Nenhum saldo é persistido** — é sempre a soma dos movimentos (`FinancialMonthService::accountBalances`). Saldo negativo é permitido
-- Domain: `Money` (centavos inteiros), `AccountTransfer` (dupla partida), `PartnerDistribution` + `PartnerSplit` (divisão + centavo órfão), `ManualMovement`, `MovementLeg`, `JustificationPolicy`, `MovementDeletionPolicy`, `FinancialMonthDefaults`
-- Escrita passa **sempre** pelo `MovementRecorder` quando o lançamento tem mais de uma perna: ele gera um `group_id` único e grava tudo numa transação. É a garantia de que meia transferência nunca é persistida
-- Regras de negócio completas (roteiro dos 8 passos, exclusão, carry-forward): [`docs/PRODUCT.md`](docs/PRODUCT.md) e [`docs/adr/0005`](docs/adr/0005-financial-month-records-instead-of-calculating.md)
-
-### 8. Autorização
-- `AuthorizedUsers` — controla acesso (`can-edit`)
-- Admin: `Gate::define('is-admin', fn($u) => $u->email === env('ADMIN_EMAIL'))`
-
----
-
-## Arquitetura
-
-**Clean Architecture podada** — domínio isolado e testável, sem boilerplate de repositories abstratos ou adapters. Sistema interno com dois usuários; nunca precisaremos trocar o framework.
-
-> Hoje o sistema opera **exclusivamente na Gamivo**. As diretrizes de estrutura para um eventual segundo marketplace foram centralizadas em [`docs/IMPROVEMENTS.md`](docs/IMPROVEMENTS.md).
-
-### Princípio central
-
-| Camada | Responsabilidade |
-|--------|-----------------|
-| **Controller** | Recebe HTTP, delega para UseCase ou Service. Sem lógica. |
-| **UseCase** | Orquestra workflows multi-step. Um UseCase = uma operação completa. |
-| **Service** | Acessa infraestrutura (Eloquent, APIs, cache). Sem regras de negócio. |
-| **Domain** | PHP puro. Sem Eloquent, sem framework. Recebe primitivos/VOs, retorna resultados. |
-
-### Quando usar UseCase vs Service direto
-
-**Critério:** um UseCase é uma operação de **escrita** disparada de fora (HTTP, cron, CLI) que **orquestra passos**. Orquestrar passos basta — não conte colaboradores, não exija que cruze domínios: montar URL, autenticar, chamar serviço externo e traduzir a falha já é orquestração, mesmo com um colaborador só. Ver [`docs/adr/0007`](docs/adr/0007-usecase-promotion-criteria.md) para as alternativas descartadas.
-
-Ordenado do caso mais comum para o mais raro:
-
-| Situação | Caminho | Exemplo |
-|---|---|---|
-| **Leitura**, com ou sem filtro | Controller → Repository/Service | `KeyRepository::paginate()` |
-| **Escrita** que orquestra passos | Controller/Scheduler → UseCase → Services + Domain | `AlertExpiringKeysUseCase` |
-| Statement único sobre **um** modelo (find/create/update/delete, sem branch, sem efeito secundário) | Controller → Eloquent | `FeeController::destroy` |
-| Regra de negócio pura | Domain direto | `MinimumMarginPolicy` |
-
-**Leitura nunca vira UseCase**, por mais filtro que tenha — vai para Repository/Service, com a whitelist de filtros declarada num FormRequest. Isso não é sobre tamanho: separar os dois lados desde já é o que torna barata a adoção de **CQRS**, direção pretendida para o sistema.
-
-A assimetria é proposital: `FeeController` fala Eloquent direto enquanto `GameController` delega a um UseCase. O que separa os dois é a **natureza da operação** — statement único versus passos orquestrados — não o tamanho do arquivo. Não "uniformize" sem ler o ADR 0007.
-
-Corolário que envelhece na prática: operação que hoje é statement único e amanhã ganha uma segunda etapa (um log, uma chamada externa, uma validação que consulta outra tabela) cruzou a linha e vira UseCase **no mesmo commit**.
-
-### Wrappers privados — regra
-
-Só crie um método privado se ele: (a) é chamado em 3+ lugares, (b) revela intenção que a implementação esconde, ou (c) encapsula variação independente. Caso contrário, inline.
-
-```php
-// ❌ Wrapper sem valor
-private function identifyPlatform(string $keyCode): string {
-    return PlatformIdentifier::identify($keyCode);
-}
-
-// ✅ Inline
-$game['identified_platform'] = PlatformIdentifier::identify($game['key_code']);
-```
-
-### Value Objects — quando usar
-
-Usar quando uma função receberia 3+ parâmetros do mesmo conceito ou os dados vêm de fonte externa e precisam de validação (ex: taxas do banco → `MarketplaceFee`). Não usar para 1-2 primitivos simples.
-
-### DTOs — entrada dos UseCases
-
-O input tipado de um UseCase mora em `app/UseCases/<Domínio>/DTO/`, com sufixo `DTO` no nome da classe (ex: `App\UseCases\Financial\DTO\RecordTransferDTO`). O FormRequest correspondente o monta num método `toDTO()` — o mapeamento payload → tipos fica na fronteira HTTP, não no controller.
-
-**DTO não é Value Object.** A tabela abaixo separa os dois; a distinção importa porque só uma das duas famílias pode conter regra de negócio:
-
-| | DTO | Value Object |
-|---|---|---|
-| Onde | `app/UseCases/<Domínio>/DTO/` | `app/Domain/<Domínio>/` (ou `ValueObjects/`) |
-| Para quê | carregar primitivos já validados até o UseCase | representar um conceito do domínio |
-| Comportamento | nenhum — só `readonly` públicos | valida invariantes, tem métodos |
-| Quem constrói | FormRequest (`toDTO()`) | o UseCase, a partir do DTO |
-
-Por isso o DTO **nunca** entra em `app/Domain/`: o domínio recebe primitivos/VOs e não pode conhecer a forma do payload HTTP.
-
-### Estrutura de arquivos
-
-```
-app/
-├── Domain/
-│   ├── Pricing/
-│   │   ├── ProfitCalculator.php
-│   │   ├── IncomeCalculator.php
-│   │   ├── SalePriceCalculator.php
-│   │   ├── OfferCalculator.php          # TF2 keys a oferecer a um supplier por margem alvo
-│   │   ├── ComparisonAlgorithm.php      # reprecificação vs. concorrentes (dumpers, bots, wholesale)
-│   │   ├── ComparisonResult.php / OfferData.php
-│   │   ├── MinMaxPriceCalculator.php
-│   │   ├── MinimumMarginPolicy.php     # fonte única do piso de preço (min_api)
-│   │   └── ValueObjects/MarketplaceFee.php
-│   ├── Keys/
-│   │   ├── KeyEligibility.php          # regra dos 21 dias
-│   │   └── KeyDefaults.php             # estado inicial canônico de uma key nova
-│   ├── Platform/
-│   │   └── PlatformIdentifier.php      # regex Steam, EA, EGS, GOG, Xbox, PSN
-│   ├── Bundles/
-│   │   ├── BundleTypeResolver.php
-│   │   └── BundleGameLookup.php
-│   ├── Games/
-│   │   └── GameNameNormalizer.php       # espelha o clearString do price-researcher
-│   ├── Assets/
-│   │   └── AssetAlert.php               # limiar de alerta de variação de câmbio
-│   ├── Trades/
-│   │   ├── CommentPolicy.php            # decide se recomenta um supplier (14 dias / jogos mudaram)
-│   │   └── TradeGameComparison.php
-│   ├── Financial/                        # livro-caixa em R$ (≠ Sales/, dashboard de vendas em €)
-│   │   ├── Money.php                     # centavos inteiros — reconciliação exata
-│   │   ├── AccountTransfer.php           # dupla partida; valor fechado ou % do saldo da origem
-│   │   ├── PartnerDistribution.php       # saque dos sócios: um débito por sócio
-│   │   ├── PartnerSplit.php              # divisão + centavo órfão no Sócio 1
-│   │   ├── ManualMovement.php            # lançamento de uma linha só (income/expense/tf2_purchase)
-│   │   ├── MovementLeg.php               # uma linha do extrato
-│   │   ├── JustificationPolicy.php       # débito em caixinha exige justificativa
-│   │   ├── MovementDeletionPolicy.php    # o que pode ser apagado (mês draft, não gerado, não opening)
-│   │   └── FinancialMonthDefaults.php
-│   └── Enums/
-│       ├── Marketplace.php             # apenas Gamivo por enquanto
-│       ├── KeyPlatform.php
-│       ├── ClaimType.php
-│       ├── KeyFormat.php
-│       ├── SellPlatform.php
-│       ├── OffersUpdateMode.php         # WeAreLowest / WeAreNotLowest
-│       ├── PresenceFilter.php           # filled / empty — filtro por coluna preenchida
-│       └── SupplierCategory.php         # vip / blocked
-│
-├── UseCases/
-│   ├── Keys/                             # operações agnósticas de marketplace
-│   │   ├── AlertExpiringKeysUseCase.php  # alerta diário de keys perto de expirar
-│   │   ├── RegisterKeyUseCase.php        # único caminho de entrada de keys (exige uma Trade)
-│   │   └── UpdateKeyUseCase.php          # edição inline; recalcula o lote da trade
-│   ├── Assets/
-│   │   ├── AlertDollarVariationUseCase.php  # cotação guardada do TF2 x cotação real
-│   │   └── UpdateAssetPricesUseCase.php     # converte a partir da moeda âncora (currentCurrency)
-│   ├── Games/
-│   │   ├── ResolveSteamIdsUseCase.php    # descobre steam_id via price_researcher
-│   │   ├── RegisterGamesUseCase.php      # lote transacional; duplicata é pulada, não aborta
-│   │   └── UpdateGameUseCase.php         # deriva normalized_name e busca gamivo_id no estoque
-│   ├── Marketplaces/                     # orquestrações específicas por marketplace
-│   │   └── Gamivo/                       # quando vier outro: Eneba/, G2A/, etc.
-│   │       ├── AutoSellUseCase.php           # agrupa por gamivo_id (FIFO); trava max_api de keys >= 8 meses
-│   │       ├── RegulateMinApiUseCase.php     # recalcula min_api via MinimumMarginPolicy (07:30)
-│   │       ├── UpdateSoldOffersUseCase.php
-│   │       ├── UpdateOffersUseCase.php       # reprecifica via ComparisonAlgorithm — 1min, passada única (sobe e desce)
-│   │       └── UpdatePopularityUseCase.php   # scraping SteamCharts — migração Gamivo Fase 2
-│   ├── Bundles/
-│   │   ├── SyncBundlesFromApiUseCase.php
-│   │   ├── CreateBundleUseCase.php       # cria + vincula os jogos na mesma transação
-│   │   └── AddGamesToBundleUseCase.php   # recusa o lote quando nenhum jogo é novo
-│   ├── Suppliers/
-│   │   ├── ProspectSupplierUseCase.php       # avalia lucratividade + decide comentar (CommentPolicy)
-│   │   ├── ExecuteSupplierListUseCase.php    # POST price_researcher /api/lists/run
-│   │   └── FindNewSuppliersUseCase.php       # POST price_researcher /api/suppliers/find-new
-│   ├── Trades/
-│   │   ├── CreateTradeUseCase.php
-│   │   ├── StoreListTradeUseCase.php
-│   │   └── UpdateTradeUseCase.php
-│   └── Financial/
-│       ├── DTO/                              # input tipado, montado pelos FormRequests
-│       │   ├── BootstrapFinancialMonthDTO.php
-│       │   ├── RecordMovementDTO.php
-│       │   ├── RecordTransferDTO.php
-│       │   ├── RecordTf2AllocationDTO.php
-│       │   └── DistributeToPartnersDTO.php
-│       ├── CreateDraftFinancialMonthUseCase.php  # bootstrap — só o primeiro mês
-│       ├── RecordMovementUseCase.php             # income/expense/tf2_purchase (uma linha)
-│       ├── RecordTransferUseCase.php             # dupla partida; valor ou % do saldo
-│       ├── RecordTf2AllocationUseCase.php        # verba do mês: Principal → Tf2
-│       ├── DistributeToPartnersUseCase.php       # saque dos dois sócios
-│       ├── DeleteMovementGroupUseCase.php        # apaga o lançamento inteiro pelo group_id
-│       ├── CloseMonthUseCase.php                 # devolve a sobra do TF2 e abre o próximo draft
-│       └── ReopenFinancialMonthUseCase.php
-│
-├── Mail/                               # um Mailable por alerta; destinatário sempre config('app.admin_email')
-│
-├── Services/
-│   ├── Bundles/BundleService.php        # queries e escrita sobre bundles + pivot
-│   ├── Sales/SalesDashboardService.php  # dashboard analítico de vendas em € (/financial)
-│   ├── Keys/
-│   │   ├── KeyCalculationService.php   # taxas com cache, conversão para VOs
-│   │   └── KeyRepository.php           # queries complexas + paginate() com whitelist de filtros
-│   ├── Games/
-│   │   ├── GameService.php              # lookup/preenchimento de gamivo_id e steam_id
-│   │   └── GameRepository.php           # paginate() com whitelist de filtros (IndexGamesRequest)
-│   ├── Suppliers/SupplierService.php
-│   ├── Trades/TradeService.php          # paginate() com filtros/sort/paginação; is_stocked scoped-to-page
-│   ├── Financial/
-│   │   ├── FinancialMonthService.php   # leitura (CQRS): saldos derivados, draft corrente, prefill de TF2
-│   │   └── MovementRecorder.php        # escrita: grava as pernas com um group_id só, em transação
-│   ├── ResourceService.php             # conversão de moedas para Assets
-│   └── External/
-│       ├── GamivoApiService.php
-│       ├── GgDealsApiService.php        # cliente da API GG.deals (bundles ativos)
-│       ├── CurrencyConversionService.php
-│       └── SteamChartsService.php
-│
-├── Http/
-│   ├── Controllers/
-│   │   ├── Keys/
-│   │   │   ├── KeyController.php       # leitura/edição/remoção — GET/PUT/DELETE /keys (sem criação)
-│   │   │   └── KeySaleController.php   # autoSell, updateSoldOffers...
-│   │   ├── Suppliers/SupplierController.php
-│   │   ├── Financial/FinancialMonthController.php  # /financial-months — livro-caixa em R$
-│   │   ├── GameController.php
-│   │   ├── BundleController.php
-│   │   ├── AssetController.php
-│   │   ├── FeeController.php
-│   │   └── TradeController.php
-│   └── Requests/
-│
-└── Models/                             # Eloquent puro — sem lógica de negócio
-    ├── Key.php         → keys
-    ├── Game.php        → games
-    ├── Bundle.php      → bundles
-    ├── Supplier.php    → suppliers
-    ├── Trade.php       → trades
-    ├── Asset.php       → assets
-    └── Fee.php         → fees
-```
-
-> `Services/Sales/` é o **dashboard analítico de vendas em €** (`SalesDashboardController`, `SalesDashboard.vue`, `/sales`); `Services/Financial/` é o **fechamento mensal em R$** (`/financial-months`). Os dois já dividiam só o prefixo do nome e agora nem isso.
-
----
-
-## Deploy
-
-Deploy é **automático ao mergear na `main`**, via GitHub Actions (`.github/workflows/`):
-
-| Workflow | Trigger | Jobs |
-|----------|---------|------|
-| `ci.yml` | push/PR em `main` | Pint · PHPStan · Pest (paralelos) |
-| `deploy.yml` | `ci.yml` conclui com sucesso em `main` | Build frontend → SSH deploy → SCP `public/build` |
-
-Fluxo: merge na `main` → `ci.yml` (Pint + PHPStan + Pest) → `deploy.yml` (build do frontend no runner → SSH na VPS: `git pull` + `composer install` se o lock mudou + `migrate` + caches → SCP do `public/build` para a VPS).
-
-**Secrets** (GitHub → Settings → Secrets and variables → Actions): `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, `VPS_PORT`.
-
-> Todas as pendências do sistema (qualidade de código, features, dívida técnica) estão centralizadas em [`docs/IMPROVEMENTS.md`](docs/IMPROVEMENTS.md).
-
----
-
-## Regras de negócio
-
-- **Venda FIFO / agrupamento por `gamivo_id`** (`AutoSellUseCase`): keys do mesmo `gamivo_id` compartilham **uma única oferta** na Gamivo, então o `AutoSellUseCase` as processa em grupo — uma oferta, um `uploadKeys` em lote — em vez de repetir o ciclo `createOffer→updateOffer→uploadKeys→changeOfferStatus` por key (a repetição na mesma oferta causava o erro `400 "Wait for the current action to end"`). **Duas etapas, nessa ordem:** (1) a decisão de listar é tomada **por key** — cada key entra se o mercado cobre o `min_api` *dela* (o `min_api` já embute a idade, pois a `MinimumMarginPolicy` o rebaixa ao FLOOR para keys velhas); as demais são puladas individualmente. (2) Só então, **entre as keys aprovadas**, escolhe-se a **governante** — a mais antiga (**menor `id`**) — que define o `seller_price` único da oferta, pois a Gamivo vende **FIFO** (a primeira enviada vende primeiro). O upload envia as keys aprovadas em **ordem de `id` ASC**. Keys aprovadas mas não confirmadas na oferta seguem elegíveis na próxima rodada (marca só as confirmadas). O `UpdateOffersUseCase` reprecifica a oferta já listada minutos/dias depois usando a mesma regra de governante, mas por `listed_at` ASC (com `id` como desempate, já que `listed_at` não tem hora) — ver `docs/GAMIVO.md`.
-- **Regra dos 21 dias** (`KeyEligibility::BUNDLE_EXCLUSION_DAYS`): keys de jogos em bundles com < 21 dias são excluídas do `autoSell()` — o bundle ainda está em cartaz e o preço está em queda.
-- **Age override — 8 meses** (`KeyEligibility::OLD_KEY_MONTHS`): a idade da key entra na listagem **apenas via `min_api`** — `MinimumMarginPolicy::minApi` rebaixa o `min_api` ao FLOOR para keys com ≥ 8 meses (persistido diariamente pelo `RegulateMinApiUseCase`, pré-requisito do `AutoSellUseCase`). O `AutoSellUseCase` **não reavalia a idade** para decidir listagem ou preço — consulta o `min_api`, que é a fonte única do piso. A única coisa que ele faz com a idade é **travar o `max_api`** no preço praticado nas keys individualmente velhas após a listagem, impedindo o `UpdateOffersUseCase` de subir o preço depois (a `MinimumMarginPolicy` conta com essa trava — ver o comentário na classe).
-- **`min_api` — fonte única (`MinimumMarginPolicy`)**: `RegulateMinApiUseCase` (scheduler 07:30) recalcula `min_api` de todas as keys não vendidas, listadas ou não, todo dia. Piso incondicional (FLOOR) para: expiração em ≤ 30 dias, estoque comprado há ≥ 8 meses (`OLD_KEY_MONTHS` — sobrevive à listagem, nunca regride) e listada há ≥ 10 meses (limbo). Fora isso, margem percentual por tempo de estoque (não listada, 4/6 meses) ou por tempo listado (listada, 3/4/6 meses) — ver `MinimumMarginPolicy` para a árvore completa.
-- **Tiers Gamivo**: fee diferente abaixo e acima de €8 (ver tabela na seção Domínios).
-- **`max_api`**: calculado em `MinMaxPriceCalculator` com base no `individual_cost`.
-- **Editar o `market_price` de uma key recalcula o custo e os lucros do lote inteiro** (`UpdateKeyUseCase`): `individual_cost` é um rateio do custo total da trade proporcional ao income de cada key, então depende do somatório de incomes de todas as keys do lote. Mudar o `market_price` muda esse somatório e, portanto, o `individual_cost`/lucros de compra de todas as keys da mesma trade — o update recalcula o lote inteiro, identificado pela FK `keys.trade_id`. Keys antigas (anteriores a esse vínculo) têm `trade_id` nulo e recalculam só a própria key. **`market_price` é o único campo editável que dispara recálculo** — outras edições persistem só os campos alterados. Não recalcula `min_api`/`max_api` (o `min_api` se corrige no `RegulateMinApiUseCase` diário). Ver [`docs/adr/0004`](docs/adr/0004-recalculate-trade-on-key-edit.md).
-- **Toda key nasce de uma trade**: o único caminho de entrada é `POST /trades/{trade}/import` → `RegisterKeyUseCase::execute(Trade $trade, array $games)` — a trade é **obrigatória** na assinatura. Não existe cadastro avulso (`POST /keys`) nem importação XLSX; a coluna `keys.trade_id` é nullable apenas por causa das keys anteriores a esse vínculo. Validação de entrada em `ImportTradeKeysRequest`.
-- **Importação é atômica (tudo ou nada)**: `RegisterKeyUseCase` roda o lote inteiro numa transação. Todas as keys são avaliadas — para reportar **todos** os erros de uma vez, cada key roda num savepoint próprio — mas se qualquer uma falhar, nada é persistido (nem as keys, nem os efeitos em `games`/`suppliers`) e a trade **não** é marcada como importada. Resposta HTTP: `201` quando o lote inteiro entra, `422` quando nada entra. Não existe resultado parcial, logo não há `207 Multi-Status`.
-
----
-
-## Variáveis de ambiente
-
-```env
-# Serviço externo de pesquisa de preços
-API_PRICE_RESEARCHER=
-DEV_API_PRICE_RESEARCHER=
-
-# API Gamivo — chamada diretamente pelo Laravel
-# API_GAMIVO_URL = base URL da API (ex: https://backend.gamivo.com)
-# API_KEY_GAMIVO = Bearer JWT (expira — precisa rotacionar manualmente)
-# Quando expirar: o sistema detecta UNAUTHORIZED_EXPIRED_TOKEN e envia e-mail de alerta
-# ⚠️  PRODUÇÃO REAL — ver regras de segurança na seção "Papel do Claude neste projeto"
-API_GAMIVO_URL=https://backend.gamivo.com
-API_KEY_GAMIVO=
-
-# Google OAuth
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-GOOGLE_REDIRECT_URI=
-
-# Sistema
-# ADMIN_EMAIL alimenta DUAS configs, ambas SEM fallback:
-#   config('app.admin_email')      → destinatário de todos os alertas
-#   config('app.admin_gate_email') → identidade do admin (Gate 'is-admin')
-# Em branco: ninguém é admin e nenhum alerta é entregue (o envio lança e cai no
-# log). Obrigatória em todo ambiente, inclusive no .env.example que o CI copia.
-ADMIN_EMAIL=carcadeals@gmail.com
-EXTERNAL_SECRET=            # Bearer token exigido de serviços externos que chamam o Sistema Estoque
-```
+`/setup-matt-pocock-skills` já foi executado neste repositório — issue tracker, rótulos de triagem e layout de docs de domínio estão configurados. Detalhes: [`docs/agents/skills-workflow.md#agent-skills`](docs/agents/skills-workflow.md#agent-skills).

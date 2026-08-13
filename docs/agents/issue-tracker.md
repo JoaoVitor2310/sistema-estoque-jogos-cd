@@ -1,45 +1,45 @@
-# Issue tracker: GitHub
+# Issue tracker: `docs/IMPROVEMENTS.md` (custom)
 
-Issues and PRDs for this repo live as GitHub issues. Use the `gh` CLI for all operations.
+Pendências deste repositório vivem como seções dentro de um único arquivo, [`docs/IMPROVEMENTS.md`](../IMPROVEMENTS.md) — não há GitHub Issues, não há tracker externo. O **título da seção (`## ...`)** é o identificador de cada item; não há número de ticket.
 
 ## Conventions
 
-- **Create an issue**: `gh issue create --title "..." --body "..."`. Use a heredoc for multi-line bodies.
-- **Read an issue**: `gh issue view <number> --comments`, filtering comments by `jq` and also fetching labels.
-- **List issues**: `gh issue list --state open --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'` with appropriate `--label` and `--state` filters.
-- **Comment on an issue**: `gh issue comment <number> --body "..."`
-- **Apply / remove labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
-- **Close**: `gh issue close <number> --comment "..."`
+- Cada entrada é uma seção `## Título`, separada da próxima por `---`, com no mínimo **Onde** (arquivos/pastas afetados), **Ação** (o que fazer — pode ser checklist `- [ ]`) e **Origem** (de onde veio: sessão de skill, code-review, decisão datada).
+- Ordem do arquivo: roadmap/qualidade/features primeiro, dívida técnica de code-review no fim.
+- **Concluído → a seção é removida.** Não existe estado "fechado" dentro do arquivo — regra 3 do [`CLAUDE.md`](../../CLAUDE.md) ("nunca documente como pendente algo já feito"). O arquivo só existe para descrever o que falta.
+- **Wontfix → a seção também é removida.** Mesma razão; o motivo da recusa fica na conversa/PR que decidiu, não persiste no arquivo.
 
-Infer the repo from `git remote -v` — `gh` does this automatically when run inside a clone.
+## Triage state
 
-## Pull requests as a triage surface
+Uma entrada **sem** linha `**Status:**` é, por padrão, **`ready-for-human`** — foi escrita por alguém do time com contexto suficiente para virar trabalho, como são todas as entradas existentes hoje.
 
-**PRs as a request surface: no.** _(Set to `yes` if this repo treats external PRs as feature requests; `/triage` reads this flag.)_
+A linha `**Status:**` só aparece enquanto um item não chegou nesse ponto — tipicamente um pedido bruto que `/triage` ainda está processando:
 
-When set to `yes`, PRs run through the same labels and states as issues, using the `gh pr` equivalents:
+```markdown
+## Título da pendência
 
-- **Read a PR**: `gh pr view <number> --comments` and `gh pr diff <number>` for the diff.
-- **List external PRs for triage**: `gh pr list --state open --json number,title,body,labels,author,authorAssociation,comments` then keep only `authorAssociation` of `CONTRIBUTOR`, `FIRST_TIME_CONTRIBUTOR`, or `NONE` (drop `OWNER`/`MEMBER`/`COLLABORATOR`).
-- **Comment / label / close**: `gh pr comment`, `gh pr edit --add-label`/`--remove-label`, `gh pr close`.
+**Status:** needs-triage
 
-GitHub shares one number space across issues and PRs, so a bare `#42` may be either — resolve with `gh pr view 42` and fall back to `gh issue view 42`.
+**Onde:** ...
+```
+
+Valores possíveis: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human` (ver [`triage-labels.md`](triage-labels.md); `wontfix` nunca aparece como Status — remove a entrada em vez de marcá-la). Assim que `/triage` decide se o item é `ready-for-agent` ou `ready-for-human` e a entrada tem Onde/Ação/Origem completos, a linha `Status:` permanece com esse valor final até a entrada ser implementada e removida.
 
 ## When a skill says "publish to the issue tracker"
 
-Create a GitHub issue.
+Adicionar uma nova seção `## Título` a `docs/IMPROVEMENTS.md`, no bloco correspondente (roadmap/qualidade/features primeiro; dívida técnica de code-review no fim), com **Onde**/**Ação**/**Origem** preenchidos — ou só **Status: needs-triage** se ainda faltar contexto para preenchê-los.
 
 ## When a skill says "fetch the relevant ticket"
 
-Run `gh issue view <number> --comments`.
+Ler a seção correspondente em `docs/IMPROVEMENTS.md` pelo título exato — não há número para referenciar.
 
 ## Wayfinding operations
 
-Used by `/wayfinder`. The **map** is a single issue with **child** issues as tickets.
+Usado por `/wayfinder`. Sem hierarquia nativa de issues, mapa e filhos são representados por nível de heading dentro do mesmo arquivo:
 
-- **Map**: a single issue labelled `wayfinder:map`, holding the Notes / Decisions-so-far / Fog body. `gh issue create --label wayfinder:map`.
-- **Child ticket**: an issue linked to the map as a GitHub sub-issue (`gh api` on the sub-issues endpoint). Where sub-issues aren't enabled, add the child to a task list in the map body and put `Part of #<map>` at the top of the child body. Labels: `wayfinder:<type>` (`research`/`prototype`/`grilling`/`task`). Once claimed, the ticket is assigned to the driving dev.
-- **Blocking**: GitHub's **native issue dependencies** — the canonical, UI-visible representation. Add an edge with `gh api --method POST repos/<owner>/<repo>/issues/<child>/dependencies/blocked_by -F issue_id=<blocker-db-id>`, where `<blocker-db-id>` is the blocker's numeric **database id** (`gh api repos/<owner>/<repo>/issues/<n> --jq .id`, _not_ the `#number` or `node_id`). GitHub reports `issue_dependencies_summary.blocked_by` (open blockers only — the live gate). Where dependencies aren't available, fall back to a `Blocked by: #<n>, #<n>` line at the top of the child body. A ticket is unblocked when every blocker is closed.
-- **Frontier query**: list the map's open children (`gh issue list --state open`, scoped to the map's sub-issues / task list), drop any with an open blocker (`issue_dependencies_summary.blocked_by > 0`, or an open issue in the `Blocked by` line) or an assignee; first in map order wins.
-- **Claim**: `gh issue edit <n> --add-assignee @me` — the session's first write.
-- **Resolve**: `gh issue comment <n> --body "<answer>"`, then `gh issue close <n>`, then append a context pointer (gist + link) to the map's Decisions-so-far.
+- **Map**: uma seção `## <Esforço> (mapa)` com sub-seções `### Notes`, `### Decisions-so-far`, `### Fog`.
+- **Child ticket**: uma sub-seção `### <título do filho>` aninhada sob o mapa, com **Onde**/**Ação**/**Origem** como qualquer entrada normal, mais um `**Tipo:**` (`research`/`prototype`/`grilling`/`task`) e um `**Status:**` (`claimed`/`resolved`) — substituem os campos de arquivo separado do modelo local-markdown.
+- **Blocking**: uma linha `**Bloqueado por:** <título do filho bloqueador>` logo abaixo do título do filho. Desbloqueado quando todo bloqueador listado está `resolved`.
+- **Frontier**: dentre os filhos do mapa, os sem `Bloqueado por` pendente e sem `Status: claimed` — o primeiro na ordem do arquivo vence.
+- **Claim**: editar a sub-seção, `**Status:** claimed`, salvar antes de começar.
+- **Resolve**: acrescentar a resposta em **Ação**, `**Status:** resolved`, e anexar um ponteiro de contexto nas Decisions-so-far do mapa.
