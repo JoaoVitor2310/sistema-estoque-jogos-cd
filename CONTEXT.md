@@ -90,6 +90,14 @@ _Avoid_: scouting.
 Uma trade é considerada "em estoque" quando pelo menos um dos `key_code` ofertados já está presente em alguma Key do estoque — ou seja, já compramos aquele jogo daquele lote.
 _Avoid_: trade concluída, trade fulfilled.
 
+**Linha da trade**:
+Um jogo dentro de uma trade, com o preço de mercado pesquisado, a região, a validade e o `key_code` correspondente. É a unidade que o supplier preenche na entrega e que vira uma Key no import.
+_Avoid_: item, row, game (isoladamente — `Game` é o catálogo, outra coisa).
+
+**Entrega**:
+O ato do supplier de repassar os `key_code` negociados de uma trade, junto da região, da validade e do total de TF2 acertado. Não confundir com **trade em estoque**: entregue significa que ele mandou os códigos; em estoque significa que já importamos as keys.
+_Avoid_: preenchimento, submissão, envio.
+
 ### Fechamento mensal
 
 O caixa da empresa em R$, montado lançamento a lançamento. Não confundir com a **aba Financeiro** (`/sales`), que é análise de vendas em € — domínios distintos que compartilham só o prefixo do nome.

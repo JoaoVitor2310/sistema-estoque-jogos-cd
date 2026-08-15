@@ -129,8 +129,8 @@ const handleDeleteButton = (event: any, qtd: number) => {
         DialogVisible.value = false;
       } else {
         const res = await axiosInstance.delete(`/resources`, {
-          params: {
-            resources: selectedProduct.value
+          data: {
+            resources: selectedProduct.value.map(item => ({ id: item.id }))
           }
         });
         showResponse(res, toast.add);

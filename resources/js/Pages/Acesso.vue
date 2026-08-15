@@ -138,8 +138,8 @@ const handleDeleteButton = (event: any, qtd: number) => {
         }
       } else {
         const res = await axiosInstance.delete(`/authorize`, {
-          params: {
-            items: selectedProduct.value
+          data: {
+            items: selectedProduct.value.map(item => ({ id: item.id }))
           }
         });
         showResponse(res, toast.add);

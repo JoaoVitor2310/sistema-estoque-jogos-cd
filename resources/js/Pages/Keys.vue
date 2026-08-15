@@ -118,8 +118,8 @@ const handleDeleteButton = (event: any) => {
     accept: async () => {
       try {
         const res = await axiosInstance.delete(`/keys`, {
-          params: {
-            games: selectedProduct.value
+          data: {
+            games: selectedProduct.value.map(item => ({ id: item.id }))
           }
         });
         showResponse(res, toast.add);

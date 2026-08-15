@@ -30,6 +30,10 @@ Mascarar a saída (`only(GUEST_VISIBLE_FIELDS)`) enquanto o filtro aceita qualqu
 
 Exclusão/atualização em massa não itera chamando `find()` + `delete()` por item: se um id falha no meio, os anteriores já foram gravados e a resposta de erro descreve um estado que mudou pela metade. Valide a existência **na fronteira** (`exists:tabela,id` no FormRequest, ver `DeleteManyRequest`) e execute num statement só — assim o lote é atômico por construção, sem precisar de transação, e ainda deixa de ser N+1. *(Já aconteceu: 4 dos 5 `destroyArray` apagavam parcialmente e respondiam erro.)*
 
+## Seleção de DataTable vai no corpo do DELETE, nunca como query params
+
+Toda tela com exclusão em lote (`DeleteManyRequest`) manda a seleção do PrimeVue DataTable via `axiosInstance.delete(url, { data: { <itemsKey>: [...] } })`, reduzida a `{id}` por linha antes do envio — nunca a linha inteira, e nunca em `params` (axios sempre serializa `params` na query string, mesmo em `DELETE`). *(Já aconteceu: `Keys.vue` mandava a linha completa do DataTable — incluindo o `supplier` aninhado — como `params`; 5 keys selecionadas já bastavam para estourar o limite de URL do nginx com 414 Request-URI Too Large. O mesmo padrão existia copiado em mais 6 telas.)*
+
 ## `detach()` sem argumento apaga tudo
 
 No Eloquent, `$model->relation()->detach(null)` desvincula **todos** os registros, não nenhum — então rota de remoção sem FormRequest transforma payload vazio em "esvazie a relação inteira", respondendo 200. Toda rota que remove vínculo declara `required|array|min:1`. *(Já aconteceu: `DELETE /bundles/{bundle}/games` sem `games` limpava o bundle inteiro.)*

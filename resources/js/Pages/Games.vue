@@ -283,8 +283,8 @@ async function performDelete(qtd: number) {
     } else {
       // Exclusão múltipla (da tabela)
       const res = await axiosInstance.delete(`/games`, {
-        params: {
-          games: selectedProduct.value
+        data: {
+          games: selectedProduct.value.map(item => ({ id: item.id }))
         }
       });
       showResponse(res, toast.add);
