@@ -502,11 +502,18 @@ function importTrade(event: Event, trade: TradeEntry) {
   if (!canImport(trade)) return;
 
   const rowCount = trade.rows.filter(isRowMeaningful).length;
+  const message = trade.isImported
+    ? `Esta trade já foi importada. Reimportar ${rowCount} key${rowCount !== 1 ? 's' : ''}? Certifique-se de já ter removido as keys antigas desta trade antes de continuar.`
+    : `Importar ${rowCount} key${rowCount !== 1 ? 's' : ''} desta trade?`;
+
   confirm.require({
     target: event.currentTarget as HTMLElement,
-    message: `Importar ${rowCount} key${rowCount !== 1 ? 's' : ''} desta trade?`,
+    message,
     rejectProps: { label: 'Cancelar', severity: 'secondary', outlined: true },
-    acceptProps: { label: 'Importar', severity: 'primary' },
+    acceptProps: {
+      label: trade.isImported ? 'Reimportar' : 'Importar',
+      severity: trade.isImported ? 'warning' : 'primary',
+    },
     accept: () => runImport(trade),
   });
 }
@@ -1063,9 +1070,8 @@ function headerSortIcon(field: Filters['sort']): string {
               Linha
             </button>
             <button
-              v-if="!trade.isImported"
               type="button"
-              class="btn btn-sm btn-primary"
+              :class="trade.isImported ? 'btn btn-sm btn-warning' : 'btn btn-sm btn-primary'"
               :disabled="trade.importing || !canImport(trade)"
               @click="importTrade($event, trade)"
             >

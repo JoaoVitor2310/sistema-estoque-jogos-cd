@@ -12,6 +12,7 @@
 |   3. gamivo_id ausente não quebra a importação (campo nullable)
 |   4. as keys importadas são vinculadas à trade (trade_id)
 |   5. importação sem erros marca a trade como is_imported
+|   6. reimportação de uma trade já marcada como is_imported é aceita
 |
 */
 
@@ -134,5 +135,22 @@ describe('POST /trades/{trade}/import — gamivo_id', function () {
             ->assertStatus(201);
 
         expect($trade->fresh()->is_imported)->toBeTrue();
+    });
+
+    it('accepts reimporting a trade that is already marked as imported', function () {
+        $user = makeAuthorizedImportUser();
+        $trade = Trade::create(['games' => [], 'is_imported' => true]);
+
+        $this->actingAs($user)
+            ->postJson(route('trades.import', ['trade' => $trade->id]), [
+                'games' => [importGamePayload()],
+            ])
+            ->assertStatus(201);
+
+        expect($trade->fresh()->is_imported)->toBeTrue();
+        $this->assertDatabaseHas('keys', [
+            'key_code' => 'AAAAA-BBBBB-CCCCC',
+            'trade_id' => $trade->id,
+        ]);
     });
 });

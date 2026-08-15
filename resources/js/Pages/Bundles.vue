@@ -412,7 +412,7 @@ const handleDeleteSelectedGames = (event: any, bundleId: number) => {
       try {
         const selectedGames = selectedProducts.value[bundleId].map(item => item.id);
         const res = await axiosInstance.delete(`/bundles/${bundleId}/games`, {
-          params: {
+          data: {
             games: selectedGames
           }
         });

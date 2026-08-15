@@ -9,9 +9,12 @@ use Illuminate\Http\Exceptions\HttpResponseException;
 /**
  * Base das exclusões em lote.
  *
- * As telas enviam o array de linhas selecionadas do DataTable — objetos
- * completos, não ids — como query params de um DELETE, cada uma sob uma chave
- * própria (`games`, `assets`, `taxas`, `items`). Daí o `itemsKey()`.
+ * As telas enviam a seleção do DataTable no corpo JSON de um DELETE, reduzida
+ * a `{id}` por linha antes do envio, cada uma sob uma chave própria (`games`,
+ * `assets`, `taxas`, `items`). Daí o `itemsKey()`. (Mandar a linha inteira como
+ * query params já causou 414 Request-URI Too Large em lotes de ~5 keys, por
+ * causa do objeto `supplier` aninhado em cada linha — corrigido enviando só o
+ * id, no corpo em vez da URL.)
  *
  * A existência dos ids é validada **aqui**, antes de qualquer escrita. Os
  * controllers checavam registro a registro dentro do loop de exclusão: um id
