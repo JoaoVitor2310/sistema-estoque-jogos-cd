@@ -6,7 +6,7 @@ use App\UseCases\Trades\UpdateTradeUseCase;
 describe('UpdateTradeUseCase', function () {
 
     it('persists tf2_qty as provided', function () {
-        $trade = Trade::create(['date' => now()->toDateString(), 'games' => []]);
+        $trade = Trade::create(['date' => now()->toDateString()]);
 
         app(UpdateTradeUseCase::class)->execute($trade, [
             'tf2Qty' => '12.5',
@@ -16,7 +16,7 @@ describe('UpdateTradeUseCase', function () {
     });
 
     it('stores null tf2_qty when not provided', function () {
-        $trade = Trade::create(['date' => now()->toDateString(), 'tf2_qty' => '10.00', 'games' => []]);
+        $trade = Trade::create(['date' => now()->toDateString(), 'tf2_qty' => '10.00']);
 
         app(UpdateTradeUseCase::class)->execute($trade, []);
 

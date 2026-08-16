@@ -41,6 +41,7 @@
 |
 */
 
+use App\Models\Trade;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
@@ -205,18 +206,18 @@ describe('POST /suppliers/prospect — trade creation', function () {
         $this->assertDatabaseCount('trades', 0);
     });
 
-    it('stores correct fields in trade games', function () {
+    it('stores correct fields on the created trade lines', function () {
         $this->withToken(PROSPECT_SECRET)
             ->postJson('/suppliers/prospect', validPayload())
             ->assertStatus(200);
 
-        $trade = DB::table('trades')->latest()->first();
-        $game = json_decode($trade->games, true)[0];
+        $trade = Trade::latest('id')->firstOrFail();
+        $line = $trade->lines->first();
 
-        expect($game['name'])->toBe('Half-Life')
-            ->and($game['marketPriceRaw'])->toBe('4.50')
-            ->and($game['popularity'])->toBe('500')
-            ->and($game['keyCode'])->toBeNull();
+        expect($line->game_name)->toBe('Half-Life')
+            ->and($line->market_price)->toBe('4.50')
+            ->and($line->popularity)->toBe(500)
+            ->and($line->key_code)->toBeNull();
 
         expect($trade->date)->not->toBeNull();
     });
@@ -231,7 +232,7 @@ describe('POST /suppliers/prospect — gamivo_id', function () {
         seedProspectDeps();
     });
 
-    it('propagates gamivo_id to profitable and to the created trade games', function () {
+    it('propagates gamivo_id to profitable and to the created trade line', function () {
         $payload = validPayload(['games' => [
             ['name' => 'Half-Life', 'price_euro' => 4.50, 'popularity' => 500, 'region' => null, 'gamivo_id' => '144601'],
         ]]);
@@ -242,10 +243,7 @@ describe('POST /suppliers/prospect — gamivo_id', function () {
 
         expect($response->json('profitable.0.gamivo_id'))->toBe('144601');
 
-        $trade = DB::table('trades')->latest()->first();
-        $game = json_decode($trade->games, true)[0];
-
-        expect($game['gamivoId'])->toBe('144601');
+        expect(Trade::latest('id')->firstOrFail()->lines->first()->gamivo_id)->toBe('144601');
     });
 
     it('accepts requests without gamivo_id and stores it as null', function () {
@@ -253,10 +251,7 @@ describe('POST /suppliers/prospect — gamivo_id', function () {
             ->postJson('/suppliers/prospect', validPayload())
             ->assertStatus(200);
 
-        $trade = DB::table('trades')->latest()->first();
-        $game = json_decode($trade->games, true)[0];
-
-        expect($game['gamivoId'])->toBeNull();
+        expect(Trade::latest('id')->firstOrFail()->lines->first()->gamivo_id)->toBeNull();
     });
 });
 

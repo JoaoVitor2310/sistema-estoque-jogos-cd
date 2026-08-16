@@ -22,6 +22,7 @@ use App\Models\AuthorizedUsers;
 use App\Models\Trade;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Tests\Support\TradeFactory;
 
 // TradeController::show carrega taxas do Gamivo + preço TF2 para popular
 // props auxiliares do card. Sem esses seeds a página lança MarketplaceFee
@@ -49,7 +50,7 @@ function makeAuthorizedIndexUser(): User
 
 function seedIndexTrade(array $attrs = []): Trade
 {
-    return Trade::create(array_merge(['games' => []], $attrs));
+    return Trade::create($attrs);
 }
 
 describe('GET /trades — default view', function () {
@@ -161,15 +162,15 @@ describe('GET /trades — text search', function () {
             ->assertInertia(fn ($page) => $page->where('trades.total', 1));
     });
 
-    it('filters by game name substring inside games JSON', function () {
-        seedIndexTrade([
-            'date' => '2025-06-01',
-            'games' => [['name' => 'Half-Life 2', 'marketPriceRaw' => '5.00', 'keyCode' => 'AAA']],
-        ]);
-        seedIndexTrade([
-            'date' => '2025-06-02',
-            'games' => [['name' => 'Cyberpunk', 'marketPriceRaw' => '10.00', 'keyCode' => 'BBB']],
-        ]);
+    it('filters by game name substring', function () {
+        TradeFactory::withLines(
+            [['game_name' => 'Half-Life 2', 'market_price' => '5.00', 'key_code' => 'AAA']],
+            ['date' => '2025-06-01'],
+        );
+        TradeFactory::withLines(
+            [['game_name' => 'Cyberpunk', 'market_price' => '10.00', 'key_code' => 'BBB']],
+            ['date' => '2025-06-02'],
+        );
 
         $this->actingAs(makeAuthorizedIndexUser())
             ->get('/trades?game_search=half')

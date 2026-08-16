@@ -5,21 +5,26 @@
 | ImportTradeKeysTest — POST /trades/{trade}/import
 |--------------------------------------------------------------------------
 |
+| A rota não recebe corpo: o lote sai das linhas gravadas da trade.
+|
 | Casos testados:
 |
-|   1. gamivo_id enviado é persistido na key criada
-|   2. gamivo_id enviado é propagado para a tabela games
-|   3. gamivo_id ausente não quebra a importação (campo nullable)
-|   4. as keys importadas são vinculadas à trade (trade_id)
-|   5. importação sem erros marca a trade como is_imported
-|   6. reimportação de uma trade já marcada como is_imported é aceita
+|   1. o lote é montado a partir das linhas do banco, sem corpo nenhum
+|   2. um corpo enviado à rota é ignorado — o navegador não dita o market_price
+|   3. gamivo_id da linha é persistido na key e propagado para a tabela games
+|   4. gamivo_id ausente não quebra a importação (campo nullable)
+|   5. as keys importadas são vinculadas à trade (trade_id)
+|   6. importação sem erros marca a trade como is_imported
+|   7. reimportação de uma trade já marcada como is_imported é aceita
+|   8. lote recusado quando falta key_code numa linha preenchida, ou TF2 na trade
+|   9. visitante não autorizado não importa
 |
 */
 
 use App\Models\AuthorizedUsers;
-use App\Models\Trade;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Tests\Support\TradeFactory;
 
 function seedImportFees(): void
 {
@@ -43,31 +48,92 @@ function makeAuthorizedImportUser(): User
     return $user;
 }
 
-function importGamePayload(array $overrides = []): array
+/** Linha pronta para importar; os overrides trocam só o que o caso exige. */
+function importLine(array $overrides = []): array
 {
     return array_merge([
         'game_name' => 'Half-Life',
         'market_price' => 4.50,
-        'supplier_url' => 'https://steamcommunity.com/id/exemplo',
-        'tf2_quantity' => 1.5,
         'key_code' => 'AAAAA-BBBBB-CCCCC',
-        'acquired_at' => now()->toDateString(),
         'region' => null,
     ], $overrides);
 }
 
-describe('POST /trades/{trade}/import — gamivo_id', function () {
+/**
+ * Trade importável: com fornecedor, data e quantidade de TF2.
+ *
+ * @param  list<array<string, mixed>>|null  $lines
+ */
+function importableTrade(?array $lines = null, array $attrs = []): App\Models\Trade
+{
+    $supplierId = DB::table('suppliers')->insertGetId([
+        'url' => 'https://steamcommunity.com/id/exemplo',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    return TradeFactory::withLines($lines ?? [importLine()], array_merge([
+        'supplier_id' => $supplierId,
+        'tf2_qty' => 1.5,
+        'date' => now()->toDateString(),
+    ], $attrs));
+}
+
+describe('POST /trades/{trade}/import', function () {
 
     beforeEach(fn () => seedImportFees());
 
-    it('persists gamivo_id on the created key', function () {
-        $user = makeAuthorizedImportUser();
-        $trade = Trade::create(['games' => []]);
+    // ── O lote sai do banco ───────────────────────────────────────────────────
 
-        $this->actingAs($user)
+    it('imports the stored lines without any request body', function () {
+        $trade = importableTrade();
+
+        $this->actingAs(makeAuthorizedImportUser())
+            ->postJson(route('trades.import', ['trade' => $trade->id]))
+            ->assertStatus(201)
+            ->assertJsonPath('count', 1);
+
+        $this->assertDatabaseHas('keys', [
+            'key_code' => 'AAAAA-BBBBB-CCCCC',
+            'game_name' => 'Half-Life',
+            'trade_id' => $trade->id,
+        ]);
+    });
+
+    it('ignores a market price sent in the body and uses the stored one', function () {
+        $trade = importableTrade([importLine(['market_price' => 4.50])]);
+
+        $this->actingAs(makeAuthorizedImportUser())
             ->postJson(route('trades.import', ['trade' => $trade->id]), [
-                'games' => [importGamePayload(['gamivo_id' => '144601'])],
+                'games' => [['key_code' => 'AAAAA-BBBBB-CCCCC', 'market_price' => 999.00]],
             ])
+            ->assertStatus(201);
+
+        expect((float) DB::table('keys')->where('key_code', 'AAAAA-BBBBB-CCCCC')->value('market_price'))
+            ->toEqualWithDelta(4.50, 0.01);
+    });
+
+    it('does not import blank lines kept as drafts in the tab', function () {
+        $trade = importableTrade([
+            importLine(),
+            ['game_name' => null, 'market_price' => null, 'key_code' => null],
+        ]);
+
+        $this->actingAs(makeAuthorizedImportUser())
+            ->postJson(route('trades.import', ['trade' => $trade->id]))
+            ->assertStatus(201)
+            ->assertJsonPath('count', 1);
+
+        expect(DB::table('keys')->count())->toBe(1);
+    });
+
+    // ── gamivo_id ─────────────────────────────────────────────────────────────
+
+    it('persists gamivo_id on the created key', function () {
+        $trade = importableTrade([importLine(['gamivo_id' => '144601'])]);
+
+        $this->actingAs(makeAuthorizedImportUser())
+            ->postJson(route('trades.import', ['trade' => $trade->id]))
             ->assertStatus(201);
 
         $this->assertDatabaseHas('keys', [
@@ -77,26 +143,20 @@ describe('POST /trades/{trade}/import — gamivo_id', function () {
     });
 
     it('propagates gamivo_id to the games table', function () {
-        $user = makeAuthorizedImportUser();
-        $trade = Trade::create(['games' => []]);
+        $trade = importableTrade([importLine(['gamivo_id' => '144601', 'game_name' => 'Propagated Game'])]);
 
-        $this->actingAs($user)
-            ->postJson(route('trades.import', ['trade' => $trade->id]), [
-                'games' => [importGamePayload(['gamivo_id' => '144601', 'game_name' => 'Propagated Game'])],
-            ])
+        $this->actingAs(makeAuthorizedImportUser())
+            ->postJson(route('trades.import', ['trade' => $trade->id]))
             ->assertStatus(201);
 
         expect(DB::table('games')->where('gamivo_id', '144601')->exists())->toBeTrue();
     });
 
     it('imports successfully when gamivo_id is not provided', function () {
-        $user = makeAuthorizedImportUser();
-        $trade = Trade::create(['games' => []]);
+        $trade = importableTrade();
 
-        $this->actingAs($user)
-            ->postJson(route('trades.import', ['trade' => $trade->id]), [
-                'games' => [importGamePayload()],
-            ])
+        $this->actingAs(makeAuthorizedImportUser())
+            ->postJson(route('trades.import', ['trade' => $trade->id]))
             ->assertStatus(201);
 
         $this->assertDatabaseHas('keys', [
@@ -105,46 +165,26 @@ describe('POST /trades/{trade}/import — gamivo_id', function () {
         ]);
     });
 
-    it('links the imported keys to the trade (trade_id)', function () {
-        $user = makeAuthorizedImportUser();
-        $trade = Trade::create(['games' => []]);
-
-        $this->actingAs($user)
-            ->postJson(route('trades.import', ['trade' => $trade->id]), [
-                'games' => [importGamePayload()],
-            ])
-            ->assertStatus(201);
-
-        $this->assertDatabaseHas('keys', [
-            'key_code' => 'AAAAA-BBBBB-CCCCC',
-            'trade_id' => $trade->id,
-        ]);
-    });
+    // ── Ciclo de vida da trade ────────────────────────────────────────────────
 
     it('marks the trade as imported after a successful import', function () {
-        $user = makeAuthorizedImportUser();
-        $trade = Trade::create(['games' => []]);
+        $trade = importableTrade();
 
         // default do banco (o modelo recém-criado em memória não reflete o default)
         expect($trade->fresh()->is_imported)->toBeFalse();
 
-        $this->actingAs($user)
-            ->postJson(route('trades.import', ['trade' => $trade->id]), [
-                'games' => [importGamePayload()],
-            ])
+        $this->actingAs(makeAuthorizedImportUser())
+            ->postJson(route('trades.import', ['trade' => $trade->id]))
             ->assertStatus(201);
 
         expect($trade->fresh()->is_imported)->toBeTrue();
     });
 
     it('accepts reimporting a trade that is already marked as imported', function () {
-        $user = makeAuthorizedImportUser();
-        $trade = Trade::create(['games' => [], 'is_imported' => true]);
+        $trade = importableTrade(null, ['is_imported' => true]);
 
-        $this->actingAs($user)
-            ->postJson(route('trades.import', ['trade' => $trade->id]), [
-                'games' => [importGamePayload()],
-            ])
+        $this->actingAs(makeAuthorizedImportUser())
+            ->postJson(route('trades.import', ['trade' => $trade->id]))
             ->assertStatus(201);
 
         expect($trade->fresh()->is_imported)->toBeTrue();
@@ -152,5 +192,40 @@ describe('POST /trades/{trade}/import — gamivo_id', function () {
             'key_code' => 'AAAAA-BBBBB-CCCCC',
             'trade_id' => $trade->id,
         ]);
+    });
+
+    // ── Lote recusado ─────────────────────────────────────────────────────────
+
+    it('refuses the batch when a filled line has no key code', function () {
+        $trade = importableTrade([importLine(['key_code' => null])]);
+
+        $this->actingAs(makeAuthorizedImportUser())
+            ->postJson(route('trades.import', ['trade' => $trade->id]))
+            ->assertStatus(422)
+            ->assertJsonPath('count', 0);
+
+        expect(DB::table('keys')->count())->toBe(0)
+            ->and($trade->fresh()->is_imported)->toBeFalse();
+    });
+
+    it('refuses the batch when the trade has no TF2 quantity', function () {
+        $trade = importableTrade(null, ['tf2_qty' => null]);
+
+        $this->actingAs(makeAuthorizedImportUser())
+            ->postJson(route('trades.import', ['trade' => $trade->id]))
+            ->assertStatus(422);
+
+        expect(DB::table('keys')->count())->toBe(0);
+    });
+
+    // ── Permissão ─────────────────────────────────────────────────────────────
+
+    it('blocks an unauthorized visitor from importing', function () {
+        $trade = importableTrade();
+
+        $this->postJson(route('trades.import', ['trade' => $trade->id]))
+            ->assertStatus(403);
+
+        expect(DB::table('keys')->count())->toBe(0);
     });
 });

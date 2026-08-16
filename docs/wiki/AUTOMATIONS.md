@@ -10,8 +10,7 @@ Ordenado do mais frequente ao mais raro. Fuso `America/Sao_Paulo`, exceto onde i
 
 | Cadência | Cron | Job | O que faz |
 |---|---|---|---|
-| a cada 5 min | `*/5 * * * *` | `UpdateOffersUseCase(WeAreLowest)` | Onde já somos os mais baratos: sobe o preço até logo abaixo do 2º |
-| de hora em hora | `5 * * * *` | `UpdateOffersUseCase(WeAreNotLowest)` | Onde não somos os mais baratos: tenta recuperar posição |
+| a cada minuto | `* * * * *` | `UpdateOffersUseCase` | Passada única: por produto, sobe o preço se já somos os mais baratos, desce se não somos. `withoutOverlapping` pula o tick se a execução anterior ainda roda. Detalhe em [`docs/GAMIVO.md`](../GAMIVO.md) |
 | de hora em hora | `5 * * * *` (UTC) | `SyncBundlesFromApiUseCase` | Sincroniza bundles novos da API GG.deals |
 | 2×/dia | `0 6,18 * * *` | `UpdateSoldOffersUseCase` | Dá baixa nas keys vendidas (janela de 2 dias) |
 | diário 06:00 | `0 6 * * *` | `ResolveSteamIdsUseCase` | Busca Steam IDs ainda não descobertos |
@@ -22,8 +21,6 @@ Ordenado do mais frequente ao mais raro. Fuso `America/Sao_Paulo`, exceto onde i
 | **manual** | — | `gamivo:auto-sell` (`AutoSellUseCase`) | Lista keys elegíveis na Gamivo — **não tem cron**, só disparo manual |
 
 **Ordem que importa:** o `RegulateMinApiUseCase` (07:30) precisa rodar **antes** do auto-sell, porque o auto-sell só consulta o `min_api` já gravado — nunca recalcula.
-
-> ⚠️ `WeAreLowest` dispara nos minutos `0,5,10,15...` e `WeAreNotLowest` no minuto `5` de cada hora — **os dois colidem todo minuto `:05`**, e nenhum usa `withoutOverlapping()`. Dívida registrada em [`docs/IMPROVEMENTS.md`](../IMPROVEMENTS.md).
 
 ## `min_api` — o piso de preço de cada key
 

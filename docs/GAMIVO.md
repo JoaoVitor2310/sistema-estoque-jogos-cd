@@ -233,7 +233,7 @@ O `UpdateOffersUseCase` reajusta o preço de ofertas **já listadas**, minutos o
 
 O clamp de `min_api`/`max_api` usa **só** os limites da governante — não mais um `MIN(min_api)`/`MAX(max_api)` agregado do grupo. Isso fecha a lacuna que existia antes: uma governante velha (com `max_api` travado no preço de listagem, ver acima) podia ter o preço reajustado para cima porque uma key mais nova do mesmo grupo tinha `max_api` mais alto — o agregado furava a trava de idade. Se a governante tiver `min_api`/`max_api` nulo (não deveria acontecer, já que o `RegulateMinApiUseCase` mantém isso preenchido diariamente), o clamp cai para `MinMaxPriceCalculator::FLOOR`/`CEILING`, mesmo fallback que o `AutoSellUseCase` já usa.
 
-A governante **não** é obtida consultando a Gamivo (ex: ordem de retorno de `GET /offers/{id}/keys/active`) — decisão registrada em [`docs/adr/0006`](adr/0006-governing-key-order-from-local-data.md): a API não documenta garantia de ordenação, e a chamada extra por produto a cada ciclo (5 min quando somos os mais baratos) não compensaria o ganho.
+A governante **não** é obtida consultando a Gamivo (ex: ordem de retorno de `GET /offers/{id}/keys/active`) — decisão registrada em [`docs/adr/0006`](adr/0006-governing-key-order-from-local-data.md): a API não documenta garantia de ordenação, e a chamada extra por produto a cada ciclo (hoje, a cada minuto) não compensaria o ganho.
 
 ### Testar sem chamar a API real
 

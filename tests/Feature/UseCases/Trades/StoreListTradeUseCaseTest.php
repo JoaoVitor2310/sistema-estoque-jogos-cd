@@ -27,20 +27,34 @@ function listTradeGames(array $overrides = []): array
 
 describe('StoreListTradeUseCase', function () {
 
-    it('creates a trade with correctly converted games', function () {
+    it('creates a trade with one persisted line per researched game', function () {
         $trade = app(StoreListTradeUseCase::class)->execute([
             'games' => [['name' => 'Half-Life', 'price_euro' => 4.50, 'popularity' => 500, 'region' => 'EU']],
         ]);
 
-        $game = $trade->games[0];
+        $line = $trade->lines->first();
 
-        expect($game['name'])->toBe('Half-Life')
-            ->and($game['marketPriceRaw'])->toBe('4.50')
-            ->and($game['popularity'])->toBe('500')
-            ->and($game['regionLock'])->toBe('EU')
-            ->and($game['bundle'])->toBeNull()
-            ->and($game['expiry'])->toBeNull()
-            ->and($game['keyCode'])->toBeNull();
+        expect($trade->lines)->toHaveCount(1)
+            ->and($line->game_name)->toBe('Half-Life')
+            ->and($line->market_price)->toBe('4.50')
+            ->and($line->popularity)->toBe(500)
+            ->and($line->region)->toBe('EU')
+            ->and($line->bundle)->toBeNull()
+            ->and($line->expires_at)->toBeNull()
+            ->and($line->key_code)->toBeNull()
+            ->and($line->position)->toBe(0);
+    });
+
+    it('keeps the researched order in the line positions', function () {
+        $trade = app(StoreListTradeUseCase::class)->execute([
+            'games' => [
+                ['name' => 'Half-Life', 'price_euro' => 4.50, 'popularity' => 500, 'region' => null],
+                ['name' => 'Portal', 'price_euro' => 2.00, 'popularity' => 100, 'region' => null],
+            ],
+        ]);
+
+        expect($trade->lines->pluck('game_name')->all())->toBe(['Half-Life', 'Portal'])
+            ->and($trade->lines->pluck('position')->all())->toBe([0, 1]);
     });
 
     it('sets date to today', function () {
@@ -105,31 +119,31 @@ describe('StoreListTradeUseCase', function () {
             'games' => [['name' => 'Portal', 'price_euro' => 10.0, 'popularity' => 100, 'region' => null]],
         ]);
 
-        expect($trade->games[0]['marketPriceRaw'])->toBe('10.00');
+        expect($trade->lines->first()->market_price)->toBe('10.00');
     });
 
-    it('handles null region as null regionLock', function () {
+    it('handles null region as a null region column', function () {
         $trade = app(StoreListTradeUseCase::class)->execute([
             'games' => [['name' => 'Portal', 'price_euro' => 3.00, 'popularity' => 100, 'region' => null]],
         ]);
 
-        expect($trade->games[0]['regionLock'])->toBeNull();
+        expect($trade->lines->first()->region)->toBeNull();
     });
 
-    it('stores gamivo_id as gamivoId when provided', function () {
+    it('stores gamivo_id when provided', function () {
         $trade = app(StoreListTradeUseCase::class)->execute([
             'games' => [['name' => 'Half-Life', 'price_euro' => 4.50, 'popularity' => 500, 'region' => null, 'gamivo_id' => '144601']],
         ]);
 
-        expect($trade->games[0]['gamivoId'])->toBe('144601');
+        expect($trade->lines->first()->gamivo_id)->toBe('144601');
     });
 
-    it('stores null gamivoId when gamivo_id is not provided', function () {
+    it('stores null gamivo_id when not provided', function () {
         $trade = app(StoreListTradeUseCase::class)->execute([
             'games' => listTradeGames(),
         ]);
 
-        expect($trade->games[0]['gamivoId'])->toBeNull();
+        expect($trade->lines->first()->gamivo_id)->toBeNull();
     });
 });
 
@@ -142,7 +156,7 @@ describe('StoreListTradeUseCase — bundle lookup', function () {
             'games' => [['name' => 'Stardew Valley', 'price_euro' => 5.00, 'popularity' => 1000, 'region' => null]],
         ]);
 
-        expect($trade->games[0]['bundle'])->toBe('Humble Choice Junho 2026');
+        expect($trade->lines->first()->bundle)->toBe('Humble Choice Junho 2026');
     });
 
     it('leaves bundle null when game has no bundle', function () {
@@ -150,7 +164,7 @@ describe('StoreListTradeUseCase — bundle lookup', function () {
             'games' => [['name' => 'Game Without Bundle', 'price_euro' => 5.00, 'popularity' => 100, 'region' => null]],
         ]);
 
-        expect($trade->games[0]['bundle'])->toBeNull();
+        expect($trade->lines->first()->bundle)->toBeNull();
     });
 
     it('leaves bundle null when game bundle was released more than 3 months ago', function () {
@@ -160,7 +174,7 @@ describe('StoreListTradeUseCase — bundle lookup', function () {
             'games' => [['name' => 'Old Game', 'price_euro' => 3.00, 'popularity' => 50, 'region' => null]],
         ]);
 
-        expect($trade->games[0]['bundle'])->toBeNull();
+        expect($trade->lines->first()->bundle)->toBeNull();
     });
 
     it('resolves bundle independently per game in a multi-game payload', function () {
@@ -173,8 +187,8 @@ describe('StoreListTradeUseCase — bundle lookup', function () {
             ],
         ]);
 
-        expect($trade->games[0]['bundle'])->toBe('Indie Bundle')
-            ->and($trade->games[1]['bundle'])->toBeNull();
+        expect($trade->lines[0]->bundle)->toBe('Indie Bundle')
+            ->and($trade->lines[1]->bundle)->toBeNull();
     });
 
     it('matches game name case-insensitively', function () {
@@ -184,7 +198,7 @@ describe('StoreListTradeUseCase — bundle lookup', function () {
             'games' => [['name' => 'Hollow Knight', 'price_euro' => 4.00, 'popularity' => 800, 'region' => null]],
         ]);
 
-        expect($trade->games[0]['bundle'])->toBe('Indie Bundle');
+        expect($trade->lines->first()->bundle)->toBe('Indie Bundle');
     });
 
     it('matches game name regardless of roman numeral vs decimal formatting', function () {
@@ -194,7 +208,7 @@ describe('StoreListTradeUseCase — bundle lookup', function () {
             'games' => [['name' => 'Witcher 3', 'price_euro' => 4.00, 'popularity' => 800, 'region' => null]],
         ]);
 
-        expect($trade->games[0]['bundle'])->toBe('RPG Bundle');
+        expect($trade->lines->first()->bundle)->toBe('RPG Bundle');
     });
 
     it('uses the most recent bundle when game appears in two recent bundles', function () {
@@ -216,6 +230,6 @@ describe('StoreListTradeUseCase — bundle lookup', function () {
             'games' => [['name' => 'Multi Bundle Game', 'price_euro' => 5.00, 'popularity' => 300, 'region' => null]],
         ]);
 
-        expect($trade->games[0]['bundle'])->toBe('Bundle Recente');
+        expect($trade->lines->first()->bundle)->toBe('Bundle Recente');
     });
 });

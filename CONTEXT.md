@@ -94,6 +94,14 @@ _Avoid_: trade concluída, trade fulfilled.
 Um jogo dentro de uma trade, com o preço de mercado pesquisado, a região, a validade e o `key_code` correspondente. É a unidade que o supplier preenche na entrega e que vira uma Key no import.
 _Avoid_: item, row, game (isoladamente — `Game` é o catálogo, outra coisa).
 
+**Linha preenchida**:
+Linha da trade que tem nome do jogo **ou** preço de mercado. É o que separa dado do operador de rascunho: a aba mantém linha em branco como estado normal, e só a linha preenchida é cobrada por `key_code` e importada.
+_Avoid_: linha válida, linha completa (completa é a que já passou pela **prontidão para importar**).
+
+**Prontidão para importar**:
+Condição da trade inteira para virar keys: toda linha preenchida com nome, preço > 0 e `key_code`, mais quantidade de TF2 e fornecedor na trade. Recusada, nenhuma key entra — a importação é tudo ou nada.
+_Avoid_: trade válida, trade completa.
+
 **Entrega**:
 O ato do supplier de repassar os `key_code` negociados de uma trade, junto da região, da validade e do total de TF2 acertado. Não confundir com **trade em estoque**: entregue significa que ele mandou os códigos; em estoque significa que já importamos as keys.
 _Avoid_: preenchimento, submissão, envio.

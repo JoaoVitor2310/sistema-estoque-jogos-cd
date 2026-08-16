@@ -13,7 +13,10 @@ class UpdateTradeUseCase
     ) {}
 
     /**
-     * @param  array{title?: string|null, supplierUrl?: string|null, date?: string|null, tf2Qty?: string|null, games?: array<int, mixed>, message_sent?: bool}  $data
+     * Atualiza só os campos da própria trade. As linhas têm rotas próprias —
+     * uma gravação da trade não pode mais substituir o conjunto inteiro delas.
+     *
+     * @param  array{title?: string|null, supplierUrl?: string|null, date?: string|null, tf2Qty?: string|null, message_sent?: bool}  $data
      */
     public function execute(Trade $trade, array $data): void
     {
@@ -22,7 +25,6 @@ class UpdateTradeUseCase
             'supplier_id' => $this->supplierService->resolveIdByUrl($data['supplierUrl'] ?? null),
             'date' => $this->parseDate($data['date'] ?? null),
             'tf2_qty' => ($data['tf2Qty'] ?? null) ?: null,
-            'games' => $data['games'] ?? [],
             'message_sent' => (bool) ($data['message_sent'] ?? false),
         ]);
     }

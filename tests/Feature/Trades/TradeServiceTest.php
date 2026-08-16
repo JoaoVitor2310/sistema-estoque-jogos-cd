@@ -19,12 +19,13 @@
 use App\Models\Trade;
 use App\Services\Trades\TradeService;
 use Illuminate\Support\Facades\DB;
+use Tests\Support\TradeFactory;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function makeTrade(array $attrs = []): Trade
 {
-    return Trade::create(array_merge(['games' => []], $attrs));
+    return Trade::create($attrs);
 }
 
 // ── paginate ──────────────────────────────────────────────────────────────────
@@ -196,25 +197,91 @@ describe('TradeService::paginate — text search', function () {
         expect($page->total())->toBe(1);
     });
 
-    it('filters by game name inside the games JSON (case-insensitive)', function () {
-        makeTrade([
-            'date' => '2025-06-01',
-            'games' => [
-                ['name' => 'Half-Life 2', 'marketPriceRaw' => '5.00', 'keyCode' => 'AAA'],
-                ['name' => 'Portal', 'marketPriceRaw' => '3.00', 'keyCode' => 'BBB'],
-            ],
-        ]);
-        makeTrade([
-            'date' => '2025-06-02',
-            'games' => [
-                ['name' => 'Cyberpunk 2077', 'marketPriceRaw' => '10.00', 'keyCode' => 'CCC'],
-            ],
-        ]);
+    it('filters by game name (case-insensitive)', function () {
+        TradeFactory::withLines([
+            ['game_name' => 'Half-Life 2', 'market_price' => '5.00', 'key_code' => 'AAA'],
+            ['game_name' => 'Portal', 'market_price' => '3.00', 'key_code' => 'BBB'],
+        ], ['date' => '2025-06-01']);
+        TradeFactory::withLines([
+            ['game_name' => 'Cyberpunk 2077', 'market_price' => '10.00', 'key_code' => 'CCC'],
+        ], ['date' => '2025-06-02']);
 
         $page = app(TradeService::class)->paginate(['game_search' => 'portal']);
 
         expect($page->total())->toBe(1);
-        expect($page->items()[0]['games'][1]['name'])->toBe('Portal');
+        expect($page->items()[0]['lines'][1]['game_name'])->toBe('Portal');
+    });
+
+    it('does not match a key code — only the game name is searched', function () {
+        // Regressão do falso positivo do JSON: varrer o documento inteiro fazia
+        // o código de uma key casar com a busca por jogo.
+        TradeFactory::withLines([
+            ['game_name' => 'Portal', 'market_price' => '3.00', 'key_code' => 'CYBERPUNK-XXXX-1'],
+        ], ['date' => '2025-06-01']);
+
+        expect(app(TradeService::class)->paginate(['game_search' => 'cyberpunk'])->total())->toBe(0);
+    });
+
+    it('does not match a gamivo id', function () {
+        TradeFactory::withLines([
+            ['game_name' => 'Portal', 'market_price' => '3.00', 'gamivo_id' => '144601'],
+        ], ['date' => '2025-06-01']);
+
+        expect(app(TradeService::class)->paginate(['game_search' => '144601'])->total())->toBe(0);
+    });
+
+    it('returns a trade once even when several of its lines match', function () {
+        TradeFactory::withLines([
+            ['game_name' => 'Portal'],
+            ['game_name' => 'Portal 2'],
+        ], ['date' => '2025-06-01']);
+
+        expect(app(TradeService::class)->paginate(['game_search' => 'portal'])->total())->toBe(1);
+    });
+});
+
+describe('TradeService::paginate — line loading', function () {
+
+    it('loads the lines of every trade with a single query', function () {
+        foreach (range(1, 5) as $i) {
+            TradeFactory::withLines(['Portal', 'Half-Life'], ['date' => '2025-06-0'.$i]);
+        }
+
+        $queries = [];
+        DB::listen(function ($query) use (&$queries) {
+            if (str_contains($query->sql, 'trade_lines')) {
+                $queries[] = $query->sql;
+            }
+        });
+
+        $page = app(TradeService::class)->paginate();
+
+        // Uma query só para as linhas das 5 trades — se virasse uma por trade,
+        // a aba degradaria linearmente com a página.
+        expect($page->total())->toBe(5)
+            ->and($queries)->toHaveCount(1);
+    });
+
+    it('presents the lines in position order', function () {
+        TradeFactory::withLines(['First', 'Second', 'Third'], ['date' => '2025-06-01']);
+
+        $lines = app(TradeService::class)->paginate()->items()[0]['lines'];
+
+        expect(array_column($lines, 'game_name'))->toBe(['First', 'Second', 'Third'])
+            ->and(array_column($lines, 'position'))->toBe([0, 1, 2]);
+    });
+
+    it('never exposes a column the tab was not meant to receive', function () {
+        TradeFactory::withLines(['Portal'], ['date' => '2025-06-01']);
+
+        $line = app(TradeService::class)->paginate()->items()[0]['lines'][0];
+
+        // Projeção explícita: uma coluna nova só chega à tela se alguém a
+        // acrescentar aqui de propósito.
+        expect(array_keys($line))->toBe([
+            'id', 'position', 'game_name', 'market_price', 'popularity',
+            'region', 'bundle', 'expires_at', 'key_code', 'gamivo_id',
+        ]);
     });
 });
 

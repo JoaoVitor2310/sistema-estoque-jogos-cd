@@ -327,6 +327,34 @@ O operador busca o melhor equilíbrio entre:
 - manter o maior lucro possível;
 - evitar compras com margem insuficiente para revenda.
 
+### Importação das keys da trade
+
+Fechada a negociação, o operador preenche os `key_code` recebidos nas linhas da trade e importa —
+`POST /trades/{trade}/import`, **único** caminho de entrada de keys no estoque.
+
+O import leva **exatamente o que está gravado na trade**: a requisição não tem corpo, e o servidor
+lê as linhas, a data, o fornecedor e a quantidade de TF2 do banco. Isso importa porque o
+`market_price` de cada linha é o peso do rateio de `individual_cost` do lote inteiro (ver
+[`docs/adr/0004`](adr/0004-recalculate-trade-on-key-edit.md)) — enquanto ele vinha do navegador, o
+custo de todas as keys da trade dependia do que o cliente mandasse.
+
+#### Prontidão para importar
+
+O lote é recusado **inteiro** quando qualquer condição abaixo vale — a importação é tudo ou nada,
+então uma linha incompleta derruba a trade, não a si mesma. A mesma regra desabilita o botão na aba.
+
+Uma linha conta como **preenchida** quando tem nome do jogo **ou** preço de mercado. Linha em branco
+é rascunho normal da aba: não recusa o lote e não vira key.
+
+| Condição | Por quê |
+|---|---|
+| Linha preenchida sem `key_code` | A falta apareceria só depois de a trade já constar como importada |
+| Linha preenchida sem preço de mercado, ou com preço zerado | É o peso do rateio de `individual_cost` — sem ele o lote inteiro sai errado |
+| Linha preenchida sem nome do jogo | A key não teria como ser casada com o catálogo `games` |
+| Trade sem quantidade de TF2 | O rateio de `individual_cost` rodaria sem custo nenhum |
+| Trade sem fornecedor | É de onde saem `keys.supplier_id` e `supplier_url` |
+| Nenhuma linha preenchida | Não há o que importar |
+
 ### Observação importante
 
 Quanto menor for a margem obtida na compra, menor tende a ser a margem potencial na venda futura.
@@ -366,7 +394,7 @@ A análise de venda considera que:
 
 ### Periodicidade
 
-A verificação é diária: o `RegulateMinApiUseCase` recalcula o `min_api` de todas as keys não vendidas todo dia às 07:30, e o auto-sell roda em seguida. A reprecificação das ofertas já ativas roda a cada 5 minutos (quando somos os mais baratos) ou de hora em hora (quando não somos).
+A verificação é diária: o `RegulateMinApiUseCase` recalcula o `min_api` de todas as keys não vendidas todo dia às 07:30, e o auto-sell roda em seguida. A reprecificação das ofertas já ativas roda **a cada minuto**, numa passada única que decide por produto se sobe ou desce o preço (ver [`docs/GAMIVO.md`](GAMIVO.md)).
 
 ### Automação
 

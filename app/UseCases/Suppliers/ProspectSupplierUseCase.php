@@ -6,10 +6,12 @@ use App\Domain\Pricing\IncomeCalculator;
 use App\Domain\Pricing\OfferCalculator;
 use App\Domain\Trades\CommentPolicy;
 use App\Domain\Trades\TradeGameComparison;
+use App\Domain\Trades\TradeLineBuilder;
 use App\Models\Trade;
 use App\Services\Keys\KeyCalculationService;
 use App\Services\Suppliers\SupplierService;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class ProspectSupplierUseCase
 {
@@ -32,28 +34,34 @@ class ProspectSupplierUseCase
         $profitable = $this->evaluateProfitability($games);
 
         $previousTrade = $listCode
-            ? Trade::where('list_code', $listCode)
+            ? Trade::with('lines')
+                ->where('list_code', $listCode)
                 ->whereNotNull('last_commented_at')
                 ->latest('last_commented_at')
                 ->first()
             : null;
 
         $lastCommentedAt = $previousTrade?->last_commented_at;
-        $previousRows = $previousTrade?->games ?? [];
+        $previousNames = $previousTrade?->lines->pluck('game_name')->filter()->all() ?? [];
 
         $gamesChanged = $previousTrade !== null
-            && TradeGameComparison::hasChanged($games, $previousRows);
+            && TradeGameComparison::hasChanged(array_column($games, 'name'), $previousNames);
 
         $shouldComment = CommentPolicy::shouldComment($profitable, $gamesChanged, $lastCommentedAt);
 
         if ($shouldComment) {
-            Trade::create([
-                'supplier_id' => $record->id,
-                'list_code' => $listCode,
-                'last_commented_at' => now(),
-                'date' => now()->format('Y-m-d'),
-                'games' => $this->buildGames($profitable),
-            ]);
+            DB::transaction(function () use ($record, $listCode, $profitable) {
+                $trade = Trade::create([
+                    'supplier_id' => $record->id,
+                    'list_code' => $listCode,
+                    'last_commented_at' => now(),
+                    'date' => now()->format('Y-m-d'),
+                ]);
+
+                // Mapa de bundle vazio: a prospecção nunca resolveu bundle, ao
+                // contrário da lista comentada (ver StoreListTradeUseCase).
+                $trade->lines()->createMany(TradeLineBuilder::fromResearch($profitable, []));
+            });
         }
 
         return [
@@ -96,23 +104,5 @@ class ProspectSupplierUseCase
         }
 
         return $profitable;
-    }
-
-    /**
-     * @param  array<int, array{name: string, price_euro: float, popularity: int, region: string|null, gamivo_id: string|null, tf2_price: float}>  $profitable
-     * @return array<int, array<string, mixed>>
-     */
-    private function buildGames(array $profitable): array
-    {
-        return array_map(fn (array $game) => [
-            'name' => $game['name'],
-            'marketPriceRaw' => number_format($game['price_euro'], 2, '.', ''),
-            'popularity' => (string) $game['popularity'],
-            'regionLock' => $game['region'],
-            'bundle' => null,
-            'expiry' => null,
-            'keyCode' => null,
-            'gamivoId' => $game['gamivo_id'],
-        ], $profitable);
     }
 }

@@ -18,25 +18,15 @@ describe('CreateTradeUseCase', function () {
         expect($trade->tf2_qty)->toBeNull();
     });
 
-    it('seeds one empty row when games is not provided', function () {
+    it('seeds one blank line so the card is editable right away', function () {
         $trade = app(CreateTradeUseCase::class)->execute([]);
 
-        expect($trade->games)->toHaveCount(1)
-            ->and($trade->games[0])->toMatchArray([
-                'name' => '',
-                'marketPriceRaw' => '',
-                'keyCode' => '',
-            ]);
-    });
+        $line = $trade->lines->first();
 
-    it('respects explicit games array (does not add a seed row)', function () {
-        $trade = app(CreateTradeUseCase::class)->execute([
-            'games' => [
-                ['name' => 'Half-Life', 'marketPriceRaw' => '5.00', 'keyCode' => 'AAA'],
-            ],
-        ]);
-
-        expect($trade->games)->toHaveCount(1)
-            ->and($trade->games[0]['name'])->toBe('Half-Life');
+        expect($trade->lines)->toHaveCount(1)
+            ->and($line->position)->toBe(0)
+            ->and($line->game_name)->toBeNull()
+            ->and($line->market_price)->toBeNull()
+            ->and($line->key_code)->toBeNull();
     });
 });
