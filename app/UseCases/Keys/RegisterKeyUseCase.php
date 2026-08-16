@@ -2,15 +2,17 @@
 
 namespace App\UseCases\Keys;
 
+use App\Domain\Enums\TradeImportBlocker;
 use App\Domain\Keys\KeyDefaults;
 use App\Domain\Platform\PlatformIdentifier;
 use App\Domain\Pricing\SalePriceCalculator;
+use App\Domain\Trades\ImportReadinessPolicy;
 use App\Models\Key;
 use App\Models\Trade;
+use App\Models\TradeLine;
 use App\Services\Games\GameService;
 use App\Services\Keys\KeyCalculationService;
 use App\Services\Keys\KeyRepository;
-use App\Services\Suppliers\SupplierService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -27,44 +29,68 @@ use Illuminate\Support\Facades\Log;
  * válido (ver docs/adr/0004). A coluna `keys.trade_id` é nullable apenas por
  * causa das keys anteriores a esse vínculo.
  *
+ * **O lote sai inteiro da trade gravada**, não de um payload: as linhas, a data,
+ * o supplier e a quantidade de TF2 são lidos aqui. Enquanto o `market_price`
+ * vinha no corpo do request, quem chamasse a rota ditava o rateio de
+ * `individual_cost` do lote inteiro (ver docs/adr/0004).
+ *
  * A importação é **atômica**: ou todas as keys do lote são registradas, ou
  * nenhuma é. Qualquer erro descarta o lote inteiro (inclusive os efeitos
- * colaterais em `games`/`suppliers`) e devolve a lista completa de erros, para
- * o usuário corrigir tudo de uma vez em vez de reimportar em partes.
+ * colaterais em `games`) e devolve a lista completa de erros, para o usuário
+ * corrigir tudo de uma vez em vez de reimportar em partes.
  *
- * Entrada : Trade de origem + array de primitivos já validados.
+ * Entrada : Trade de origem.
  * Saída   : array com games persistidos, mensagem e erros por linha.
  */
 class RegisterKeyUseCase
 {
     public function __construct(
         private readonly KeyCalculationService $calculationService,
-        private readonly SupplierService $supplierService,
         private readonly GameService $gameService,
         private readonly KeyRepository $keyRepository,
     ) {}
 
     /**
-     * Registra um lote de keys no banco de dados, de forma atômica.
+     * Registra as keys de uma trade no banco de dados, de forma atômica.
      *
      * Todas as keys são avaliadas para que os erros do lote sejam reportados de
      * uma vez só; havendo qualquer erro, nada é persistido.
      * Erros catastróficos (ex: banco indisponível) propagam exceções.
      *
      * @param  Trade  $trade  Trade de origem do lote — obrigatória: toda key pertence a uma trade.
-     * @param  array<int, array<string, mixed>>  $games
      * @return array{games: list<Key>, message: string, errors: list<array>}
      */
-    public function execute(Trade $trade, array $games): array
+    public function execute(Trade $trade): array
     {
+        $trade->loadMissing(['lines', 'supplier']);
+
+        $blockers = ImportReadinessPolicy::blockers(
+            $trade->lines->map(fn (TradeLine $line) => [
+                'game_name' => $line->game_name,
+                'market_price' => $line->market_price,
+                'key_code' => $line->key_code,
+            ])->all(),
+            $trade->tf2_qty,
+            $trade->supplier?->url,
+        );
+
+        if ($blockers !== []) {
+            return [
+                'games' => [],
+                'message' => $this->buildBlockedMessage($blockers),
+                'errors' => [],
+            ];
+        }
+
         $fullGames = [];
         $errors = [];
 
-        // Aplica defaults de domínio — campos ausentes recebem o valor canônico;
-        // campos explicitamente fornecidos pelo caller prevalecem.
+        // Aplica defaults de domínio — as colunas da key que a linha da trade não
+        // carrega (formato, tipo de reclamação, plataforma de venda) recebem o
+        // valor canônico.
         $games = array_map(
-            fn (array $game) => array_merge(KeyDefaults::toArray(), $game),
-            $games,
+            fn (TradeLine $line) => array_merge(KeyDefaults::toArray(), $this->toKeyInput($line, $trade)),
+            $this->linesToImport($trade),
         );
 
         // Passo 1 — calcula simulated_income por key e acumula o somatório do lote
@@ -96,7 +122,7 @@ class RegisterKeyUseCase
         }
 
         // Tudo ou nada: qualquer erro descarta o lote inteiro. O rollback desfaz
-        // também os efeitos colaterais em `games`/`suppliers`, evitando resíduos.
+        // também os efeitos colaterais em `games`, evitando resíduos.
         if (! empty($errors)) {
             DB::rollBack();
 
@@ -126,17 +152,57 @@ class RegisterKeyUseCase
     }
 
     /**
+     * As linhas que viram key, na ordem de exibição.
+     *
+     * Linha em branco fica de fora: uma trade em negociação carrega rascunho
+     * vazio, e importar um registro sem nome nem preço só sujaria o estoque.
+     *
+     * @return list<TradeLine>
+     */
+    private function linesToImport(Trade $trade): array
+    {
+        return $trade->lines
+            ->filter(fn (TradeLine $line) => ImportReadinessPolicy::isFilled($line->game_name, $line->market_price))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Traduz uma linha da trade nos campos da key que ela origina.
+     *
+     * Data, supplier e quantidade de TF2 são da trade, não da linha — o lote
+     * inteiro compartilha os três, e é da quantidade de TF2 que sai o rateio de
+     * `individual_cost`.
+     *
+     * @return array<string, mixed>
+     */
+    private function toKeyInput(TradeLine $line, Trade $trade): array
+    {
+        return [
+            'game_name' => $line->game_name,
+            'market_price' => $line->market_price,
+            'key_code' => $line->key_code,
+            'region' => $line->region,
+            'gamivo_id' => $line->gamivo_id,
+            'expires_at' => $line->expires_at?->format('Y-m-d'),
+            'acquired_at' => $trade->date?->format('Y-m-d'),
+            // Garantidos pela ImportReadinessPolicy, que já recusou o lote sem eles.
+            'supplier_url' => $trade->supplier->url,
+            'tf2_quantity' => $trade->tf2_qty,
+        ];
+    }
+
+    /**
      * Monta e persiste uma única key do lote.
      *
      * @param  array<string, mixed>  $game
      */
     private function registerKey(array $game, Trade $trade, float $somatorioIncomes, int $totalGames): Key
     {
-        // Toda key nasce vinculada à trade de origem
+        // Toda key nasce vinculada à trade de origem, e ao fornecedor dela —
+        // o supplier já foi resolvido quando a trade foi preenchida.
         $game['trade_id'] = $trade->id;
-
-        // Resolve fornecedor (cria se necessário)
-        $game['supplier_id'] = $this->supplierService->findOrCreate($game['supplier_url']);
+        $game['supplier_id'] = $trade->supplier_id;
 
         // Calcula lucros de compra
         $game = $this->calculationService->calculateFormulas($game, $somatorioIncomes, false);
@@ -197,6 +263,29 @@ class RegisterKeyUseCase
         }
 
         return Key::create($game);
+    }
+
+    /**
+     * Mensagem do lote recusado antes de começar.
+     *
+     * Os impedimentos são condições da trade inteira, não de uma linha: nenhuma
+     * key entrou, e o motivo sai como texto único do lote em vez de erro por
+     * linha.
+     *
+     * @param  list<TradeImportBlocker>  $blockers
+     */
+    private function buildBlockedMessage(array $blockers): string
+    {
+        $reasons = array_map(fn (TradeImportBlocker $blocker) => match ($blocker) {
+            TradeImportBlocker::NoFilledLine => 'nenhuma linha preenchida',
+            TradeImportBlocker::MissingGameName => 'linha preenchida sem nome do jogo',
+            TradeImportBlocker::MissingMarketPrice => 'linha preenchida sem preço de mercado',
+            TradeImportBlocker::MissingKeyCode => 'linha preenchida sem key code',
+            TradeImportBlocker::MissingTf2Quantity => 'trade sem quantidade de TF2',
+            TradeImportBlocker::MissingSupplierUrl => 'trade sem fornecedor',
+        }, $blockers);
+
+        return 'Nenhuma key foi cadastrada — '.implode('; ', $reasons);
     }
 
     /**

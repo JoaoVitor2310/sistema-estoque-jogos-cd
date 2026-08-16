@@ -18,6 +18,10 @@
         </include>
     </source>
     <php>
+        <!-- A suíte não deve depender do memory_limit do ambiente: com ~1000
+             testes ela passou a estourar os 128M do container de dev no
+             shutdown, com a suíte inteira verde e exit code de falha. -->
+        <ini name="memory_limit" value="512M"/>
         <env name="APP_ENV" value="testing" force="true"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file" force="true"/>
         <env name="BCRYPT_ROUNDS" value="4" force="true"/>

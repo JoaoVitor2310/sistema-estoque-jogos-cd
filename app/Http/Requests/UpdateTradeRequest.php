@@ -18,7 +18,6 @@ class UpdateTradeRequest extends FormRequest
             'supplierUrl' => ['nullable', 'string'],
             'date' => ['nullable', 'string'],
             'tf2Qty' => ['nullable', 'decimal:0,2'],
-            'games' => ['nullable', 'array'],
             'message_sent' => ['nullable', 'boolean'],
         ];
     }

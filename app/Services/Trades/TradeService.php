@@ -3,6 +3,7 @@
 namespace App\Services\Trades;
 
 use App\Models\Trade;
+use App\Models\TradeLine;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -45,8 +46,9 @@ class TradeService
         string $sortDir = 'desc',
         int $perPage = self::PER_PAGE,
     ): LengthAwarePaginator {
-        $query = Trade::with('supplier')
-            ->select(['id', 'title', 'games', 'date', 'tf2_qty', 'supplier_id', 'created_at', 'message_sent', 'is_imported']);
+        // `lines` eager loaded: sem isso, apresentar 40 trades dispara 40 queries.
+        $query = Trade::with(['supplier', 'lines'])
+            ->select(['id', 'title', 'date', 'tf2_qty', 'supplier_id', 'created_at', 'message_sent', 'is_imported']);
 
         $this->applyViewFilter($query, $filters['view'] ?? self::VIEW_OPEN);
         $this->applyDateRange($query, $filters['date_from'] ?? null, $filters['date_to'] ?? null);
@@ -116,14 +118,14 @@ class TradeService
             return;
         }
 
-        // Busca no JSON `games` como texto. Não restringimos ao campo `name`
-        // porque Postgres jsonb re-serializa com espaço após o dois-pontos
-        // (`"name": "…"`) e SQLite/Laravel serializam sem espaço (`"name":"…"`),
-        // então um padrão pinado quebra em prod. Na prática o falso positivo é
-        // desprezível: key_codes seguem `XXXXX-XXXXX-XXXXX`, gamivo_id é numérico
-        // — não colidem com nomes de jogo reais.
+        // Busca só o nome da linha. Não há ganho de índice — o curinga à
+        // esquerda impede btree —, o ganho é de precisão: varrer o documento
+        // inteiro casava `key_code` e `gamivo_id` por acidente.
+        // LOWER(...) LIKE ? — cross-DB (Postgres em prod, SQLite em teste).
         $lower = strtolower(trim($needle));
-        $query->whereRaw('LOWER(CAST(games AS TEXT)) LIKE ?', ['%'.$lower.'%']);
+        $query->whereHas('lines', function (Builder $q) use ($lower) {
+            $q->whereRaw('LOWER(game_name) LIKE ?', ['%'.$lower.'%']);
+        });
     }
 
     private function applySort(Builder $query, string $field, string $dir): void
@@ -144,13 +146,41 @@ class TradeService
         return [
             'id' => $trade->id,
             'title' => $trade->title,
-            'games' => $trade->games ?? [],
+            'lines' => $trade->lines->map(fn (TradeLine $line) => $this->presentLine($line))->all(),
             'date' => $trade->date?->format('d/m/Y'),
             'tf2_qty' => $trade->tf2_qty,
             'supplier' => $trade->supplier ? ['url' => $trade->supplier->url] : null,
             'created_at' => $trade->created_at,
             'message_sent' => (bool) $trade->message_sent,
             'is_imported' => (bool) $trade->is_imported,
+        ];
+    }
+
+    /**
+     * Projeção explícita por coluna, não `toArray()` do model: é o que impede
+     * uma coluna nova de vazar na resposta sem alguém decidir que ela deve ir.
+     *
+     * `id` e `position` vão junto porque é por eles que a linha é endereçada
+     * depois — `id` nas rotas de escrita, `position` para inserir uma cópia
+     * logo abaixo.
+     *
+     * @return array<string, mixed>
+     */
+    private function presentLine(TradeLine $line): array
+    {
+        return [
+            'id' => $line->id,
+            'position' => $line->position,
+            'game_name' => $line->game_name,
+            'market_price' => $line->market_price,
+            'popularity' => $line->popularity,
+            'region' => $line->region,
+            'bundle' => $line->bundle,
+            // Validade sai como texto `dd/mm/aaaa`, igual à data da trade — é a
+            // mesma forma que a escrita aceita de volta.
+            'expires_at' => $line->expires_at?->format('d/m/Y'),
+            'key_code' => $line->key_code,
+            'gamivo_id' => $line->gamivo_id,
         ];
     }
 }

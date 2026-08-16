@@ -10,6 +10,87 @@ Ordem: roadmap/qualidade/features primeiro, dívida técnica de code-review no f
 
 ---
 
+## Trilha de eventos da entrega de trade
+
+**Onde:** domínio da entrega (`/deliveries/{uuid}`), ver [`docs/adr/0008`](adr/0008-supplier-fills-trade-through-tokenised-link.md).
+
+A entrega grava direto na trade, sem registrar quem escreveu. Quando um supplier disser
+"eu mandei essa key" e a trade não tiver, não há como responder — e tentativas de adivinhar
+token passam despercebidas (o rate limit bloqueia, mas não avisa ninguém).
+
+**Ação:** tabela enxuta de eventos com `trade_id`, tipo (`token_failed`, `token_ok`,
+`saved`, `delivered`), IP, user agent e timestamp. **Sem valor de campo nenhum** —
+copiar os `key_code` para uma segunda tabela é criar mais um lugar de onde eles vazam;
+o valor corrente já está na trade.
+
+**Origem:** sessão de `/grill-with-docs` sobre entrega de trade pelo supplier (2026-08-13) —
+adiado deliberadamente; a conferência humana antes do import é a mitigação atual.
+
+---
+
+## Internacionalização (i18n) das telas
+
+**Onde:** `resources/js/Pages/`, `lang/`.
+
+Hoje todo texto visível é português cravado no template, porque o único usuário era a
+equipe. A página de entrega de trade (`/deliveries/{uuid}`) quebra essa premissa: o
+usuário é o supplier, um trader estrangeiro, e a tela nasce em inglês — a convenção
+passa a ser **português nas telas internas, inglês nas telas de terceiros**.
+
+**Ação:** adotar um mecanismo de tradução (`lang/` do Laravel exposto ao Inertia, ou
+`vue-i18n`) e extrair as strings cravadas, começando pelas telas de terceiros. Enquanto
+não existir, telas de terceiros seguem em inglês literal.
+
+**Origem:** sessão de `/grill-with-docs` sobre entrega de trade pelo supplier (2026-08-13).
+
+---
+
+## Canonizar as regiões de key
+
+**Onde:** `games.region`, `keys.region`, `suppliers.region`; candidato a enum em `app/Domain/Enums/`.
+
+`region` é `string` livre em todas as tabelas, mas funciona como **chave de busca**:
+`GameService::getIdGamivo()`/`getSteamId()` casam `games.name` + `games.region` para
+resolver `gamivo_id` e `steam_id` (`app/Services/Games/GameService.php:23`). Um valor
+divergente (`Europe` em vez de `EU`) não falha o import — cria um Game órfão sem
+`gamivo_id`, e o erro só aparece semanas depois, quando a oferta não precifica.
+
+Hoje o risco é baixo porque só a equipe digita. A página de entrega abre o campo para o
+supplier (decisão: texto livre, com conferência humana antes do import), o que torna
+divergência de grafia esperada em vez de excepcional.
+
+**Ação:** levantar os valores distintos em produção, definir a lista canônica num enum
+`KeyRegion`, migrar os dados e trocar os inputs por select. Não bloqueia a entrega de
+trade — a conferência antes do import é a mitigação atual.
+
+**Origem:** sessão de `/grill-with-docs` sobre entrega de trade pelo supplier (2026-08-13).
+
+---
+
+## Trade criada por prospecção nunca recebe bundle
+
+**Onde:** `app/UseCases/Suppliers/ProspectSupplierUseCase.php` (chamada a
+`TradeLineBuilder::fromResearch`), `app/Services/Bundles/BundleService.php`.
+
+As duas portas de criação de trade pelo `price_researcher` tratam bundle de forma diferente:
+`StoreListTradeUseCase` consulta `BundleService::recentBundleByGameNames()` e preenche o campo,
+enquanto a prospecção sempre passa mapa vazio — toda trade que nasce de prospecção tem
+`bundle` nulo em todas as linhas, mesmo quando o jogo saiu num bundle recente.
+
+Importa porque bundle não é decorativo: é o que alimenta a **janela de exclusão do bundle**
+(ver `CONTEXT.md`), que segura a venda enquanto o preço está em queda. Uma key importada de
+trade de prospecção entra sem esse dado.
+
+**Ação:** decidir se é falha ou se prospecção deliberadamente não olha bundle. Se for falha, a
+correção agora é passar um mapa resolvido em vez de `[]` — o montador já é único
+(`TradeLineBuilder`). Vale medir antes quantas trades nascem por esse caminho.
+
+**Origem:** normalização de `trades.games` em `trade_lines` (2026-08-15) — a divergência apareceu
+ao unificar os dois `buildGames()` num `TradeLineBuilder` só; preservada de propósito, porque
+prefactor não muda comportamento.
+
+---
+
 ## Dashboard de gastos por categoria (FinancialMonth)
 
 **Onde:** provavelmente uma tela nova sob `/financial-months` (ou uma aba dela), consumindo `FinancialMovement.expense_category`/`income_category`.
@@ -51,7 +132,7 @@ Já concluído: PHPStan (`phpstan/phpstan ^2.1`) e Pint rodam no CI (`.github/wo
 
 ## Remover `supplier_url` de `keys`
 
-**Onde:** `app/Models/Key.php`, `app/Http/Resources/KeyResource.php`, `app/UseCases/Keys/RegisterKeyUseCase.php`, `app/UseCases/Keys/UpdateKeyUseCase.php`, `app/Http/Requests/ImportTradeKeysRequest.php`, `app/Http/Requests/StoreGameRequest.php`.
+**Onde:** `app/Models/Key.php`, `app/Http/Resources/KeyResource.php`, `app/UseCases/Keys/RegisterKeyUseCase.php`, `app/UseCases/Keys/UpdateKeyUseCase.php`, `app/Http/Requests/StoreGameRequest.php`.
 
 Campo redundante; o vínculo real é `keys.supplier_id → suppliers.id → suppliers.url`.
 
@@ -209,24 +290,24 @@ Uma mudança nos valores de fee ou na lógica de autorização exige atualizar
 múltiplos arquivos independentemente; um esquecimento produz testes que
 passam com premissas desatualizadas em vez de falhar.
 
-**Ação:** extrair para helpers compartilhados (`tests/Pest.php` ou um arquivo
-de suporte em `tests/Support/`) — `seedGamivoFees()` e `actingAsAuthorizedUser()`.
+**Ação:** extrair para helpers compartilhados em `tests/Support/` (namespaced, como
+`Tests\Support\FinancialMonthFactory` — helper solto no topo de um arquivo é promovido ao
+namespace global pelo Pest e colide) — `seedGamivoFees()` e `actingAsAuthorizedUser()`.
 
 **Origem:** code-review da feature `gamivo_id` em trades (2026-07-17).
 
 ---
 
-## Regra de validação `games.*.gamivo_id` duplicada em 4 FormRequests
+## Regra de validação `games.*.gamivo_id` duplicada em 3 FormRequests
 
 **Onde:**
 
-- `app/Http/Requests/ImportTradeKeysRequest.php`
 - `app/Http/Requests/ProspectSupplierRequest.php`
 - `app/Http/Requests/StoreListTradeRequest.php`
 - `app/Http/Requests/GameRequestArray.php` (pré-existente)
 
 `'games.*.gamivo_id' => ['nullable', 'string']` está copiada identicamente em
-quatro classes. Um endurecimento futuro da regra (ex: exigir apenas dígitos)
+três classes. Um endurecimento futuro da regra (ex: exigir apenas dígitos)
 precisaria ser aplicado em todas — esquecer uma deixa pontos de entrada com
 validação inconsistente.
 
@@ -236,30 +317,6 @@ validação inconsistente.
 **Origem:** code-review da feature `gamivo_id` em trades (2026-07-17); padrão
 de duplicação já existia antes desse trabalho (region, popularity, price_euro
 também são copiados entre as mesmas classes).
-
----
-
-## Mapeamento `gamivo_id` → `gamivoId` duplicado entre UseCases
-
-**Onde:**
-
-- `app/UseCases/Suppliers/ProspectSupplierUseCase.php::buildGames()`
-- `app/UseCases/Trades/StoreListTradeUseCase.php::buildGames()`
-
-Os dois métodos `buildGames()` fazem a mesma conversão snake_case → camelCase
-para persistir o JSON de `Trade.games` (`name`, `marketPriceRaw`, `regionLock`,
-`keyCode`, `gamivoId`, etc.), de forma independente. Uma mudança no formato
-armazenado exige editar os dois em paralelo.
-
-Abaixo do limiar de 3+ chamadas que o CLAUDE.md define para justificar
-extração de wrapper — por isso não foi extraído agora — mas vale observar se
-um terceiro ponto de entrada precisar do mesmo mapeamento no futuro, momento
-em que a extração passa a se justificar.
-
-**Ação:** nenhuma agora. Reavaliar extração de um mapper compartilhado
-(`TradeGameMapper::fromIntakeArray()`) se surgir um terceiro caller.
-
-**Origem:** code-review da feature `gamivo_id` em trades (2026-07-17).
 
 ---
 

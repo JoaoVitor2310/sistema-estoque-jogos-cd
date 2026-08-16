@@ -9,22 +9,30 @@ import Paginator from 'primevue/paginator';
 import { useConfirm } from 'primevue/useconfirm';
 
 // ─── Tipos vindos do backend ─────────────────────────────────────────────────
+//
+// Espelham o que o servidor manda: chaves iguais às colunas, coluna vazia como
+// null, e nada de estado de tela. Cada um tem um par editável mais abaixo
+// (`Trade` → `TradeEntry`, `TradeLine` → `Row`), nomeado pelo conceito de UI —
+// é o par que carrega a diferença, não um sufixo nestes.
 
-interface StoredGame {
-  name: string;
-  marketPriceRaw: string;
-  bundle: string;
-  expiry: string;
-  popularity: string;
-  regionLock: string;
-  keyCode: string;
-  gamivoId: string;
+/** Uma linha de trade, como está gravada. */
+interface TradeLine {
+  id: number;
+  position: number;
+  game_name: string | null;
+  market_price: string | null;
+  bundle: string | null;
+  expires_at: string | null;
+  popularity: number | null;
+  region: string | null;
+  key_code: string | null;
+  gamivo_id: string | null;
 }
 
-interface TradeFromServer {
+interface Trade {
   id: number;
   title: string | null;
-  games: StoredGame[];
+  lines: TradeLine[];
   date: string | null;
   tf2_qty: string | null;
   supplier: { url: string } | null;
@@ -55,7 +63,7 @@ interface Filters {
 }
 
 const props = defineProps<{
-  trades: PaginatorPayload<TradeFromServer>;
+  trades: PaginatorPayload<Trade>;
   filters: Filters;
   tf2Price: number;
   fees: {
@@ -73,12 +81,31 @@ const props = defineProps<{
 // entra e as linhas problemáticas ficam em 'error'.
 type RowStatus = 'pending' | 'error';
 
-/** StoredGame + estado de UI (não é enviado ao backend). */
-interface Row extends StoredGame {
+/**
+ * Uma `TradeLine` sendo editada na tabela: os mesmos campos como texto (input
+ * não lida com null), mais estado de tela que nunca é enviado.
+ *
+ * `id` é o endereço da linha nas rotas de escrita; `position` é o que permite
+ * inserir uma cópia logo abaixo desta.
+ */
+interface Row {
+  id: number;
+  position: number;
+  game_name: string;
+  market_price: string;
+  bundle: string;
+  expires_at: string;
+  popularity: string;
+  region: string;
+  key_code: string;
+  gamivo_id: string;
   status: RowStatus;
   errorMsg: string;
   customTf2Override: string;
 }
+
+/** Só os campos que a linha grava — o resto é estado de tela. */
+type RowPayload = Omit<Row, 'id' | 'position' | 'status' | 'errorMsg' | 'customTf2Override'>;
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -113,8 +140,15 @@ watch(() => props.trades, (next) => {
 
 const customTier = ref<number | null>(null);
 
-/** Timers de debounce por trade ID (autosave). */
-const saveTimers = new Map<number, ReturnType<typeof setTimeout>>();
+/**
+ * Gravações no debounce, por alvo — `trade:<id>` para os campos da própria
+ * trade, `line:<id>` para cada linha. Cada alvo tem timer próprio para editar
+ * uma linha não adiar nem cancelar a gravação de outra.
+ *
+ * Guarda também `run`, que dispara a gravação na hora: o import precisa drenar
+ * o que está no debounce antes de sair do navegador.
+ */
+const saveTimers = new Map<string, { timer: ReturnType<typeof setTimeout>; run: () => void }>();
 
 // ─── Filtros (estado local do form, sincronizado com props.filters) ──────────
 
@@ -241,28 +275,26 @@ function onPageChange(event: { page: number; rows: number }) {
 
 // ─── Helpers de conversão ─────────────────────────────────────────────────────
 
-/** Garante que todos os campos de string nunca sejam null (vindo do JSON do banco). */
-function toRow(r: any): Row {
+/** Coluna nula vira string vazia: input não lida com null. */
+function toRow(l: TradeLine): Row {
   return {
-    name: r.name ?? '',
-    marketPriceRaw: r.marketPriceRaw ?? '',
-    bundle: r.bundle ?? '',
-    expiry: r.expiry ?? '',
-    popularity: r.popularity ?? '',
-    regionLock: r.regionLock ?? '',
-    keyCode: r.keyCode ?? '',
-    gamivoId: r.gamivoId ?? '',
+    id: l.id,
+    position: l.position,
+    game_name: l.game_name ?? '',
+    market_price: l.market_price ?? '',
+    bundle: l.bundle ?? '',
+    expires_at: l.expires_at ?? '',
+    popularity: l.popularity !== null ? String(l.popularity) : '',
+    region: l.region ?? '',
+    key_code: l.key_code ?? '',
+    gamivo_id: l.gamivo_id ?? '',
     status: 'pending',
     errorMsg: '',
     customTf2Override: '',
   };
 }
 
-function emptyRow(): Row {
-  return toRow({});
-}
-
-function toTradeEntry(t: TradeFromServer): TradeEntry {
+function toTradeEntry(t: Trade): TradeEntry {
   const isImported = t.is_imported ?? false;
   return {
     id: t.id,
@@ -270,7 +302,7 @@ function toTradeEntry(t: TradeFromServer): TradeEntry {
     date: t.date ?? '',
     supplierUrl: t.supplier?.url ?? '',
     tf2Qty: t.tf2_qty ?? '',
-    rows: (t.games ?? []).map(toRow),
+    rows: (t.lines ?? []).map(toRow),
     createdAt: t.created_at,
     messageSent: t.message_sent ?? false,
     isImported,
@@ -283,17 +315,21 @@ function toTradeEntry(t: TradeFromServer): TradeEntry {
   };
 }
 
-function rowToGame(row: Row): StoredGame {
-  const { status, errorMsg, customTf2Override, ...game } = row;
-  return game;
+function rowPayload(row: Row): RowPayload {
+  const { id, position, status, errorMsg, customTf2Override, ...payload } = row;
+  return payload;
 }
 
+/**
+ * O PUT da trade grava o conjunto dos campos dela, então o payload precisa
+ * carregar todos — campo ausente é gravado como nulo, não preservado.
+ */
 function tradePayload(trade: TradeEntry) {
   return {
+    title: trade.title,
     supplierUrl: trade.supplierUrl,
     date: trade.date,
     tf2Qty: trade.tf2Qty.replace(',', '.'),
-    games: trade.rows.map(rowToGame),
     message_sent: trade.messageSent,
   };
 }
@@ -320,7 +356,7 @@ function calcOffer(netIncome: number, profitPct: number): number {
 }
 
 function getMarketPrice(row: Row): number {
-  return parseFloat((row.marketPriceRaw ?? '').replace(',', '.')) || 0;
+  return parseFloat((row.market_price ?? '').replace(',', '.')) || 0;
 }
 
 function getNetIncome(row: Row): number {
@@ -348,51 +384,143 @@ function getImpliedProfit(row: Row): number | null {
   return (netIncome / (tf2Val * props.tf2Price) - 1) * 100;
 }
 
-// ─── Autosave (debounce por trade) ────────────────────────────────────────────
+// ─── Autosave (debounce por alvo de gravação) ────────────────────────────────
 
-const savingInFlight = new Set<number>();
-const dirtyDuringSave = new Set<number>();
+/** Gravações em voo, por alvo — a promise permite esperar por elas no flush. */
+const savingInFlight = new Map<string, Promise<void>>();
+const dirtyDuringSave = new Set<string>();
 
-function scheduleAutosave(trade: TradeEntry) {
-  const existing = saveTimers.get(trade.id);
-  if (existing) clearTimeout(existing);
+const SAVE_DEBOUNCE_MS = 800;
 
-  const timer = setTimeout(() => {
-    saveTimers.delete(trade.id);
-    triggerSave(trade);
-  }, 800);
+/**
+ * Teto de passadas do flush. Cada passada só existe porque a anterior deixou
+ * gravação nova para trás; o teto impede que digitação contínua durante o
+ * import segure o botão para sempre.
+ */
+const FLUSH_MAX_PASSES = 5;
 
-  saveTimers.set(trade.id, timer);
+/**
+ * Agenda a gravação de um alvo. O indicador de status é o do card, porque é o
+ * que o usuário vê — mas o debounce e a fila são por alvo, para uma linha não
+ * atrasar a gravação de outra nem sobrescrevê-la.
+ */
+function scheduleSave(key: string, trade: TradeEntry, save: () => Promise<void>) {
+  const existing = saveTimers.get(key);
+  if (existing) clearTimeout(existing.timer);
+
+  // `run` limpa o próprio timer: quando o flush o chama antes da hora, o
+  // disparo agendado não pode vir depois e gravar de novo.
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const run = () => {
+    clearTimeout(timer);
+    saveTimers.delete(key);
+    triggerSave(key, trade, save);
+  };
+
+  timer = setTimeout(run, SAVE_DEBOUNCE_MS);
+  saveTimers.set(key, { timer, run });
 }
 
-async function triggerSave(trade: TradeEntry) {
-  if (savingInFlight.has(trade.id)) {
-    dirtyDuringSave.add(trade.id);
+/** Cancela gravação pendente de um alvo que deixou de existir (linha removida). */
+function cancelSave(key: string) {
+  const existing = saveTimers.get(key);
+  if (existing) clearTimeout(existing.timer);
+  saveTimers.delete(key);
+  dirtyDuringSave.delete(key);
+}
 
-    return;
+function triggerSave(key: string, trade: TradeEntry, save: () => Promise<void>): Promise<void> {
+  const running = savingInFlight.get(key);
+
+  // Já está gravando: marca para reenviar ao terminar, em vez de sobrepor.
+  if (running) {
+    dirtyDuringSave.add(key);
+
+    return running;
   }
 
-  savingInFlight.add(trade.id);
+  const promise = runSave(key, trade, save);
+  savingInFlight.set(key, promise);
+
+  return promise;
+}
+
+async function runSave(key: string, trade: TradeEntry, save: () => Promise<void>) {
   trade.saveStatus = 'saving';
 
   try {
-    await axiosInstance.put(route('trades.update', { trade: trade.id }), {
-      title: trade.title,
-      ...tradePayload(trade),
-    });
+    await save();
     trade.saveStatus = 'saved';
     trade.lastSavedAt = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   } catch (err) {
     console.error('Erro ao salvar trade:', err);
     trade.saveStatus = 'error';
   } finally {
-    savingInFlight.delete(trade.id);
+    savingInFlight.delete(key);
 
-    if (dirtyDuringSave.has(trade.id)) {
-      dirtyDuringSave.delete(trade.id);
-      triggerSave(trade);
+    if (dirtyDuringSave.has(key)) {
+      dirtyDuringSave.delete(key);
+      triggerSave(key, trade, save);
     }
   }
+}
+
+/** Alvos de gravação de uma trade: os campos dela e cada uma das suas linhas. */
+function saveKeysOf(trade: TradeEntry): string[] {
+  return [`trade:${trade.id}`, ...trade.rows.map(row => `line:${row.id}`)];
+}
+
+/**
+ * Drena as gravações pendentes de uma trade e espera as que estão em voo.
+ *
+ * O import lê do banco: uma edição ainda no debounce entraria em estoque com o
+ * valor antigo, sem nenhum aviso. Como o autosave é por alvo, "pendente" é o
+ * conjunto — a trade e todas as linhas dela, não um save só.
+ */
+async function flushPendingSaves(trade: TradeEntry): Promise<void> {
+  // Laço porque uma gravação que termina pode reenfileirar a si mesma
+  // (`dirtyDuringSave`), e porque disparar o debounce cria voo novo.
+  for (let pass = 0; pass < FLUSH_MAX_PASSES; pass++) {
+    const keys = saveKeysOf(trade);
+
+    keys.forEach(key => saveTimers.get(key)?.run());
+
+    const inFlight = keys.map(key => savingInFlight.get(key)).filter(Boolean) as Promise<void>[];
+    if (inFlight.length === 0) return;
+
+    await Promise.all(inFlight);
+  }
+}
+
+/**
+ * Reenvia tudo o que a trade tem para gravar, depois de um erro.
+ *
+ * A gravação que falhou não fica guardada em lugar nenhum, então o botão
+ * remonta o payload a partir do que está na tela agora, e dispara sem esperar
+ * o debounce.
+ */
+async function retrySaves(trade: TradeEntry) {
+  scheduleAutosave(trade);
+  trade.rows.forEach(row => scheduleLineSave(trade, row));
+
+  await flushPendingSaves(trade);
+}
+
+/** Campos da própria trade — título, data, fornecedor, qtd de TF2. */
+function scheduleAutosave(trade: TradeEntry) {
+  scheduleSave(`trade:${trade.id}`, trade, async () => {
+    await axiosInstance.put(route('trades.update', { trade: trade.id }), tradePayload(trade));
+  });
+}
+
+/** Uma linha da trade — grava só ela, sem tocar nas demais. */
+function scheduleLineSave(trade: TradeEntry, row: Row) {
+  scheduleSave(`line:${row.id}`, trade, async () => {
+    await axiosInstance.patch(
+      route('trades.lines.update', { trade: trade.id, line: row.id }),
+      rowPayload(row),
+    );
+  });
 }
 
 /** Impede perda silenciosa de dados: avisa o navegador se houver save pendente/em erro. */
@@ -411,20 +539,108 @@ onUnmounted(() => window.removeEventListener('beforeunload', handleBeforeUnload)
 
 // ─── Linhas ───────────────────────────────────────────────────────────────────
 
-function addRow(trade: TradeEntry) {
-  trade.rows.push(emptyRow());
-  scheduleAutosave(trade);
+/**
+ * Adicionar, duplicar e remover são operações de servidor, não estado local
+ * esperando o autosave: a linha só existe na tela depois de existir no banco,
+ * porque é o `id` devolvido que permite editá-la em seguida.
+ *
+ * As duas funções abaixo espelham o que o servidor fez com as posições. Elas
+ * operam sobre `position`, **nunca** sobre o índice do array: `sortRowsBy`
+ * reordena as linhas na tela sem mexer na posição gravada, então índice visual
+ * e posição real divergem assim que o usuário ordena por uma coluna.
+ */
+
+/** Espelha o empurrão que o servidor deu ao abrir espaço em `position`. */
+function shiftPositionsFrom(trade: TradeEntry, position: number) {
+  trade.rows.forEach(row => {
+    if (row.position >= position) row.position += 1;
+  });
 }
 
-function deleteRow(trade: TradeEntry, rowIdx: number) {
-  trade.rows.splice(rowIdx, 1);
-  scheduleAutosave(trade);
+/** Espelha o fechamento do buraco deixado pela linha removida. */
+function closePositionGap(trade: TradeEntry, position: number) {
+  trade.rows.forEach(row => {
+    if (row.position > position) row.position -= 1;
+  });
 }
 
-function duplicateRow(trade: TradeEntry, rowIdx: number) {
-  const duplicate = toRow({ ...rowToGame(trade.rows[rowIdx]), keyCode: '' });
-  trade.rows.splice(rowIdx + 1, 0, duplicate);
-  scheduleAutosave(trade);
+async function addRow(trade: TradeEntry) {
+  trade.saveStatus = 'saving';
+
+  try {
+    const { data } = await axiosInstance.post(route('trades.lines.store', { trade: trade.id }), {});
+    trade.rows.push(toRow({
+      id: data.id,
+      position: data.position,
+      game_name: null,
+      market_price: null,
+      bundle: null,
+      expires_at: null,
+      popularity: null,
+      region: null,
+      key_code: null,
+      gamivo_id: null,
+    }));
+    // Sem shift: a linha nova entra no fim, então nada foi empurrado.
+    trade.saveStatus = 'saved';
+  } catch (err) {
+    console.error('Erro ao adicionar linha:', err);
+    trade.saveStatus = 'error';
+  }
+}
+
+async function deleteRow(trade: TradeEntry, rowIdx: number) {
+  const row = trade.rows[rowIdx];
+
+  // Uma gravação ainda no debounce iria bater numa linha que não existe mais.
+  cancelSave(`line:${row.id}`);
+  trade.saveStatus = 'saving';
+
+  try {
+    await axiosInstance.delete(route('trades.lines.destroy', { trade: trade.id, line: row.id }));
+    trade.rows.splice(rowIdx, 1);
+    closePositionGap(trade, row.position);
+    trade.saveStatus = 'saved';
+  } catch (err) {
+    console.error('Erro ao remover linha:', err);
+    trade.saveStatus = 'error';
+  }
+}
+
+async function duplicateRow(trade: TradeEntry, rowIdx: number) {
+  const original = trade.rows[rowIdx];
+  trade.saveStatus = 'saving';
+
+  try {
+    // Sem o key_code: a cópia existe para cadastrar outra unidade do mesmo
+    // jogo, e duas keys nunca compartilham código.
+    const insertAt = original.position + 1;
+
+    const { data } = await axiosInstance.post(route('trades.lines.store', { trade: trade.id }), {
+      ...rowPayload(original),
+      key_code: '',
+      position: insertAt,
+    });
+
+    // Empurra antes de inserir, para a cópia não colidir com quem já ocupava a
+    // posição — mesma ordem em que o servidor fez.
+    shiftPositionsFrom(trade, insertAt);
+
+    // A cópia entra logo abaixo da original *na tela*; a posição vem do
+    // servidor, porque a ordem visual pode estar ordenada por outra coluna.
+    trade.rows.splice(rowIdx + 1, 0, {
+      ...original,
+      id: data.id,
+      position: data.position,
+      key_code: '',
+      status: 'pending',
+      errorMsg: '',
+    });
+    trade.saveStatus = 'saved';
+  } catch (err) {
+    console.error('Erro ao duplicar linha:', err);
+    trade.saveStatus = 'error';
+  }
 }
 
 // ─── Criação ──────────────────────────────────────────────────────────────────
@@ -470,18 +686,12 @@ async function toggleMessageSent(trade: TradeEntry) {
 
 // ─── Importação de keys (por trade) ───────────────────────────────────────────
 
-function convertDateToISO(date: string): string {
-  const parts = date.split('/');
-  if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
-  return date;
-}
-
-const isRowMeaningful = (r: Row) => !!(r.name?.trim() || (r.marketPriceRaw ?? '').trim());
+const isRowMeaningful = (r: Row) => !!(r.game_name?.trim() || (r.market_price ?? '').trim());
 
 const hasMissingMarketPrice = (r: Row) => !(getMarketPrice(r) > 0);
-const hasMissingName = (r: Row) => !(r.name ?? '').trim();
+const hasMissingName = (r: Row) => !(r.game_name ?? '').trim();
 const hasMissingKeyCodes = (trade: TradeEntry) =>
-  trade.rows.some(r => isRowMeaningful(r) && !(r.keyCode ?? '').trim());
+  trade.rows.some(r => isRowMeaningful(r) && !(r.key_code ?? '').trim());
 const hasMissingMarketPrices = (trade: TradeEntry) =>
   trade.rows.some(r => isRowMeaningful(r) && hasMissingMarketPrice(r));
 const hasMissingNames = (trade: TradeEntry) =>
@@ -522,88 +732,62 @@ async function runImport(trade: TradeEntry) {
   trade.importing = true;
   trade.rows.forEach(r => { r.status = 'pending'; r.errorMsg = ''; });
 
-  const meaningfulEntries = trade.rows
-    .map((row, originalIdx) => ({ row, originalIdx }))
-    .filter(({ row }) => isRowMeaningful(row));
-
-  const tf2Quantity = parseFloat((trade.tf2Qty ?? '').replace(',', '.')) || 0;
-  const supplierUrl = (trade.supplierUrl ?? '').trim();
-  const date = convertDateToISO(trade.date ?? '');
-
-  const games = meaningfulEntries.map(({ row }) => ({
-    game_name: row.name ?? '',
-    market_price: getMarketPrice(row),
-    tf2_quantity: tf2Quantity,
-    key_code: (row.keyCode ?? '').trim(),
-    supplier_url: supplierUrl,
-    acquired_at: date,
-    region: (row.regionLock ?? '').trim() || null,
-    expires_at: (row.expiry ?? '').trim() ? convertDateToISO((row.expiry ?? '').trim()) : null,
-    gamivo_id: (row.gamivoId ?? '').trim() || null,
-  }));
-
   try {
-    await axiosInstance.post(
-      route('trades.import', { trade: trade.id }),
-      { games },
-    );
+    // O servidor importa o que está gravado. Uma edição ainda no debounce
+    // entraria em estoque com o valor antigo, então ela vai antes.
+    await flushPendingSaves(trade);
 
-    // 201 — a importação é atômica, então chegar aqui significa que o lote inteiro
-    // entrou. A trade agora é `is_imported=true`: no default view (Abertas) some;
-    // em Todas/Importadas continua visível como card colapsado.
-    router.reload({ only: ['trades'] });
-  } catch (e: any) {
-    if (e?.response?.status === 422) {
-      const payload = e.response.data.errors ?? {};
+    // Sem corpo: o lote sai das linhas da trade, não do navegador.
+    const res = await axiosInstance.post(route('trades.import', { trade: trade.id }));
 
-      if (Array.isArray(payload)) {
-        const errorsByGameIdx = new Map(
-          (payload as { line: number; error: string }[]).map(err => [err.line - 1, err.error]),
-        );
+    // O `axiosInstance` resolve 4xx em vez de rejeitar (`validateStatus` aceita
+    // < 500), então a recusa é lida aqui, não no catch — que só vê rede e 5xx.
+    if (res.status === 201) {
+      // Importação atômica: chegar aqui significa que o lote inteiro entrou. A
+      // trade agora é `is_imported=true`: no default view (Abertas) some; em
+      // Todas/Importadas continua visível como card colapsado.
+      router.reload({ only: ['trades'] });
 
-        meaningfulEntries.forEach(({ originalIdx }, gameIdx) => {
-          const row = trade.rows[originalIdx];
-          row.status = errorsByGameIdx.has(gameIdx) ? 'error' : 'pending';
-          row.errorMsg = errorsByGameIdx.get(gameIdx) ?? '';
-        });
-
-        return;
-      }
-
-      const validationErrors: Record<string, string[]> = payload;
-      const fieldLabels: Record<string, string> = {
-        tf2_quantity: 'Qtd TF2',
-        key_code: 'Key Code',
-        game_name: 'Nome',
-        market_price: 'Preço de Mercado',
-        supplier_url: 'URL Fornecedor',
-        acquired_at: 'Data',
-      };
-
-      meaningfulEntries.forEach(({ originalIdx }, gameIdx) => {
-        const row = trade.rows[originalIdx];
-        const msgs = Object.entries(validationErrors)
-          .filter(([key]) => key.startsWith(`games.${gameIdx}.`))
-          .map(([key, errs]) => {
-            const field = key.replace(`games.${gameIdx}.`, '');
-            const label = fieldLabels[field] ?? field;
-            return `${label}: ${errs[0]}`;
-          });
-
-        if (msgs.length > 0) {
-          row.status = 'error';
-          row.errorMsg = msgs.join(' | ');
-        }
-      });
-    } else {
-      trade.rows.forEach(r => {
-        r.status = 'error';
-        r.errorMsg = e?.response?.data?.message ?? 'Erro desconhecido';
-      });
+      return;
     }
+
+    markImportErrors(trade, res.data);
+  } catch (e: any) {
+    markImportErrors(trade, e?.response?.data);
   } finally {
     trade.importing = false;
   }
+}
+
+/**
+ * Marca nas linhas o que o servidor recusou.
+ *
+ * `errors` traz uma entrada por key que falhou; vazio significa recusa da trade
+ * inteira (prontidão para importar), e aí a mensagem vale para todas as linhas.
+ */
+function markImportErrors(trade: TradeEntry, data?: { message?: string; errors?: { line: number; error: string }[] }) {
+  const errors = data?.errors ?? [];
+
+  if (errors.length === 0) {
+    trade.rows.forEach(r => {
+      r.status = 'error';
+      r.errorMsg = data?.message ?? 'Erro desconhecido';
+    });
+
+    return;
+  }
+
+  // O servidor numera as linhas do lote na ordem gravada (`position`), que é
+  // outra ordem se o usuário ordenou a tabela por coluna.
+  const errorByBatchIdx = new Map(errors.map(err => [err.line - 1, err.error]));
+
+  [...trade.rows]
+    .sort((a, b) => a.position - b.position)
+    .filter(isRowMeaningful)
+    .forEach((row, batchIdx) => {
+      row.status = errorByBatchIdx.has(batchIdx) ? 'error' : 'pending';
+      row.errorMsg = errorByBatchIdx.get(batchIdx) ?? '';
+    });
 }
 
 // ─── Cópia ────────────────────────────────────────────────────────────────────
@@ -632,7 +816,7 @@ async function copyCell(trade: TradeEntry, name: string, value: number, cellKey:
 }
 
 async function copyTier(trade: TradeEntry, tier: number) {
-  const lines = trade.rows.map(row => `${row.name}\t${formatTf2(getOffer(row, tier))}`);
+  const lines = trade.rows.map(row => `${row.game_name}\t${formatTf2(getOffer(row, tier))}`);
   const total = getTierTotal(trade, tier);
   lines.push(`total ${formatTf2(total)} tf2`);
   await copyToClipboard(lines.join('\n'));
@@ -644,7 +828,7 @@ async function copyCustomTier(trade: TradeEntry) {
   const lines = trade.rows
     .map(row => {
       const val = getEffectiveCustomTf2(row);
-      return val > 0 ? `${row.name}\t${formatTf2(val)}` : null;
+      return val > 0 ? `${row.game_name}\t${formatTf2(val)}` : null;
     })
     .filter((line): line is string => line !== null);
   if (lines.length === 0) return;
@@ -684,7 +868,7 @@ const sortDir = ref<'asc' | 'desc'>('asc');
 
 function getSortValue(row: Row, field: string): number | string {
   switch (field) {
-    case 'expiry':     return row.expiry ?? '';
+    case 'expiry':     return row.expires_at ?? '';
     case 'marketPrice': return getMarketPrice(row);
     case 'netIncome':  return getNetIncome(row);
     default:
@@ -1042,7 +1226,7 @@ function headerSortIcon(field: Filters['sort']): string {
             <span v-else-if="trade.saveStatus === 'error'" class="badge bg-danger d-inline-flex align-items-center gap-2">
               <i class="pi pi-exclamation-triangle" />
               Erro ao salvar — não recarregue a página
-              <button type="button" class="btn btn-sm btn-light py-0 px-2" @click="triggerSave(trade)">
+              <button type="button" class="btn btn-sm btn-light py-0 px-2" @click="retrySaves(trade)">
                 Tentar novamente
               </button>
             </span>
@@ -1167,41 +1351,41 @@ function headerSortIcon(field: Filters['sort']): string {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(row, rowIdx) in trade.rows" :key="rowIdx" :class="rowClass(row)">
+                <tr v-for="(row, rowIdx) in trade.rows" :key="row.id" :class="rowClass(row)">
 
                   <td>
                     <input
-                      :value="row.marketPriceRaw.replace('.', ',')"
+                      :value="row.market_price.replace('.', ',')"
                       class="cell-input ps-2"
                       :class="{ 'is-missing': isRowMeaningful(row) && hasMissingMarketPrice(row) }"
                       placeholder="0,00"
-                      @change="(e) => { row.marketPriceRaw = (parseFloat((e.target as HTMLInputElement).value.replace(',', '.')) || 0).toFixed(2); scheduleAutosave(trade); }"
+                      @change="(e) => { row.market_price = (parseFloat((e.target as HTMLInputElement).value.replace(',', '.')) || 0).toFixed(2); scheduleLineSave(trade, row); }"
                     />
                   </td>
 
                   <td>
-                    <input v-model="row.bundle" class="cell-input text-muted" @input="scheduleAutosave(trade)" />
+                    <input v-model="row.bundle" class="cell-input text-muted" @input="scheduleLineSave(trade, row)" />
                   </td>
 
                   <td>
-                    <input v-model="row.expiry" class="cell-input" @input="scheduleAutosave(trade)" />
+                    <input v-model="row.expires_at" class="cell-input" @input="scheduleLineSave(trade, row)" />
                   </td>
 
                   <td>
-                    <input v-model="row.popularity" class="cell-input text-muted" @input="scheduleAutosave(trade)" />
+                    <input v-model="row.popularity" class="cell-input text-muted" @input="scheduleLineSave(trade, row)" />
                   </td>
 
                   <td>
-                    <input v-model="row.regionLock" class="cell-input" @input="scheduleAutosave(trade)" />
+                    <input v-model="row.region" class="cell-input" @input="scheduleLineSave(trade, row)" />
                   </td>
 
                   <td>
                     <input
-                      v-model="row.keyCode"
+                      v-model="row.key_code"
                       class="cell-input font-monospace"
-                      :class="{ 'is-missing': !(row.keyCode ?? '').trim() }"
+                      :class="{ 'is-missing': !(row.key_code ?? '').trim() }"
                       placeholder="XXXXX-XXXXX-XXXXX"
-                      @input="scheduleAutosave(trade)"
+                      @input="scheduleLineSave(trade, row)"
                     />
                     <div v-if="row.status === 'error'" class="text-danger" style="font-size: 0.7rem;">
                       {{ row.errorMsg }}
@@ -1210,16 +1394,16 @@ function headerSortIcon(field: Filters['sort']): string {
 
                   <td>
                     <input
-                      v-model="row.name"
+                      v-model="row.game_name"
                       class="cell-input fw-semibold"
                       :class="{ 'is-missing': isRowMeaningful(row) && hasMissingName(row) }"
                       placeholder="Nome do jogo"
-                      @input="scheduleAutosave(trade)"
+                      @input="scheduleLineSave(trade, row)"
                     />
                   </td>
 
                   <td>
-                    <input v-model="row.gamivoId" class="cell-input text-muted" @input="scheduleAutosave(trade)" />
+                    <input v-model="row.gamivo_id" class="cell-input text-muted" @input="scheduleLineSave(trade, row)" />
                   </td>
 
                   <td class="text-end text-muted small">
@@ -1235,8 +1419,8 @@ function headerSortIcon(field: Filters['sort']): string {
                       type="button"
                       class="btn btn-sm w-100"
                       :class="trade.copiedKey === `${rowIdx}-${tier}` ? 'btn-success' : 'btn-outline-secondary'"
-                      :title="`Copiar: ${row.name} + ${formatTf2(getOffer(row, tier))} TF2`"
-                      @click="copyCell(trade, row.name, getOffer(row, tier), `${rowIdx}-${tier}`)"
+                      :title="`Copiar: ${row.game_name} + ${formatTf2(getOffer(row, tier))} TF2`"
+                      @click="copyCell(trade, row.game_name, getOffer(row, tier), `${rowIdx}-${tier}`)"
                     >
                       <i v-if="trade.copiedKey === `${rowIdx}-${tier}`" class="pi pi-check me-1" />
                       {{ formatTf2(getOffer(row, tier)) }}
@@ -1257,8 +1441,8 @@ function headerSortIcon(field: Filters['sort']): string {
                           type="button"
                           class="btn btn-sm px-1"
                           :class="trade.copiedKey === `${rowIdx}-custom` ? 'btn-success' : 'btn-outline-purple'"
-                          :title="`Copiar: ${row.name} + ${formatTf2(getEffectiveCustomTf2(row))} TF2`"
-                          @click="copyCell(trade, row.name, getEffectiveCustomTf2(row), `${rowIdx}-custom`)"
+                          :title="`Copiar: ${row.game_name} + ${formatTf2(getEffectiveCustomTf2(row))} TF2`"
+                          @click="copyCell(trade, row.game_name, getEffectiveCustomTf2(row), `${rowIdx}-custom`)"
                         >
                           <i
                             :class="trade.copiedKey === `${rowIdx}-custom` ? 'pi pi-check' : 'pi pi-copy'"

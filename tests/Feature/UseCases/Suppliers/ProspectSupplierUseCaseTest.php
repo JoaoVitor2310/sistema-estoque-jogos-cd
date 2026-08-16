@@ -1,8 +1,10 @@
 <?php
 
+use App\Models\Trade;
 use App\UseCases\Suppliers\ProspectSupplierUseCase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Tests\Support\TradeFactory;
 
 function seedUseCaseDeps(float $tf2Price = 0.95): void
 {
@@ -50,17 +52,18 @@ describe('ProspectSupplierUseCase', function () {
         expect(DB::table('trades')->where('list_code', 'G0eXM')->whereNotNull('last_commented_at')->exists())->toBeTrue();
     });
 
-    it('persists gamivoId in the created trade games', function () {
+    it('persists gamivo_id on the created trade line', function () {
         app(ProspectSupplierUseCase::class)->execute(
             supplierSteamId(),
             [['name' => 'Half-Life', 'price_euro' => 4.50, 'popularity' => 500, 'region' => null, 'gamivo_id' => '144601']],
             'G0eXM',
         );
 
-        $trade = DB::table('trades')->where('list_code', 'G0eXM')->first();
-        $games = json_decode($trade->games, true);
+        $trade = Trade::where('list_code', 'G0eXM')->firstOrFail();
 
-        expect($games[0]['gamivoId'])->toBe('144601');
+        expect($trade->lines)->toHaveCount(1)
+            ->and($trade->lines[0]->gamivo_id)->toBe('144601')
+            ->and($trade->lines[0]->game_name)->toBe('Half-Life');
     });
 
     it('does not create a trade when no games are profitable', function () {
@@ -75,12 +78,9 @@ describe('ProspectSupplierUseCase', function () {
     });
 
     it('does not create a trade when within interval and games have not changed', function () {
-        DB::table('trades')->insert([
+        TradeFactory::withLines(['Half-Life'], [
             'list_code' => 'G0eXM',
             'last_commented_at' => now()->subDays(1),
-            'games' => json_encode([['name' => 'Half-Life']]),
-            'created_at' => now()->subDays(1),
-            'updated_at' => now()->subDays(1),
         ]);
 
         $result = app(ProspectSupplierUseCase::class)->execute(
@@ -108,12 +108,9 @@ describe('ProspectSupplierUseCase', function () {
         it('returns the last_commented_at from the most recent commented trade', function () {
             $commentedAt = now()->subWeek()->startOfSecond();
 
-            DB::table('trades')->insert([
+            TradeFactory::withLines(['Half-Life'], [
                 'list_code' => 'G0eXM',
                 'last_commented_at' => $commentedAt,
-                'games' => json_encode([['name' => 'Half-Life']]),
-                'created_at' => now()->subWeek(),
-                'updated_at' => now()->subWeek(),
             ]);
 
             $result = app(ProspectSupplierUseCase::class)->execute(
@@ -126,12 +123,9 @@ describe('ProspectSupplierUseCase', function () {
         });
 
         it('ignores trades without last_commented_at', function () {
-            DB::table('trades')->insert([
+            TradeFactory::withLines(['Half-Life'], [
                 'list_code' => 'G0eXM',
                 'last_commented_at' => null,
-                'games' => json_encode([['name' => 'Half-Life']]),
-                'created_at' => now()->subDay(),
-                'updated_at' => now()->subDay(),
             ]);
 
             $result = app(ProspectSupplierUseCase::class)->execute(
@@ -288,12 +282,9 @@ describe('ProspectSupplierUseCase', function () {
         });
 
         it('returns false when game names are the same as the previous commented trade', function () {
-            DB::table('trades')->insert([
+            TradeFactory::withLines(['Half-Life'], [
                 'list_code' => 'G0eXM',
                 'last_commented_at' => now()->subWeek(),
-                'games' => json_encode([['name' => 'Half-Life']]),
-                'created_at' => now()->subWeek(),
-                'updated_at' => now()->subWeek(),
             ]);
 
             $result = app(ProspectSupplierUseCase::class)->execute(
@@ -306,12 +297,9 @@ describe('ProspectSupplierUseCase', function () {
         });
 
         it('returns true when game names differ from the previous commented trade', function () {
-            DB::table('trades')->insert([
+            TradeFactory::withLines(['Portal', 'Team Fortress 2'], [
                 'list_code' => 'G0eXM',
                 'last_commented_at' => now()->subWeek(),
-                'games' => json_encode([['name' => 'Portal'], ['name' => 'Team Fortress 2']]),
-                'created_at' => now()->subWeek(),
-                'updated_at' => now()->subWeek(),
             ]);
 
             $result = app(ProspectSupplierUseCase::class)->execute(

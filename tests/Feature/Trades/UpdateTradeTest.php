@@ -29,7 +29,7 @@ function authorizedUser(): User
 describe('PUT /trades/{trade} — tf2Qty validation', function () {
 
     it('rejects tf2Qty with comma as decimal separator', function () {
-        $trade = Trade::create(['date' => now()->toDateString(), 'games' => []]);
+        $trade = Trade::create(['date' => now()->toDateString()]);
 
         $this->actingAs(authorizedUser())
             ->putJson("/trades/{$trade->id}", ['tf2Qty' => '12,5'])
@@ -38,7 +38,7 @@ describe('PUT /trades/{trade} — tf2Qty validation', function () {
     });
 
     it('accepts tf2Qty with period as decimal separator', function () {
-        $trade = Trade::create(['date' => now()->toDateString(), 'games' => []]);
+        $trade = Trade::create(['date' => now()->toDateString()]);
 
         $this->actingAs(authorizedUser())
             ->putJson("/trades/{$trade->id}", ['tf2Qty' => '12.5'])
@@ -48,7 +48,7 @@ describe('PUT /trades/{trade} — tf2Qty validation', function () {
     });
 
     it('persists null tf2_qty when not provided', function () {
-        $trade = Trade::create(['date' => now()->toDateString(), 'tf2_qty' => '10.00', 'games' => []]);
+        $trade = Trade::create(['date' => now()->toDateString(), 'tf2_qty' => '10.00']);
 
         $this->actingAs(authorizedUser())
             ->putJson("/trades/{$trade->id}", [])

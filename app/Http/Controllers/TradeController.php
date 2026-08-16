@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Domain\Pricing\OfferCalculator;
-use App\Http\Requests\ImportTradeKeysRequest;
 use App\Http\Requests\IndexTradesRequest;
 use App\Http\Requests\StoreListTradeRequest;
 use App\Http\Requests\UpdateTradeRequest;
@@ -96,13 +95,19 @@ class TradeController extends Controller
         return response()->json([], 204);
     }
 
-    public function importKeys(ImportTradeKeysRequest $request, Trade $trade): JsonResponse
+    /**
+     * Importa as keys da trade. **Sem corpo** — o lote sai das linhas gravadas,
+     * não do que o navegador mandar.
+     */
+    public function importKeys(Trade $trade): JsonResponse
     {
-        $result = $this->registerKeyUseCase->execute($trade, $request->validated('games'));
+        $result = $this->registerKeyUseCase->execute($trade);
 
         // Importação atômica: 201 quando o lote inteiro entrou; 422 quando nada
-        // entrou (não há resultado parcial).
-        $status = empty($result['errors']) ? 201 : 422;
+        // entrou (não há resultado parcial). A ausência de key registrada é o
+        // critério porque o lote pode ser recusado de duas formas — erro por key
+        // ou trade não pronta para importar, esta sem erro de linha nenhum.
+        $status = $result['games'] === [] ? 422 : 201;
 
         return response()->json([
             'message' => $result['message'],

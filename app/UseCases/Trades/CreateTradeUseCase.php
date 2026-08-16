@@ -5,6 +5,7 @@ namespace App\UseCases\Trades;
 use App\Models\Trade;
 use App\Services\Suppliers\SupplierService;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class CreateTradeUseCase
 {
@@ -13,7 +14,7 @@ class CreateTradeUseCase
     ) {}
 
     /**
-     * @param  array{supplierUrl?: string|null, date?: string|null, tf2Qty?: string|null, games?: array<int, mixed>}  $data
+     * @param  array{title?: string|null, supplierUrl?: string|null, date?: string|null, tf2Qty?: string|null}  $data
      */
     public function execute(array $data): Trade
     {
@@ -21,32 +22,20 @@ class CreateTradeUseCase
             ? $this->supplierService->upsertByUrl($data['supplierUrl'])
             : null;
 
-        return Trade::create([
-            'supplier_id' => $supplier?->id,
-            'title' => ($data['title'] ?? null) ?: ($supplier?->name ?: null),
-            'date' => $this->parseDate($data['date'] ?? null) ?? now()->format('Y-m-d'),
-            'tf2_qty' => ($data['tf2Qty'] ?? null) ?: null,
-            // Trade nasce com uma linha em branco para o usuário editar direto;
-            // sem isso o card apareceria vazio e obrigaria clicar em "+ Linha" antes.
-            'games' => $data['games'] ?? [self::emptyRow()],
-        ]);
-    }
+        return DB::transaction(function () use ($data, $supplier) {
+            $trade = Trade::create([
+                'supplier_id' => $supplier?->id,
+                'title' => ($data['title'] ?? null) ?: ($supplier?->name ?: null),
+                'date' => $this->parseDate($data['date'] ?? null) ?? now()->format('Y-m-d'),
+                'tf2_qty' => ($data['tf2Qty'] ?? null) ?: null,
+            ]);
 
-    /**
-     * @return array<string, string>
-     */
-    private static function emptyRow(): array
-    {
-        return [
-            'name' => '',
-            'marketPriceRaw' => '',
-            'bundle' => '',
-            'expiry' => '',
-            'popularity' => '',
-            'regionLock' => '',
-            'keyCode' => '',
-            'gamivoId' => '',
-        ];
+            // Trade nasce com uma linha em branco para o usuário editar direto;
+            // sem ela, o primeiro ato sobre a trade seria criar a linha.
+            $trade->lines()->create(['position' => 0]);
+
+            return $trade;
+        });
     }
 
     private function parseDate(?string $date): ?string

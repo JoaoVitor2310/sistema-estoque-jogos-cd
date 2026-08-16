@@ -108,7 +108,7 @@ describe('UpdateKeyUseCase', function () {
     it('recalculates the whole trade — sibling keys too — when one market_price is edited', function () {
         // Lote de 2 keys vinculadas à mesma trade (trade_id), tf2_quantity 2.5 (total da trade).
         // Inicialmente ambas a €5.00 → income 4.45 cada → custo 2.50 cada.
-        $trade = Trade::create(['games' => []]);
+        $trade = Trade::create([]);
 
         $idA = insertKeyForUpdate(['key_code' => 'AAAAA-11111-11111', 'trade_id' => $trade->id, 'market_price' => 5.00, 'tf2_quantity' => 2.5]);
         $idB = insertKeyForUpdate(['key_code' => 'BBBBB-22222-22222', 'trade_id' => $trade->id, 'market_price' => 5.00, 'tf2_quantity' => 2.5]);
@@ -136,8 +136,8 @@ describe('UpdateKeyUseCase', function () {
     });
 
     it('does not touch keys from a different trade', function () {
-        $tradeA = Trade::create(['games' => []]);
-        $tradeB = Trade::create(['games' => []]);
+        $tradeA = Trade::create([]);
+        $tradeB = Trade::create([]);
 
         $idA = insertKeyForUpdate(['key_code' => 'AAAAA-11111-11111', 'trade_id' => $tradeA->id, 'market_price' => 5.00, 'tf2_quantity' => 2.5]);
         $idOther = insertKeyForUpdate(['key_code' => 'OTHER-22222-22222', 'trade_id' => $tradeB->id, 'market_price' => 5.00, 'tf2_quantity' => 2.5, 'individual_cost' => 5.00]);
@@ -170,7 +170,7 @@ describe('UpdateKeyUseCase', function () {
     });
 
     it('does not touch sibling keys when a non-market_price field is edited', function () {
-        $trade = Trade::create(['games' => []]);
+        $trade = Trade::create([]);
 
         $idA = insertKeyForUpdate(['key_code' => 'AAAAA-11111-11111', 'trade_id' => $trade->id, 'market_price' => 5.00, 'tf2_quantity' => 2.5]);
         $idB = insertKeyForUpdate(['key_code' => 'BBBBB-22222-22222', 'trade_id' => $trade->id, 'market_price' => 5.00, 'tf2_quantity' => 2.5, 'individual_cost' => 99.99]);
@@ -188,7 +188,7 @@ describe('UpdateKeyUseCase', function () {
 
     it('recalculates a sold sibling sale_profit when the trade cost changes', function () {
         // Se uma key do lote já foi vendida, corrigir o custo do lote reflete no lucro de venda dela.
-        $trade = Trade::create(['games' => []]);
+        $trade = Trade::create([]);
 
         $idA = insertKeyForUpdate(['key_code' => 'AAAAA-11111-11111', 'trade_id' => $trade->id, 'market_price' => 5.00, 'tf2_quantity' => 2.5]);
         $idB = insertKeyForUpdate(['key_code' => 'BBBBB-22222-22222', 'trade_id' => $trade->id, 'market_price' => 5.00, 'tf2_quantity' => 2.5, 'sold_price' => 6.00, 'sold_at' => now()]);
@@ -295,7 +295,7 @@ describe('UpdateKeyUseCase', function () {
     });
 
     it('returns every recalculated key of the trade when the market_price changes', function () {
-        $trade = Trade::create(['games' => []]);
+        $trade = Trade::create([]);
         $idA = insertKeyForUpdate(['key_code' => 'AAAAA-11111-11111', 'trade_id' => $trade->id, 'market_price' => 5.00, 'tf2_quantity' => 2.5]);
         insertKeyForUpdate(['key_code' => 'BBBBB-22222-22222', 'trade_id' => $trade->id, 'market_price' => 5.00, 'tf2_quantity' => 2.5]);
 

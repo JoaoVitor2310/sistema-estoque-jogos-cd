@@ -40,7 +40,7 @@ Entidades usadas apenas em cálculo, sem vínculo de tabela com a Key:
 | Estado | Marcado por | O que acontece enquanto está aqui | Como sai |
 |---|---|---|---|
 | **Comprada** | `acquired_at` | `min_api` recalculado todo dia às 07:30 | Auto-sell lista na Gamivo → grava `listed_at` |
-| **Listada** | `listed_at` | Reprecificada a cada 5 min (se somos os mais baratos) ou de hora em hora | Venda confirmada na Gamivo → grava `sold_at` |
+| **Listada** | `listed_at` | Reprecificada a cada minuto, numa passada só — sobe se já somos os mais baratos, desce se não somos | Venda confirmada na Gamivo → grava `sold_at` |
 | **Vendida** | `sold_at` | `sale_profit` e `sale_profit_percent` calculados | Estado final |
 
 Ver [AUTOMATIONS.md](AUTOMATIONS.md) para os critérios exatos de quando uma key sai de "Comprada" para "Listada", e [docs/adr/0002](../adr/0002-fifo-grouping-by-marketplace-product.md) para por que keys do mesmo produto entram juntas numa única oferta.

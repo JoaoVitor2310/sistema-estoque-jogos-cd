@@ -98,7 +98,11 @@ app/
 │   │   └── AssetAlert.php               # limiar de alerta de variação de câmbio
 │   ├── Trades/
 │   │   ├── CommentPolicy.php            # decide se recomenta um supplier (14 dias / jogos mudaram)
-│   │   └── TradeGameComparison.php
+│   │   ├── TradeGameComparison.php
+│   │   ├── TradeLineBuilder.php         # monta a linha a partir da saída do price_researcher
+│   │   ├── TradeLineValue.php           # normalização por campo — compartilhada backfill/aba
+│   │   ├── LegacyTradeLine.php          # converte uma entrada do JSON legado em linha (backfill)
+│   │   └── ImportReadinessPolicy.php    # quando a trade pode virar keys
 │   ├── Financial/                        # livro-caixa em R$ (≠ Sales/, dashboard de vendas em €)
 │   │   ├── Money.php                     # centavos inteiros — reconciliação exata
 │   │   ├── AccountTransfer.php           # dupla partida; valor fechado ou % do saldo da origem
@@ -117,7 +121,8 @@ app/
 │       ├── SellPlatform.php
 │       ├── OffersUpdateMode.php         # WeAreLowest / WeAreNotLowest
 │       ├── PresenceFilter.php           # filled / empty — filtro por coluna preenchida
-│       └── SupplierCategory.php         # vip / blocked
+│       ├── SupplierCategory.php         # vip / blocked
+│       └── TradeImportBlocker.php       # o que impede uma trade de virar keys
 │
 ├── UseCases/
 │   ├── Keys/                             # operações agnósticas de marketplace

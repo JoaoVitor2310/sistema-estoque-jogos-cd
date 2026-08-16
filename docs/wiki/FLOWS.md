@@ -37,6 +37,7 @@ Da identificação de um fornecedor até a key entrar no estoque.
 - `individual_cost` sai do rateio do lote inteiro da trade (proporcional ao income de cada jogo). Se o `market_price` de uma key for editado depois, o custo e os lucros de compra do **lote inteiro** são recalculados (ver [docs/adr/0004](../adr/0004-recalculate-trade-on-key-edit.md)).
 - Importar as keys por uma trade (`POST /trades/{trade}/import`) grava o `trade_id` nas keys e marca a trade como `is_imported` — ela sai da view padrão (Abertas) da aba de Trades mas **permanece no banco** (não é excluída), para o vínculo `trade_id` seguir válido; continua acessível pelas views **Importadas** / **Todas** (card colapsado).
 - A importação é **tudo ou nada**: se qualquer key do lote falhar, nenhuma é cadastrada e a trade continua na aba, com todos os erros marcados de uma vez nas linhas correspondentes — evita reimportar em partes e um rateio de custo calculado sobre um lote incompleto.
+- O import **lê as linhas gravadas**, não o que está na tela: a requisição não leva corpo. A aba grava o que estiver no debounce do autosave antes de disparar, para não importar sem a correção recém-digitada. As condições que fazem o lote inteiro ser recusado estão em [`docs/PRODUCT.md`](../PRODUCT.md) (seção "Prontidão para importar").
 
 ## Fluxo de venda
 
@@ -46,7 +47,7 @@ Do estoque comprado até a venda confirmada e conciliada.
 |---|---|---|---|
 | 1 | Recalcular o piso de preço | diário, 07:30 | `RegulateMinApiUseCase` |
 | 2 | Listar keys elegíveis | **manual** | `gamivo:auto-sell` (`AutoSellUseCase`) |
-| 3 | Reprecificar contra concorrentes | 5 min (somos os + baratos) / 1 h (não somos) | `UpdateOffersUseCase` + `ComparisonAlgorithm` |
+| 3 | Reprecificar contra concorrentes | a cada minuto, passada única (sobe e desce) | `UpdateOffersUseCase` + `ComparisonAlgorithm` |
 | 4 | Dar baixa nas vendas | 2×/dia (06:00 e 18:00) | `UpdateSoldOffersUseCase` |
 
 A ordem importa: o passo 1 precisa rodar **antes** do 2, porque o auto-sell só consulta o `min_api` já gravado — nunca recalcula.

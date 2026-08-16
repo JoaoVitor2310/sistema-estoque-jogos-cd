@@ -2,19 +2,20 @@
 
 /*
 |--------------------------------------------------------------------------
-| FormRequest validation — characterization tests
+| Import validation — characterization tests
 |--------------------------------------------------------------------------
 |
 | market_price e tf2_quantity devem ser > 0.
 |
-| A rota POST /trades/{trade}/import usa ImportTradeKeysRequest — o único
-| ponto de entrada de keys no sistema. Espera os dados no formato
-| { games: [...] }; os erros de validação são retornados com chaves no
-| formato "games.0.fieldName".
+| A rota POST /trades/{trade}/import é o único ponto de entrada de keys no
+| sistema, e **não recebe corpo**: o lote sai das linhas gravadas da trade.
+| A garantia que antes vivia no `ImportTradeKeysRequest` passou a ser regra de
+| Domain (`App\Domain\Trades\ImportReadinessPolicy`) — estes testes fixam que
+| ela continua valendo na fronteira HTTP, agora sobre o dado persistido.
 |
-| Os enums (claim_type, key_format, sell_platform) não são validados aqui: o
-| TradeCalculator não os envia, então assumem o valor de KeyDefaults. A
-| validação por enum deles vive no StoreGameRequest (edição inline de key).
+| Os enums (claim_type, key_format, sell_platform) não entram aqui: a linha da
+| trade não os carrega, então assumem o valor de KeyDefaults. A validação por
+| enum deles vive no StoreGameRequest (edição inline de key).
 |
 */
 
@@ -22,6 +23,7 @@ use App\Models\AuthorizedUsers;
 use App\Models\Trade;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Tests\Support\TradeFactory;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -44,39 +46,44 @@ function requestAuthorizedUser(): User
     return $user;
 }
 
-/** Rota de importação de uma trade nova — único caminho de entrada de keys. */
-function tradeImportRoute(): string
+/**
+ * Trade pronta para importar; os overrides quebram só o campo sob teste.
+ *
+ * @param  array<string, mixed>  $lineOverrides  colunas da linha
+ * @param  array<string, mixed>  $tradeOverrides  colunas da trade
+ */
+function tradeReadyToImport(array $lineOverrides = [], array $tradeOverrides = []): Trade
 {
-    return route('trades.import', ['trade' => Trade::create(['games' => []])->id]);
+    $supplierId = DB::table('suppliers')->insertGetId([
+        'url' => 'https://steamcommunity.com/id/seller',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    return TradeFactory::withLines(
+        [array_merge([
+            'game_name' => 'Test Game',
+            'key_code' => 'AAAAA-11111-BBBBB',
+            'market_price' => 5.00,
+            'region' => null,
+        ], $lineOverrides)],
+        array_merge([
+            'supplier_id' => $supplierId,
+            'tf2_qty' => 2.0,
+            'date' => now()->toDateString(),
+        ], $tradeOverrides),
+    );
 }
 
-/** Retorna um payload válido para ImportTradeKeysRequest (games: [...]) */
-function gamePayload(array $overrides = []): array
+function importResponse(Trade $trade)
 {
-    return [
-        'games' => [
-            array_merge([
-                'game_name' => 'Test Game',
-                'key_code' => 'AAAAA-11111-BBBBB',
-                'supplier_url' => 'https://steamcommunity.com/id/seller',
-                'tf2_quantity' => 2.0,
-                'market_price' => 5.00,
-                'region' => null,
-                'acquired_at' => now()->toDateString(),
-                'gamivo_id' => null,
-                'steam_id' => null,
-                'claim_type' => 'Nenhuma',
-                'key_format' => 'RK',
-                'sell_platform' => 'Gamivo',
-                'color' => null,
-            ], $overrides),
-        ],
-    ];
+    return test()->actingAs(requestAuthorizedUser())
+        ->postJson(route('trades.import', ['trade' => $trade->id]));
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-describe('ImportTradeKeysRequest validation', function () {
+describe('Import readiness at the HTTP boundary', function () {
 
     beforeEach(function () {
         seedValidationFks();
@@ -87,60 +94,38 @@ describe('ImportTradeKeysRequest validation', function () {
     describe('market_price (6.5)', function () {
 
         it('rejects market_price = 0', function () {
-            $user = requestAuthorizedUser();
+            importResponse(tradeReadyToImport(['market_price' => 0]))->assertStatus(422);
 
-            $this->actingAs($user)
-                ->postJson(tradeImportRoute(), gamePayload(['market_price' => 0]))
-                ->assertStatus(422)
-                ->assertJsonValidationErrors(['games.0.market_price']);
+            expect(DB::table('keys')->count())->toBe(0);
         });
 
         it('rejects negative market_price', function () {
-            $user = requestAuthorizedUser();
+            importResponse(tradeReadyToImport(['market_price' => -1.50]))->assertStatus(422);
 
-            $this->actingAs($user)
-                ->postJson(tradeImportRoute(), gamePayload(['market_price' => -1.50]))
-                ->assertStatus(422)
-                ->assertJsonValidationErrors(['games.0.market_price']);
+            expect(DB::table('keys')->count())->toBe(0);
         });
 
         it('accepts market_price > 0', function () {
-            $user = requestAuthorizedUser();
-
-            $response = $this->actingAs($user)
-                ->postJson(tradeImportRoute(), gamePayload(['market_price' => 5.00]));
-
-            expect($response->status())->not->toBe(422);
+            expect(importResponse(tradeReadyToImport(['market_price' => 5.00]))->status())->not->toBe(422);
         });
     });
 
     describe('tf2_quantity (6.5)', function () {
 
         it('rejects tf2_quantity = 0', function () {
-            $user = requestAuthorizedUser();
+            importResponse(tradeReadyToImport([], ['tf2_qty' => 0]))->assertStatus(422);
 
-            $this->actingAs($user)
-                ->postJson(tradeImportRoute(), gamePayload(['tf2_quantity' => 0]))
-                ->assertStatus(422)
-                ->assertJsonValidationErrors(['games.0.tf2_quantity']);
+            expect(DB::table('keys')->count())->toBe(0);
         });
 
         it('rejects negative tf2_quantity', function () {
-            $user = requestAuthorizedUser();
+            importResponse(tradeReadyToImport([], ['tf2_qty' => -2.0]))->assertStatus(422);
 
-            $this->actingAs($user)
-                ->postJson(tradeImportRoute(), gamePayload(['tf2_quantity' => -2.0]))
-                ->assertStatus(422)
-                ->assertJsonValidationErrors(['games.0.tf2_quantity']);
+            expect(DB::table('keys')->count())->toBe(0);
         });
 
         it('accepts tf2_quantity > 0', function () {
-            $user = requestAuthorizedUser();
-
-            $response = $this->actingAs($user)
-                ->postJson(tradeImportRoute(), gamePayload(['tf2_quantity' => 2.0]));
-
-            expect($response->status())->not->toBe(422);
+            expect(importResponse(tradeReadyToImport([], ['tf2_qty' => 2.0]))->status())->not->toBe(422);
         });
     });
 });

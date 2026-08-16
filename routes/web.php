@@ -12,6 +12,7 @@ use App\Http\Controllers\Keys\KeySaleController;
 use App\Http\Controllers\SalesDashboardController;
 use App\Http\Controllers\Suppliers\SupplierController;
 use App\Http\Controllers\TradeController;
+use App\Http\Controllers\TradeLineController;
 use App\Http\Middleware\CheckAdmin;
 use App\Http\Middleware\CheckPermission;
 use App\Http\Middleware\RequireAuth;
@@ -66,6 +67,19 @@ Route::prefix('trades')
         Route::put('/{trade}', 'update')->name('trades.update');
         Route::delete('/{trade}', 'destroy')->name('trades.destroy');
         Route::post('/{trade}/import', 'importKeys')->name('trades.import');
+    });
+
+// As linhas de uma trade — recurso próprio, mesma permissão das rotas de trade.
+// scopeBindings: sem isso, {line} resolveria por id global e daria para alterar
+// a linha de outra trade passando qualquer {trade} na URL.
+Route::prefix('trades/{trade}/lines')
+    ->middleware(CheckPermission::class)
+    ->controller(TradeLineController::class)
+    ->scopeBindings()
+    ->group(function () {
+        Route::post('/', 'store')->name('trades.lines.store');
+        Route::patch('/{line}', 'update')->name('trades.lines.update');
+        Route::delete('/{line}', 'destroy')->name('trades.lines.destroy');
     });
 
 Route::get('/games', [GameController::class, 'index'])->name('games')->middleware(RequireAuth::class);

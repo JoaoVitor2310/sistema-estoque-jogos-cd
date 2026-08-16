@@ -2,10 +2,11 @@
 
 namespace App\UseCases\Trades;
 
-use App\Domain\Games\GameNameNormalizer;
+use App\Domain\Trades\TradeLineBuilder;
 use App\Models\Trade;
 use App\Services\Bundles\BundleService;
 use App\Services\Suppliers\SupplierService;
+use Illuminate\Support\Facades\DB;
 
 class StoreListTradeUseCase
 {
@@ -24,31 +25,19 @@ class StoreListTradeUseCase
         $names = array_column($data['games'], 'name');
         $bundleMap = $this->bundleService->recentBundleByGameNames($names);
 
-        return Trade::create([
-            'supplier_id' => $supplier?->id,
-            'title' => ($data['title'] ?? null) ?: ($supplier?->name ?: null),
-            'list_code' => $data['list_code'] ?? null,
-            'date' => now()->format('Y-m-d'),
-            'games' => $this->buildGames($data['games'], $bundleMap),
-        ]);
-    }
+        // Trade e linhas nascem juntas: uma trade sem as linhas pesquisadas
+        // seria indistinguível de uma trade criada em branco.
+        return DB::transaction(function () use ($data, $supplier, $bundleMap) {
+            $trade = Trade::create([
+                'supplier_id' => $supplier?->id,
+                'title' => ($data['title'] ?? null) ?: ($supplier?->name ?: null),
+                'list_code' => $data['list_code'] ?? null,
+                'date' => now()->format('Y-m-d'),
+            ]);
 
-    /**
-     * @param  array<int, array{name: string, price_euro: float, popularity: int, region: string|null, gamivo_id?: string|null}>  $games
-     * @param  array<string, string>  $bundleMap  normalized game name → bundle name
-     * @return array<int, array<string, mixed>>
-     */
-    private function buildGames(array $games, array $bundleMap): array
-    {
-        return array_map(fn (array $game) => [
-            'name' => $game['name'],
-            'marketPriceRaw' => number_format($game['price_euro'], 2, '.', ''),
-            'popularity' => (string) $game['popularity'],
-            'regionLock' => $game['region'] ?? null,
-            'bundle' => $bundleMap[GameNameNormalizer::normalize($game['name'])] ?? null,
-            'expiry' => null,
-            'keyCode' => null,
-            'gamivoId' => $game['gamivo_id'] ?? null,
-        ], $games);
+            $trade->lines()->createMany(TradeLineBuilder::fromResearch($data['games'], $bundleMap));
+
+            return $trade;
+        });
     }
 }
