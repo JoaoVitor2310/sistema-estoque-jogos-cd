@@ -62,7 +62,7 @@ final class ImportReadinessPolicy
             $blockers[] = TradeImportBlocker::MissingKeyCode;
         }
 
-        if (! self::isPositive($tf2Quantity)) {
+        if (! self::hasTf2Quantity($tf2Quantity)) {
             $blockers[] = TradeImportBlocker::MissingTf2Quantity;
         }
 
@@ -71,6 +71,19 @@ final class ImportReadinessPolicy
         }
 
         return $blockers;
+    }
+
+    /**
+     * Se o total de TF2 acertado está declarado.
+     *
+     * Público porque a entrega do supplier exige o mesmo campo antes de aceitar
+     * o envio, e as duas pontas precisam da **mesma** régua: medir lá por outro
+     * critério deixaria passar o `0`, que é justamente o que faria o rateio de
+     * `individual_cost` rodar sem custo.
+     */
+    public static function hasTf2Quantity(?string $tf2Quantity): bool
+    {
+        return self::isPositive($tf2Quantity);
     }
 
     /**

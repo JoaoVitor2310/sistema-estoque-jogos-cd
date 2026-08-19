@@ -14,7 +14,9 @@ Da identificação de um fornecedor até a key entrar no estoque.
 | 4 | Decidir se comenta | Se vale (re)comentar na lista do supplier | `CommentPolicy` |
 | 5 | Registrar a trade | Persiste a lista ofertada e a data do comentário | `Trade` |
 | 6 | Negociar | Acerto final de preço com o supplier | manual, na Steam |
-| 7 | Importar as keys da trade | Entrada no estoque, com `individual_cost` rateado pelo lote — **único** caminho de entrada de keys | `POST /trades/{trade}/import` → `RegisterKeyUseCase` |
+| 7 | Receber as keys | O supplier preenche `key_code`, região e validade por linha, mais o total de TF2 (obrigatório para enviar), no link com código que a trade já traz; ou a equipe transcreve do chat | `/deliveries/{uuid}` |
+| 8 | Conferir | A entrega sobe ao topo de Abertas; a equipe revisa antes de importar | aba de Trades |
+| 9 | Importar as keys da trade | Entrada no estoque, com `individual_cost` rateado pelo lote — **único** caminho de entrada de keys | `POST /trades/{trade}/import` → `RegisterKeyUseCase` |
 
 ### Quando o fluxo para antes do fim
 
@@ -38,6 +40,28 @@ Da identificação de um fornecedor até a key entrar no estoque.
 - Importar as keys por uma trade (`POST /trades/{trade}/import`) grava o `trade_id` nas keys e marca a trade como `is_imported` — ela sai da view padrão (Abertas) da aba de Trades mas **permanece no banco** (não é excluída), para o vínculo `trade_id` seguir válido; continua acessível pelas views **Importadas** / **Todas** (card colapsado).
 - A importação é **tudo ou nada**: se qualquer key do lote falhar, nenhuma é cadastrada e a trade continua na aba, com todos os erros marcados de uma vez nas linhas correspondentes — evita reimportar em partes e um rateio de custo calculado sobre um lote incompleto.
 - O import **lê as linhas gravadas**, não o que está na tela: a requisição não leva corpo. A aba grava o que estiver no debounce do autosave antes de disparar, para não importar sem a correção recém-digitada. As condições que fazem o lote inteiro ser recusado estão em [`docs/PRODUCT.md`](../PRODUCT.md) (seção "Prontidão para importar").
+- O passo 7 pelo link é **opcional**: a trade cujo link nunca foi mandado segue sendo preenchida pela equipe na aba, como sempre foi. O que o link muda é quem digita, não o que o import lê.
+
+### Entrega pelo supplier (passos 7–8)
+
+Detalhe da decisão em [`docs/adr/0008`](../adr/0008-supplier-fills-trade-through-tokenised-link.md).
+
+| Estado da trade | Como se reconhece | O que a equipe vê |
+|---|---|---|
+| Em negociação | `delivered_at` nulo | faixa com link e código, sem badge |
+| Aguardando conferência | `delivered_at` preenchido, `is_imported = false` | topo de **Abertas** + contagem no filtro |
+| Importada | `is_imported = true` | badge "Importada"; a faixa some e o link responde "entrega concluída" |
+
+Toda trade nasce com link e código — ter credencial **não** é um estado, e ter link não quer dizer que ele foi mandado. Quem registra o envio é o checkbox "Mensagem enviada", que a aba já tinha.
+
+**Pontos que costumam escapar:**
+- O supplier **não cria nem apaga linha** — o conjunto é da equipe. Jogo de brinde e jogo que ele não tem mais vão no recado livre, que aparece no card da trade.
+- Ele **nunca enxerga** `market_price`, popularidade nem `gamivo_id`: é a pesquisa do `price_researcher`, e é quanto o jogo dele vale para nós. O **bundle** é a exceção: chega pré-preenchido pela nossa busca e ele pode corrigir — quem teve a key na mão sabe melhor de onde ela veio, e a origem é o que costuma explicar o region lock.
+- **A equipe é avisada por e-mail** (`TradeDeliveredMail` → `ADMIN_EMAIL`) assim que ele entrega, com a contagem de keys preenchidas e o recado dele. As keys não vão no e-mail — quem confere abre a aba.
+- **Entregar fecha a página para escrita.** A partir do clique o servidor responde 409 a qualquer gravação dele — linha, campo da trade ou um segundo entregar. A página continua abrindo, em leitura, para ele conferir o que mandou; correção depois disso é a equipe que faz, pela aba interna. Não existe "reabrir entrega". O motivo é a janela até o import: enquanto ela dura, as keys entregues são a única cópia que existe.
+- O link e o código ficam **à vista na faixa do card**, cada um copiável sozinho — a conversa quase nunca leva os dois na mesma mensagem — e **Enviar acesso** copia a mensagem pronta em inglês com os dois. **Uma trade, um código:** não há como emitir outro, então link vazado só deixa de valer no import.
+- Entregar pede confirmação, e a confirmação diz quantas linhas vão em branco — informa sem bloquear, porque linha em branco é resposta legítima — e avisa que o clique fecha a página. **Só há um envio:** depois dele o botão vira aviso de que a entrega será conferida, e os campos ficam em leitura.
+- A **validade** é escrita e lida em `mm/dd/aaaa` na página dele e em `dd/mm/aaaa` na aba da equipe. O formato vem de `TradeLineAuthority::dateFormat()`; a coluna é `date` e não guarda formato nenhum.
 
 ## Fluxo de venda
 

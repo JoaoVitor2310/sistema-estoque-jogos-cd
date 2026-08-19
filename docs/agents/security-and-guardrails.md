@@ -16,15 +16,52 @@ Padrões defensivos já quebrados uma vez neste repo — cada regra abaixo exist
 Toda rota nova deve declarar explicitamente quem pode acessá-la. Perguntas a responder antes de registrar qualquer rota:
 
 1. Guest pode acessar?
-2. Requer autenticação (`RequireAuth`)?
-3. Requer `can-edit` (`CheckPermission`)?
+2. É página da equipe (`RequireTeam`)?
+3. É API/mutação da equipe (`CheckPermission`)?
 4. Requer admin (`CheckAdmin`)?
 
-Rotas de página usam `RequireAuth` (redirect para `/login`); rotas de API/mutação usam `CheckPermission` (retorna 403 JSON). Nunca deixar rota sem middleware assumindo que "ninguém vai acessar". Após adicionar rotas, adicionar testes de acesso em `tests/Feature/Security/GuestAccessTest.php` cobrindo: guest bloqueado, usuário autorizado liberado.
+Os três middlewares aplicam a **mesma** régua — o gate `can-edit` — e mudam só o formato da recusa: `RequireTeam` manda o visitante sem sessão para `/login` e responde 403 a quem tem sessão e não é da equipe; `CheckPermission` responde 403 JSON; `CheckAdmin` idem, com o gate `is-admin`. Nunca deixar rota sem middleware assumindo que "ninguém vai acessar". Após adicionar rotas, adicionar testes de acesso em `tests/Feature/Security/GuestAccessTest.php` (visitante) e `tests/Feature/Security/RegisteredUserAccessTest.php` (conta de fora).
+
+**"Estar logado" não é permissão.** `RequireTeam` nasceu de `RequireAuth`, que exigia só sessão — e sessão é o que qualquer visitante cria em `/register`, que é aberto e não pede verificação de e-mail. Enquanto a diferença não importava, `/assets`, `/sales`, `/financial-months`, `/games`, `/fees` e `/acesso` ficaram abertas a qualquer conta: nenhuma mostra `key_code`, mas mostram o caixa da operação e a lista de quem tem acesso. A entrega (`docs/adr/0008`) levou terceiros ao domínio e transformou isso de teórico em provável. Corrigido em 2026-08-19.
+
+## Decisões de segurança já tomadas — não reabrir sem motivo novo
+
+Três coisas que uma revisão encontra e classifica como problema, e que **são deliberadas**. Quem
+for propor mudança precisa de argumento novo, não da observação de sempre:
+
+- **Não existe mais página pública, e a que voltar não será a aba interna.** `/keys` e `/bundles`
+  respondiam a visitante — a leitura de keys já saía filtrada por `GuestKeyVisibility`, mas custo,
+  margem e catálogo ficavam à vista, e desde a entrega os suppliers conhecem o domínio. Fechadas em
+  2026-08-19. A vitrine volta um dia como **página própria de portfólio**, escrita para ser vista;
+  abrir a aba de novo, não. `GuestKeyVisibility` e a whitelist do `IndexKeysRequest` continuam no
+  código de propósito: viraram a segunda barreira, e são o ponto de partida daquela página.
+- **`AutoSellUseCase` grava `key_code` no log do scheduler.** Serve para reconstruir o que foi
+  listado quando a Gamivo diverge do nosso estado, e a retenção é de 30 dias. Aceito: o arquivo
+  vive na VPS, com o mesmo acesso que já alcança o banco.
+- **A porta 5433 do Postgres é loopback.** Esteve publicada em `0.0.0.0` e foi encontrada aberta à
+  internet em 2026-08-19. Ela não existe para a aplicação, que fala com o banco pela rede interna
+  do compose — existe para client de fora, e o caminho para isso é túnel SSH. Republicar em
+  `0.0.0.0` expõe todas as `key_code` em claro atrás de uma senha só.
 
 ## Em rota pública, esconder o campo não basta — o filtro também é superfície
 
-Mascarar a saída (`only(GUEST_VISIBLE_FIELDS)`) enquanto o filtro aceita qualquer coluna deixa um **oráculo cego**: a linha some, mas o total de resultados ainda responde "existe registro com esse valor?", e repetir a pergunta com prefixos crescentes reconstrói o dado escondido. Todo endpoint de busca declara a whitelist de filtros num FormRequest, e a whitelist é **escopada pela mesma permissão que escopa a resposta** — se o visitante não recebe a coluna, ele não pode filtrar por ela. Filtro proibido devolve 403; ignorar em silêncio mentiria sobre o resultado. Nunca monte query a partir de `$request->all()`/`except()`: além do vazamento, nome de coluna vindo do cliente vira 500 assim que uma coluna é renomeada. *(Aconteceu: `POST /keys/search` permitia enumerar `key_code`, `supplier_url` e `notes` — ver `IndexKeysRequest`.)*
+Regra permanente, ainda que hoje nenhuma rota de leitura seja pública — ela vale para a próxima que for. Mascarar a saída (`only(GuestKeyVisibility::FIELDS)`) enquanto o filtro aceita qualquer coluna deixa um **oráculo cego**: a linha some, mas o total de resultados ainda responde "existe registro com esse valor?", e repetir a pergunta com prefixos crescentes reconstrói o dado escondido. Todo endpoint de busca declara a whitelist de filtros num FormRequest, e a whitelist é **escopada pela mesma permissão que escopa a resposta** — se o visitante não recebe a coluna, ele não pode filtrar por ela. Filtro proibido devolve 403; ignorar em silêncio mentiria sobre o resultado. Nunca monte query a partir de `$request->all()`/`except()`: além do vazamento, nome de coluna vindo do cliente vira 500 assim que uma coluna é renomeada. *(Aconteceu: `POST /keys/search` permitia enumerar `key_code`, `supplier_url` e `notes` — ver `IndexKeysRequest`.)*
+
+## A entrega de trade é pública — e é a única rota do sistema que é
+
+`/deliveries/{uuid}` vive fora de `RequireTeam` e de `CheckPermission` **de propósito**: o usuário é o supplier, não a equipe. Quem autoriza é o token da entrega, conferido em `POST .../token` e exigido pelo `EnsureDeliverySession` em toda escrita. Três coisas não podem ser afrouxadas ali:
+
+- **A leitura é por lista explícita de colunas** (`DeliveryReadModel::LINE_COLUMNS`), nunca `all()` nem `toArray()` do model. `market_price`, `popularity` e `gamivo_id` são a saída do `price_researcher` — quanto o jogo do supplier vale para nós. Vazar isso não é incidente pontual: é entregar a margem para **todo** supplier, para sempre. Pelo mesmo motivo nenhuma resposta de escrita devolve o registro salvo. **`bundle` é exceção deliberada** (2026-08-19): sai na leitura e **entra na escrita** — é o único campo pesquisado que o supplier grava. O medo original — "ele descobre que o jogo é barato e renegocia" — não se aplica a este campo: quem entregou a key sabe de onde ela veio, e a origem em bundle puxa o preço para **baixo**, a favor de quem compra. O que ele sobrescreve é o palpite do lookup, não um número de precificação; o preço pesquisado continua fora dos dois lados. Ampliar qualquer uma das duas listas é decisão de segurança — o próximo campo não entra "porque ajudaria a preencher".
+- **O escopo de escrita é `TradeLineAuthority`, no UseCase** — não as regras do Form Request. Se a barreira fosse validação, ampliar o alcance do supplier seria acrescentar uma regra, e ninguém lê isso como decisão de segurança.
+- **CSRF é reativado nessas rotas** por `ValidateDeliveryCsrfToken`, porque o projeto o desliga globalmente (`bootstrap/app.php`) — decisão que se sustentava enquanto toda escrita era autenticada. Uma superfície pública com sessão de 12h muda essa premissa.
+
+Rate limit no token nos **dois** eixos (por entrega e por IP): só por IP um atacante distribui; só por entrega dá para travar de propósito a entrega de um supplier legítimo. Números em `App\Domain\Trades\DeliveryCredential`. O 429 devolve o tempo restante (`Retry-After` e mensagem): a janela é de uma hora, e sem o número o supplier volta cedo demais e conclui que o link quebrou.
+
+**Url malformada é 404, nunca 500 nem redirect.** O grupo tem `whereUuid('trade')` — sem ele a string chega ao Postgres como `where delivery_uuid = '...'` e estoura `QueryException` com stack trace numa rota pública *(já aconteceu)*. E um `Route::any('deliveries/{path}')` logo depois do grupo devolve 404 no que sobra, porque o `Route::fallback` global redireciona para `/keys` — despejar quem errou o link na aba interna revela que ela existe. O caso não é reproduzível pelo banco na suíte (o SQLite aceita qualquer texto na coluna): o teste é do roteador.
+
+**Entregue é fechado.** `EnsureDeliverySession` recusa com 409 toda gravação do supplier depois do clique em entregar — inclusive um segundo `deliver` —, e a regra em si é de domínio (`TradeDeliveryState::acceptsSupplierWrites()`), não um `if` no middleware. Não é sobre autenticação: a sessão dele continua válida, o que fechou foi a janela. O que isso protege é a única cópia que existe das keys entre a entrega e o import — `trade_lines` guarda só o valor atual, e um `PATCH key_code=''` apaga sem deixar rastro. Se algum dia aparecer um "reabrir entrega", ele precisa ser ação da equipe, autenticada, e não um caminho que o próprio supplier alcance.
+
+O token fica **encriptado** (cast `encrypted` em `Trade`), não em hash, porque a aba de Trades o exibe para a equipe copiar. Duas consequências que não podem ser afrouxadas: ele sai **só** pela projeção do `TradeService` — a projeção da entrega (`DeliveryTradeResource`) não devolve token nenhum —, e `delivery_token` está no `$hidden` do model, para não escapar numa serialização automática. Um `toArray()` de `Trade` numa rota nova não pode virar o caminho por onde o token de toda trade vaza.
 
 ## Lote é `whereIn`, não loop
 

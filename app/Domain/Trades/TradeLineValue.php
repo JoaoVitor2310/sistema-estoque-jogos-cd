@@ -58,11 +58,15 @@ final class TradeLineValue
     }
 
     /**
-     * A validade é escrita em `dd/mm/aaaa`, o formato usado na operação; a
-     * forma ISO é aceita porque é o que o próprio banco devolve. Data
-     * impossível (31/02) vira `null`.
+     * A validade, lida no formato de quem a escreveu.
+     *
+     * `$format` vem de [[App\Domain\Enums\TradeLineAuthority::dateFormat]] e
+     * decide só a ordem de dia e mês — a equipe escreve `dd/mm/aaaa`, o supplier
+     * escreve `mm/dd/aaaa` na página em inglês, e `03/04` é uma data diferente
+     * em cada um. A forma ISO é aceita em qualquer formato porque é o que o
+     * próprio banco devolve. Data impossível (31/02) vira `null`.
      */
-    public static function date(mixed $value): ?string
+    public static function date(mixed $value, string $format): ?string
     {
         $text = self::text($value);
 
@@ -78,7 +82,9 @@ final class TradeLineValue
             return null;
         }
 
-        [, $day, $month, $year] = $parts;
+        [, $first, $second, $year] = $parts;
+
+        [$day, $month] = str_starts_with($format, 'm') ? [$second, $first] : [$first, $second];
 
         if (! checkdate((int) $month, (int) $day, (int) $year)) {
             return null;

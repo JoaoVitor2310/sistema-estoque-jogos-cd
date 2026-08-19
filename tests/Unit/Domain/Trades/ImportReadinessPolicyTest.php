@@ -48,6 +48,28 @@ describe('ImportReadinessPolicy::isFilled', function () {
     });
 });
 
+describe('ImportReadinessPolicy::hasTf2Quantity', function () {
+
+    it('accepts a positive quantity', function () {
+        expect(ImportReadinessPolicy::hasTf2Quantity('12.50'))->toBeTrue();
+    });
+
+    it('rejects an absent quantity', function () {
+        // Mesma régua que a entrega do supplier cobra antes de aceitar o envio.
+        expect(ImportReadinessPolicy::hasTf2Quantity(null))->toBeFalse()
+            ->and(ImportReadinessPolicy::hasTf2Quantity('  '))->toBeFalse();
+    });
+
+    it('rejects zero, because zero would ration no cost at all', function () {
+        expect(ImportReadinessPolicy::hasTf2Quantity('0'))->toBeFalse()
+            ->and(ImportReadinessPolicy::hasTf2Quantity('0.00'))->toBeFalse();
+    });
+
+    it('rejects something that is not a number', function () {
+        expect(ImportReadinessPolicy::hasTf2Quantity('dez'))->toBeFalse();
+    });
+});
+
 describe('ImportReadinessPolicy::blockers', function () {
 
     it('reports nothing when every filled line is complete', function () {

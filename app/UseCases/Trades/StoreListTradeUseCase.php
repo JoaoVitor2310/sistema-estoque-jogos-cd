@@ -2,6 +2,7 @@
 
 namespace App\UseCases\Trades;
 
+use App\Domain\Trades\DeliveryCredential;
 use App\Domain\Trades\TradeLineBuilder;
 use App\Models\Trade;
 use App\Services\Bundles\BundleService;
@@ -36,6 +37,9 @@ class StoreListTradeUseCase
             ]);
 
             $trade->lines()->createMany(TradeLineBuilder::fromResearch($data['games'], $bundleMap));
+
+            // Toda trade nasce com credencial de entrega — ver docs/adr/0008.
+            $trade->forceFill(DeliveryCredential::issue())->save();
 
             return $trade;
         });

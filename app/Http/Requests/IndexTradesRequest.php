@@ -20,6 +20,7 @@ class IndexTradesRequest extends FormRequest
                 TradeService::VIEW_OPEN,
                 TradeService::VIEW_IMPORTED,
                 TradeService::VIEW_ALL,
+                TradeService::VIEW_AWAITING_REVIEW,
             ])],
             'date_from' => ['nullable', 'date_format:Y-m-d'],
             'date_to' => ['nullable', 'date_format:Y-m-d'],

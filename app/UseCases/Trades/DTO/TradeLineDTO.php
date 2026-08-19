@@ -2,6 +2,7 @@
 
 namespace App\UseCases\Trades\DTO;
 
+use App\Domain\Enums\TradeLineAuthority;
 use App\Domain\Trades\TradeLineValue;
 
 /**
@@ -53,7 +54,9 @@ final class TradeLineDTO
             popularity: TradeLineValue::integer($validated['popularity'] ?? null),
             region: TradeLineValue::text($validated['region'] ?? null),
             bundle: TradeLineValue::text($validated['bundle'] ?? null),
-            expiresAt: TradeLineValue::date($validated['expires_at'] ?? null),
+            // Formato da equipe: quem escreve noutro formato converte antes de chegar
+            // aqui (ver [[App\Http\Requests\DeliveryLineRequest]]).
+            expiresAt: TradeLineValue::date($validated['expires_at'] ?? null, TradeLineAuthority::Team->dateFormat()),
             keyCode: TradeLineValue::text($validated['key_code'] ?? null),
             gamivoId: TradeLineValue::text($validated['gamivo_id'] ?? null),
             position: isset($validated['position']) ? (int) $validated['position'] : null,

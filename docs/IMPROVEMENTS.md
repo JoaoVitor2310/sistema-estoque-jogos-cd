@@ -10,6 +10,88 @@ Ordem: roadmap/qualidade/features primeiro, dívida técnica de code-review no f
 
 ---
 
+## Segurança das keys — pendências da revisão de 2026-08-19
+
+O que sobrou da revisão feita quando a entrega (`/deliveries/{uuid}`) passou a levar gente de fora
+ao domínio. O que já foi resolvido, e o que foi avaliado e deliberadamente mantido, está em
+[`docs/agents/security-and-guardrails.md`](agents/security-and-guardrails.md) — aqui só fica o que
+ainda não foi feito.
+
+### 1. Backup existe só dentro da VPS
+
+**Onde:** `backup.sh`, cron da VPS.
+
+O envio para o Google Drive saiu em 2026-08-19: o `pg_dump` é texto puro e carrega todas as
+`keys.key_code` em claro, então a segurança da cópia era a da conta Google. O que sobrou é um
+backup diário em `/var/www/sistema-estoque-jogos-cd/backups`, na mesma máquina do banco — protege
+contra `DROP TABLE` acidental e contra corrupção, e não protege contra perder a VPS.
+
+**Ação:** voltar a ter cópia fora da máquina, **encriptada na origem**. `gpg --symmetric` (ou
+`age`) antes do envio, com a chave guardada fora da VPS, ou `rclone crypt` no remote — a diferença
+é que no primeiro o arquivo já sai ilegível do disco. Testar a restauração uma vez: backup nunca
+restaurado é hipótese, não backup. Aproveitar para tirar `POSTGRES_DB`/`POSTGRES_USER` cravados no
+script e lê-los do `.env`.
+
+### 2. `/register` aberto e `can-edit` casando só por e-mail
+
+**Onde:** `routes/auth.php`, `app/Http/Controllers/Auth/RegisteredUserController.php`,
+`app/Models/User.php` (o `MustVerifyEmail` está comentado), gate `can-edit` em
+`app/Providers/AppServiceProvider.php`.
+
+Metade já foi resolvida: as páginas da equipe passaram de `RequireAuth` para `RequireTeam` e uma
+conta de fora não alcança mais nenhuma delas (`tests/Feature/Security/RegisteredUserAccessTest.php`).
+O que sobra é a porta de entrada em si: qualquer pessoa cria conta, sem convite e sem verificação
+de e-mail, e o `can-edit` casa `authorized_users.email` com `users.email` **sem nenhuma prova de
+posse do endereço**. Não é explorável hoje porque `users.email` é único e as contas da equipe já
+existem; passa a ser no dia em que um e-mail entrar na lista de autorizados antes de a pessoa criar
+a conta — que é exatamente o que acontece ao adicionar alguém novo.
+
+**Ação:** fechar o registro (remover a rota; acesso novo nasce de um convite do admin) ou, no
+mínimo, ligar `MustVerifyEmail` e exigir e-mail verificado dentro do gate `can-edit`.
+
+### 3. CSRF desligado globalmente
+
+**Onde:** `bootstrap/app.php` → `validateCsrfTokens(except: ['*'])`; a entrega religa por
+`ValidateDeliveryCsrfToken`.
+
+Toda rota da equipe aceita POST sem token. O que segura hoje é o `SESSION_SAME_SITE=lax`, que é
+configuração de ambiente — a proteção depende de um `.env`, não do código.
+
+**Ação:** inverter a exceção (verificar por padrão, isentar só os webhooks com `VerifySecret`, que
+autenticam por Bearer). O axios do frontend já manda `X-XSRF-TOKEN`.
+
+### 4. `/register` sem rate limit
+
+**Onde:** `routes/auth.php`.
+
+O catálogo fechou em 2026-08-19, então o que sobrou aberto a visitante é `/login` (com o throttle
+de 5 tentativas do Breeze), a entrega (com os dois limitadores próprios) e `/register`, que não tem
+nenhum. Enquanto a rota existir, dá para criar contas em série — e cada conta é uma sessão válida
+esperando que uma página nova nasça sem middleware.
+
+**Ação:** `throttle` na rota enquanto ela existir. Se o registro for fechado (item 2), este item
+morre junto.
+
+### 5. Verificações de produção
+
+- `APP_DEBUG=false` — com `true`, uma exceção mostra a SQL com bindings, e algumas dessas queries
+  carregam `key_code`.
+- `SESSION_SECURE_COOKIE=true` — a chave passou a existir no `.env.example`; falta garantir o valor
+  em produção.
+- `.env` de produção sem nenhum valor herdado do `.env.example` — os placeholders de lá foram
+  esvaziados em 2026-08-19, mas quem copiou antes disso levou os valores junto.
+- nginx sem HSTS e sem `server_tokens off` (`docker/nginx/default.conf`).
+- `AuthController::logged` devolve `response()->json($user)` e o `$hidden` do `User` não esconde
+  `google_token`/`google_refresh_token`.
+- `config/services.php` aponta o redirect do Google para `http://localhost:8000` cravado, ignorando
+  `GOOGLE_REDIRECT_URI`; e `services.sistema-estoque` (`THIS_URL`/`DEV_THIS_URL`) não tem nenhum
+  consumidor no código.
+
+**Origem:** revisão de segurança pedida em 2026-08-19, motivada pela entrega levar terceiros ao
+domínio.
+
+---
+
 ## Trilha de eventos da entrega de trade
 
 **Onde:** domínio da entrega (`/deliveries/{uuid}`), ver [`docs/adr/0008`](adr/0008-supplier-fills-trade-through-tokenised-link.md).
@@ -25,6 +107,38 @@ o valor corrente já está na trade.
 
 **Origem:** sessão de `/grill-with-docs` sobre entrega de trade pelo supplier (2026-08-13) —
 adiado deliberadamente; a conferência humana antes do import é a mitigação atual.
+
+---
+
+## Teste automatizado de frontend
+
+**Onde:** `resources/js/`, `package.json` (hoje só `dev` e `build`), `.github/workflows/ci.yml` (três jobs, todos PHP).
+
+O frontend não tem runner nenhum: toda mudança de `.vue` é verificada por `npm run build`, que
+só prova que compila. Isso bastava enquanto o Vue era desenho, mas ele passou a carregar
+**regra**: `Delivery.vue` monta a máscara de `mm/dd/aaaa`, decide o que é validade incompleta e
+desabilita o envio sem `tf2_qty`; `Trades.vue` tem `canImport()`, que espelha
+`ImportReadinessPolicy`. Nenhuma dessas linhas tem teste, e a falha típica delas é **silenciosa**:
+um campo que o servidor descarta sem erro (foi o caso de `02012026` virar validade nenhuma com a
+página dizendo "Saved") passa em toda a suíte Pest.
+
+**Ação:** duas camadas, nesta ordem de retorno.
+
+1. **Vitest + `@vue/test-utils` + jsdom** para a lógica. O pré-requisito é extrair as funções puras
+   dos SFC para módulos próprios (`resources/js/domain/`), importáveis sem montar componente:
+   máscara e validação de data, `hasBadExpiry`, `tf2Missing`, `canImport`. Testar montando o
+   componente também funciona, mas amarra o teste ao markup — o teste quebra ao mexer numa classe
+   CSS. A extração dá de brinde um lugar único para anotar que aquela regra é o par TS de uma
+   classe de Domain PHP.
+2. **Playwright** para o fluxo da entrega ponta a ponta (token → preencher → enviar → leitura),
+   que é onde o backend não enxerga: a página é a única superfície com usuário de fora, e o que
+   falha nela falha sem exceção nenhuma no servidor.
+
+Fechar com um `npm run test` e um quarto job no `ci.yml`, ao lado de Pint, PHPStan e Pest — teste
+que não roda no CI vira teste que ninguém roda.
+
+**Origem:** revisão da tela de entrega (2026-08-19) — máscara de validade, larguras de coluna e
+selo de autosave entraram sem teste, verificados só pelo build.
 
 ---
 
@@ -63,31 +177,14 @@ divergência de grafia esperada em vez de excepcional.
 `KeyRegion`, migrar os dados e trocar os inputs por select. Não bloqueia a entrega de
 trade — a conferência antes do import é a mitigação atual.
 
+**O campo da entrega fica de fora do select.** O supplier costuma saber menos que a
+grafia canônica e mais que o rótulo — em que país a key não funciona, se veio de uma
+loja regional — e a página pede isso explicitamente ("anything you know"). Fechar o
+input dele em opções jogaria fora justamente a informação que ajuda a equipe a decidir
+a região certa. O valor canônico é o que a equipe grava na conferência, não o que o
+supplier digita.
+
 **Origem:** sessão de `/grill-with-docs` sobre entrega de trade pelo supplier (2026-08-13).
-
----
-
-## Trade criada por prospecção nunca recebe bundle
-
-**Onde:** `app/UseCases/Suppliers/ProspectSupplierUseCase.php` (chamada a
-`TradeLineBuilder::fromResearch`), `app/Services/Bundles/BundleService.php`.
-
-As duas portas de criação de trade pelo `price_researcher` tratam bundle de forma diferente:
-`StoreListTradeUseCase` consulta `BundleService::recentBundleByGameNames()` e preenche o campo,
-enquanto a prospecção sempre passa mapa vazio — toda trade que nasce de prospecção tem
-`bundle` nulo em todas as linhas, mesmo quando o jogo saiu num bundle recente.
-
-Importa porque bundle não é decorativo: é o que alimenta a **janela de exclusão do bundle**
-(ver `CONTEXT.md`), que segura a venda enquanto o preço está em queda. Uma key importada de
-trade de prospecção entra sem esse dado.
-
-**Ação:** decidir se é falha ou se prospecção deliberadamente não olha bundle. Se for falha, a
-correção agora é passar um mapa resolvido em vez de `[]` — o montador já é único
-(`TradeLineBuilder`). Vale medir antes quantas trades nascem por esse caminho.
-
-**Origem:** normalização de `trades.games` em `trade_lines` (2026-08-15) — a divergência apareceu
-ao unificar os dois `buildGames()` num `TradeLineBuilder` só; preservada de propósito, porque
-prefactor não muda comportamento.
 
 ---
 
@@ -214,6 +311,18 @@ Hoje o sistema opera **exclusivamente na Gamivo**. Diretrizes para quando entrar
 - `Domain/Pricing` está acoplado implicitamente à Gamivo (`IncomeCalculator::forGamivo()`, `MarketplaceFee`, constantes de `ComparisonAlgorithm`). **Não abstrair antes de haver um segundo marketplace real** (YAGNI) — abstrair só quando existir a segunda implementação.
 
 **Origem:** `CLAUDE.md` (seção Arquitetura).
+
+---
+
+## `CreateTradeUseCase` — parâmetros sem chamador
+
+**Onde:** `app/UseCases/Trades/CreateTradeUseCase.php`.
+
+`execute()` aceita `title`, `supplierUrl`, `date` e `tf2Qty`, mas o único chamador de produção é `TradeController::store`, que passa `[]`. O commit `36b6d87` ("feat: remove area to paste trade", #48) removeu o formulário de criação do `Trades.vue`; desde então a trade nasce em branco e todo campo entra pelo PATCH (`UpdateTradeRequest` → `UpdateTradeUseCase`, que tem a mesma assinatura). Os quatro campos só são exercitados pelos próprios testes — junto com eles, `parseDate()` e o ramo `supplierService->upsertByUrl()`.
+
+**Ação:** confirmar que nenhum fluxo manda esses campos na criação e reduzir `execute()` a criar a trade em branco (linha vazia + credencial de entrega), removendo `parseDate()` e a dependência de `SupplierService` se ela ficar sem uso. Os testes de `tf2_qty` em `tests/Feature/UseCases/Trades/CreateTradeUseCaseTest.php` saem junto — a cobertura equivalente já existe em `UpdateTradeUseCaseTest`.
+
+**Origem:** revisão de `CreateTradeUseCase` vs `StoreListTradeUseCase` (2026-08-18). Na mesma revisão avaliou-se fundir os dois UseCases num só parametrizado e **decidiu-se não fundir**: eles diferem em gatilho (sessão autenticada × `VerifySecret`), em resolução de supplier (`upsertByUrl` × `resolveBySteamId`), em origem das linhas (linha em branco × pesquisa) e em dependências (`BundleService` só num deles) — um parâmetro de modo cobrindo isso seria flag argument, e a poda acima afasta ainda mais os dois.
 
 ---
 

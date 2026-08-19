@@ -22,4 +22,6 @@ yarn-error.log
 *.txt
 docker/postgres/
 /backups
+# Dumps de produção restaurados localmente — contêm key_code e dados de fornecedor
+*.sql
 docker-compose.override.yml

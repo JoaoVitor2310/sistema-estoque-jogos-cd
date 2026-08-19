@@ -40,6 +40,25 @@ Trades é uma compra realizada com nossos fornecedores. Nessa troca pode ter div
 
 Significa que foi gasto 5,5 TF2 keys para um trade de 8 jogos. Esses 8 jogos serão enviados de uma única vez, e o valorPagoIndividual vai conseguir calcular o preço de cada jogo.
 
+### Entrega pelo supplier
+
+Fechada a negociação, quem digita os `key_code` pode ser o próprio supplier: toda trade já traz na aba o **link** e o **código** da entrega, copiáveis em separado ou juntos, prontos para colar no chat da Steam. Na página, ele preenche a key, a região e a validade de cada jogo, o total de TF2 acertado e um recado livre. Deixar um jogo em branco é resposta válida — significa que ele não tem mais aquele jogo —, mas o total de TF2 é obrigatório: sem ele o lote chega travado para o import, e recuperar o número relendo a conversa é a transcrição que esta página existe para evitar. Validade pela metade também segura o envio — em branco pode, `02` não. A alternativa de sempre continua valendo — a equipe transcrever do chat na aba de Trades.
+
+| Regra | Por quê |
+|---|---|
+| Ele preenche as linhas existentes, mas **não cria nem apaga** nenhuma | linha criada por ele nasceria sem preço pesquisado, e o rateio do custo do lote depende desse preço |
+| Ele **não vê** preço de mercado, popularidade nem `gamivo_id` | é quanto o jogo dele vale para nós; visto uma vez, renegocia toda trade futura com o número na mão |
+| Ele **vê e corrige o bundle** de origem, que chega pré-preenchido pela nossa busca | é o que costuma carregar o region lock da key, e quem teve a key na mão sabe de onde ela veio melhor que o nosso lookup |
+| Linha em branco significa "não entreguei este jogo" | trade parcial é caso normal; quem limpa antes do import é a equipe |
+| Entregar **fecha** a página para ele: dali em diante quem corrige é a equipe, avisada pelo chat | entre a entrega e o import passam dias, e nesse intervalo as keys entregues são a única cópia que existe — quem entregou não pode esvaziar a trade, por arrependimento ou por acidente |
+| A equipe recebe **e-mail** assim que ele entrega, com a contagem de keys e o recado — sem as keys | a fila no topo da aba só é vista por quem abre a aba; o e-mail encurta o tempo até alguém conferir |
+| O import continua sendo o único caminho de entrada de key, e é humano | a trade nunca foi fonte de verdade de estoque; a conferência antes do import é a garantia |
+| Cada trade tem **um** código, pela vida dela — não há como gerar outro | o par fica à vista na aba, então reler é olhar a tela; um segundo código só criaria a dúvida de qual está colado na conversa. Em troca, código vazado só deixa de valer no import |
+| O recado livre é também o canal de **sugestão e feedback** dele sobre a página | é o único campo de texto livre que o supplier tem; um segundo canal seria uma caixa que ninguém abre |
+| A página do supplier abre com a marca, o logo e o roxo da CarcaDeals | ela é a única prova de origem que um impostor não consegue copiar; o texto do chat, sim |
+
+Decisão completa e alternativas descartadas: [`docs/adr/0008`](adr/0008-supplier-fills-trade-through-tokenised-link.md).
+
 ## Lucro esperado
 O lucro inicial considerado é de 100% quando é analisado um jogo para ser comprado, porém isso pode mudar para os seguintes casos:
 - Fornecedores de longa data

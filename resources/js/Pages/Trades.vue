@@ -39,6 +39,14 @@ interface Trade {
   created_at: string;
   message_sent: boolean;
   is_imported: boolean;
+  // Estado derivado da entrega — não há coluna de status no banco.
+  delivery_state: 'negotiating' | 'awaiting_review' | 'imported';
+  delivered_at: string | null;
+  supplier_notes: string | null;
+  // O par que vai para o chat da Steam. Nulo só nas trades que ainda não
+  // passaram pelo backfill da migração.
+  delivery_url: string | null;
+  delivery_token: string | null;
 }
 
 interface PaginatorPayload<T> {
@@ -50,7 +58,7 @@ interface PaginatorPayload<T> {
 }
 
 interface Filters {
-  view: 'open' | 'imported' | 'all';
+  view: 'open' | 'imported' | 'all' | 'awaiting_review';
   date_from: string | null;
   date_to: string | null;
   tf2_min: string | null;
@@ -65,6 +73,7 @@ interface Filters {
 const props = defineProps<{
   trades: PaginatorPayload<Trade>;
   filters: Filters;
+  awaitingReviewCount: number;
   tf2Price: number;
   fees: {
     percentLow: number;
@@ -119,6 +128,11 @@ interface TradeEntry {
   createdAt: string;
   messageSent: boolean;
   isImported: boolean;
+  deliveryState: Trade['delivery_state'];
+  deliveredAt: string | null;
+  supplierNotes: string | null;
+  deliveryUrl: string | null;
+  deliveryToken: string | null;
   // Trades importadas nascem colapsadas; abertas nascem expandidas.
   // Clique na linha compacta alterna. Não persiste (F5 volta a colapsado).
   expanded: boolean;
@@ -306,6 +320,11 @@ function toTradeEntry(t: Trade): TradeEntry {
     createdAt: t.created_at,
     messageSent: t.message_sent ?? false,
     isImported,
+    deliveryState: t.delivery_state ?? 'negotiating',
+    deliveredAt: t.delivered_at ?? null,
+    supplierNotes: t.supplier_notes ?? null,
+    deliveryUrl: t.delivery_url ?? null,
+    deliveryToken: t.delivery_token ?? null,
     // Importadas nascem colapsadas para permitir scan visual rápido.
     expanded: !isImported,
     importing: false,
@@ -931,6 +950,63 @@ function headerSortIcon(field: Filters['sort']): string {
   if (localFilters.sort !== field) return 'pi pi-sort-alt';
   return localFilters.dir === 'asc' ? 'pi pi-sort-up' : 'pi pi-sort-down';
 }
+
+// ─── Entrega pela supplier ───────────────────────────────────────────────────
+
+/**
+ * A mensagem pronta que a equipe cola no chat da Steam.
+ *
+ * Em inglês como a página de entrega, e pelo mesmo motivo: quem lê é o supplier,
+ * não a equipe. Uma linha de abertura e o par rotulado — o que identifica quem
+ * manda é a página, que abre com a marca, não o texto do chat.
+ */
+function deliveryAccessText(trade: TradeEntry): string {
+  return [
+    'Thanks for the deal! Use the details below to send us the keys:',
+    '',
+    `Link:  ${trade.deliveryUrl}`,
+    `Code:  ${trade.deliveryToken}`,
+  ].join('\n');
+}
+
+/**
+ * Copia uma parte do acesso, ou as duas.
+ *
+ * Cada pedaço é copiável sozinho porque quase nunca se cola os dois de uma vez:
+ * o link vai numa mensagem, o código vem em outra, e a conversa raramente
+ * acontece nessa ordem.
+ */
+async function copyDelivery(trade: TradeEntry, part: 'link' | 'code' | 'both') {
+  const text = part === 'link'
+    ? trade.deliveryUrl ?? ''
+    : part === 'code'
+      ? trade.deliveryToken ?? ''
+      : deliveryAccessText(trade);
+
+  if (!text) return;
+
+  await copyToClipboard(text);
+  trade.copiedKey = `delivery-${part}`;
+  setTimeout(() => {
+    if (trade.copiedKey === `delivery-${part}`) trade.copiedKey = null;
+  }, 1500);
+}
+
+
+const DELIVERY_BADGES: Record<Trade['delivery_state'], { label: string; css: string } | null> = {
+  negotiating: null,
+  awaiting_review: { label: 'Aguardando conferência', css: 'bg-danger' },
+  imported: null,
+};
+
+function deliveryBadge(trade: TradeEntry) {
+  return DELIVERY_BADGES[trade.deliveryState];
+}
+
+/** Quando o supplier apertou entregar — o primeiro clique, não o último save. */
+function formatDeliveredAt(iso: string): string {
+  return new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+}
 </script>
 
 <template>
@@ -999,6 +1075,20 @@ function headerSortIcon(field: Filters['sort']): string {
             @click="setView('all')"
           >
             Todas
+          </button>
+          <!-- A fila de conferência é um recorte de Abertas, não a view padrão:
+               ela fica vazia na maior parte do tempo. A contagem no rótulo é o
+               que faz uma entrega recém-chegada ser notada. -->
+          <button
+            type="button"
+            class="btn"
+            :class="localFilters.view === 'awaiting_review' ? 'btn-primary' : 'btn-outline-primary'"
+            @click="setView('awaiting_review')"
+          >
+            Aguardando conferência
+            <span v-if="awaitingReviewCount > 0" class="badge text-bg-danger ms-1">
+              {{ awaitingReviewCount }}
+            </span>
           </button>
         </div>
 
@@ -1220,6 +1310,14 @@ function headerSortIcon(field: Filters['sort']): string {
             <span v-if="trade.isImported" class="badge bg-success">
               <i class="pi pi-check-circle me-1" />Importada
             </span>
+            <span
+              v-if="deliveryBadge(trade)"
+              class="badge"
+              :class="deliveryBadge(trade)!.css"
+              :title="trade.deliveredAt ? `Entregue em ${formatDeliveredAt(trade.deliveredAt)}` : undefined"
+            >
+              <i class="pi pi-send me-1" />{{ deliveryBadge(trade)!.label }}
+            </span>
             <span v-if="trade.saveStatus === 'saving'" class="badge bg-warning-subtle text-warning-emphasis">
               <i class="pi pi-spinner pi-spin me-1" />Salvando...
             </span>
@@ -1272,6 +1370,62 @@ function headerSortIcon(field: Filters['sort']): string {
               Excluir
             </button>
           </div>
+        </div>
+
+        <!-- Acesso à entrega: fica à vista desde que a trade nasce, porque o
+             que a equipe faz com ele é copiar e colar no chat. Link e código
+             são copiáveis em separado — a conversa quase nunca leva os dois
+             na mesma mensagem. É o único par que a trade terá: não há como
+             gerar outro código. Some depois do import, quando a credencial
+             deixa de valer. -->
+        <div
+          v-if="!trade.isImported && trade.deliveryUrl"
+          class="delivery-strip d-flex align-items-center gap-2 px-3 py-2 flex-wrap"
+        >
+          <span class="delivery-strip-label">Entrega</span>
+
+          <button
+            type="button"
+            class="delivery-chip"
+            :class="{ 'delivery-chip--copied': trade.copiedKey === 'delivery-link' }"
+            title="Copiar só o link"
+            @click="copyDelivery(trade, 'link')"
+          >
+            <span class="delivery-chip-key">Link</span>
+            <span class="delivery-chip-value delivery-chip-value--url">{{ trade.deliveryUrl }}</span>
+            <i :class="trade.copiedKey === 'delivery-link' ? 'pi pi-check' : 'pi pi-copy'" />
+          </button>
+
+          <button
+            type="button"
+            class="delivery-chip"
+            :class="{ 'delivery-chip--copied': trade.copiedKey === 'delivery-code' }"
+            title="Copiar só o código"
+            @click="copyDelivery(trade, 'code')"
+          >
+            <span class="delivery-chip-key">Code</span>
+            <span class="delivery-chip-value font-monospace">{{ trade.deliveryToken }}</span>
+            <i :class="trade.copiedKey === 'delivery-code' ? 'pi pi-check' : 'pi pi-copy'" />
+          </button>
+
+          <button
+            type="button"
+            class="btn btn-sm"
+            :class="trade.copiedKey === 'delivery-both' ? 'btn-success' : 'btn-outline-purple'"
+            title="Copiar a mensagem pronta com o link e o código"
+            @click="copyDelivery(trade, 'both')"
+          >
+            <i :class="trade.copiedKey === 'delivery-both' ? 'pi pi-check' : 'pi pi-send'" class="me-1" />
+            {{ trade.copiedKey === 'delivery-both' ? 'Copiado' : 'Enviar acesso' }}
+          </button>
+        </div>
+
+        <!-- Observação do supplier: o canal para o caso irregular que o resto
+             do desenho fecha — jogo de brinde, jogo que ele não tem mais. Só
+             leitura aqui; quem escreve é ele, na página da entrega. -->
+        <div v-if="trade.supplierNotes" class="alert alert-warning border-0 rounded-0 mb-0 py-2 px-3 small">
+          <i class="pi pi-comment me-1" />
+          <strong>Recado do supplier:</strong> {{ trade.supplierNotes }}
         </div>
 
         <!-- Tabela editável -->
@@ -1680,6 +1834,68 @@ function headerSortIcon(field: Filters['sort']): string {
 .btn-outline-purple:hover {
   background-color: #8009EF;
   color: #fff;
+}
+
+/* ── Faixa de acesso à entrega ───────────────────────────────────────────────── */
+
+.delivery-strip {
+  background: #f9f4ff;
+  border-bottom: 1px solid #ead9fd;
+}
+
+.delivery-strip-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #8009EF;
+}
+
+.delivery-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  border: 1px solid #ead9fd;
+  border-radius: 4px;
+  background: #fff;
+  padding: 2px 8px;
+  font-size: 0.78rem;
+  color: #212529;
+  cursor: pointer;
+}
+
+.delivery-chip:hover {
+  border-color: #8009EF;
+  background: #fdfbff;
+}
+
+.delivery-chip--copied {
+  border-color: #198754;
+  color: #198754;
+}
+
+.delivery-chip-key {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #8009EF;
+}
+
+.delivery-chip--copied .delivery-chip-key {
+  color: #198754;
+}
+
+.delivery-chip-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.delivery-chip-value--url {
+  max-width: 320px;
+  color: #6c757d;
 }
 
 /* ── Override TF2 por linha ──────────────────────────────────────────────────── */

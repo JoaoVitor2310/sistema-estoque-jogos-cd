@@ -1,16 +1,18 @@
 <script setup lang="ts">
-import { Link } from '@inertiajs/vue3';
+// Do relógio do navegador: um ano escrito no código envelhece calado, e já
+// envelheceu aqui uma vez.
+const currentYear = new Date().getFullYear();
 </script>
 
 <template>
-    <div class="text-center" style="background-color: #8009EF; color: white;">
-
-        <footer class="mt-auto py-3">
-            <p>© 2024 CarcaDeals. Todos os direitos reservados.</p>
-        </footer>
-    </div>
+    <footer class="app-footer text-center mt-auto py-3">
+        <p class="mb-0 small">© {{ currentYear }} CarcaDeals. Todos os direitos reservados.</p>
+    </footer>
 </template>
 
-<style>
-
+<style scoped>
+.app-footer {
+    background-color: #8009EF;
+    color: rgba(255, 255, 255, 0.85);
+}
 </style>

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Domain\Enums\TradeLineAuthority;
 use App\Http\Requests\TradeLineRequest;
 use App\Models\Trade;
 use App\Models\TradeLine;
@@ -42,7 +43,7 @@ class TradeLineController extends Controller
 
     public function update(TradeLineRequest $request, Trade $trade, TradeLine $line): JsonResponse
     {
-        $this->updateTradeLine->execute($line, $request->toDTO());
+        $this->updateTradeLine->execute($line, $request->toDTO(), TradeLineAuthority::Team);
 
         return response()->json([], 200);
     }

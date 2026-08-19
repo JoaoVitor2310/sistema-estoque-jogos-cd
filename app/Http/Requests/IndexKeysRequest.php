@@ -16,9 +16,12 @@ use Illuminate\Validation\Rule;
 /**
  * Whitelist de filtros de POST /keys/search.
  *
- * A rota é pública e o visitante recebe só um subconjunto das colunas
- * (KeyController::GUEST_VISIBLE_FIELDS). Mascarar apenas a saída não bastava:
- * o total de resultados respondia "existe key com esse key_code?", e repetir a
+ * A rota foi pública até 2026-08-19 e o visitante recebia só um subconjunto das
+ * colunas ([[App\Domain\Keys\GuestKeyVisibility]]); hoje ela exige equipe, e o
+ * escopo abaixo continua valendo como segunda barreira.
+ *
+ * Mascarar apenas a saída não bastava: o total de resultados respondia "existe
+ * key com esse key_code?", e repetir a
  * pergunta com prefixos crescentes enumera o código da chave — o próprio
  * produto vendido. Por isso a whitelist é escopada pelo gate can-edit, e
  * filtrar por coluna que o visitante não enxerga devolve 403 em vez de ser
