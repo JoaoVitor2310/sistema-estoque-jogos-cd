@@ -8,7 +8,7 @@
 | Dashboard analítico de vendas em € (/sales). Cobre o controller HTTP e cada
 | método do SalesDashboardService:
 |
-|   - Segurança: rota protegida por RequireAuth
+|   - Segurança: rota protegida por RequireTeam
 |   - getMonthlySales  — contagem, receita, lucro, margem por mês/ano; month=0
 |   - getMonthlyPurchases — contagem e total investido; month=0
 |   - getTf2Spent — desduplicação por (total_paid, acquired_at)
@@ -88,7 +88,7 @@ function stockKey(array $overrides = []): Key
 
 describe('GET /sales', function () {
 
-    it('redirects unauthenticated requests to login (RequireAuth middleware)', function () {
+    it('redirects unauthenticated requests to login (RequireTeam middleware)', function () {
         $this->get('/sales')->assertRedirectToRoute('login');
     });
 

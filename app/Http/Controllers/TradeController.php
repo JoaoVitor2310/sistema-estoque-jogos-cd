@@ -52,6 +52,11 @@ class TradeController extends Controller
                 'sort' => $request->sortField(),
                 'dir' => $request->sortDir(),
             ],
+            // Contagem da fila de conferência, para o rótulo do filtro. Vai
+            // solta e não dentro de `filters` porque não é filtro aplicado: é o
+            // que a aba mostra para a entrega recém-chegada ser notada sem
+            // ninguém ir procurar.
+            'awaitingReviewCount' => $this->tradeService->awaitingReviewCount(),
             'tf2Price' => $this->calculationService->getTf2EuroPrice(),
             'fees' => [
                 'percentLow' => $fee->percentLow,

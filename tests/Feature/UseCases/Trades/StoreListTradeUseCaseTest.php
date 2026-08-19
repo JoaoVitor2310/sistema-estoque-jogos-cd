@@ -3,20 +3,7 @@
 use App\Domain\Games\GameNameNormalizer;
 use App\UseCases\Trades\StoreListTradeUseCase;
 use Illuminate\Support\Facades\DB;
-
-function seedBundleWithGame(string $gameName, string $bundleName, string $releaseDate): void
-{
-    $now = now()->toDateTimeString();
-
-    $gameId = DB::table('games')->insertGetId([
-        'name' => $gameName,
-        'normalized_name' => GameNameNormalizer::normalize($gameName),
-        'created_at' => $now,
-        'updated_at' => $now,
-    ]);
-    $bundleId = DB::table('bundles')->insertGetId(['name' => $bundleName, 'release_date' => $releaseDate, 'created_at' => $now, 'updated_at' => $now]);
-    DB::table('bundle_games')->insert(['bundle_id' => $bundleId, 'game_id' => $gameId, 'created_at' => $now, 'updated_at' => $now]);
-}
+use Tests\Support\BundleFactory;
 
 function listTradeGames(array $overrides = []): array
 {
@@ -63,6 +50,16 @@ describe('StoreListTradeUseCase', function () {
         ]);
 
         expect($trade->date->toDateString())->toBe(now()->toDateString());
+    });
+
+    it('is born with a delivery credential', function () {
+        // Sem ela a trade chega na aba sem link e sem código para copiar.
+        $trade = app(StoreListTradeUseCase::class)->execute([
+            'games' => listTradeGames(),
+        ]);
+
+        expect($trade->delivery_uuid)->not->toBeNull()
+            ->and($trade->delivery_token)->not->toBeNull();
     });
 
     it('creates and links supplier when supplier_steam_id is provided', function () {
@@ -150,7 +147,7 @@ describe('StoreListTradeUseCase', function () {
 describe('StoreListTradeUseCase — bundle lookup', function () {
 
     it('fills bundle name when game is in a bundle released within 3 months', function () {
-        seedBundleWithGame('Stardew Valley', 'Humble Choice Junho 2026', now()->subMonths(1)->toDateString());
+        BundleFactory::withGame('Stardew Valley', 'Humble Choice Junho 2026', now()->subMonths(1)->toDateString());
 
         $trade = app(StoreListTradeUseCase::class)->execute([
             'games' => [['name' => 'Stardew Valley', 'price_euro' => 5.00, 'popularity' => 1000, 'region' => null]],
@@ -168,7 +165,7 @@ describe('StoreListTradeUseCase — bundle lookup', function () {
     });
 
     it('leaves bundle null when game bundle was released more than 3 months ago', function () {
-        seedBundleWithGame('Old Game', 'Humble Bundle Antigo', now()->subMonths(4)->toDateString());
+        BundleFactory::withGame('Old Game', 'Humble Bundle Antigo', now()->subMonths(4)->toDateString());
 
         $trade = app(StoreListTradeUseCase::class)->execute([
             'games' => [['name' => 'Old Game', 'price_euro' => 3.00, 'popularity' => 50, 'region' => null]],
@@ -178,7 +175,7 @@ describe('StoreListTradeUseCase — bundle lookup', function () {
     });
 
     it('resolves bundle independently per game in a multi-game payload', function () {
-        seedBundleWithGame('Hollow Knight', 'Indie Bundle', now()->subMonths(2)->toDateString());
+        BundleFactory::withGame('Hollow Knight', 'Indie Bundle', now()->subMonths(2)->toDateString());
 
         $trade = app(StoreListTradeUseCase::class)->execute([
             'games' => [
@@ -192,7 +189,7 @@ describe('StoreListTradeUseCase — bundle lookup', function () {
     });
 
     it('matches game name case-insensitively', function () {
-        seedBundleWithGame('hollow knight', 'Indie Bundle', now()->subMonths(1)->toDateString());
+        BundleFactory::withGame('hollow knight', 'Indie Bundle', now()->subMonths(1)->toDateString());
 
         $trade = app(StoreListTradeUseCase::class)->execute([
             'games' => [['name' => 'Hollow Knight', 'price_euro' => 4.00, 'popularity' => 800, 'region' => null]],
@@ -202,7 +199,7 @@ describe('StoreListTradeUseCase — bundle lookup', function () {
     });
 
     it('matches game name regardless of roman numeral vs decimal formatting', function () {
-        seedBundleWithGame('The Witcher III', 'RPG Bundle', now()->subMonths(1)->toDateString());
+        BundleFactory::withGame('The Witcher III', 'RPG Bundle', now()->subMonths(1)->toDateString());
 
         $trade = app(StoreListTradeUseCase::class)->execute([
             'games' => [['name' => 'Witcher 3', 'price_euro' => 4.00, 'popularity' => 800, 'region' => null]],

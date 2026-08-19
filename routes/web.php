@@ -4,6 +4,7 @@ use App\Http\Controllers\AssetController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AuthorizedUsersController;
 use App\Http\Controllers\BundleController;
+use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\FeeController;
 use App\Http\Controllers\Financial\FinancialMonthController;
 use App\Http\Controllers\GameController;
@@ -15,7 +16,9 @@ use App\Http\Controllers\TradeController;
 use App\Http\Controllers\TradeLineController;
 use App\Http\Middleware\CheckAdmin;
 use App\Http\Middleware\CheckPermission;
-use App\Http\Middleware\RequireAuth;
+use App\Http\Middleware\EnsureDeliverySession;
+use App\Http\Middleware\RequireTeam;
+use App\Http\Middleware\ValidateDeliveryCsrfToken;
 use App\Http\Middleware\VerifySecret;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -26,20 +29,20 @@ Route::fallback(function () {
     return redirect()->route('keys');
 });
 
-Route::get('/fees', [FeeController::class, 'showMarketPlaceFees'])->name('fees')->middleware(RequireAuth::class);
+Route::get('/fees', [FeeController::class, 'showMarketPlaceFees'])->name('fees')->middleware(RequireTeam::class);
 
-Route::get('/assets', [AssetController::class, 'show'])->name('assets')->middleware(RequireAuth::class);
+Route::get('/assets', [AssetController::class, 'show'])->name('assets')->middleware(RequireTeam::class);
 
-Route::get('/bundles', [BundleController::class, 'index'])->name('bundles'); // público — visitantes podem ver
+Route::get('/bundles', [BundleController::class, 'index'])->name('bundles')->middleware(RequireTeam::class);
 
 // Dashboard analítico de vendas em €. Não confundir com /financial-months, que é
 // o livro-caixa dos sócios em R$ — domínios distintos.
-Route::get('/sales', [SalesDashboardController::class, 'show'])->name('sales')->middleware(RequireAuth::class);
+Route::get('/sales', [SalesDashboardController::class, 'show'])->name('sales')->middleware(RequireTeam::class);
 
-// Fechamento mensal (FinancialMonth). Página: RequireAuth (redirect). Mutações: CheckPermission (403).
+// Fechamento mensal (FinancialMonth). Página: RequireTeam (login ou 403). Mutações: CheckPermission (403 JSON).
 Route::get('/financial-months', [FinancialMonthController::class, 'index'])
     ->name('financial-months')
-    ->middleware(RequireAuth::class);
+    ->middleware(RequireTeam::class);
 
 Route::prefix('financial-months')
     ->middleware(CheckPermission::class)
@@ -82,7 +85,47 @@ Route::prefix('trades/{trade}/lines')
         Route::delete('/{line}', 'destroy')->name('trades.lines.destroy');
     });
 
-Route::get('/games', [GameController::class, 'index'])->name('games')->middleware(RequireAuth::class);
+// A entrega de uma trade pelo próprio supplier — ver docs/adr/0008.
+//
+// **Fora de RequireTeam e de CheckPermission de propósito**: o usuário aqui não
+// é a equipe. Quem autoriza é o token da entrega, conferido em `authenticate` e
+// exigido pelo EnsureDeliverySession nas escritas.
+//
+// A trade é resolvida pelo `delivery_uuid` (UUIDv4), nunca pelo id sequencial:
+// id entregaria o volume de trades da operação e tornaria a página enumerável.
+// scopeBindings pelo mesmo motivo das rotas de linha da equipe — sem ele,
+// `{line}` resolveria por id global e a linha de uma trade seria alcançável pela
+// URL de outra.
+// `whereUuid` recusa no roteador o que não tem forma de UUID: sem ele, a string
+// malformada chega ao Postgres como `where delivery_uuid = '...'` e vira 500 com
+// stack trace numa rota pública, em vez de 404.
+Route::prefix('deliveries/{trade:delivery_uuid}')
+    ->controller(DeliveryController::class)
+    ->scopeBindings()
+    ->whereUuid('trade')
+    ->group(function () {
+        Route::get('/', 'show')->name('deliveries.show');
+
+        // Fora do EnsureDeliverySession: é o endpoint que *cria* a sessão.
+        Route::post('/token', 'authenticate')
+            ->middleware(ValidateDeliveryCsrfToken::class)
+            ->name('deliveries.token');
+
+        Route::middleware([ValidateDeliveryCsrfToken::class, EnsureDeliverySession::class])
+            ->group(function () {
+                Route::patch('/', 'updateTrade')->name('deliveries.update');
+                Route::patch('/lines/{line}', 'updateLine')->name('deliveries.lines.update');
+                Route::post('/deliver', 'deliver')->name('deliveries.deliver');
+            });
+    });
+
+// O `Route::fallback` global manda toda URL desconhecida para `/keys`. Aqui não:
+// quem erra o link da entrega é o supplier, e despejá-lo na aba interna revela
+// que ela existe. 404 — o mesmo que ele veria com um uuid bem-formado e
+// inexistente. Registrada depois do grupo, então nunca sombreia as rotas reais.
+Route::any('deliveries/{path}', fn () => abort(404))->where('path', '.*');
+
+Route::get('/games', [GameController::class, 'index'])->name('games')->middleware(RequireTeam::class);
 
 Route::prefix('suppliers')
     ->middleware(CheckPermission::class)
@@ -96,11 +139,29 @@ Route::prefix('suppliers')
         Route::post('/find-new', 'findNewSuppliers')->name('suppliers.findNew');
     });
 
-Route::get('/keys', [KeyController::class, 'show'])->name('keys');
+// A vitrine fechou em 2026-08-19. `/keys` e `/bundles` eram as duas páginas que
+// respondiam a visitante, e a leitura de keys já saía filtrada por
+// `GuestKeyVisibility` — mas quem lê a lista de jogos, com custo e margem, passou
+// a incluir os suppliers, que agora conhecem o domínio pela página de entrega.
+// A intenção de ter uma página pública continua de pé; ela volta como uma página
+// própria de portfólio, escrita para ser vista, e não como a aba interna aberta.
+//
+// O filtro do controller e a whitelist do `IndexKeysRequest` **ficam onde estão**:
+// são a segunda barreira, do mesmo jeito que a guarda de domínio em
+// `MarkTradeDeliveredUseCase` é redundante com o middleware da entrega. Se um dia
+// alguém tirar o middleware daqui, o `key_code` continua não saindo.
+Route::get('/keys', [KeyController::class, 'show'])->name('keys')->middleware(RequireTeam::class);
 
-// Leitura paginada — acessível a visitantes, mas com campos filtrados no controller
-Route::get('/keys/paginated', [KeyController::class, 'paginated'])->name('keys.paginated');
-Route::post('/keys/search', [KeyController::class, 'search'])->name('keys.search');
+// Leitura paginada e busca — consumidas por XHR pelo Keys.vue, daí CheckPermission
+// (403 JSON) em vez de RequireTeam (redirect): redirect em XHR chega no axios como
+// o HTML do login, e o erro que o usuário vê seria de parsing.
+Route::get('/keys/paginated', [KeyController::class, 'paginated'])
+    ->name('keys.paginated')
+    ->middleware(CheckPermission::class);
+
+Route::post('/keys/search', [KeyController::class, 'search'])
+    ->name('keys.search')
+    ->middleware(CheckPermission::class);
 
 // API externa — Price Researcher
 // Autenticado via Bearer token (EXTERNAL_SECRET). Guest: 401. can-edit: não exigido.
@@ -112,7 +173,7 @@ Route::post('/trades/from-price-researcher', [TradeController::class, 'storeFrom
     ->name('trades.from-price-researcher')
     ->middleware(VerifySecret::class);
 
-Route::get('/acesso', [AuthorizedUsersController::class, 'index'])->name('acesso')->middleware(RequireAuth::class);
+Route::get('/acesso', [AuthorizedUsersController::class, 'index'])->name('acesso')->middleware(RequireTeam::class);
 
 Route::get('/login', function () {
     return Inertia::render('Login', [

@@ -1,4 +1,15 @@
 #!/bin/bash
+set -euo pipefail
+
+# Backup do banco — **local, na própria VPS**.
+#
+# O envio para o Google Drive foi removido em 2026-08-19: o dump sai em texto
+# puro e carrega todas as `keys.key_code` em claro, então a segurança dele
+# passava a ser a da conta Google. Enquanto não houver encriptação antes do
+# envio (`gpg`/`age` ou `rclone crypt`), a cópia não sai daqui.
+#
+# Efeito colateral consciente: não existe mais cópia fora da máquina. Perder a
+# VPS é perder o backup junto. Ver docs/IMPROVEMENTS.md.
 
 # Variáveis do banco
 POSTGRES_DB="sistema-estoque-cd"
@@ -14,8 +25,8 @@ mkdir -p "$BACKUP_DIR"
 # Gera o backup do banco
 docker exec db-cd pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" > "$BACKUP_DIR/$FILENAME"
 
-# Envia para o Google Drive (na pasta 'Meu Drive/Backup sistema')
-rclone copy "$BACKUP_DIR/$FILENAME" "goDrive:Backup sistema"
+# Só o dono lê: o arquivo é o inventário inteiro de keys em texto puro.
+chmod 600 "$BACKUP_DIR/$FILENAME"
 
 # Remove backups locais com mais de 30 dias
 find "$BACKUP_DIR" -type f -mtime +30 -name "*.sql" -delete

@@ -106,6 +106,14 @@ _Avoid_: trade válida, trade completa.
 O ato do supplier de repassar os `key_code` negociados de uma trade, junto da região, da validade e do total de TF2 acertado. Não confundir com **trade em estoque**: entregue significa que ele mandou os códigos; em estoque significa que já importamos as keys.
 _Avoid_: preenchimento, submissão, envio.
 
+**Token de entrega**:
+O segredo que dá ao supplier acesso à entrega de **uma** trade, enviado junto do link e digitado fora da URL. O link endereça a entrega; o token é o que a protege.
+_Avoid_: senha, código de acesso, chave (`key` é a mercadoria, outra coisa).
+
+**Fila de conferência**:
+As trades já entregues pelo supplier e ainda não importadas — o trabalho humano de revisar o que ele escreveu antes de as keys entrarem no estoque. Esvazia-se sozinha no import; não existe o ato de "conferir".
+_Avoid_: aprovação, revisão, pendentes.
+
 ### Fechamento mensal
 
 O caixa da empresa em R$, montado lançamento a lançamento. Não confundir com a **aba Financeiro** (`/sales`), que é análise de vendas em € — domínios distintos que compartilham só o prefixo do nome.

@@ -5,6 +5,11 @@
         <link rel="icon" href="favicon_logo.ico" type="image/x-icon">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
+        {{-- A entrega de trade é a única página aberta a terceiros: link de
+             entrega não tem por que aparecer em buscador. --}}
+        @if ($page['component'] === 'Delivery')
+            <meta name="robots" content="noindex, nofollow">
+        @endif
         <title inertia>{{ config('app.name', 'Laravel') }}</title>
 
         <!-- Fonts -->
@@ -12,7 +17,9 @@
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
 
         <!-- Scripts -->
-        @routes
+        {{-- Grupo restrito na entrega: o supplier não recebe o mapa de rotas do
+             sistema interno. Ver config/ziggy.php. --}}
+        @routes($page['component'] === 'Delivery' ? 'delivery' : null)
         @vite(['resources/js/app.js', "resources/js/Pages/{$page['component']}.vue"])
         @inertiaHead
     </head>

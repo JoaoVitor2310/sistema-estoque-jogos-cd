@@ -18,7 +18,7 @@ final class TradeLineBuilder
 {
     /**
      * @param  array<int, array{name: string, price_euro: float|string, popularity: int|string, region?: string|null, gamivo_id?: string|null}>  $games
-     * @param  array<string, string>  $bundleMap  nome normalizado do jogo → nome do bundle; vazio quando o caller não resolve bundle
+     * @param  array<string, string>  $bundleMap  nome normalizado do jogo → nome do bundle; vazio quando nenhum jogo casou com bundle recente
      * @return array<int, array<string, mixed>> atributos de `trade_lines`, sem o vínculo com a trade
      */
     public static function fromResearch(array $games, array $bundleMap): array

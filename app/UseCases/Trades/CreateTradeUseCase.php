@@ -2,6 +2,7 @@
 
 namespace App\UseCases\Trades;
 
+use App\Domain\Trades\DeliveryCredential;
 use App\Models\Trade;
 use App\Services\Suppliers\SupplierService;
 use Carbon\Carbon;
@@ -33,6 +34,12 @@ class CreateTradeUseCase
             // Trade nasce com uma linha em branco para o usuário editar direto;
             // sem ela, o primeiro ato sobre a trade seria criar a linha.
             $trade->lines()->create(['position' => 0]);
+
+            // E nasce com a credencial de entrega: o link e o código ficam à
+            // vista na aba, prontos para copiar (ver docs/adr/0008). Fora do
+            // `create` porque as colunas não são fillable de propósito — nada
+            // vindo de payload pode alcançá-las.
+            $trade->forceFill(DeliveryCredential::issue())->save();
 
             return $trade;
         });

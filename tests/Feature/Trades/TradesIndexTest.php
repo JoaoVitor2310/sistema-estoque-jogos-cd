@@ -18,10 +18,12 @@
 |
 */
 
+use App\Domain\Trades\DeliveryCredential;
 use App\Models\AuthorizedUsers;
 use App\Models\Trade;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Tests\Support\TradeFactory;
 
 // TradeController::show carrega taxas do Gamivo + preço TF2 para popular
@@ -117,6 +119,84 @@ describe('GET /trades — view filter', function () {
             ->get('/trades?view=all')
             ->assertInertia(fn ($page) => $page
                 ->where('trades.total', 2)
+            );
+    });
+});
+
+describe('GET /trades — the review queue', function () {
+
+    it('pins delivered trades to the top of the open view', function () {
+        // A entrega que chegou tem de saltar aos olhos sem ninguém ir procurar
+        // — é o que dispensa a fila ser a view padrão. Ver docs/adr/0008.
+        $newer = seedIndexTrade(['date' => '2025-06-10']);
+        $delivered = seedIndexTrade(['date' => '2025-01-01']);
+        $delivered->forceFill(['delivery_uuid' => (string) Str::uuid(), 'delivered_at' => now()])->save();
+
+        $this->actingAs(makeAuthorizedIndexUser())
+            ->get('/trades')
+            ->assertInertia(fn ($page) => $page
+                ->where('trades.data.0.id', $delivered->id)
+                ->where('trades.data.1.id', $newer->id)
+            );
+    });
+
+    it('does not pin anything outside the open view', function () {
+        // Trade importada também tem `delivered_at`; sem o recorte, histórico
+        // subiria para o topo de Importadas e de Todas.
+        $newer = seedIndexTrade(['date' => '2025-06-10', 'is_imported' => true]);
+        $older = seedIndexTrade(['date' => '2025-01-01', 'is_imported' => true]);
+        $older->forceFill(['delivery_uuid' => (string) Str::uuid(), 'delivered_at' => now()])->save();
+
+        $this->actingAs(makeAuthorizedIndexUser())
+            ->get('/trades?view=imported')
+            ->assertInertia(fn ($page) => $page->where('trades.data.0.id', $newer->id));
+    });
+
+    it('lists only the queue when view=awaiting_review', function () {
+        seedIndexTrade(['date' => '2025-06-01']);
+        $delivered = seedIndexTrade(['date' => '2025-06-02']);
+        $delivered->forceFill(['delivery_uuid' => (string) Str::uuid(), 'delivered_at' => now()])->save();
+
+        $this->actingAs(makeAuthorizedIndexUser())
+            ->get('/trades?view=awaiting_review')
+            ->assertInertia(fn ($page) => $page
+                ->where('trades.total', 1)
+                ->where('trades.data.0.id', $delivered->id)
+            );
+    });
+
+    it('reports how many trades are waiting, regardless of the current view', function () {
+        $delivered = seedIndexTrade(['date' => '2025-06-02']);
+        $delivered->forceFill(['delivery_uuid' => (string) Str::uuid(), 'delivered_at' => now()])->save();
+        seedIndexTrade(['date' => '2025-06-03', 'is_imported' => true]);
+
+        $this->actingAs(makeAuthorizedIndexUser())
+            ->get('/trades?view=imported')
+            ->assertInertia(fn ($page) => $page->where('awaitingReviewCount', 1));
+    });
+
+    it('exposes the derived delivery state', function () {
+        $trade = seedIndexTrade(['date' => '2025-06-02']);
+        $trade->forceFill(['delivered_at' => now()])->save();
+
+        $this->actingAs(makeAuthorizedIndexUser())
+            ->get('/trades')
+            ->assertInertia(fn ($page) => $page->where('trades.data.0.delivery_state', 'awaiting_review'));
+    });
+
+    it('hands the team the link and the code to copy', function () {
+        // Eles ficam à vista na aba desde que a trade nasce: o que se faz com
+        // eles é colar no chat da Steam, e emitir sob demanda punha um passo
+        // entre decidir mandar e mandar.
+        $trade = seedIndexTrade(['date' => '2025-06-02']);
+        $credential = DeliveryCredential::issue();
+        $trade->forceFill($credential)->save();
+
+        $this->actingAs(makeAuthorizedIndexUser())
+            ->get('/trades')
+            ->assertInertia(fn ($page) => $page
+                ->where('trades.data.0.delivery_token', $credential['delivery_token'])
+                ->where('trades.data.0.delivery_url', route('deliveries.show', ['trade' => $trade->fresh()->delivery_uuid]))
             );
     });
 });

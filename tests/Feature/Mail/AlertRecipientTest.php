@@ -9,9 +9,10 @@
 | sem fallback: em branco, ninguém é admin e nenhum alerta é entregue.
 |
 | Como nenhum teste alcança o .env de um servidor, a guarda possível é sobre o
-| arquivo versionado do qual todo ambiente novo nasce — .env.example — e sobre o
-| comportamento quando a config falta: o envio lança, e o UseCase precisa
-| absorver a exceção para não derrubar as outras tarefas do scheduler.
+| arquivo versionado do qual todo ambiente novo nasce — .env.example, que declara
+| a chave e não carrega endereço nenhum — e sobre o comportamento quando a config
+| falta: o envio lança, e o UseCase precisa absorver a exceção para não derrubar
+| as outras tarefas do scheduler.
 |
 | A suíte em si roda com ADMIN_EMAIL fixado no phpunit.xml. Deixá-la depender do
 | .env de quem executa faria os testes de alerta ficarem vermelhos por
@@ -26,12 +27,21 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Mail;
 
-it('ships a non-empty ADMIN_EMAIL in .env.example', function () {
-    // O CI e todo clone novo copiam este arquivo. Em branco aqui, a suíte roda
-    // sem destinatário e o sistema nasce sem admin.
-    preg_match('/^ADMIN_EMAIL=(.*)$/m', file_get_contents(base_path('.env.example')), $matches);
+it('declares ADMIN_EMAIL in .env.example, and ships no address in it', function () {
+    // A chave precisa estar listada: é assim que quem monta um ambiente novo
+    // descobre que ela existe. O **valor** precisa estar vazio, e a razão mudou
+    // de lado em 2026-08-19: `ADMIN_EMAIL` alimenta ao mesmo tempo o
+    // destinatário dos alertas e a identidade do admin (`config/app.php`), e
+    // este arquivo é versionado. Um endereço aqui é um endereço publicado — e,
+    // pior, num deploy que esquecesse de trocá-lo, quem registrasse aquele
+    // e-mail viraria admin. Em branco, o sistema nasce sem admin nenhum e sem
+    // alerta entregue, que é o par de falhas seguro.
+    $example = file_get_contents(base_path('.env.example'));
 
-    expect($matches[1] ?? '')->toContain('@');
+    preg_match('/^ADMIN_EMAIL=(.*)$/m', $example, $matches);
+
+    expect($matches)->not->toBeEmpty()
+        ->and(trim($matches[1]))->toBe('');
 });
 
 it('grants admin to nobody when ADMIN_EMAIL is missing', function () {

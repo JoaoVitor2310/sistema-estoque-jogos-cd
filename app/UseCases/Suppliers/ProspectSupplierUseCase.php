@@ -5,9 +5,11 @@ namespace App\UseCases\Suppliers;
 use App\Domain\Pricing\IncomeCalculator;
 use App\Domain\Pricing\OfferCalculator;
 use App\Domain\Trades\CommentPolicy;
+use App\Domain\Trades\DeliveryCredential;
 use App\Domain\Trades\TradeGameComparison;
 use App\Domain\Trades\TradeLineBuilder;
 use App\Models\Trade;
+use App\Services\Bundles\BundleService;
 use App\Services\Keys\KeyCalculationService;
 use App\Services\Suppliers\SupplierService;
 use Carbon\Carbon;
@@ -18,6 +20,7 @@ class ProspectSupplierUseCase
     public function __construct(
         private readonly SupplierService $supplierService,
         private readonly KeyCalculationService $calculationService,
+        private readonly BundleService $bundleService,
     ) {}
 
     /**
@@ -50,7 +53,12 @@ class ProspectSupplierUseCase
         $shouldComment = CommentPolicy::shouldComment($profitable, $gamesChanged, $lastCommentedAt);
 
         if ($shouldComment) {
-            DB::transaction(function () use ($record, $listCode, $profitable) {
+            // Dentro do `if` e fora da transação: a prospecção avalia muitos
+            // perfis e comenta poucos, então resolver antes cobraria uma query
+            // por perfil avaliado em vez de por trade criada.
+            $bundleMap = $this->bundleService->recentBundleByGameNames(array_column($profitable, 'name'));
+
+            DB::transaction(function () use ($record, $listCode, $profitable, $bundleMap) {
                 $trade = Trade::create([
                     'supplier_id' => $record->id,
                     'list_code' => $listCode,
@@ -58,9 +66,10 @@ class ProspectSupplierUseCase
                     'date' => now()->format('Y-m-d'),
                 ]);
 
-                // Mapa de bundle vazio: a prospecção nunca resolveu bundle, ao
-                // contrário da lista comentada (ver StoreListTradeUseCase).
-                $trade->lines()->createMany(TradeLineBuilder::fromResearch($profitable, []));
+                $trade->lines()->createMany(TradeLineBuilder::fromResearch($profitable, $bundleMap));
+
+                // Toda trade nasce com credencial de entrega — ver docs/adr/0008.
+                $trade->forceFill(DeliveryCredential::issue())->save();
             });
         }
 

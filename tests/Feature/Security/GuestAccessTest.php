@@ -7,23 +7,30 @@
 |
 | Ensures unauthenticated guests:
 |
-|   1. Page routes blocked (RequireAuth) → 302 redirect to /login
-|   2. Public routes allowed → 200
+|   1. Page routes blocked (RequireTeam) → 302 redirect to /login
+|   2. Only /login and the trade delivery stay open to guests
 |   3. Mutations blocked (CheckPermission) → 403
-|   4. Filtered data on /keys/paginated and /keys/search:
+|   4. Second barrier — se a rota perder o middleware, o filtro do controller e a
+|      whitelist do IndexKeysRequest ainda seguram (exercitados com
+|      withoutMiddleware, porque a rota deixou de ser alcançável):
 |      - Sensitive fields absent (key_code, gamivo_id, supplier_url, etc.)
 |      - Allowed fields present
 |      - Real key_code does not appear in initial page HTML
 |
 |   And that authenticated users with can-edit:
 |   5. Receive full data (key_code, gamivo_id, etc.)
-|   6. Can access all pages protected by RequireAuth
+|   6. Can access all pages protected by RequireTeam
 |
 */
 
+use App\Domain\Trades\DeliveryCredential;
+use App\Http\Middleware\CheckPermission;
+use App\Http\Middleware\RequireTeam;
 use App\Models\AuthorizedUsers;
+use App\Models\Trade;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 // ── Helpers (inline closures to avoid global function conflict with PublicRoutesTest) ──
 
@@ -104,26 +111,71 @@ describe('Guest — page routes redirect to /login', function () {
 
 // ── 2. Public routes accessible to guests ────────────────────────────────────
 
-describe('Guest — public routes return 200', function () {
+describe('Guest — the trade delivery is public on purpose', function () {
 
-    it('allows GET /keys', function () {
-        $this->get('/keys')->assertStatus(200);
+    // A única superfície do sistema aberta a quem não é da equipe. Quem autoriza
+    // é o token da entrega, não a sessão do sistema — por isso ela responde 200
+    // ao visitante, e o que protege o dado é a página não trazer nada sem token.
+    // Ver docs/adr/0008 e docs/agents/security-and-guardrails.md.
+
+    it('serves the delivery page to a guest, with nothing in it', function () {
+        $trade = Trade::create(['date' => now()->toDateString()]);
+        $trade->forceFill(DeliveryCredential::issue())->save();
+
+        $response = $this->get("/deliveries/{$trade->fresh()->delivery_uuid}");
+
+        $response->assertStatus(200);
+        expect($response->viewData('page')['props']['state'])->toBe('locked');
     });
 
-    it('allows GET /bundles', function () {
-        $this->get('/bundles')->assertStatus(200);
+    it('blocks a guest from writing without the delivery token', function () {
+        $trade = Trade::create(['date' => now()->toDateString()]);
+        $trade->forceFill(DeliveryCredential::issue())->save();
+
+        $this->patchJson("/deliveries/{$trade->fresh()->delivery_uuid}", ['tf2_qty' => '10'])
+            ->assertStatus(403);
     });
+
+    it('404s a delivery uuid that does not exist', function () {
+        $this->get('/deliveries/'.Str::uuid())->assertStatus(404);
+    });
+});
+
+describe('Guest — the catalogue is closed too', function () {
+
+    // Fechado em 2026-08-19: `/keys` e `/bundles` eram as duas páginas abertas a
+    // visitante. A leitura de keys já saía filtrada, mas custo e margem por jogo
+    // ficavam à vista de qualquer um — inclusive dos suppliers, que passaram a
+    // conhecer o domínio pela página de entrega. A página pública volta um dia
+    // como portfólio próprio, não como a aba interna aberta.
+
+    it('blocks GET /keys', function () {
+        $this->get('/keys')->assertRedirect('/login');
+    });
+
+    it('blocks GET /bundles', function () {
+        $this->get('/bundles')->assertRedirect('/login');
+    });
+
+    it('blocks GET /keys/paginated', function () {
+        $this->getJson('/keys/paginated')->assertStatus(403);
+    });
+
+    it('blocks POST /keys/search', function () {
+        $this->postJson('/keys/search')->assertStatus(403);
+    });
+
+    it('sends the fallback route to the login, not to the tab', function () {
+        // O `Route::fallback` global manda toda URL desconhecida para `/keys`,
+        // que agora rebate no login em vez de mostrar o catálogo.
+        $this->get('/nao-existe')->assertRedirect('/keys');
+    });
+});
+
+describe('Guest — what stays open', function () {
 
     it('allows GET /login', function () {
         $this->get('/login')->assertStatus(200);
-    });
-
-    it('allows GET /keys/paginated', function () {
-        $this->getJson('/keys/paginated')->assertStatus(200);
-    });
-
-    it('allows POST /keys/search', function () {
-        $this->postJson('/keys/search')->assertStatus(200);
     });
 });
 
@@ -301,11 +353,21 @@ describe('Guest — financial-month reopen with model binding returns 403', func
     });
 });
 
-// ── 4. Filtered data for guests ───────────────────────────────────────────────
+// ── 4. Segunda barreira: o filtro, sem o middleware ──────────────────────────
+//
+// A rota deixou de responder a visitante, então o caminho abaixo não é mais
+// alcançável pela URL — e é de propósito que o filtro continue existindo. Ele é
+// a segunda barreira, do mesmo jeito que a guarda de domínio em
+// `MarkTradeDeliveredUseCase` é redundante com o middleware da entrega: se um dia
+// alguém tirar o `CheckPermission` da rota, o `key_code` continua não saindo.
+// `withoutMiddleware` é o que permite testar exatamente esse cenário.
 
 describe('Guest — sensitive fields absent from /keys/paginated', function () {
 
-    beforeEach(fn () => seedGuestKey());
+    beforeEach(function () {
+        test()->withoutMiddleware([CheckPermission::class, RequireTeam::class]);
+        seedGuestKey();
+    });
 
     it('returns no sensitive fields', function () {
         $items = $this->getJson('/keys/paginated')
@@ -348,7 +410,10 @@ describe('Guest — sensitive fields absent from /keys/paginated', function () {
 
 describe('Guest — sensitive fields absent from /keys/search', function () {
 
-    beforeEach(fn () => seedGuestKey());
+    beforeEach(function () {
+        test()->withoutMiddleware([CheckPermission::class, RequireTeam::class]);
+        seedGuestKey();
+    });
 
     it('returns no sensitive fields', function () {
         $items = $this->postJson('/keys/search', [])
@@ -387,7 +452,10 @@ describe('Guest — sensitive fields absent from /keys/search', function () {
 
 describe('Guest — forbidden filters on /keys/search return 403', function () {
 
-    beforeEach(fn () => seedGuestKey());
+    beforeEach(function () {
+        test()->withoutMiddleware([CheckPermission::class, RequireTeam::class]);
+        seedGuestKey();
+    });
 
     it('blocks filtering by key_code', function () {
         $this->postJson('/keys/search', ['key_code' => 'AAAAA'])->assertStatus(403);
@@ -425,7 +493,10 @@ describe('Guest — forbidden filters on /keys/search return 403', function () {
 
 describe('Guest — allowed filters on /keys/search still work', function () {
 
-    beforeEach(fn () => seedGuestKey());
+    beforeEach(function () {
+        test()->withoutMiddleware([CheckPermission::class, RequireTeam::class]);
+        seedGuestKey();
+    });
 
     it('allows filtering by game_name', function () {
         $response = $this->postJson('/keys/search', ['game_name' => 'Test'])->assertStatus(200);
@@ -505,7 +576,7 @@ describe('Authorized user (can-edit) — receives full data', function () {
     });
 });
 
-// ── 6. Authorized user — access to RequireAuth-protected pages ────────────────
+// ── 6. Authorized user — access to RequireTeam-protected pages ────────────────
 
 describe('Authorized user (can-edit) — accesses pages blocked for guests', function () {
 

@@ -1,9 +1,11 @@
 <?php
 
+use App\Domain\Bundles\BundleGameLookup;
 use App\Models\Trade;
 use App\UseCases\Suppliers\ProspectSupplierUseCase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Tests\Support\BundleFactory;
 use Tests\Support\TradeFactory;
 
 function seedUseCaseDeps(float $tf2Price = 0.95): void
@@ -50,6 +52,20 @@ describe('ProspectSupplierUseCase', function () {
 
         expect($result['should_comment'])->toBeTrue();
         expect(DB::table('trades')->where('list_code', 'G0eXM')->whereNotNull('last_commented_at')->exists())->toBeTrue();
+    });
+
+    it('creates the trade with a delivery credential', function () {
+        // Sem ela a trade chega na aba sem link e sem código para copiar.
+        app(ProspectSupplierUseCase::class)->execute(
+            supplierSteamId(),
+            [profitableGame()],
+            'G0eXM',
+        );
+
+        $trade = Trade::where('list_code', 'G0eXM')->sole();
+
+        expect($trade->delivery_uuid)->not->toBeNull()
+            ->and($trade->delivery_token)->not->toBeNull();
     });
 
     it('persists gamivo_id on the created trade line', function () {
@@ -318,6 +334,75 @@ describe('ProspectSupplierUseCase', function () {
             );
 
             expect($result['games_changed'])->toBeFalse();
+        });
+    });
+    describe('bundle lookup', function () {
+
+        it('fills the bundle name when the game is in a recent bundle', function () {
+            // Mesma resolução da lista comentada (ver StoreListTradeUseCase): a
+            // prospecção passava mapa vazio e a coluna nascia nula, o que
+            // deixava a trade prospectada sem a pista de region lock que a
+            // página da entrega agora exibe.
+            BundleFactory::withGame('Half-Life', 'Humble Choice Junho 2026', now()->subMonth()->toDateString());
+
+            app(ProspectSupplierUseCase::class)->execute(supplierSteamId(), [profitableGame()], 'G0eXM');
+
+            $trade = Trade::with('lines')->where('list_code', 'G0eXM')->first();
+
+            expect($trade->lines->first()->bundle)->toBe('Humble Choice Junho 2026');
+        });
+
+        it('leaves the bundle null when the game is in no bundle', function () {
+            app(ProspectSupplierUseCase::class)->execute(supplierSteamId(), [profitableGame()], 'G0eXM');
+
+            $trade = Trade::with('lines')->where('list_code', 'G0eXM')->first();
+
+            expect($trade->lines->first()->bundle)->toBeNull();
+        });
+
+        it('ignores a bundle older than the recent window', function () {
+            BundleFactory::withGame(
+                'Half-Life',
+                'Bundle Antigo',
+                now()->subMonths(BundleGameLookup::RECENT_MONTHS + 1)->toDateString(),
+            );
+
+            app(ProspectSupplierUseCase::class)->execute(supplierSteamId(), [profitableGame()], 'G0eXM');
+
+            $trade = Trade::with('lines')->where('list_code', 'G0eXM')->first();
+
+            expect($trade->lines->first()->bundle)->toBeNull();
+        });
+
+        it('does not look bundles up when there is nothing to comment', function () {
+            // A prospecção avalia muitos perfis e comenta poucos: a consulta
+            // fica dentro do `if`, senão custa uma query por perfil avaliado.
+            BundleFactory::withGame('Half-Life', 'Humble Choice Junho 2026', now()->subMonth()->toDateString());
+
+            $queries = 0;
+            DB::listen(function ($query) use (&$queries) {
+                if (str_contains($query->sql, 'bundle_games')) {
+                    $queries++;
+                }
+            });
+
+            // O jogo é lucrativo — o que segura o comentário é o intervalo.
+            // Com a lista vazia o teste não provaria nada: `recentBundleByGameNames([])`
+            // já sai sem consultar, e a query não aconteceria nem com a
+            // chamada fora do `if`.
+            TradeFactory::withLines(['Half-Life'], [
+                'list_code' => 'G0eXM',
+                'last_commented_at' => now()->subDays(1),
+            ]);
+
+            $result = app(ProspectSupplierUseCase::class)->execute(
+                supplierSteamId(),
+                [profitableGame()],
+                'G0eXM',
+            );
+
+            expect($result['should_comment'])->toBeFalse()
+                ->and($queries)->toBe(0);
         });
     });
 });

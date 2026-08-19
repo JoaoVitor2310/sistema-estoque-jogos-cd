@@ -2,6 +2,8 @@
 
 namespace App\Domain\Trades;
 
+use App\Domain\Enums\TradeLineAuthority;
+
 /**
  * Converte uma entrada do JSON legado `trades.games` nos atributos de uma
  * linha de trade.
@@ -33,7 +35,7 @@ final class LegacyTradeLine
             'popularity' => TradeLineValue::integer($entry['popularity'] ?? null),
             'region' => TradeLineValue::text($entry['regionLock'] ?? null),
             'bundle' => TradeLineValue::text($entry['bundle'] ?? null),
-            'expires_at' => TradeLineValue::date($entry['expiry'] ?? null),
+            'expires_at' => TradeLineValue::date($entry['expiry'] ?? null, TradeLineAuthority::Team->dateFormat()),
             'key_code' => TradeLineValue::text($entry['keyCode'] ?? null),
             'gamivo_id' => TradeLineValue::text($entry['gamivoId'] ?? null),
         ];

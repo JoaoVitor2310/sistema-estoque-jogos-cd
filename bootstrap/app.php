@@ -2,7 +2,7 @@
 
 use App\Http\Middleware\CheckAdmin;
 use App\Http\Middleware\CheckPermission;
-use App\Http\Middleware\RequireAuth;
+use App\Http\Middleware\RequireTeam;
 use App\Models\Asset;
 use App\Models\Bundle;
 use App\Models\Fee;
@@ -37,7 +37,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // — um oráculo de existência em rota que ele nem deveria alcançar. Com a
         // prioridade invertida, quem não passa no gate leva 403 nos dois casos e
         // não aprende nada sobre o que há no banco.
-        foreach ([CheckAdmin::class, CheckPermission::class, RequireAuth::class] as $guard) {
+        foreach ([CheckAdmin::class, CheckPermission::class, RequireTeam::class] as $guard) {
             $middleware->prependToPriorityList(
                 before: SubstituteBindings::class,
                 prepend: $guard,

@@ -27,6 +27,17 @@ class TradeService
     public const VIEW_ALL = 'all';
 
     /**
+     * A fila de conferência: entregue pelo supplier, ainda não importada.
+     *
+     * É um recorte de [[self::VIEW_OPEN]], não a view padrão — ela só tem
+     * conteúdo entre o clique de entregar e o import, ou seja, fica vazia na
+     * maior parte do tempo, e um default que se contorna toda vez é atrito. Em
+     * Abertas essas trades vão para o topo; aqui elas aparecem sozinhas quando a
+     * equipe quer só conferir. Ver docs/adr/0008.
+     */
+    public const VIEW_AWAITING_REVIEW = 'awaiting_review';
+
+    /**
      * Retorna trades paginadas conforme filtros e ordenação.
      *
      * @param  array{
@@ -47,15 +58,24 @@ class TradeService
         int $perPage = self::PER_PAGE,
     ): LengthAwarePaginator {
         // `lines` eager loaded: sem isso, apresentar 40 trades dispara 40 queries.
-        $query = Trade::with(['supplier', 'lines'])
-            ->select(['id', 'title', 'date', 'tf2_qty', 'supplier_id', 'created_at', 'message_sent', 'is_imported']);
+        //
+        // Sem lista de colunas: quem decide o que sai é `presentTrade`, coluna a
+        // coluna. Uma segunda lista aqui não impediria vazamento nenhum — só
+        // acrescentaria um lugar para esquecer, e esquecer produz coluna nula em
+        // silêncio, não erro. A lista explícita da entrega existe por outro
+        // motivo: lá ela impede a coluna proibida de **sair do banco**, porque o
+        // leitor é o supplier (ver [[DeliveryReadModel]]).
+        $query = Trade::with(['supplier', 'lines']);
 
-        $this->applyViewFilter($query, $filters['view'] ?? self::VIEW_OPEN);
+        $view = $filters['view'] ?? self::VIEW_OPEN;
+
+        $this->applyViewFilter($query, $view);
         $this->applyDateRange($query, $filters['date_from'] ?? null, $filters['date_to'] ?? null);
         $this->applyTf2Range($query, $filters['tf2_min'] ?? null, $filters['tf2_max'] ?? null);
         $this->applyTitleSearch($query, $filters['title_search'] ?? null);
         $this->applySupplierSearch($query, $filters['supplier_search'] ?? null);
         $this->applyGameSearch($query, $filters['game_search'] ?? null);
+        $this->pinAwaitingReview($query, $view);
         $this->applySort($query, $sortField, $sortDir);
 
         return $query->paginate($perPage)->through(fn (Trade $trade) => $this->presentTrade($trade));
@@ -66,8 +86,51 @@ class TradeService
         match ($view) {
             self::VIEW_IMPORTED => $query->where('is_imported', true),
             self::VIEW_ALL => null,
+            self::VIEW_AWAITING_REVIEW => $this->scopeAwaitingReview($query),
             default => $query->where('is_imported', false),
         };
+    }
+
+    /**
+     * A fila de conferência, como condição de query.
+     *
+     * Definição única: a view e a contagem do rótulo precisam concordar, e duas
+     * cópias da mesma condição divergiriam na primeira vez que o critério mudar.
+     */
+    private function scopeAwaitingReview(Builder $query): Builder
+    {
+        return $query->where('is_imported', false)->whereNotNull('delivered_at');
+    }
+
+    /**
+     * Em Abertas, o que o supplier já entregou sobe para o topo.
+     *
+     * Só nessa view: em Importadas e em Todas a trade importada também tem
+     * `delivered_at` preenchido, e o mesmo critério empurraria histórico para
+     * cima. Em Aguardando conferência não há o que separar — a lista inteira é
+     * a fila.
+     *
+     * `(delivered_at IS NULL) ASC` funciona nos dois bancos (Postgres em prod,
+     * SQLite em teste): o falso ordena antes do verdadeiro nos dois, então a
+     * linha com data vem primeiro.
+     */
+    private function pinAwaitingReview(Builder $query, string $view): void
+    {
+        if ($view !== self::VIEW_OPEN) {
+            return;
+        }
+
+        $query->orderByRaw('(delivered_at IS NULL) ASC');
+    }
+
+    /**
+     * Quantas trades esperam conferência — a contagem que o filtro exibe no
+     * rótulo. É o que torna a fila impossível de não notar sem ela ser a view
+     * padrão.
+     */
+    public function awaitingReviewCount(): int
+    {
+        return $this->scopeAwaitingReview(Trade::query())->count();
     }
 
     private function applyDateRange(Builder $query, ?string $from, ?string $to): void
@@ -153,6 +216,18 @@ class TradeService
             'created_at' => $trade->created_at,
             'message_sent' => (bool) $trade->message_sent,
             'is_imported' => (bool) $trade->is_imported,
+            // O estado da entrega é derivado, não uma coluna — ver
+            // [[App\Domain\Enums\TradeDeliveryState]].
+            'delivery_state' => $trade->deliveryState()->value,
+            // O par que a equipe copia para o chat. Vai montado daqui porque
+            // quem sabe a rota é o servidor; a aba só copia o que recebe. Sai
+            // **só** nesta projeção — a da entrega não devolve token nenhum.
+            'delivery_url' => $trade->delivery_uuid
+                ? route('deliveries.show', ['trade' => $trade->delivery_uuid])
+                : null,
+            'delivery_token' => $trade->delivery_token,
+            'delivered_at' => $trade->delivered_at?->toIso8601String(),
+            'supplier_notes' => $trade->supplier_notes,
         ];
     }
 

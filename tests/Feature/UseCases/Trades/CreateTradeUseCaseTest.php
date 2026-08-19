@@ -18,6 +18,14 @@ describe('CreateTradeUseCase', function () {
         expect($trade->tf2_qty)->toBeNull();
     });
 
+    it('is born with a delivery credential', function () {
+        // Sem ela a trade chega na aba sem link e sem código para copiar.
+        $trade = app(CreateTradeUseCase::class)->execute([]);
+
+        expect($trade->delivery_uuid)->not->toBeNull()
+            ->and($trade->delivery_token)->not->toBeNull();
+    });
+
     it('seeds one blank line so the card is editable right away', function () {
         $trade = app(CreateTradeUseCase::class)->execute([]);
 
