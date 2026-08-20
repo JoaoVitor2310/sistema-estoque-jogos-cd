@@ -28,6 +28,17 @@ function makeTrade(array $attrs = []): Trade
     return Trade::create($attrs);
 }
 
+/**
+ * Uma query que vai buscar linhas **por fora** do SELECT de trades.
+ *
+ * O `withCount` e o `whereHas` também citam `trade_lines`, mas como subquery
+ * dentro do SELECT de `trades` — o que interessa aqui é a query separada.
+ */
+function isSeparateLineQuery(string $sql): bool
+{
+    return str_contains($sql, 'trade_lines') && ! str_contains($sql, 'trades');
+}
+
 // ── paginate ──────────────────────────────────────────────────────────────────
 
 describe('TradeService::paginate — default view', function () {
@@ -209,7 +220,6 @@ describe('TradeService::paginate — text search', function () {
         $page = app(TradeService::class)->paginate(['game_search' => 'portal']);
 
         expect($page->total())->toBe(1);
-        expect($page->items()[0]['lines'][1]['game_name'])->toBe('Portal');
     });
 
     it('does not match a key code — only the game name is searched', function () {
@@ -242,39 +252,54 @@ describe('TradeService::paginate — text search', function () {
 
 describe('TradeService::paginate — line loading', function () {
 
-    it('loads the lines of every trade with a single query', function () {
+    it('does not carry the lines, only how many there are', function () {
+        TradeFactory::withLines(['Portal', 'Half-Life'], ['date' => '2025-06-01']);
+
+        $trade = app(TradeService::class)->paginate()->items()[0];
+
+        // A tela monta ~30 elementos por linha. Mandar as linhas de 40 trades
+        // abertas de uma vez é o que travava a aba: elas vêm por `linesFor`.
+        expect($trade)->not->toHaveKey('lines')
+            ->and($trade['lines_count'])->toBe(2);
+    });
+
+    it('never runs a separate query against trade_lines', function () {
         foreach (range(1, 5) as $i) {
             TradeFactory::withLines(['Portal', 'Half-Life'], ['date' => '2025-06-0'.$i]);
         }
 
         $queries = [];
         DB::listen(function ($query) use (&$queries) {
-            if (str_contains($query->sql, 'trade_lines')) {
+            if (isSeparateLineQuery($query->sql)) {
                 $queries[] = $query->sql;
             }
         });
 
-        $page = app(TradeService::class)->paginate();
+        $page = app(TradeService::class)->paginate(['game_search' => 'portal']);
 
-        // Uma query só para as linhas das 5 trades — se virasse uma por trade,
-        // a aba degradaria linearmente com a página.
+        // `withCount` conta por subquery dentro do próprio SELECT de trades, e
+        // o `whereHas` da busca por jogo também é subquery — nem o caso com
+        // filtro de jogo emite query separada.
         expect($page->total())->toBe(5)
-            ->and($queries)->toHaveCount(1);
+            ->and($queries)->toBeEmpty();
     });
+});
+
+describe('TradeService::linesFor', function () {
 
     it('presents the lines in position order', function () {
-        TradeFactory::withLines(['First', 'Second', 'Third'], ['date' => '2025-06-01']);
+        $trade = TradeFactory::withLines(['First', 'Second', 'Third'], ['date' => '2025-06-01']);
 
-        $lines = app(TradeService::class)->paginate()->items()[0]['lines'];
+        $lines = app(TradeService::class)->linesFor($trade);
 
         expect(array_column($lines, 'game_name'))->toBe(['First', 'Second', 'Third'])
             ->and(array_column($lines, 'position'))->toBe([0, 1, 2]);
     });
 
     it('never exposes a column the tab was not meant to receive', function () {
-        TradeFactory::withLines(['Portal'], ['date' => '2025-06-01']);
+        $trade = TradeFactory::withLines(['Portal'], ['date' => '2025-06-01']);
 
-        $line = app(TradeService::class)->paginate()->items()[0]['lines'][0];
+        $line = app(TradeService::class)->linesFor($trade)[0];
 
         // Projeção explícita: uma coluna nova só chega à tela se alguém a
         // acrescentar aqui de propósito.
@@ -282,6 +307,13 @@ describe('TradeService::paginate — line loading', function () {
             'id', 'position', 'game_name', 'market_price', 'popularity',
             'region', 'bundle', 'expires_at', 'key_code', 'gamivo_id',
         ]);
+    });
+
+    it('returns only the lines of the trade asked for', function () {
+        $mine = TradeFactory::withLines(['Portal'], ['date' => '2025-06-01']);
+        TradeFactory::withLines(['Half-Life'], ['date' => '2025-06-02']);
+
+        expect(array_column(app(TradeService::class)->linesFor($mine), 'game_name'))->toBe(['Portal']);
     });
 });
 

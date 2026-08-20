@@ -6,6 +6,7 @@ use App\Domain\Enums\TradeLineAuthority;
 use App\Http\Requests\TradeLineRequest;
 use App\Models\Trade;
 use App\Models\TradeLine;
+use App\Services\Trades\TradeService;
 use App\UseCases\Trades\CreateTradeLineUseCase;
 use App\UseCases\Trades\DeleteTradeLineUseCase;
 use App\UseCases\Trades\UpdateTradeLineUseCase;
@@ -30,7 +31,19 @@ class TradeLineController extends Controller
         private readonly CreateTradeLineUseCase $createTradeLine,
         private readonly UpdateTradeLineUseCase $updateTradeLine,
         private readonly DeleteTradeLineUseCase $deleteTradeLine,
+        private readonly TradeService $tradeService,
     ) {}
+
+    /**
+     * As linhas de uma trade, buscadas quando a aba abre o card.
+     *
+     * A listagem de trades manda só a contagem — 40 trades abertas somam
+     * milhares de linhas, e montá-las todas de uma vez é o que travava a tela.
+     */
+    public function index(Trade $trade): JsonResponse
+    {
+        return response()->json(['lines' => $this->tradeService->linesFor($trade)], 200);
+    }
 
     public function store(TradeLineRequest $request, Trade $trade): JsonResponse
     {
