@@ -57,7 +57,10 @@ class TradeService
         string $sortDir = 'desc',
         int $perPage = self::PER_PAGE,
     ): LengthAwarePaginator {
-        // `lines` eager loaded: sem isso, apresentar 40 trades dispara 40 queries.
+        // A listagem **não** carrega as linhas, só quantas são: 40 trades abertas
+        // somam ~2.500 linhas, e cada linha vira uma tabela editável de ~30
+        // elementos na tela — 75 mil nós de DOM que ninguém pediu. As linhas vêm
+        // por [[self::linesFor]] quando a trade é aberta.
         //
         // Sem lista de colunas: quem decide o que sai é `presentTrade`, coluna a
         // coluna. Uma segunda lista aqui não impediria vazamento nenhum — só
@@ -65,7 +68,7 @@ class TradeService
         // silêncio, não erro. A lista explícita da entrega existe por outro
         // motivo: lá ela impede a coluna proibida de **sair do banco**, porque o
         // leitor é o supplier (ver [[DeliveryReadModel]]).
-        $query = Trade::with(['supplier', 'lines']);
+        $query = Trade::with('supplier')->withCount('lines');
 
         $view = $filters['view'] ?? self::VIEW_OPEN;
 
@@ -79,6 +82,19 @@ class TradeService
         $this->applySort($query, $sortField, $sortDir);
 
         return $query->paginate($perPage)->through(fn (Trade $trade) => $this->presentTrade($trade));
+    }
+
+    /**
+     * As linhas de uma trade, na projeção que a aba consome.
+     *
+     * Existe separado da listagem porque é o que a tela busca ao abrir a trade
+     * — ver o comentário em [[self::paginate]].
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function linesFor(Trade $trade): array
+    {
+        return $trade->lines()->get()->map(fn (TradeLine $line) => $this->presentLine($line))->all();
     }
 
     private function applyViewFilter(Builder $query, string $view): void
@@ -209,7 +225,8 @@ class TradeService
         return [
             'id' => $trade->id,
             'title' => $trade->title,
-            'lines' => $trade->lines->map(fn (TradeLine $line) => $this->presentLine($line))->all(),
+            // Só a contagem: as linhas vêm por [[self::linesFor]] ao abrir.
+            'lines_count' => (int) $trade->lines_count,
             'date' => $trade->date?->format('d/m/Y'),
             'tf2_qty' => $trade->tf2_qty,
             'supplier' => $trade->supplier ? ['url' => $trade->supplier->url] : null,

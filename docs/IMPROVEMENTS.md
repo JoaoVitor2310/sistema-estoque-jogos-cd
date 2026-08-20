@@ -90,6 +90,19 @@ morre junto.
 **Origem:** revisão de segurança pedida em 2026-08-19, motivada pela entrega levar terceiros ao
 domínio.
 
+### 6. `entrypoint.sh` instala dependências de dev em produção
+
+O entrypoint roda `composer install --no-interaction` e `npm install` **antes** de olhar o `APP_ENV`,
+então a VPS carrega Pest, PHPStan e todo o `devDependencies` do npm. Em produção o certo seria
+`composer install --no-dev --optimize-autoloader`, e o `npm run build` do ramo de produção é
+redundante com o build que o CI já faz e envia por `scp`.
+
+Só não foi mexido junto com a correção do `APP_ENV` (2026-08-20) porque muda o que existe dentro do
+container em produção e merece ser feito com o site parado.
+
+**Origem:** incidente do `public/hot` em 2026-08-20 — ver
+[`docs/agents/deploy.md`](agents/deploy.md).
+
 ---
 
 ## Trilha de eventos da entrega de trade

@@ -16,7 +16,17 @@ services:
     networks:
       - sistema-estoque-cd
     ports:
-      - "5173:5173" # Vite HMR (dev)
+      # Só o Vite dev server usa esta porta. Publicada no loopback porque em
+      # produção o entrypoint não sobe o Vite, e um dev server exposto serve o
+      # código-fonte do projeto para quem alcançar a porta.
+      - "127.0.0.1:5173:5173" # Vite HMR (dev)
+    environment:
+      # O entrypoint decide entre `npm run dev` e `npm run build` por esta
+      # variável, e ela precisa existir no ambiente do container — o `.env` do
+      # Laravel é lido pelo PHP, não pelo shell. Sem isto o default é `local` e
+      # a produção sobe o Vite dev server, que grava `public/hot` e faz o Blade
+      # apontar os assets para `localhost:5173`: a página carrega e nunca monta.
+      - APP_ENV=${APP_ENV:-local}
     entrypoint: /usr/local/bin/entrypoint.sh
     extra_hosts:
       - "host.docker.internal:host-gateway"

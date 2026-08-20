@@ -5,6 +5,7 @@
 | TradeLineRoutesTest — as três rotas de linha
 |--------------------------------------------------------------------------
 |
+|   GET    /trades/{trade}/lines          as linhas, buscadas ao abrir o card
 |   POST   /trades/{trade}/lines          cria (no fim, ou numa posição)
 |   PATCH  /trades/{trade}/lines/{line}   patch parcial
 |   DELETE /trades/{trade}/lines/{line}   remove e fecha o buraco na ordem
@@ -27,6 +28,47 @@ function lineRouteUser(): User
 
     return $user;
 }
+
+describe('GET /trades/{trade}/lines', function () {
+
+    it('returns the lines of the trade in position order', function () {
+        $trade = TradeFactory::withLines(['First', 'Second', 'Third']);
+
+        $response = $this->actingAs(lineRouteUser())
+            ->getJson("/trades/{$trade->id}/lines")
+            ->assertStatus(200);
+
+        expect(array_column($response->json('lines'), 'game_name'))
+            ->toBe(['First', 'Second', 'Third']);
+    });
+
+    it('does not return the lines of another trade', function () {
+        $mine = TradeFactory::withLines(['Portal']);
+        TradeFactory::withLines(['Half-Life']);
+
+        $response = $this->actingAs(lineRouteUser())
+            ->getJson("/trades/{$mine->id}/lines")
+            ->assertStatus(200);
+
+        expect(array_column($response->json('lines'), 'game_name'))->toBe(['Portal']);
+    });
+
+    it('blocks a user without permission', function () {
+        $trade = TradeFactory::withLines(['Portal', 'Half-Life']);
+
+        // A rota devolve `key_code`: é a mesma permissão das demais rotas de
+        // linha, e não pode ficar mais frouxa por ser só leitura.
+        $this->actingAs(User::factory()->create())
+            ->getJson("/trades/{$trade->id}/lines")
+            ->assertStatus(403);
+    });
+
+    it('blocks a guest', function () {
+        $trade = TradeFactory::withLines(['Portal']);
+
+        $this->getJson("/trades/{$trade->id}/lines")->assertStatus(403);
+    });
+});
 
 describe('POST /trades/{trade}/lines', function () {
 

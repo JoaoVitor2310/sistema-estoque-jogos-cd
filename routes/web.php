@@ -80,6 +80,7 @@ Route::prefix('trades/{trade}/lines')
     ->controller(TradeLineController::class)
     ->scopeBindings()
     ->group(function () {
+        Route::get('/', 'index')->name('trades.lines.index');
         Route::post('/', 'store')->name('trades.lines.store');
         Route::patch('/{line}', 'update')->name('trades.lines.update');
         Route::delete('/{line}', 'destroy')->name('trades.lines.destroy');

@@ -32,7 +32,9 @@ interface TradeLine {
 interface Trade {
   id: number;
   title: string | null;
-  lines: TradeLine[];
+  // A listagem manda só quantas linhas a trade tem; as linhas em si vêm de
+  // `trades.lines.index` quando o card é aberto.
+  lines_count: number;
   date: string | null;
   tf2_qty: string | null;
   supplier: { url: string } | null;
@@ -125,6 +127,12 @@ interface TradeEntry {
   supplierUrl: string;
   tf2Qty: string;
   rows: Row[];
+  // Quantas linhas o servidor diz que existem. É o que a tela mostra enquanto
+  // as linhas não foram buscadas; depois disso quem manda é `rows` (que muda
+  // ao adicionar e remover na tela). Ver `lineCount`.
+  linesCount: number;
+  linesLoaded: boolean;
+  linesLoading: boolean;
   createdAt: string;
   messageSent: boolean;
   isImported: boolean;
@@ -133,8 +141,8 @@ interface TradeEntry {
   supplierNotes: string | null;
   deliveryUrl: string | null;
   deliveryToken: string | null;
-  // Trades importadas nascem colapsadas; abertas nascem expandidas.
-  // Clique na linha compacta alterna. Não persiste (F5 volta a colapsado).
+  // Toda trade nasce colapsada e sem linhas; abrir busca as linhas uma vez e
+  // guarda. Não persiste (F5 volta a colapsado).
   expanded: boolean;
   // UI-only
   importing: boolean;
@@ -316,7 +324,10 @@ function toTradeEntry(t: Trade): TradeEntry {
     date: t.date ?? '',
     supplierUrl: t.supplier?.url ?? '',
     tf2Qty: t.tf2_qty ?? '',
-    rows: (t.lines ?? []).map(toRow),
+    rows: [],
+    linesCount: t.lines_count ?? 0,
+    linesLoaded: false,
+    linesLoading: false,
     createdAt: t.created_at,
     messageSent: t.message_sent ?? false,
     isImported,
@@ -325,8 +336,7 @@ function toTradeEntry(t: Trade): TradeEntry {
     supplierNotes: t.supplier_notes ?? null,
     deliveryUrl: t.delivery_url ?? null,
     deliveryToken: t.delivery_token ?? null,
-    // Importadas nascem colapsadas para permitir scan visual rápido.
-    expanded: !isImported,
+    expanded: false,
     importing: false,
     copiedKey: null,
     saveStatus: 'idle',
@@ -905,13 +915,27 @@ function sortRowsBy(field: string) {
 
   const dir = sortDir.value === 'asc' ? 1 : -1;
 
-  tradeList.value.forEach(trade => {
-    trade.rows.sort((a, b) => {
-      const av = getSortValue(a, field);
-      const bv = getSortValue(b, field);
-      if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
-      return String(av).localeCompare(String(bv)) * dir;
-    });
+  tradeList.value.forEach(applyRowSort);
+}
+
+/**
+ * Aplica a ordenação corrente às linhas de uma trade.
+ *
+ * Chamada também depois de buscar as linhas: com carregamento sob demanda, a
+ * trade aberta depois de `sortRowsBy` chegaria na ordem do banco e a tela
+ * mostraria duas ordens diferentes ao mesmo tempo.
+ */
+function applyRowSort(trade: TradeEntry) {
+  const field = sortField.value;
+  if (!field) return;
+
+  const dir = sortDir.value === 'asc' ? 1 : -1;
+
+  trade.rows.sort((a, b) => {
+    const av = getSortValue(a, field);
+    const bv = getSortValue(b, field);
+    if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
+    return String(av).localeCompare(String(bv)) * dir;
   });
 }
 
@@ -930,18 +954,47 @@ function getCustomTierTotal(trade: TradeEntry): number {
   return trade.rows.reduce((sum, row) => sum + getEffectiveCustomTf2(row), 0);
 }
 
-// ─── Colapso de importadas ───────────────────────────────────────────────────
+// ─── Abrir e fechar uma trade ────────────────────────────────────────────────
 
-function toggleExpanded(trade: TradeEntry) {
-  trade.expanded = !trade.expanded;
+/**
+ * Quantas linhas a trade tem, para os selos.
+ *
+ * Antes de abrir é a contagem que o servidor mandou; depois é o tamanho de
+ * `rows`, que é o número que muda quando a tela adiciona ou remove linha.
+ */
+function lineCount(trade: TradeEntry): number {
+  return trade.linesLoaded ? trade.rows.length : trade.linesCount;
 }
 
-function shortSupplier(url: string): string {
-  if (!url) return '';
+async function toggleExpanded(trade: TradeEntry) {
+  trade.expanded = !trade.expanded;
+
+  if (trade.expanded) await ensureLines(trade);
+}
+
+/**
+ * Busca as linhas da trade na primeira vez que ela é aberta.
+ *
+ * Uma vez só: reabrir um card usa o que já está em memória, e as edições
+ * pendentes de gravação continuariam ali de qualquer forma — rebuscar as
+ * apagaria da tela.
+ */
+async function ensureLines(trade: TradeEntry) {
+  if (trade.linesLoaded || trade.linesLoading) return;
+
+  trade.linesLoading = true;
   try {
-    return url.replace(/^https?:\/\/(?:www\.)?/, '').replace(/\/$/, '');
+    const res = await axiosInstance.get(route('trades.lines.index', { trade: trade.id }));
+    trade.rows = (res.data.lines as TradeLine[]).map(toRow);
+    trade.linesCount = trade.rows.length;
+    trade.linesLoaded = true;
+    applyRowSort(trade);
   } catch {
-    return url;
+    // Fecha de volta: card aberto e vazio pareceria trade sem jogos, e o
+    // usuário gravaria por cima de linhas que existem.
+    trade.expanded = false;
+  } finally {
+    trade.linesLoading = false;
   }
 }
 
@@ -1223,41 +1276,20 @@ function formatDeliveredAt(iso: string): string {
       }"
     >
 
-      <!-- Linha compacta (apenas para importadas colapsadas) -->
-      <div
-        v-if="trade.isImported && !trade.expanded"
-        class="trade-collapsed-row d-flex align-items-center gap-3 px-3 py-2"
-        @click="toggleExpanded(trade)"
-      >
-        <i class="pi pi-chevron-right text-secondary" />
-        <span class="fw-semibold trade-collapsed-title">
-          {{ trade.title || 'sem título' }}
-        </span>
-        <span class="text-muted small">{{ trade.date || '—' }}</span>
-        <span class="text-muted small trade-collapsed-supplier">{{ shortSupplier(trade.supplierUrl) || '—' }}</span>
-        <span class="text-muted small">{{ trade.tf2Qty || '0' }} TF2</span>
-        <span class="text-muted small">
-          {{ trade.rows.length }} jogo{{ trade.rows.length !== 1 ? 's' : '' }}
-        </span>
-        <span class="badge bg-success ms-auto">
-          <i class="pi pi-check-circle me-1" />Importada
-        </span>
-      </div>
-
-      <!-- Card completo (abertas sempre; importadas quando expandidas) -->
-      <template v-else>
+      <!-- O colapso é só da tabela de jogos: o cabeçalho fica à vista em
+           toda trade, porque é ali que estão os campos que identificam uma
+           trade sem título — data, fornecedor, TF2 — e o link da entrega. -->
         <!-- Cabeçalho da trade -->
         <div class="card-header bg-white d-flex align-items-center justify-content-between flex-wrap gap-2 py-2">
           <div class="d-flex align-items-center gap-2 flex-wrap flex-grow-1">
 
             <button
-              v-if="trade.isImported"
               type="button"
               class="btn btn-sm btn-link text-secondary p-0"
               @click="toggleExpanded(trade)"
-              title="Colapsar"
+              :title="trade.expanded ? 'Esconder os jogos' : 'Mostrar os jogos'"
             >
-              <i class="pi pi-chevron-down" />
+              <i :class="trade.expanded ? 'pi pi-chevron-down' : 'pi pi-chevron-right'" />
             </button>
 
             <input
@@ -1304,9 +1336,14 @@ function formatDeliveredAt(iso: string): string {
 
             <div class="vr opacity-25 align-self-stretch" />
 
-            <span class="badge bg-light text-secondary border">
-              {{ trade.rows.length }} jogo{{ trade.rows.length !== 1 ? 's' : '' }}
-            </span>
+            <button
+              type="button"
+              class="badge bg-light text-secondary border trade-count-badge"
+              @click="toggleExpanded(trade)"
+            >
+              <i v-if="trade.linesLoading" class="pi pi-spinner pi-spin me-1" />
+              {{ lineCount(trade) }} jogo{{ lineCount(trade) !== 1 ? 's' : '' }}
+            </button>
             <span v-if="trade.isImported" class="badge bg-success">
               <i class="pi pi-check-circle me-1" />Importada
             </span>
@@ -1342,7 +1379,10 @@ function formatDeliveredAt(iso: string): string {
             </div>
           </div>
           <div class="d-flex gap-2">
+            <!-- Os dois primeiros dependem das linhas: com a tabela fechada,
+                 `Importar keys` só saberia dizer "não" — e diria errado. -->
             <button
+              v-if="trade.expanded"
               type="button"
               class="btn btn-sm btn-outline-secondary"
               :disabled="trade.importing"
@@ -1352,6 +1392,7 @@ function formatDeliveredAt(iso: string): string {
               Linha
             </button>
             <button
+              v-if="trade.expanded"
               type="button"
               :class="trade.isImported ? 'btn btn-sm btn-warning' : 'btn btn-sm btn-primary'"
               :disabled="trade.importing || !canImport(trade)"
@@ -1428,7 +1469,10 @@ function formatDeliveredAt(iso: string): string {
           <strong>Recado do supplier:</strong> {{ trade.supplierNotes }}
         </div>
 
-        <!-- Tabela editável -->
+        <!-- Tabela editável: o que o colapso esconde. Uma linha vira ~30
+             elementos na tela, então manter as 40 trades da página abertas é o
+             que travava a aba (ver docs/adr/0009). -->
+        <template v-if="trade.expanded">
         <div class="card-body p-0">
           <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
@@ -1963,31 +2007,21 @@ function formatDeliveredAt(iso: string): string {
   border-left-color: #198754;
 }
 
-.trade-card--imported.trade-card--collapsed {
-  background: #f5f7fa;
+/* Importada e fechada é histórico: fica em segundo plano na varredura. O
+   cabeçalho é quem pinta, porque com a tabela fechada é ele o card inteiro. */
+.trade-card--imported.trade-card--collapsed .card-header {
+  background: #f5f7fa !important;
 }
 
-.trade-collapsed-row {
+/* O selo de contagem é o alvo grande para abrir e fechar a tabela — o chevron
+   sozinho é mira pequena demais para o gesto mais repetido da aba. */
+.trade-count-badge {
   cursor: pointer;
-  transition: background-color 0.15s ease;
+  border-style: solid;
 }
 
-.trade-collapsed-row:hover {
-  background-color: #eaeef3;
+.trade-count-badge:hover {
+  background-color: var(--bs-secondary-bg) !important;
 }
 
-.trade-collapsed-title {
-  min-width: 180px;
-  max-width: 320px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.trade-collapsed-supplier {
-  max-width: 260px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 </style>
