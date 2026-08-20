@@ -65,8 +65,23 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT }}
+          # Sem isto, o script segue depois de um comando que falhou e o job termina
+          # verde: só o código de saída do último comando conta. Foi o que aconteceu
+          # em 2026-08-19 — o `git pull` abortou por arquivo alterado na VPS, o resto
+          # rodou sobre o código velho e o GitHub mostrou ✅ num deploy que não
+          # deployou nada.
+          script_stop: true
           script: |
             cd /var/www/sistema-estoque-jogos-cd
+
+            # Arquivo editado direto no servidor faz o `git pull` abortar. A mensagem
+            # do git some no meio do log; esta para o deploy dizendo qual é o arquivo.
+            if ! git diff --quiet || ! git diff --cached --quiet; then
+              echo "::error::Working tree sujo na VPS — o pull não roda com estes arquivos alterados:"
+              git status --porcelain
+              exit 1
+            fi
+
             git pull origin main
             rm -f public/hot
             if git diff HEAD~1 HEAD --name-only | grep -q composer.lock; then

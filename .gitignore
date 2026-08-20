@@ -22,6 +22,10 @@ yarn-error.log
 *.txt
 docker/postgres/
 /backups
-# Dumps de produção restaurados localmente — contêm key_code e dados de fornecedor
+# Dumps de produção restaurados localmente — contêm key_code e dados de fornecedor.
+# `dump-*` cobre o formato custom do pg_dump, que não termina em .sql: apareceu um
+# na raiz do projeto na VPS, e ali ele fica a um `git add -A` de virar commit.
 *.sql
+dump-*
+*.dump
 docker-compose.override.yml
