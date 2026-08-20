@@ -11,6 +11,12 @@ set -euo pipefail
 # Efeito colateral consciente: não existe mais cópia fora da máquina. Perder a
 # VPS é perder o backup junto. Ver docs/IMPROVEMENTS.md.
 
+# O cron roda com um PATH mínimo (tipicamente `/usr/bin:/bin`) e sem carregar
+# perfil nenhum, então `docker` some e o backup falha calado. Na VPS isso já tinha
+# sido resolvido à mão, com caminho absoluto no comando; declarar o PATH aqui
+# resolve igual e não quebra se o binário mudar de lugar.
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
 # Variáveis do banco
 POSTGRES_DB="sistema-estoque-cd"
 POSTGRES_USER="postgres"
