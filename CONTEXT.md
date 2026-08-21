@@ -14,8 +14,13 @@ _Avoid_: licença, item, código (isoladamente).
 Entre as keys que compartilham a mesma oferta (mesmo produto no marketplace), a mais antiga — define os limites de preço (`min_api`/`max_api`) da oferta inteira, pois o marketplace vende por ordem de chegada (FIFO). Antes de listada (decisão do `AutoSellUseCase`, entre as aprovadas para entrar), "mais antiga" é a de menor `id` — ainda não existe `listed_at` pra comparar. Depois de listada (reprecificação do `UpdateOffersUseCase`, entre as já na oferta), "mais antiga" é a de menor `listed_at`, com `id` como desempate (`listed_at` é `date`, sem hora — keys do mesmo lote empatam).
 _Avoid_: key primária, key líder.
 
+**Preço de mercado** (`market_price`):
+O preço pesquisado do jogo **no dia da trade**, congelado ali. É a base do rateio do custo do lote e dos lucros de compra, e por isso não é atualizado depois: não é foto desatualizada por descuido, é o valor daquela compra. Preço de hoje é outro conceito, e o sistema não o guarda — quando a precificação precisa de uma referência de mercado, ela usa este mesmo campo e aceita a defasagem.
+_Avoid_: preço atual, valor de mercado (os dois sugerem preço corrente).
+
 **min_api / max_api**:
-Os limites inferior e superior dentro dos quais o motor de reprecificação automática do marketplace pode mover o preço de uma key.
+Os limites inferior e superior dentro dos quais o motor de reprecificação automática do marketplace pode mover o preço de uma key. O `max_api` é folga para valorização, não um preço-alvo: ele só segura enquanto existe um concorrente freando o preço — ver **vendedor único**. São **limites, não o preço anunciado**: o preço praticado não é guardado no sistema, ele só existe no painel do marketplace. Uma key anunciada a €10 com `max_api` de €24 é o caso normal de vendedor único, não um clamp quebrado.
+Os dois são editáveis à mão na tela de Keys; o sistema segue regulando por cima, então um `min_api` editado dura até a próxima passada do regulador diário.
 _Avoid_: piso / teto isoladamente (min_api/max_api são os termos usados no dia a dia).
 
 **Key velha**:
@@ -57,6 +62,10 @@ _Avoid_: lowballer, concorrente barato.
 **Concorrente com bot**:
 Um vendedor conhecido por rodar precificação automática própria — quando ficamos em 2º atrás dele, o sistema mira no 3º colocado em vez de entrar numa guerra de preços com o bot.
 _Avoid_: bot, vendedor automático.
+
+**Vendedor único**:
+Situação em que somos o único vendedor com preço utilizável de um produto no marketplace — seja porque ninguém mais o lista, seja porque os outros são vendedores que ignoramos por praticarem preços irreais **e estão abaixo de nós** (ignorado acima de nós ainda serve de alvo para subir; ver `docs/GAMIVO.md`). Sem ninguém para ancorar o preço, o teto de valorização deixa de ser a referência e o preço passa a sair do mercado pesquisado da key — continuando limitado por aquele teto, que deixa de ser âncora e vira só limite. É **situação do produto, não propriedade da key**: não vira coluna, é decidida a cada passada (ver [`docs/adr/0010`](docs/adr/0010-sole-seller-ceiling-computed-not-persisted.md)).
+_Avoid_: monopólio, sem concorrentes (existe concorrente listado nos casos em que ele é apenas ignorado).
 
 **Wholesale**:
 Modo de venda no atacado — o comprador leva mais de 10 unidades de uma vez, pagando menos por jogo, e o marketplace cobra uma taxa fixa menor sobre a venda do que cobraria no modo retail padrão.

@@ -21,7 +21,8 @@ Campos relevantes:
 - `acquired_at`, `listed_at`, `sold_at`, `expires_at` — datas do ciclo de vida
 - `supplier_url` — URL do perfil do fornecedor
 - `trade_id` — FK → `trades.id` (nullable): a trade/lote de onde a key veio; populado só no import por trade. Usado para recalcular o rateio de custo ao editar (ver [`docs/adr/0004`](../adr/0004-recalculate-trade-on-key-edit.md))
-- `min_api`, `max_api` — limites de preço aceitos pela API Gamivo
+- `min_api`, `max_api` — limites de preço aceitos pela API Gamivo. `min_api` é recalculado diariamente pelo `RegulateMinApiUseCase`; `max_api` é calculado no import (`RegisterKeyUseCase`) e só volta a mudar quando o auto-sell o trava numa key velha — **não existe** um `RegulateMaxApiUseCase`. Ambos são **editáveis à mão** na tela de Keys (`PUT /keys/{key}`, whitelist em `StoreGameRequest`), sem restrição cruzada: `min_api > max_api` é estado legítimo e o clamp resolve com o piso vencendo. A edição de `max_api` persiste; a de `min_api` vale **até as 07:30 do dia seguinte**, quando o scheduler reescreve o piso
+- `market_price` — preço de mercado pesquisado no momento da trade. É uma foto **por definição**, não por descuido: ele fixa o rateio de custo e os lucros de compra do lote, então não deve ser atualizado (ver [`docs/adr/0004`](../adr/0004-recalculate-trade-on-key-edit.md)). Além de alimentar custo e lucro, é a âncora de preço quando não há concorrente (ver [`docs/GAMIVO.md`](../GAMIVO.md#sem-concorrente-utilizável-vendedor-único))
 
 Classes-chave: `KeyCalculationService` (fórmulas), `RegisterKeyUseCase` (único caminho de entrada — sempre via `POST /trades/{trade}/import`), `UpdateKeyUseCase` (edição inline). Fluxo completo e agendamentos: [`docs/wiki/AUTOMATIONS.md`](../wiki/AUTOMATIONS.md).
 
@@ -31,7 +32,7 @@ Classes-chave: `KeyCalculationService` (fórmulas), `RegisterKeyUseCase` (único
 
 ## 2. Cálculo de lucro (`KeyCalculationService` + `Domain/Pricing`)
 
-Tiers de taxa, fórmulas de `simulated_income`, `min_api`/`max_api`: ver [`docs/GAMIVO.md`](../GAMIVO.md#algoritmos-de-precificação) e a fonte oficial [`docs/GAMIVO_Merchant-pricing.pdf`](../GAMIVO_Merchant-pricing.pdf). Não duplicar a tabela de taxas aqui — ela já teve drift uma vez entre este arquivo e o PDF oficial.
+Tiers de taxa, fórmulas de `simulated_income`, `min_api`/`max_api` e o teto de vendedor único (calculado na hora da decisão, nunca persistido — [`adr/0010`](../adr/0010-sole-seller-ceiling-computed-not-persisted.md)): ver [`docs/GAMIVO.md`](../GAMIVO.md#algoritmos-de-precificação) e a fonte oficial [`docs/GAMIVO_Merchant-pricing.pdf`](../GAMIVO_Merchant-pricing.pdf). Não duplicar a tabela de taxas aqui — ela já teve drift uma vez entre este arquivo e o PDF oficial.
 
 ## 3. Bundles
 

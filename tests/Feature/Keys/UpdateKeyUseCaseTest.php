@@ -12,6 +12,13 @@
 |   - Detecção de duplicidade exclui o próprio registro (excludeId)
 |   - Recebe a Key (route model binding) e devolve as keys afetadas + mensagem
 |
+| Estes testes chamam o UseCase direto, entregando o array já validado — o que
+| passa por cima da whitelist do StoreGameRequest. O contrato da fronteira HTTP
+| (quais campos a edição inline consegue gravar) vive em
+| tests/Feature/Keys/KeyUpdateTest.php: campo fora da whitelist é descartado por
+| validated() e a edição some em silêncio, com a tela dizendo "salvo". Esse eixo
+| é invisível daqui.
+|
 */
 
 use App\Models\Key;

@@ -39,6 +39,13 @@ class StoreGameRequest extends FormRequest
             'notes' => ['string', 'nullable'],
             'sell_platform' => ['nullable', Rule::enum(SellPlatform::class)],
             'market_price' => ['required', 'decimal:0,2', 'gt:0'],
+            // Edição manual dos limites de preço, pela tela de Keys. `sometimes` em vez
+            // de `nullable` porque as colunas são NOT NULL: cliente que não manda o campo
+            // preserva o valor do banco, e mandar null é 422 em vez de violar a constraint.
+            // O min_api editado vale até as 07:30 do dia seguinte, quando o
+            // RegulateMinApiUseCase reescreve o piso de toda key não vendida.
+            'min_api' => ['sometimes', 'decimal:0,2', 'gt:0'],
+            'max_api' => ['sometimes', 'decimal:0,2', 'gt:0'],
             'total_paid' => ['string', 'nullable'],
             'sold_price' => ['nullable', 'decimal:0,2'],
             'acquired_at' => ['required', 'string'],

@@ -282,6 +282,44 @@ Modalidade de venda em atacado (wholesale, divisor `1.035`), ainda não implemen
 
 ---
 
+## O teto de vendedor único se ancora num preço de compra, não de hoje
+
+**Onde:** `app/Domain/Pricing/MinMaxPriceCalculator::soleSellerPrice()`, chamado por `AutoSellUseCase` e `UpdateOffersUseCase`.
+
+`market_price` é, **por definição**, o preço pesquisado no dia da trade: é ele que rateia o `individual_cost` do lote e fixa `simulated_income` e `purchase_profit`. Não deve ser atualizado — mexer nele reescreve a contabilidade da compra (ver [`docs/adr/0004`](adr/0004-recalculate-trade-on-key-edit.md)).
+
+O problema é que o teto de vendedor único o usa como referência de mercado **atual**, que não é o que ele significa. Uma key parada num jogo que valorizou fica anunciada por um preço de meses atrás enquanto não aparecer concorrente — e o de sempre também vale: um jogo que desvalorizou fica caro.
+
+**Ação:** se a defasagem incomodar, **não** atualizar `market_price`. Acrescentar uma coluna própria de preço corrente (`current_market_price`, nulável), alimentada por um scheduler via `price_researcher` (ver `docs/PRICE_RESEARCHER.md`) e lida **só** pela precificação, com fallback para `market_price` quando estiver vazia. As fórmulas de custo e lucro continuam olhando exclusivamente para `market_price`.
+
+**Origem:** decisão de escopo ao implementar o teto de vendedor único (2026-08-21) — a defasagem foi conscientemente aceita para não acoplar o fluxo da Gamivo a uma integração externa.
+
+---
+
+## `UpdateOffersUseCase` reenvia o mesmo preço quando há concorrente
+
+**Onde:** `app/UseCases/Marketplaces/Gamivo/UpdateOffersUseCase.php::processProduct`.
+
+`ComparisonAlgorithm` nunca compara o alvo com o preço que já praticamos: sempre devolve `updatePrice`, e o `processProduct` sempre chama `updateOffer`. Rodando a cada minuto, isso significa `PUT` redundante sempre que o alvo não se moveu. O caminho **sem** concorrente já tem guarda (`priceAsSoleSeller` só envia se o `seller_price` divergir), porque ali o alvo é constante e o desperdício seria permanente; o caminho com concorrente ficou de fora para não mexer no fluxo quente na mesma entrega.
+
+**Ação:** medir quantos `PUT` por dia são no-op e, se compensar, estender a mesma guarda ao caminho com concorrente.
+
+**Origem:** decisão de escopo ao implementar o teto de vendedor único.
+
+---
+
+## Regime de preço de vendedor único é invisível na tela
+
+**Onde:** `resources/js/Pages/Keys.vue` (colunas Min. API / Max. API), `app/Http/Resources/KeyResource.php`, `app/UseCases/Marketplaces/Gamivo/UpdateOffersUseCase.php::priceAsSoleSeller`.
+
+Sem concorrente, a oferta é precificada por `market_price × 1,10` e o `max_api` continua no banco valendo o teto de valorização — de propósito, ver [`docs/adr/0010`](adr/0010-sole-seller-ceiling-computed-not-persisted.md). O efeito colateral é que a tela de Keys mostra um Max. API de €24 numa key que está anunciada a €10, sem nada que explique a diferença: o sistema nem exibe o preço praticado, que só existe no painel da Gamivo. Hoje a única pista é o canal de log `schedulers`, na chave `pricing`.
+
+**Ação:** se incomodar na prática, gravar um marcador de **observação** (não de regra) no caminho sem concorrente — algo como `keys.sole_seller_at`, atualizado a cada passada que não encontra concorrente — e exibir um selo ao lado do Max. API com o teto de mercado vigente. Marcador de observação não contamina a semântica do `max_api` e se cura sozinho quando o concorrente volta. Custo: migration, uma escrita a mais no fluxo que roda por minuto, campo no `KeyResource` e coluna no Vue.
+
+**Origem:** discussão ao implementar o teto de vendedor único (2026-08-21) — avaliado e adiado, com a documentação assumindo o papel de explicar a divergência.
+
+---
+
 ## Expiração — remover oferta da Gamivo no dia em que expira
 
 **Onde:** fluxo de expiração (scheduler / `AlertExpiringKeysUseCase`).
