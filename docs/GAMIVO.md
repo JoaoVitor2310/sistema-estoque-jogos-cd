@@ -150,6 +150,53 @@ price = max(min_api, price)
 price = min(max_api, price)
 ```
 
+O piso vence o teto: quando `min_api > max_api`, o resultado é o `min_api`. É por isso que o preço sem concorrente (abaixo) não precisa de tratamento próprio para o conflito — ele reusa este mesmo clamp.
+
+**Os dois limites são editáveis à mão** na tela de Keys (`PUT /keys/{key}`), sem validação cruzada — `min_api > max_api` é estado legítimo, produzido pelo próprio auto-sell ao travar o teto de uma key velha. A automação não recua diante da edição: o `max_api` editado permanece (nada o regula depois do import), mas o `min_api` editado é sobrescrito na passada das 07:30 do `RegulateMinApiUseCase`, que recalcula o piso de toda key não vendida.
+
+#### Sem concorrente utilizável (vendedor único)
+
+> Implementado em `MinMaxPriceCalculator::soleSellerPrice()`. Constante: `NO_COMPETITOR_MARKET_MULTIPLIER = 1.10`.
+
+O `max_api` é **folga para valorização**, não um preço-alvo: ele só é seguro porque quem freia o preço de verdade é o concorrente contra quem o `ComparisonAlgorithm` mira. Sem concorrente esse freio some e a folga viraria o preço praticado — pedíamos múltiplos do valor real do jogo (custo €1 + mercado €20 dão `max_api` = €160).
+
+Nesse caso a âncora passa a ser o `market_price` da key governante:
+
+```
+price = clamp(market_price × 1.10, min_api, min(market_price × 1.10, max_api))
+```
+
+| | Com concorrente | Sem concorrente |
+|---|---|---|
+| Âncora do preço | preço do concorrente | `market_price` da governante |
+| Teto aplicado | `max_api` | `min(market_price × 1.10, max_api)` |
+| Piso aplicado | `min_api` | `min_api` |
+
+São dois regimes **condicionais**, não uma composição: o `max_api` continua valendo integralmente quando há concorrente, para que o preço acompanhe a valorização real do jogo. O que muda sem concorrente é o **papel** dele — deixa de ser âncora e passa a ser só limite superior, aplicado por cima do teto de mercado. Na prática ele quase nunca binda, porque a fórmula do import o deixa bem acima do mercado; ele aparece quando alguém edita o `max_api` na tela de Keys ou quando o auto-sell o trava numa key velha. Nesses dois casos a coluna precisa significar teto nos dois regimes, senão a tela promete um limite que a precificação ignora.
+
+**O que conta como "sem concorrente".** `ComparisonResult::REASON_SOLE_SELLER` cobre os casos em que a nossa oferta existe mas nenhum concorrente serve de âncora. Não cobre "não temos oferta no produto": isso segue sendo `REASON_NO_COMPETITORS`, com `offerId` zerado, porque não há o que reprecificar.
+
+**Vendedor ignorado conta como concorrente para subir, nunca para descer.** A regra é **direcional** de propósito, e a posição relativa decide:
+
+| Onde está o vendedor de `SELLERS_TO_IGNORE` | O que fazemos | Por quê |
+|---|---|---|
+| **Acima** de nós (somos os mais baratos) | competimos: miramos no preço dele − `PRICE_STEP` | mirar nele é **subir**, e o `max_api` limita até onde |
+| **Abaixo** de nós | `sole_seller` — preço pelo mercado pesquisado | segui-lo seria **descer** até o preço irreal que o pôs na lista de ignorados |
+
+Por isso `handleWeAreLowest` **não** filtra `SELLERS_TO_IGNORE` e `handleWeAreNotLowest` filtra. A assimetria parece descuido e não é — não trocar por simetria. Vale só com `detectDumpers: true` (a reprecificação); o auto-sell chama com `false` e não filtra ninguém, então lá "sem concorrente" é a ausência literal de outra oferta.
+
+**Unidade.** O multiplicador vive em `seller_price` (payout), não em preço de vitrine. Com as taxas vigentes o retail resultante fica em torno de **122%–126%** do mercado, variando com a faixa de preço porque a taxa fixa pesa mais nos jogos baratos.
+
+**Defasagem aceita.** `market_price` é, por definição, o preço pesquisado no dia da trade — é ele que rateia o `individual_cost` do lote e fixa `simulated_income` e `purchase_profit`, então **não deve ser atualizado** (ver [`docs/adr/0004`](adr/0004-recalculate-trade-on-key-edit.md)). Usá-lo como âncora aqui significa precificar por uma referência de compra, não de hoje: uma key parada num jogo que valorizou fica anunciada por um preço velho. O teto de valorização volta a valer assim que surge um concorrente. Preço corrente pediria uma coluna própria — ver `docs/IMPROVEMENTS.md`.
+
+**Não é persistido.** Ausência de concorrência é estado do produto, muda a cada minuto e não é propriedade da key, então não vira coluna: `max_api` continua significando "teto de valorização". Os dois pontos que precisam da decisão (`AutoSellUseCase` e `UpdateOffersUseCase`) já têm as offers em mãos, então não há chamada extra à API para descobri-la — e não existe um `RegulateMaxApiUseCase`. Decisão registrada em [`docs/adr/0010`](adr/0010-sole-seller-ceiling-computed-not-persisted.md).
+
+**Consequência aceita: a tela não explica o preço.** Como o `max_api` fica intacto e o sistema não guarda o preço praticado (a tela de Keys mostra Min. API e Max. API, nunca o valor anunciado), uma oferta a €10 sob um `max_api` de €24 parece errada até você lembrar desta regra. **Isso é o esperado, não um clamp quebrado.** O único registro de qual regime precificou cada oferta é o canal de log `schedulers`, na chave `pricing` (`competitor` ou `sole_seller`). Exibir o estado na interface foi avaliado e adiado — ver `docs/IMPROVEMENTS.md`.
+
+**Volta do concorrente.** Nada precisa ser desfeito: o `ComparisonAlgorithm` deixa de devolver `sole_seller`, o caminho competitivo volta a clampar pelo `max_api` que sempre esteve no banco, e a folga de valorização é recuperada já na primeira passada que enxergar o concorrente.
+
+**Única exceção — key velha.** O passo final do `AutoSellUseCase` trava o `max_api` de keys com ≥ `OLD_KEY_MONTHS` meses no preço de listagem. Se essa listagem aconteceu sem concorrente, o valor gravado é o teto de mercado, e ele **não** é recuperado quando o concorrente volta — a única marca permanente que o regime de vendedor único deixa no banco.
+
 ---
 
 ## Agendamentos Laravel
@@ -217,7 +264,7 @@ Por isso o `AutoSellUseCase` **agrupa as keys elegíveis por `gamivo_id`** e pro
 
 A lógica tem **duas etapas, nessa ordem** — a distinção é fundamental:
 
-1. **Quais keys listar (decisão por key).** Cada key do grupo é avaliada **individualmente**: entra se o mercado cobre o `min_api` **dela**, ou se não há concorrentes. Uma key reprovada é pulada sozinha — **não bloqueia as outras** do mesmo produto. Exemplo: se a key de menor `id` tem `min_api` acima do mercado, ela é pulada, mas uma key mais nova cujo `min_api` o mercado cobre **é listada normalmente**. A **idade não é reavaliada aqui**: o `min_api` já embute a idade, pois a `MinimumMarginPolicy` o rebaixa ao `FLOOR` para keys com ≥ `OLD_KEY_MONTHS` meses (persistido pelo `RegulateMinApiUseCase`, que roda antes do auto-sell).
+1. **Quais keys listar (decisão por key).** Cada key do grupo é avaliada **individualmente**: entra se o mercado cobre o `min_api` **dela**, ou se não há concorrente utilizável. Uma key reprovada é pulada sozinha — **não bloqueia as outras** do mesmo produto. Exemplo: se a key de menor `id` tem `min_api` acima do mercado, ela é pulada, mas uma key mais nova cujo `min_api` o mercado cobre **é listada normalmente**. A **idade não é reavaliada aqui**: o `min_api` já embute a idade, pois a `MinimumMarginPolicy` o rebaixa ao `FLOOR` para keys com ≥ `OLD_KEY_MONTHS` meses (persistido pelo `RegulateMinApiUseCase`, que roda antes do auto-sell).
 2. **Qual preço praticar (a governante).** Só **entre as keys aprovadas** na etapa 1, a mais antiga (**menor `id`** — governante) define o `seller_price` único da oferta, pois é a primeira a ser vendida (FIFO). Como uma key velha já tem `min_api` no `FLOOR`, o preço dela naturalmente pode ser baixo — sem nenhuma lógica de "override" no auto-sell.
 
 Demais regras:
@@ -225,6 +272,7 @@ Demais regras:
 - **Escopo = keys elegíveis (não listadas).** O grupo contém apenas keys ainda **não listadas** (`findEligibleForAutoSell` já filtra `listed_at IS NULL`). Se o produto já tem keys listadas de rodadas anteriores, elas **não entram no grupo** — a governante é a mais antiga **entre as elegíveis aprovadas**, não a mais antiga absoluta do produto. O `seller_price` é recalculado por ela e sobrescreve o da oferta; o `UpdateOffersUseCase` reajusta em seguida usando a governante **da oferta já listada** (ver abaixo). *(Decisão de negócio confirmada — 2026-07-20.)*
 - **Upload em ordem de `id` ASC** (`findEligibleForAutoSell` já retorna `orderBy('id')`), espelhando a ordem de venda da Gamivo.
 - **`max_api`** é travado no preço praticado apenas nas keys **individualmente** velhas (≥ `OLD_KEY_MONTHS`) — o único ponto do auto-sell que ainda avalia a idade diretamente, já que a `MinimumMarginPolicy` cobre só o `min_api`, não o `max_api`.
+- **Sem concorrente, o preço de entrada sai do `market_price` da governante**, não do `max_api` (ver "Sem concorrente utilizável" acima). Esse ramo **nunca recusa a listagem**: sem concorrência não há motivo competitivo para ficar de fora, e o pior caso é entrar no próprio `min_api`.
 - **Confirmação parcial:** após o upload, verifica na oferta quais códigos apareceram e marca `listed_at` **só nos confirmados**; os não confirmados seguem elegíveis na próxima rodada. Isso vale inclusive quando a própria governante não confirma — as keys mais novas confirmadas são listadas e a governante tenta de novo depois (a eventual inversão de ordem FIFO é aceita por ser rara). *(Decisão de negócio confirmada — 2026-07-20.)*
 
 ### Reprecificação: a mesma governante, agora por `listed_at`

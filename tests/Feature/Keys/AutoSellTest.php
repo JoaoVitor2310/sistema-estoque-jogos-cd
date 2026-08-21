@@ -149,10 +149,12 @@ describe('AutoSellUseCase', function () {
         });
     });
 
-    it('lists at max_api when there are no competitors', function () {
-        // Sem concorrentes → sellerPrice = 0 → entra pelo teto (max_api)
+    it('lists at the market ceiling when there are no competitors, not at max_api', function () {
+        // Sem concorrentes → sellerPrice = 0 → a âncora passa a ser o market_price da
+        // key (5.00 × 1.10 = 5.50), não o max_api. Entrar pelo teto de valorização
+        // fazia listar a €25 um jogo que o mercado pesquisou a €5.
         fakeGamivoAutoSell();
-        insertAutoSellKey('440', ['min_api' => 3.00, 'max_api' => 25.00]);
+        insertAutoSellKey('440', ['min_api' => 3.00, 'max_api' => 25.00, 'market_price' => 5.00]);
 
         app(AutoSellUseCase::class)->execute();
 
@@ -162,7 +164,44 @@ describe('AutoSellUseCase', function () {
             }
             $body = json_decode($request->body(), true);
 
-            return (float) ($body['seller_price'] ?? 0) === 25.00;
+            return (float) ($body['seller_price'] ?? 0) === 5.50;
+        });
+    });
+
+    it('lists at min_api when the market ceiling falls below it and there are no competitors', function () {
+        // Trade ruim: pagamos quase o preço de mercado, então 1.10 × market_price
+        // (4.95) fica abaixo do min_api (6.00). Sem concorrente ninguém nos corta,
+        // então listamos no piso em vez de furar a margem exigida.
+        fakeGamivoAutoSell();
+        insertAutoSellKey('440', ['min_api' => 6.00, 'max_api' => 25.00, 'market_price' => 4.50]);
+
+        app(AutoSellUseCase::class)->execute();
+
+        Http::assertSent(function ($request) {
+            if (! (str_contains($request->url(), '/v1/offers') && $request->method() === 'POST')) {
+                return false;
+            }
+            $body = json_decode($request->body(), true);
+
+            return (float) ($body['seller_price'] ?? 0) === 6.00;
+        });
+    });
+
+    it('lists at max_api when it sits below the market ceiling and there are no competitors', function () {
+        // O max_api abaixo do teto de mercado vem de edição manual na tela de Keys ou
+        // da trava de key velha. Mercado 9.09 → 10.00, mas entramos no teto: 8.00.
+        fakeGamivoAutoSell();
+        insertAutoSellKey('440', ['min_api' => 3.00, 'max_api' => 8.00, 'market_price' => 9.09]);
+
+        app(AutoSellUseCase::class)->execute();
+
+        Http::assertSent(function ($request) {
+            if (! (str_contains($request->url(), '/v1/offers') && $request->method() === 'POST')) {
+                return false;
+            }
+            $body = json_decode($request->body(), true);
+
+            return (float) ($body['seller_price'] ?? 0) === 8.00;
         });
     });
 
@@ -319,14 +358,15 @@ describe('AutoSellUseCase', function () {
     });
 
     it('locks max_api to the seller price after listing a key acquired >= OLD_KEY_MONTHS ago, leaving min_api untouched', function () {
-        // sem concorrentes → sellerPrice = max_api original = 20.00
-        // key >= OLD_KEY_MONTHS → max_api travado em 20.00 (sellerPrice), impedindo o
+        // sem concorrentes → sellerPrice = 1.10 × market_price = 5.50
+        // key >= OLD_KEY_MONTHS → max_api travado em 5.50 (sellerPrice), impedindo o
         // UpdateOffersUseCase de subir o preço depois. min_api não é alterado
         // aqui — RegulateMinApiUseCase é quem mantém esse valor correto.
         fakeGamivoAutoSell();
         insertAutoSellKey('440', [
             'min_api' => 2.00,
             'max_api' => 20.00,
+            'market_price' => 5.00,
             'acquired_at' => now()->subMonths(11)->toDateString(),
         ]);
 
@@ -334,7 +374,7 @@ describe('AutoSellUseCase', function () {
 
         $key = DB::table('keys')->where('gamivo_id', '440')->first();
         expect((float) $key->min_api)->toBe(2.00)
-            ->and((float) $key->max_api)->toBe(20.00);
+            ->and((float) $key->max_api)->toBe(5.50);
     });
 
     it('does not update min_api or max_api for keys acquired less than OLD_KEY_MONTHS ago', function () {
@@ -359,8 +399,8 @@ describe('AutoSellUseCase', function () {
         // → changeOfferStatus apenas reativa com o preço antigo
         // → updateOffer deve ser chamado para corrigir o preço
         //
-        // Sem concorrentes → sellerPrice = max_api = 15.00.
-        // Verificamos que updateOffer (PUT) é chamado com seller_price = 15.00.
+        // Sem concorrentes → sellerPrice = 1.10 × market_price = 5.50.
+        // Verificamos que updateOffer (PUT) é chamado com seller_price = 5.50.
         Http::fake([
             '*/products/*/offers' => Http::response([], 200),
             // createOffer retorna 400 com offerId no texto — simula oferta já existente inativa
@@ -371,7 +411,7 @@ describe('AutoSellUseCase', function () {
             '*/offers/12345/keys/active/0/1*' => Http::response(['count' => 1, 'data' => []], 200),
         ]);
 
-        insertAutoSellKey('440', ['min_api' => 3.00, 'max_api' => 15.00]);
+        insertAutoSellKey('440', ['min_api' => 3.00, 'max_api' => 15.00, 'market_price' => 5.00]);
 
         app(AutoSellUseCase::class)->execute();
 
@@ -384,7 +424,7 @@ describe('AutoSellUseCase', function () {
             }
             $body = json_decode($request->body(), true);
 
-            return (float) ($body['seller_price'] ?? 0) === 15.00;
+            return (float) ($body['seller_price'] ?? 0) === 5.50;
         });
     });
 
@@ -476,11 +516,12 @@ describe('AutoSellUseCase', function () {
         });
 
         it('prices the group by the governing key (oldest id), not other keys in the group', function () {
-            // Sem concorrentes → sellerPrice = max_api. A governante (menor id) tem
-            // max_api = 15.00; a segunda key tem max_api = 99.00. O preço deve seguir a governante.
+            // Sem concorrentes → o preço sai do market_price da governante. A governante
+            // (menor id) tem market_price = 5.00 → 5.50; a segunda key tem 30.00 → 33.00.
+            // O preço deve seguir a governante, nunca um agregado do grupo.
             fakeGamivoAutoSell();
-            insertAutoSellKey('440', ['key_code' => 'GOV', 'min_api' => 3.00, 'max_api' => 15.00]);
-            insertAutoSellKey('440', ['key_code' => 'OTHER', 'min_api' => 3.00, 'max_api' => 99.00]);
+            insertAutoSellKey('440', ['key_code' => 'GOV', 'min_api' => 3.00, 'market_price' => 5.00]);
+            insertAutoSellKey('440', ['key_code' => 'OTHER', 'min_api' => 3.00, 'market_price' => 30.00]);
 
             app(AutoSellUseCase::class)->execute();
 
@@ -490,7 +531,7 @@ describe('AutoSellUseCase', function () {
                 }
                 $body = json_decode($request->body(), true);
 
-                return (float) ($body['seller_price'] ?? 0) === 15.00;
+                return (float) ($body['seller_price'] ?? 0) === 5.50;
             });
         });
 
@@ -602,23 +643,23 @@ describe('AutoSellUseCase', function () {
         });
 
         it('locks max_api only on the individually old keys of a mixed group', function () {
-            // Sem concorrentes → sellerPrice = max_api da governante (velha) = 20.00.
-            // A governante (velha) tem o max_api travado em 20.00 (= sellerPrice); a key nova
+            // Sem concorrentes → sellerPrice = 1.10 × market_price da governante = 5.50.
+            // A governante (velha) tem o max_api travado em 5.50 (= sellerPrice); a key nova
             // do grupo mantém seu max_api original (99.00) — a trava é por-key, não do grupo.
             fakeGamivoAutoSell();
 
             $oldId = insertAutoSellKey('440', [
-                'key_code' => 'GOV-OLD', 'min_api' => 2.00, 'max_api' => 20.00,
+                'key_code' => 'GOV-OLD', 'min_api' => 2.00, 'max_api' => 20.00, 'market_price' => 5.00,
                 'acquired_at' => now()->subMonths(11)->toDateString(),
             ]);
             $newId = insertAutoSellKey('440', [
-                'key_code' => 'NEW', 'min_api' => 2.00, 'max_api' => 99.00,
+                'key_code' => 'NEW', 'min_api' => 2.00, 'max_api' => 99.00, 'market_price' => 5.00,
                 'acquired_at' => now()->subMonths(2)->toDateString(),
             ]);
 
             app(AutoSellUseCase::class)->execute();
 
-            expect((float) DB::table('keys')->where('id', $oldId)->value('max_api'))->toBe(20.00)
+            expect((float) DB::table('keys')->where('id', $oldId)->value('max_api'))->toBe(5.50)
                 ->and((float) DB::table('keys')->where('id', $newId)->value('max_api'))->toBe(99.00);
         });
 

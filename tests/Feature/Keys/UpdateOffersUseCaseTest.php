@@ -8,6 +8,8 @@
 | Cobre o fluxo completo de reprecificação:
 |   - Produtos com preço a atualizar disparam PUT /offers
 |   - Produtos com noAction não disparam PUT
+|   - Produtos sem concorrente utilizável são reprecificados pelo market_price
+|     da governante, com guarda contra o PUT redundante
 |   - Produtos ignorados (1767, 42931) são pulados
 |   - Clamp min_api/max_api ajusta o preço final
 |   - Erro em um produto não interrompe os demais
@@ -35,7 +37,7 @@ function seedFees(): void
     ], uniqueBy: ['name'], update: ['preco']);
 }
 
-function insertKeyWithMinMax(int $gamivoId, float $minApi, float $maxApi): void
+function insertKeyWithMinMax(int $gamivoId, float $minApi, float $maxApi, float $marketPrice = 5.00): void
 {
     DB::table('suppliers')->insertOrIgnore([
         'id' => 99,
@@ -46,7 +48,7 @@ function insertKeyWithMinMax(int $gamivoId, float $minApi, float $maxApi): void
         'game_name' => "Game {$gamivoId}",
         'gamivo_id' => (string) $gamivoId,
         'key_code' => "KEY-UPDATE-{$gamivoId}",
-        'market_price' => 5.00,
+        'market_price' => $marketPrice,
         'individual_cost' => 2.00,
         'min_api' => $minApi,
         'max_api' => $maxApi,
@@ -126,8 +128,9 @@ describe('UpdateOffersUseCase', function () {
         Http::assertSent(fn ($req) => str_contains($req->url(), '/offers/51'));
     });
 
-    it('skips the PUT request when the algorithm returns noAction', function () {
-        // Produto 222: somos o único vendedor → no_competitors → noAction
+    it('skips the PUT request for a sole-seller product with no key in the database', function () {
+        // Produto 222: somos o único vendedor, mas não há key no banco — sem
+        // market_price não existe âncora para precificar, então não se toca no preço.
         Http::fake([
             '*/api/public/v1/offers*' => Http::response(fakeActiveOffers([222]), 200),
             '*/api/public/v1/products/222/offers' => Http::response([
@@ -139,6 +142,131 @@ describe('UpdateOffersUseCase', function () {
 
         expect($updated)->not->toContain(222);
         Http::assertNotSent(fn ($req) => str_contains($req->url(), '/offers/60'));
+    });
+
+    // ── Sem concorrente ───────────────────────────────────────────────────────
+
+    it('reprices a sole-seller offer by the governing key market price instead of leaving it at the ceiling', function () {
+        // Produto 555: só a nossa oferta, praticando 150.00 porque o auto-sell entrou
+        // pelo teto de valorização. market_price = 20.00 → alvo = 20.00 × 1.10 = 22.00.
+        insertKeyWithMinMax(555, minApi: 1.00, maxApi: 99.00, marketPrice: 20.00);
+
+        Http::fake([
+            '*/api/public/v1/products/555/offer-id' => Http::response(['id' => 91, 'seller_price' => 150.00, 'wholesale_mode' => 0], 200),
+            '*/api/public/v1/offers/91*' => Http::response(91, 200),
+            '*/api/public/v1/products/555/offers' => Http::response([
+                ['id' => 91, 'seller_name' => 'CarcaDeals', 'retail_price' => 160.00, 'completed_orders' => 1000, 'wholesale_mode' => 0],
+            ], 200),
+            '*/api/public/v1/offers*' => Http::response(fakeActiveOffers([555]), 200),
+        ]);
+
+        $updated = app(UpdateOffersUseCase::class)->execute();
+
+        expect($updated)->toContain(555);
+        Http::assertSent(function ($req) {
+            if (! (str_contains($req->url(), '/offers/91') && $req->method() === 'PUT')) {
+                return false;
+            }
+
+            return $req->data()['seller_price'] === 22.00;
+        });
+    });
+
+    it('does not send the PUT when the sole-seller price is already on target', function () {
+        // O alvo é constante enquanto o market_price não mudar. Sem esta guarda, o
+        // scheduler mandaria a mesma escrita a cada minuto, indefinidamente.
+        insertKeyWithMinMax(556, minApi: 1.00, maxApi: 99.00, marketPrice: 20.00);
+
+        Http::fake([
+            '*/api/public/v1/products/556/offer-id' => Http::response(['id' => 92, 'seller_price' => 22.00, 'wholesale_mode' => 0], 200),
+            '*/api/public/v1/offers/92*' => Http::response(92, 200),
+            '*/api/public/v1/products/556/offers' => Http::response([
+                ['id' => 92, 'seller_name' => 'CarcaDeals', 'retail_price' => 24.00, 'completed_orders' => 1000, 'wholesale_mode' => 0],
+            ], 200),
+            '*/api/public/v1/offers*' => Http::response(fakeActiveOffers([556]), 200),
+        ]);
+
+        $updated = app(UpdateOffersUseCase::class)->execute();
+
+        expect($updated)->not->toContain(556);
+        Http::assertNotSent(fn ($req) => str_contains($req->url(), '/offers/92') && $req->method() === 'PUT');
+    });
+
+    it('raises a sole-seller offer to min_api when the market ceiling falls below it', function () {
+        // market_price 4.50 → teto de mercado 4.95, abaixo do min_api 6.00.
+        // Sem concorrente ninguém nos corta: fica no piso, não fura a margem.
+        insertKeyWithMinMax(557, minApi: 6.00, maxApi: 99.00, marketPrice: 4.50);
+
+        Http::fake([
+            '*/api/public/v1/products/557/offer-id' => Http::response(['id' => 93, 'seller_price' => 50.00, 'wholesale_mode' => 0], 200),
+            '*/api/public/v1/offers/93*' => Http::response(93, 200),
+            '*/api/public/v1/products/557/offers' => Http::response([
+                ['id' => 93, 'seller_name' => 'CarcaDeals', 'retail_price' => 55.00, 'completed_orders' => 1000, 'wholesale_mode' => 0],
+            ], 200),
+            '*/api/public/v1/offers*' => Http::response(fakeActiveOffers([557]), 200),
+        ]);
+
+        app(UpdateOffersUseCase::class)->execute();
+
+        Http::assertSent(function ($req) {
+            if (! (str_contains($req->url(), '/offers/93') && $req->method() === 'PUT')) {
+                return false;
+            }
+
+            return $req->data()['seller_price'] === 6.00;
+        });
+    });
+
+    it('caps a sole-seller offer at max_api when it sits below the market ceiling', function () {
+        // max_api abaixo do teto de mercado só acontece quando alguém o editou na tela
+        // de Keys ou o auto-sell o travou numa key velha. Nos dois casos a coluna quer
+        // dizer teto: mercado 9.09 → 10.00, mas o max_api de 8.00 manda.
+        insertKeyWithMinMax(559, minApi: 3.00, maxApi: 8.00, marketPrice: 9.09);
+
+        Http::fake([
+            '*/api/public/v1/products/559/offer-id' => Http::response(['id' => 95, 'seller_price' => 50.00, 'wholesale_mode' => 0], 200),
+            '*/api/public/v1/offers/95*' => Http::response(95, 200),
+            '*/api/public/v1/products/559/offers' => Http::response([
+                ['id' => 95, 'seller_name' => 'CarcaDeals', 'retail_price' => 55.00, 'completed_orders' => 1000, 'wholesale_mode' => 0],
+            ], 200),
+            '*/api/public/v1/offers*' => Http::response(fakeActiveOffers([559]), 200),
+        ]);
+
+        app(UpdateOffersUseCase::class)->execute();
+
+        Http::assertSent(function ($req) {
+            if (! (str_contains($req->url(), '/offers/95') && $req->method() === 'PUT')) {
+                return false;
+            }
+
+            return $req->data()['seller_price'] === 8.00;
+        });
+    });
+
+    it('treats a product where every competitor is an ignored dumper as sole-seller', function () {
+        // Buy-n-Play está listado a 1.00, mas é filtrado por SELLERS_TO_IGNORE — não
+        // sobra âncora utilizável, então vale a mesma regra do monopólio.
+        insertKeyWithMinMax(558, minApi: 1.00, maxApi: 99.00, marketPrice: 20.00);
+
+        Http::fake([
+            '*/api/public/v1/products/558/offer-id' => Http::response(['id' => 94, 'seller_price' => 150.00, 'wholesale_mode' => 0], 200),
+            '*/api/public/v1/offers/94*' => Http::response(94, 200),
+            '*/api/public/v1/products/558/offers' => Http::response([
+                ['id' => 95, 'seller_name' => 'Buy-n-Play', 'retail_price' => 1.00, 'completed_orders' => 5000, 'wholesale_mode' => 0],
+                ['id' => 94, 'seller_name' => 'CarcaDeals', 'retail_price' => 160.00, 'completed_orders' => 1000, 'wholesale_mode' => 0],
+            ], 200),
+            '*/api/public/v1/offers*' => Http::response(fakeActiveOffers([558]), 200),
+        ]);
+
+        app(UpdateOffersUseCase::class)->execute();
+
+        Http::assertSent(function ($req) {
+            if (! (str_contains($req->url(), '/offers/94') && $req->method() === 'PUT')) {
+                return false;
+            }
+
+            return $req->data()['seller_price'] === 22.00;
+        });
     });
 
     // ── Produtos ignorados ────────────────────────────────────────────────────

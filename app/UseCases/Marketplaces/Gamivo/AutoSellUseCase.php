@@ -4,6 +4,7 @@ namespace App\UseCases\Marketplaces\Gamivo;
 
 use App\Domain\Keys\KeyEligibility;
 use App\Domain\Pricing\ComparisonAlgorithm;
+use App\Domain\Pricing\MinMaxPriceCalculator;
 use App\Domain\Pricing\OfferData;
 use App\Domain\Pricing\ValueObjects\MarketplaceFee;
 use App\Models\Key;
@@ -33,6 +34,7 @@ use Illuminate\Support\Facades\Log;
  *  1. Consulta o mercado atual via ComparisonAlgorithm (detectDumpers: false)
  *  2. Filtra, key a key, quais serão listadas (mercado >= min_api da própria key)
  *  3. Governante = mais antiga entre as aprovadas; calcula o seller_price pelo min/max dela
+ *     (ou pelo mercado pesquisado dela, quando o produto não tem concorrente)
  *  4. Cria/reativa uma oferta na Gamivo
  *  5. Faz upload das keys aprovadas num único uploadKeys (ordem id ASC)
  *  6. Verifica na oferta quais keys apareceram — marca só as confirmadas
@@ -127,19 +129,36 @@ class AutoSellUseCase
      * persiste isso antes do AutoSell). Por isso não há mais "age override" aqui — o
      * min_api consultado já é a fonte única do piso.
      *
+     * Sem concorrente ($marketPrice zerado pelo ComparisonAlgorithm), o teto de
+     * valorização perde o freio e viraria o preço de entrada — entrávamos pedindo
+     * múltiplos do valor real do jogo. Nesse caso a âncora passa a ser o mercado
+     * pesquisado da própria key (MinMaxPriceCalculator::soleSellerPrice), que também
+     * garante o min_api. Esse ramo nunca recusa a listagem: sem concorrência não há
+     * motivo competitivo para ficar de fora, e o pior caso é entrar no próprio piso —
+     * inclusive com market_price ausente, que cai no min_api em vez de barrar a key.
+     * Difere de propósito do UpdateOffersUseCase, que sem market_price prefere não
+     * tocar num preço que já está no ar. Na prática nenhum dos dois dispara:
+     * ImportReadinessPolicy exige market_price positivo para a linha virar key.
+     *
      * Retorna null quando o mercado está abaixo do min_api da key (não listar).
      */
-    private function resolveSellerPrice(float $marketPrice, float $minApi, float $maxApi): ?float
+    private function resolveSellerPrice(float $marketPrice, Key $key): ?float
     {
+        $minApi = (float) $key->min_api;
+
         if ($marketPrice === 0.0) {
-            return $maxApi; // sem concorrentes → entrar pelo teto
+            return MinMaxPriceCalculator::soleSellerPrice(
+                (float) $key->market_price,
+                $minApi,
+                (float) $key->max_api,
+            );
         }
 
         if ($marketPrice < $minApi) {
             return null; // mercado abaixo do min_api da key — não listar
         }
 
-        return min($marketPrice, $maxApi); // clamp pelo teto
+        return min($marketPrice, (float) $key->max_api); // clamp pelo teto
     }
 
     /**
@@ -173,7 +192,7 @@ class AutoSellUseCase
         // (a idade já está embutida no min_api pela MinimumMarginPolicy). As demais são
         // puladas individualmente. A governante é escolhida depois, entre as que passam aqui.
         [$toList, $skippedKeys] = $groupKeys->partition(
-            fn (Key $key) => $this->resolveSellerPrice($marketPrice, (float) $key->min_api, (float) $key->max_api) !== null
+            fn (Key $key) => $this->resolveSellerPrice($marketPrice, $key) !== null
         );
 
         $skipped = $skippedKeys->map(fn (Key $key) => [
@@ -198,7 +217,7 @@ class AutoSellUseCase
         // resolveSellerPrice nunca retorna null aqui.
         $governingKey = $toList->first();
 
-        $sellerPrice = $this->resolveSellerPrice($marketPrice, (float) $governingKey->min_api, (float) $governingKey->max_api);
+        $sellerPrice = $this->resolveSellerPrice($marketPrice, $governingKey);
 
         // Cria ou reativa a oferta na Gamivo (retail, sem wholesale por padrão no auto-sell)
         $offerId = $this->gamivoApi->createOffer([

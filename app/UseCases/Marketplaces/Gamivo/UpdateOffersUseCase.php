@@ -20,6 +20,11 @@ use Illuminate\Support\Facades\Log;
  * dois processos concorrentes batendo na mesma API. O filtro por OffersUpdateMode
  * (WeAreLowest/WeAreNotLowest) continua disponível para execução manual/pontual.
  *
+ * Produtos onde somos o único vendedor utilizável não têm concorrente para ancorar
+ * o preço. Antes eles não eram tocados e ficavam parados no preço de entrada do
+ * auto-sell (o teto de valorização), pedindo múltiplos do valor real do jogo; hoje
+ * são reprecificados pelo mercado pesquisado da governante — ver priceAsSoleSeller.
+ *
  * Documentação: docs/GAMIVO.md — seção "Algoritmos de Precificação".
  *
  * ⚠️  Chama a API Gamivo em produção. Nunca instanciar fora de contexto autorizado.
@@ -31,6 +36,12 @@ class UpdateOffersUseCase
      *  1767  = Random Game on Gamivo
      */
     private const IGNORED_PRODUCT_IDS = [1767];
+
+    /**
+     * Tolerância de comparação entre dois preços em euros (precisão de centavo).
+     * Não é regra de negócio — só evita que ruído de float dispare um PUT idêntico.
+     */
+    private const PRICE_EQUALITY_TOLERANCE = 0.001;
 
     public function __construct(
         private readonly GamivoApiService $gamivoApi,
@@ -96,7 +107,12 @@ class UpdateOffersUseCase
      * Processa um produto: filtra por modo, compara preços, aplica clamp e envia atualização à Gamivo.
      * Retorna um array com detalhes do update para log, ou null se não houve ação.
      *
-     * @return array{game_name: string, old_retail: float, new_retail: float}|null
+     * Dois caminhos de precificação, distinguidos no log pela chave `pricing`:
+     * `competitor` (há concorrente para ancorar) e `sole_seller` (não há — ver
+     * priceAsSoleSeller). Os valores novos saem em unidades diferentes em cada um,
+     * por isso cada caminho usa a sua própria chave.
+     *
+     * @return array{game_name: string, pricing: string, old_retail: float, new_retail: float}|array{game_name: string, pricing: string, old_retail: float, new_seller_price: float}|null
      */
     private function processProduct(int $productId, string $sellerName, $fee, ?OffersUpdateMode $mode): ?array
     {
@@ -127,7 +143,11 @@ class UpdateOffersUseCase
         $result = ComparisonAlgorithm::calculate($offers, $sellerName, $fee);
 
         if (! $result->shouldUpdate) {
-            return null;
+            if ($result->reason !== ComparisonResult::REASON_SOLE_SELLER) {
+                return null;
+            }
+
+            return $this->priceAsSoleSeller($productId, $result, $oldRetail);
         }
 
         $governingKey = $this->keyRepository->findGoverningKeyByGamivoId($productId);
@@ -143,8 +163,64 @@ class UpdateOffersUseCase
 
         return [
             'game_name' => $governingKey?->game_name ?? 'unknown',
+            'pricing' => 'competitor',
             'old_retail' => $oldRetail,
             'new_retail' => round($result->targetRetail, 2),
+        ];
+    }
+
+    /**
+     * Reprecifica uma oferta que não tem concorrente utilizável no produto.
+     *
+     * Sem ninguém para ancorar, o preço deixaria de ser comparado e a oferta ficaria
+     * parada no teto de valorização (max_api), pedindo múltiplos do valor real do
+     * jogo. Aqui o piso passa a ser o mercado pesquisado da governante, via
+     * MinMaxPriceCalculator::soleSellerPrice — que também garante o min_api.
+     *
+     * Sem governante ou sem market_price não há âncora: não mexe no preço.
+     *
+     * O alvo é constante enquanto o market_price não mudar, então só envia o PUT
+     * quando o preço praticado divergir — do contrário seria uma escrita idêntica
+     * por minuto, indefinidamente, contra a API de produção. É a única leitura extra
+     * do fluxo: getMyOfferForProduct é quem expõe nosso seller_price (o endpoint
+     * público de ofertas do produto só devolve retail_price).
+     *
+     * @return array{game_name: string, pricing: string, old_retail: float, new_seller_price: float}|null
+     */
+    private function priceAsSoleSeller(int $productId, ComparisonResult $result, float $oldRetail): ?array
+    {
+        $governingKey = $this->keyRepository->findGoverningKeyByGamivoId($productId);
+
+        if ($governingKey === null) {
+            return null;
+        }
+
+        $marketPrice = (float) $governingKey->market_price;
+
+        if ($marketPrice <= 0.0) {
+            return null;
+        }
+
+        $sellerPrice = MinMaxPriceCalculator::soleSellerPrice(
+            $marketPrice,
+            (float) $governingKey->min_api,
+            (float) $governingKey->max_api,
+        );
+
+        $currentOffer = $this->gamivoApi->getMyOfferForProduct($productId);
+        $currentSellerPrice = (float) ($currentOffer['seller_price'] ?? 0.0);
+
+        if (abs($currentSellerPrice - $sellerPrice) < self::PRICE_EQUALITY_TOLERANCE) {
+            return null;
+        }
+
+        $this->gamivoApi->updateOffer($result->offerId, $this->buildUpdatePayload($sellerPrice, $result));
+
+        return [
+            'game_name' => $governingKey->game_name ?? 'unknown',
+            'pricing' => 'sole_seller',
+            'old_retail' => $oldRetail,
+            'new_seller_price' => $sellerPrice,
         ];
     }
 

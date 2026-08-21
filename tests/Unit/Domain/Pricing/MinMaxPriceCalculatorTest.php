@@ -17,6 +17,9 @@
 |
 | Both values have a 0.02 floor.
 |
+| soleSellerPrice() cobre o caso sem concorrente, onde o teto de valorização
+| deixa de ter freio: ali a âncora é o market_price, não o custo.
+|
 */
 
 use App\Domain\Pricing\MinMaxPriceCalculator;
@@ -156,5 +159,63 @@ describe('MinMaxPriceCalculator::clamp()', function () {
         $limits = ['min_api' => 1.00, 'max_api' => 1000.00];
 
         expect(MinMaxPriceCalculator::clamp(999.00, $limits))->toBe(MinMaxPriceCalculator::CEILING);
+    });
+});
+
+describe('MinMaxPriceCalculator::soleSellerPrice()', function () {
+
+    it('prices at the multiplier over the researched market price', function () {
+        // 20.00 × 1.10 = 22.00, entre o min_api e o max_api → o teto de mercado manda
+        expect(MinMaxPriceCalculator::soleSellerPrice(20.00, 5.00, 160.00))->toBe(22.00);
+    });
+
+    it('rounds to cents', function () {
+        // 4.55 × 1.10 = 5.005 → 5.01 (não 5.005, que a Gamivo rejeitaria)
+        expect(MinMaxPriceCalculator::soleSellerPrice(4.55, 1.00, 30.00))->toBe(5.01);
+    });
+
+    it('lets min_api win when the market ceiling falls below the floor', function () {
+        // Trade ruim: pagamos €4 num jogo que o mercado pesquisou a €4,50.
+        // min_api = 4 × 1.5 = 6.00; teto de mercado = 4.50 × 1.10 = 4.95.
+        // Sem concorrente ninguém nos corta, então não há motivo para furar a margem.
+        expect(MinMaxPriceCalculator::soleSellerPrice(4.50, 6.00, 32.00))->toBe(6.00);
+    });
+
+    it('caps at max_api when it sits below the market ceiling', function () {
+        // 9.09 × 1.10 = 10.00, mas o max_api está em 8.00 — teto editado à mão na tela
+        // de Keys, ou travado pelo auto-sell numa key velha. A coluna tem que significar
+        // teto também aqui, senão a tela promete um limite que a precificação ignora.
+        expect(MinMaxPriceCalculator::soleSellerPrice(9.09, 3.00, 8.00))->toBe(8.00);
+    });
+
+    it('keeps the market ceiling when max_api sits above it', function () {
+        // Caso normal: a fórmula do import deixa o max_api bem acima do mercado,
+        // então ele não binda e quem manda é o teto de mercado.
+        expect(MinMaxPriceCalculator::soleSellerPrice(20.00, 5.00, 160.00))
+            ->toBe(MinMaxPriceCalculator::soleSellerPrice(20.00, 5.00, 22.00));
+    });
+
+    it('still lets min_api win over a max_api below it', function () {
+        // Piso vence teto, mesma regra do clamp do fluxo com concorrente.
+        expect(MinMaxPriceCalculator::soleSellerPrice(9.09, 12.00, 8.00))->toBe(12.00);
+    });
+
+    it('never returns below the absolute FLOOR even without a market price', function () {
+        // market_price ausente/zerado não pode virar preço zero na Gamivo
+        expect(MinMaxPriceCalculator::soleSellerPrice(0.0, 0.0, 0.0))->toBe(MinMaxPriceCalculator::FLOOR);
+    });
+
+    it('still enforces the absolute CEILING for an extreme market price', function () {
+        expect(MinMaxPriceCalculator::soleSellerPrice(10_000.00, 1.00, 100_000.00))
+            ->toBe(MinMaxPriceCalculator::CEILING);
+    });
+
+    it('stays far below the appreciation ceiling that max_api would have produced', function () {
+        // É o bug que motivou a regra: custo €1 e mercado €20 dão max_api = 20 × 8 = 160,
+        // e sem concorrente esse teto virava o preço praticado.
+        $maxApi = MinMaxPriceCalculator::calculate(1.00, 20.00, Carbon::now())['max'];
+
+        expect($maxApi)->toBe(160.0)
+            ->and(MinMaxPriceCalculator::soleSellerPrice(20.00, 1.50, $maxApi))->toBe(22.00);
     });
 });

@@ -12,7 +12,7 @@
 | Fórmula sellerPrice = retailPrice × (1 − percent) − fixed
 |
 | Cenários cobertos:
-|   - Sem concorrentes (array vazio, oferta única, nossa oferta ausente)
+|   - Sem concorrentes (array vazio, oferta única, nossa oferta ausente, só sellers ignorados)
 |   - Já somos o mais barato (sem margem / com margem para subir)
 |   - Não somos o mais barato (caso normal / price dumper / checkOthersApi)
 |   - Wholesale mode
@@ -21,6 +21,7 @@
 */
 
 use App\Domain\Pricing\ComparisonAlgorithm;
+use App\Domain\Pricing\ComparisonResult;
 use App\Domain\Pricing\OfferData;
 use App\Domain\Pricing\ValueObjects\MarketplaceFee;
 
@@ -57,14 +58,17 @@ describe('ComparisonAlgorithm', function () {
                 ->and($result->reason)->toBe('no_competitors');
         });
 
-        it('returns noAction when we are the only seller', function () {
-            // Array com apenas nossa oferta — não há 2º colocado
+        it('returns soleSeller when we are the only seller', function () {
+            // Array com apenas nossa oferta — não há 2º colocado para ancorar o preço,
+            // mas a oferta existe e pode ser reprecificada pelo mercado pesquisado
             $offers = [offer(1, 'CarcaDeals', 3.00)];
 
             $result = ComparisonAlgorithm::calculate($offers, 'CarcaDeals', $this->fee);
 
             expect($result->shouldUpdate)->toBeFalse()
-                ->and($result->reason)->toBe('no_competitors');
+                ->and($result->reason)->toBe(ComparisonResult::REASON_SOLE_SELLER)
+                // offerId preservado — é o que permite ao chamador reprecificar
+                ->and($result->offerId)->toBe(1);
         });
 
         it('returns noAction when our offer is not present in the list', function () {
@@ -76,7 +80,69 @@ describe('ComparisonAlgorithm', function () {
             $result = ComparisonAlgorithm::calculate($offers, 'CarcaDeals', $this->fee);
 
             expect($result->shouldUpdate)->toBeFalse()
-                ->and($result->reason)->toBe('no_competitors');
+                ->and($result->reason)->toBe(ComparisonResult::REASON_NO_COMPETITORS);
+        });
+
+        it('returns soleSeller when the ignored sellers are all cheaper than us', function () {
+            // Há gente listada, mas todos em SELLERS_TO_IGNORE e todos ABAIXO de nós:
+            // segui-los seria descer até o preço irreal deles, então não há âncora
+            // utilizável e para efeito de precificação estamos sozinhos no produto
+            $offers = [
+                offer(1, 'Buy-n-Play', 1.00),
+                offer(2, 'Estateium', 1.50),
+                offer(3, 'CarcaDeals', 3.30),
+            ];
+
+            $result = ComparisonAlgorithm::calculate($offers, 'CarcaDeals', $this->fee);
+
+            expect($result->shouldUpdate)->toBeFalse()
+                ->and($result->reason)->toBe(ComparisonResult::REASON_SOLE_SELLER)
+                ->and($result->offerId)->toBe(3);
+        });
+
+        it('returns noAction — not soleSeller — when only ignored sellers are listed and we have no offer', function () {
+            // Sem oferta nossa não há o que reprecificar: é ausência, não monopólio.
+            // requireOurOffer: false é como o AutoSellUseCase consulta o mercado.
+            $offers = [
+                offer(1, 'Buy-n-Play', 1.00),
+                offer(2, 'Playtime', 1.50),
+            ];
+
+            $result = ComparisonAlgorithm::calculate(
+                $offers,
+                'CarcaDeals',
+                $this->fee,
+                requireOurOffer: false,
+            );
+
+            expect($result->shouldUpdate)->toBeFalse()
+                ->and($result->reason)->toBe(ComparisonResult::REASON_NO_COMPETITORS)
+                ->and($result->offerId)->toBe(0);
+        });
+
+        it('competes against an ignored seller listed above us instead of going soleSeller', function () {
+            // Regra direcional (ver handleWeAreLowest): com o vendedor ignorado ACIMA,
+            // mirar no preço dele é SUBIR, e o max_api limita até onde — então competimos.
+            // O espelho deste caso (ignorado abaixo) é o teste de soleSeller acima.
+            $offers = [
+                offer(1, 'CarcaDeals', 10.00),
+                offer(2, 'Estateium', 45.00),
+            ];
+
+            $result = ComparisonAlgorithm::calculate($offers, 'CarcaDeals', $this->fee);
+
+            expect($result->shouldUpdate)->toBeTrue()
+                ->and($result->reason)->toBe(ComparisonResult::REASON_UPDATE_PRICE)
+                ->and($result->targetRetail)->toEqualWithDelta(44.986, 0.001);
+        });
+
+        it('preserves the wholesale mode on soleSeller so the payload keeps the tiers', function () {
+            $offers = [offer(7, 'CarcaDeals', 3.00, wholesaleMode: 2)];
+
+            $result = ComparisonAlgorithm::calculate($offers, 'CarcaDeals', $this->fee);
+
+            expect($result->reason)->toBe(ComparisonResult::REASON_SOLE_SELLER)
+                ->and($result->wholesaleMode)->toBe(2);
         });
     });
 

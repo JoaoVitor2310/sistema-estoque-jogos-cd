@@ -45,6 +45,17 @@ Entidades usadas apenas em cálculo, sem vínculo de tabela com a Key:
 
 Ver [AUTOMATIONS.md](AUTOMATIONS.md) para os critérios exatos de quando uma key sai de "Comprada" para "Listada", e [docs/adr/0002](../adr/0002-fifo-grouping-by-marketplace-product.md) para por que keys do mesmo produto entram juntas numa única oferta.
 
+## Limites de preço vs. preço anunciado
+
+| O que você vê | O que é |
+|---|---|
+| Min. API / Max. API na tela de Keys | **Limites** dentro dos quais a reprecificação pode mover o preço — nunca o preço anunciado |
+| Preço anunciado na Gamivo | Não existe no sistema: só no painel do marketplace |
+
+Com concorrente, o preço fica logo abaixo do alvo, respeitando os dois limites. **Sem concorrente utilizável**, o teto deixa de valer e o preço passa a ser `market_price × 1,10` da key governante — por isso é normal ver uma key anunciada a €10 com Max. API de €24.
+
+Isso **não** é clamp quebrado: o `max_api` é folga para valorização e só é seguro enquanto existe um concorrente freando o preço. Ele fica intacto no banco e volta a valer sozinho assim que aparece concorrente. Regra e números em [AUTOMATIONS.md](AUTOMATIONS.md#reprecificação-competitiva-updateoffersusecase); decisão de não persistir em [docs/adr/0010](../adr/0010-sole-seller-ceiling-computed-not-persisted.md).
+
 ## Bundle vs. Choice
 
 | Tipo | Como é identificado | Comportamento comercial |

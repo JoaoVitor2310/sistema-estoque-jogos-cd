@@ -24,7 +24,7 @@ Ordenado do mais frequente ao mais raro. Fuso `America/Sao_Paulo`, exceto onde i
 
 ## `min_api` — o piso de preço de cada key
 
-Recalculado para toda key não vendida (listada ou não) todo dia às 07:30, pela `MinimumMarginPolicy`. É a **fonte única** do piso.
+Recalculado para toda key não vendida (listada ou não) todo dia às 07:30, pela `MinimumMarginPolicy`. É a **fonte única** do piso. O usuário pode editar o `min_api` na tela de Keys, mas a edição é **transitória**: sobrevive só até a próxima passada das 07:30. Para um piso que permaneça, o caminho é a política, não a edição.
 
 Fórmula geral: **`min_api = custo individual × (1 + margem)`**
 
@@ -85,9 +85,9 @@ Uma key só entra na rodada se passar em **todos**:
 | # | Etapa | Detalhe |
 |---|---|---|
 | 1 | Consulta o mercado | `ComparisonAlgorithm` com `detectDumpers: false` — uma consulta por produto |
-| 2 | Filtra key a key | Entra quem tem o mercado cobrindo o **próprio** `min_api`. Sem concorrente no mercado → entra pelo teto (`max_api`) |
+| 2 | Filtra key a key | Entra quem tem o mercado cobrindo o **próprio** `min_api`. Sem concorrente utilizável → entra por `market_price × 1,10`, nunca abaixo do `min_api` nem acima do `max_api` |
 | 3 | Elege a governante | A mais antiga (**menor `id`**) **entre as aprovadas** — ela define o `seller_price` único da oferta |
-| 4 | Cria/reativa a oferta | Preço da governante, com clamp entre o `min_api` e o `max_api` dela |
+| 4 | Cria/reativa a oferta | Preço da governante, com clamp entre o `min_api` e o `max_api` dela (ou o teto de mercado, se não há concorrente) |
 | 5 | Sobe as keys em lote | Um único `uploadKeys`, em ordem de `id` ASC (a Gamivo vende FIFO — a primeira enviada vende primeiro) |
 | 6 | Confirma o que subiu | Marca `listed_at` **só nas keys confirmadas** na oferta |
 | 7 | Trava keys velhas | Key comprada há ≥ 8 meses tem o `max_api` travado no preço de listagem |
@@ -104,12 +104,14 @@ Passo de preço: **€0,014** (`ComparisonAlgorithm::PRICE_STEP`) — sempre ent
 |---|---|
 | Somos os mais baratos, existe um 2º colocado | preço do 2º − €0,014 |
 | Não somos os mais baratos | menor preço concorrente − €0,014 |
-| Somos os mais baratos e não há concorrente | sem ação |
+| Somos os mais baratos e não há concorrente utilizável | `market_price × 1,10` da governante, limitado pelo `max_api` dela (só envia o `PUT` se o preço divergir) |
 | **Price dumper detectado** — menor preço está anomalamente abaixo do 2º | ignora o dumper, mira no 2º colocado − €0,014 |
 | Price dumper detectado **e já somos o 2º** | sem ação — já estamos na melhor posição possível |
 | **1º é bot conhecido, somos o 2º**, diferença p/ ele ≤ 10% e o 3º está ≥ 10% acima | preço do 3º − €0,014 (evita guerra de preço com o bot) |
 
-O preço final sempre passa por clamp entre `min_api` e `max_api` antes de ir para a API.
+O preço final sempre passa por clamp entre `min_api` e `max_api` antes de ir para a API — e o piso vence o teto quando os dois se cruzam.
+
+**Sem concorrente utilizável** o `max_api` deixa de valer como teto: ele é folga para valorização e só é seguro enquanto há um concorrente freando o preço. Sozinhos no produto, essa folga viraria o preço praticado (custo €1 + mercado €20 dão `max_api` = €160), então a âncora passa a ser o `market_price` da governante. Vale também quando há gente listada mas todos caem em `SELLERS_TO_IGNORE` **e estão abaixo de nós** — segui-los seria descer até o preço irreal deles. Ignorado **acima** de nós continua sendo alvo: mirar nele é subir, e o `max_api` limita até onde. Detalhe e números em [`docs/GAMIVO.md`](../GAMIVO.md#sem-concorrente-utilizável-vendedor-único).
 
 ### Detecção de price dumper
 

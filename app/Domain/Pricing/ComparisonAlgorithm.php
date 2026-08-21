@@ -62,7 +62,7 @@ final class ComparisonAlgorithm
         bool $requireOurOffer = true,
     ): ComparisonResult {
         if (empty($offers)) {
-            return ComparisonResult::noAction('no_competitors');
+            return ComparisonResult::noAction(ComparisonResult::REASON_NO_COMPETITORS);
         }
 
         // Localizar nossa oferta para obter offerId e wholesaleMode (pode ser null se não listada)
@@ -75,7 +75,7 @@ final class ComparisonAlgorithm
         }
 
         if ($requireOurOffer && $ourOffer === null) {
-            return ComparisonResult::noAction('no_competitors');
+            return ComparisonResult::noAction(ComparisonResult::REASON_NO_COMPETITORS);
         }
 
         $isLowest = $offers[0]->sellerName === $sellerName;
@@ -90,6 +90,12 @@ final class ComparisonAlgorithm
     /**
      * Já somos o mais barato — subir preço para logo abaixo do 2º colocado.
      *
+     * SELLERS_TO_IGNORE **não** é filtrado aqui, ao contrário de handleWeAreNotLowest.
+     * A regra é direcional de propósito: com eles acima de nós, mirar no preço deles é
+     * subir, e o max_api limita até onde. Com eles abaixo, segui-los seria descer para
+     * o preço irreal que os põe na lista de ignorados — é essa descida que não fazemos.
+     * Não trocar isso por simetria sem reler docs/GAMIVO.md.
+     *
      * @param  OfferData[]  $offers
      */
     private static function handleWeAreLowest(
@@ -97,8 +103,10 @@ final class ComparisonAlgorithm
         OfferData $ourOffer,
         MarketplaceFee $fee,
     ): ComparisonResult {
+        // Nossa oferta é a única do produto: não há 2º colocado para mirar, mas há
+        // uma oferta nossa para reprecificar pelo mercado pesquisado.
         if (count($offers) < 2) {
-            return ComparisonResult::noAction('no_competitors');
+            return ComparisonResult::soleSeller($ourOffer->id, $ourOffer->wholesaleMode);
         }
 
         $targetRetail = $offers[1]->retailPrice - self::PRICE_STEP;
@@ -152,8 +160,14 @@ final class ComparisonAlgorithm
             ));
         }
 
+        // Sobraram só sellers filtrados (dumpers/bots): não há âncora utilizável, mesmo
+        // havendo gente listada. Como eles estão ABAIXO de nós, segui-los seria descer
+        // até o preço irreal deles — não descemos. Se temos oferta, é caso de precificar
+        // pelo mercado pesquisado; se não temos, não há o que reprecificar.
         if (empty($competitors)) {
-            return ComparisonResult::noAction('no_competitors');
+            return $ourOffer !== null
+                ? ComparisonResult::soleSeller($ourOffer->id, $ourOffer->wholesaleMode)
+                : ComparisonResult::noAction(ComparisonResult::REASON_NO_COMPETITORS);
         }
 
         // Array já vem ordenado ASC — [0] é o menor preço entre os concorrentes filtrados
@@ -169,7 +183,7 @@ final class ComparisonAlgorithm
             if ($diff >= $threshold) {
                 // Já somos o 2º no ranking original → já estamos na melhor posição possível
                 if ($offers[1]->sellerName === $sellerName) {
-                    return ComparisonResult::noAction('already_best');
+                    return ComparisonResult::noAction(ComparisonResult::REASON_ALREADY_BEST);
                 }
 
                 // Ignorar price dumper e mirar no 2º colocado do ranking original
