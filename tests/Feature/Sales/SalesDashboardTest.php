@@ -9,12 +9,12 @@
 | método do SalesDashboardService:
 |
 |   - Segurança: rota protegida por RequireTeam
-|   - getMonthlySales  — contagem, receita, lucro, margem por mês/ano; month=0
+|   - getMonthlySales  — contagem, receita, lucro, margem ponderada; month=0
 |   - getMonthlyPurchases — contagem e total investido; month=0
 |   - getTf2Spent — desduplicação por (total_paid, acquired_at)
 |   - getStockSummary — snapshot sem filtro de data; listadas/expiração
 |   - getSoldGames — ordenação por lucro desc; campos corretos
-|   - getMonthlyTrend — últimos 12 meses; independente do filtro
+|   - getMonthlyTrend — últimos 12 meses, com margem por mês; independente do filtro
 |
 */
 
@@ -138,7 +138,44 @@ describe('SalesDashboardService::getMonthlySales', function () {
         expect($result['monthly_sales']['count'])->toBe(2);
         expect($result['monthly_sales']['gross_revenue'])->toBe(30.00);
         expect($result['monthly_sales']['net_profit'])->toBe(12.00);
-        expect($result['monthly_sales']['avg_margin'])->toBe(40.0);
+        // custo 6 + 6 = 12; lucro 12 / custo 12 = 100%
+        expect($result['monthly_sales']['total_cost'])->toBe(12.00);
+        expect($result['monthly_sales']['margin_percent'])->toBe(100.0);
+    });
+
+    it('weights the margin by cost instead of averaging per-key percentages', function () {
+        $sid = seedSupplier();
+        // Key barata: custo 0.06 → 500% de margem individual
+        soldKey(['supplier_id' => $sid, 'sold_at' => Carbon::create(2025, 6, 10), 'sold_price' => 0.36, 'individual_cost' => 0.06, 'sale_profit' => 0.30, 'sale_profit_percent' => 500.0]);
+        // Key cara: custo 20.00 → 10% de margem individual
+        soldKey(['supplier_id' => $sid, 'sold_at' => Carbon::create(2025, 6, 20), 'sold_price' => 22.00, 'individual_cost' => 20.00, 'sale_profit' => 2.00, 'sale_profit_percent' => 10.0]);
+
+        $result = app(SalesDashboardService::class)->getDashboard(2025, 6);
+
+        // Média simples das margens seria 255%; a ponderada é 2.30 / 20.06 = 11.5%
+        expect($result['monthly_sales']['margin_percent'])->toBe(11.5);
+    });
+
+    it('ignores the per-key cost floor: a zero-cost sale does not blow up the margin', function () {
+        $sid = seedSupplier();
+        // Key com custo zero carrega sale_profit_percent astronômico (piso de 0.01),
+        // mas no agregado ela pesa só o próprio custo.
+        soldKey(['supplier_id' => $sid, 'sold_at' => Carbon::create(2025, 6, 10), 'sold_price' => 0.36, 'individual_cost' => 0.0, 'sale_profit' => 0.36, 'sale_profit_percent' => 3600.0]);
+        soldKey(['supplier_id' => $sid, 'sold_at' => Carbon::create(2025, 6, 20), 'sold_price' => 22.00, 'individual_cost' => 20.00, 'sale_profit' => 2.00, 'sale_profit_percent' => 10.0]);
+
+        $result = app(SalesDashboardService::class)->getDashboard(2025, 6);
+
+        // 2.36 / 20.00 = 11.8%
+        expect($result['monthly_sales']['margin_percent'])->toBe(11.8);
+    });
+
+    it('returns a negative margin when the period closed at a loss', function () {
+        $sid = seedSupplier();
+        soldKey(['supplier_id' => $sid, 'sold_at' => Carbon::create(2025, 6, 10), 'sold_price' => 5.00, 'individual_cost' => 10.00, 'sale_profit' => -5.00, 'sale_profit_percent' => -50.0]);
+
+        $result = app(SalesDashboardService::class)->getDashboard(2025, 6);
+
+        expect($result['monthly_sales']['margin_percent'])->toBe(-50.0);
     });
 
     it('returns zeros when there are no sales in the month', function () {
@@ -147,6 +184,7 @@ describe('SalesDashboardService::getMonthlySales', function () {
         expect($result['monthly_sales']['count'])->toBe(0);
         expect($result['monthly_sales']['gross_revenue'])->toBe(0.0);
         expect($result['monthly_sales']['net_profit'])->toBe(0.0);
+        expect($result['monthly_sales']['margin_percent'])->toBe(0.0);
     });
 
     it('aggregates all months when month is 0', function () {
@@ -315,9 +353,10 @@ describe('SalesDashboardService::getSoldGames', function () {
         $result = app(SalesDashboardService::class)->getDashboard(2025, 6);
 
         expect($result['sold_games'])->toHaveCount(1);
-        expect($result['sold_games'][0])->toHaveKeys(['game_name', 'region', 'sold_price', 'sale_profit', 'sale_profit_percent', 'sold_at']);
+        expect($result['sold_games'][0])->toHaveKeys(['game_name', 'region', 'individual_cost', 'sold_price', 'sale_profit', 'sale_profit_percent', 'sold_at']);
         expect($result['sold_games'][0]['game_name'])->toBe('Test Game');
         expect($result['sold_games'][0]['region'])->toBe('EU');
+        expect($result['sold_games'][0]['individual_cost'])->toBe(6.00);
         expect($result['sold_games'][0]['sold_price'])->toBe(10.00);
     });
 
@@ -350,7 +389,7 @@ describe('SalesDashboardService::getMonthlyTrend', function () {
         $result = app(SalesDashboardService::class)->getDashboard(2025, 6);
 
         expect($result['trend'])->not->toBeEmpty();
-        expect($result['trend'][0])->toHaveKeys(['month', 'count', 'gross_revenue', 'net_profit']);
+        expect($result['trend'][0])->toHaveKeys(['month', 'count', 'gross_revenue', 'net_profit', 'margin_percent']);
     });
 
     it('aggregates multiple sales in the same month', function () {
@@ -367,6 +406,8 @@ describe('SalesDashboardService::getMonthlyTrend', function () {
         expect($entry['count'])->toBe(2);
         expect($entry['gross_revenue'])->toBe(30.00);
         expect($entry['net_profit'])->toBe(12.00);
+        // lucro 12 / custo (6 + 6) = 100%
+        expect($entry['margin_percent'])->toBe(100.0);
     });
 
     it('excludes sales older than 12 months', function () {

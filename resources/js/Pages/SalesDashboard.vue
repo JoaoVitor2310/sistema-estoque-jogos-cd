@@ -8,7 +8,8 @@ interface MonthlySales {
   count: number;
   gross_revenue: number;
   net_profit: number;
-  avg_margin: number;
+  total_cost: number;
+  margin_percent: number;
 }
 
 interface MonthlyPurchases {
@@ -29,6 +30,7 @@ interface SoldGame {
   game_name: string;
   region: string | null;
   key_code: string;
+  individual_cost: number;
   sold_price: number;
   sale_profit: number;
   sale_profit_percent: number;
@@ -40,6 +42,7 @@ interface TrendEntry {
   count: number;
   gross_revenue: number;
   net_profit: number;
+  margin_percent: number;
 }
 
 interface DashboardData {
@@ -106,6 +109,16 @@ const chartData = computed(() => ({
       borderColor: 'rgba(34, 197, 94, 1)',
       borderWidth: 1,
     },
+    {
+      type: 'line' as const,
+      label: 'Margem (%)',
+      data: props.data.trend.map(t => t.margin_percent),
+      backgroundColor: 'rgba(234, 88, 12, 1)',
+      borderColor: 'rgba(234, 88, 12, 1)',
+      borderWidth: 2,
+      pointRadius: 3,
+      yAxisID: 'y1',
+    },
   ],
 }));
 
@@ -116,7 +129,14 @@ const chartOptions = {
     legend: { position: 'top' as const },
   },
   scales: {
-    y: { beginAtZero: true },
+    y: { beginAtZero: true, title: { display: true, text: '€' } },
+    y1: {
+      position: 'right' as const,
+      beginAtZero: true,
+      grid: { drawOnChartArea: false },
+      title: { display: true, text: '%' },
+      ticks: { callback: (v: number | string) => v + '%' },
+    },
   },
 };
 
@@ -137,6 +157,7 @@ const sortedSoldGames = computed(() => {
   return [...props.data.sold_games].sort((a, b) => {
     const dir = sortDir.value === 'asc' ? 1 : -1;
     switch (sortField.value) {
+      case 'individual_cost': return (a.individual_cost - b.individual_cost) * dir;
       case 'sold_price':      return (a.sold_price - b.sold_price) * dir;
       case 'sale_profit':     return (a.sale_profit - b.sale_profit) * dir;
       case 'sale_profit_percent': return (a.sale_profit_percent - b.sale_profit_percent) * dir;
@@ -177,14 +198,58 @@ function sortIcon(field: string): string {
     </div>
 
     <!-- KPIs do mês -->
-    <h6 class="text-muted mb-2 text-uppercase fw-semibold">{{ monthLabel }}</h6>
+    <h6 class="text-muted mb-3 text-uppercase fw-semibold">{{ monthLabel }}</h6>
+
+    <!-- 1. Compras: o que entrou no estoque no período -->
+    <div class="text-secondary small text-uppercase fw-semibold mb-2">Compras</div>
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-md-4">
+        <div class="card h-100 border-0 shadow-sm">
+          <div class="card-body">
+            <div class="text-muted small mb-1">Keys compradas</div>
+            <div class="fs-4 fw-bold">{{ data.monthly_purchases.count }}</div>
+            <div class="card-hint">
+              com data de compra no período
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-4">
+        <div class="card h-100 border-0 shadow-sm">
+          <div class="card-body">
+            <div class="text-muted small mb-1">Investido em compras</div>
+            <div class="fs-4 fw-bold">{{ formatEur(data.monthly_purchases.total_invested) }}</div>
+            <div class="card-hint">
+              custo das compradas — não é a base da margem
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-4">
+        <div class="card h-100 border-0 shadow-sm">
+          <div class="card-body">
+            <div class="text-muted small mb-1">
+              TF2 keys gastas <small class="text-muted">(trades únicas)</small>
+            </div>
+            <div class="fs-4 fw-bold">{{ data.tf2_spent.toFixed(2) }}</div>
+            <div class="card-hint">
+              soma por trade, sem contar a mesma duas vezes
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. Vendas: o que saiu do estoque no período — coorte distinta das compras -->
+    <div class="text-secondary small text-uppercase fw-semibold mb-2">Vendas</div>
     <div class="row g-3 mb-4">
       <div class="col-6 col-md-3">
         <div class="card h-100 border-0 shadow-sm">
           <div class="card-body">
-            <div class="text-muted small mb-1">Lucro líquido</div>
-            <div class="fs-4 fw-bold" :class="profitClass(data.monthly_sales.net_profit)">
-              {{ formatEur(data.monthly_sales.net_profit) }}
+            <div class="text-muted small mb-1">Keys vendidas</div>
+            <div class="fs-4 fw-bold">{{ data.monthly_sales.count }}</div>
+            <div class="card-hint">
+              com data de venda no período
             </div>
           </div>
         </div>
@@ -194,23 +259,8 @@ function sortIcon(field: string): string {
           <div class="card-body">
             <div class="text-muted small mb-1">Receita bruta</div>
             <div class="fs-4 fw-bold">{{ formatEur(data.monthly_sales.gross_revenue) }}</div>
-          </div>
-        </div>
-      </div>
-      <div class="col-6 col-md-3">
-        <div class="card h-100 border-0 shadow-sm">
-          <div class="card-body">
-            <div class="text-muted small mb-1">Keys vendidas</div>
-            <div class="fs-4 fw-bold">{{ data.monthly_sales.count }}</div>
-          </div>
-        </div>
-      </div>
-      <div class="col-6 col-md-3">
-        <div class="card h-100 border-0 shadow-sm">
-          <div class="card-body">
-            <div class="text-muted small mb-1">Margem média</div>
-            <div class="fs-4 fw-bold" :class="profitClass(data.monthly_sales.avg_margin)">
-              {{ data.monthly_sales.avg_margin }}%
+            <div class="card-hint">
+              soma do preço de venda, antes do custo
             </div>
           </div>
         </div>
@@ -218,26 +268,26 @@ function sortIcon(field: string): string {
       <div class="col-6 col-md-3">
         <div class="card h-100 border-0 shadow-sm">
           <div class="card-body">
-            <div class="text-muted small mb-1">Keys compradas</div>
-            <div class="fs-4 fw-bold">{{ data.monthly_purchases.count }}</div>
-          </div>
-        </div>
-      </div>
-      <div class="col-6 col-md-3">
-        <div class="card h-100 border-0 shadow-sm">
-          <div class="card-body">
-            <div class="text-muted small mb-1">Investido em compras</div>
-            <div class="fs-4 fw-bold">{{ formatEur(data.monthly_purchases.total_invested) }}</div>
-          </div>
-        </div>
-      </div>
-      <div class="col-6 col-md-3">
-        <div class="card h-100 border-0 shadow-sm">
-          <div class="card-body">
-            <div class="text-muted small mb-1">
-              TF2 keys gastas <small class="text-muted">(trades únicas)</small>
+            <div class="text-muted small mb-1">Lucro líquido</div>
+            <div class="fs-4 fw-bold" :class="profitClass(data.monthly_sales.net_profit)">
+              {{ formatEur(data.monthly_sales.net_profit) }}
             </div>
-            <div class="fs-4 fw-bold">{{ data.tf2_spent.toFixed(2) }}</div>
+            <div class="card-hint">
+              venda − custo das {{ data.monthly_sales.count }} keys vendidas
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card h-100 border-0 shadow-sm">
+          <div class="card-body">
+            <div class="text-muted small mb-1">Margem do período</div>
+            <div class="fs-4 fw-bold" :class="profitClass(data.monthly_sales.margin_percent)">
+              {{ data.monthly_sales.margin_percent }}%
+            </div>
+            <div class="card-hint">
+              lucro ÷ {{ formatEur(data.monthly_sales.total_cost) }} de custo das vendidas
+            </div>
           </div>
         </div>
       </div>
@@ -306,6 +356,9 @@ function sortIcon(field: string): string {
               <th>Jogo</th>
               <th>Região</th>
               <th>Key</th>
+              <th class="text-end sort-th" @click="sortBy('individual_cost')">
+                Custo <i :class="sortIcon('individual_cost')" class="sort-icon" />
+              </th>
               <th class="text-end sort-th" @click="sortBy('sold_price')">
                 Preço vendido <i :class="sortIcon('sold_price')" class="sort-icon" />
               </th>
@@ -323,17 +376,19 @@ function sortIcon(field: string): string {
           <tbody>
             <tr class="table-light fw-semibold">
               <td colspan="3">Total</td>
+              <td class="text-end">{{ formatEur(data.monthly_sales.total_cost) }}</td>
               <td class="text-end">{{ formatEur(data.monthly_sales.gross_revenue) }}</td>
               <td class="text-end" :class="profitClass(data.monthly_sales.net_profit)">
                 {{ formatEur(data.monthly_sales.net_profit) }}
               </td>
-              <td class="text-end">{{ data.monthly_sales.avg_margin }}%</td>
+              <td class="text-end">{{ data.monthly_sales.margin_percent }}%</td>
               <td></td>
             </tr>
             <tr v-for="(game, i) in sortedSoldGames" :key="i">
               <td>{{ game.game_name }}</td>
               <td>{{ game.region ?? '—' }}</td>
               <td class="font-monospace small">{{ game.key_code ?? '—' }}</td>
+              <td class="text-end text-muted">{{ formatEur(game.individual_cost) }}</td>
               <td class="text-end">{{ formatEur(game.sold_price) }}</td>
               <td class="text-end fw-semibold" :class="profitClass(game.sale_profit)">
                 {{ formatEur(game.sale_profit) }}
@@ -352,6 +407,12 @@ function sortIcon(field: string): string {
 </template>
 
 <style scoped>
+.card-hint {
+  font-size: 0.7rem;
+  color: var(--bs-secondary-color);
+  line-height: 1.2;
+}
+
 .sort-th {
   cursor: pointer;
   user-select: none;

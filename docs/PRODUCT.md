@@ -123,15 +123,32 @@ Aba de análise financeira do negócio, acessível em `/sales`. Permite filtrar 
 
 ### Cards de KPI (período filtrado)
 
+Agrupados em duas faixas na ordem cronológica do fato — primeiro **Compras** (o que entrou no estoque), depois **Vendas** (o que saiu). O agrupamento é a defesa visual contra ler as duas faixas como se fossem o mesmo conjunto de keys.
+
+**Compras** — coorte `acquired_at`:
+
 | Métrica | Origem |
 |---|---|
-| Lucro líquido | `SUM(sale_profit)` das keys com `sold_at` no mês |
-| Receita bruta | `SUM(sold_price)` das keys vendidas no mês |
-| Keys vendidas | `COUNT(*)` where `sold_at` no mês |
-| Margem média | `AVG(sale_profit_percent)` das vendidas no mês |
 | Keys compradas | `COUNT(*)` where `acquired_at` no mês |
 | Investido em compras | `SUM(individual_cost)` where `acquired_at` no mês |
 | TF2 keys gastas | Soma de `tf2_quantity` agrupada por pares únicos `(total_paid, acquired_at)` para não contar a mesma trade múltiplas vezes |
+
+**Vendas** — coorte `sold_at`:
+
+| Métrica | Origem |
+|---|---|
+| Keys vendidas | `COUNT(*)` where `sold_at` no mês |
+| Receita bruta | `SUM(sold_price)` das keys vendidas no mês |
+| Lucro líquido | `SUM(sale_profit)` das keys com `sold_at` no mês |
+| Margem do período | `SUM(sale_profit) / SUM(individual_cost) × 100` das vendidas no mês — margem ponderada pelo custo (`ProfitCalculator::weightedMarginPercent`) |
+
+Cada card carrega uma legenda curta abaixo do número dizendo de onde ele vem (ex: `lucro ÷ € 270,94 de custo das vendidas`). A legenda de "Investido em compras" nega explicitamente a associação errada — *"não é a base da margem"* —, porque a semelhança entre os dois valores é o mal-entendido recorrente desta tela.
+
+O denominador da margem é o custo das keys **vendidas** no período (`sold_at`), que é um conjunto diferente do card "Investido em compras" (custo das keys **compradas** no período, `acquired_at`). Os dois números não batem, e não devem: uma key comprada em março e vendida em junho entra só no primeiro; uma comprada em junho e ainda em estoque, só no segundo. Numerador e denominador da margem têm que sair da mesma coorte, senão o percentual não descreve nada.
+
+Por que a margem é ponderada e não a média das margens individuais: cada key pesa proporcionalmente ao capital que consumiu. Na média simples, uma key de €0,06 vendida a €0,36 (500%) pesava igual a uma de €20 vendida a €22 (10%) e sozinha levava o indicador a 255%, quando o negócio de fato fechou o período em 11,5%. Como consequência, a margem exibida é sempre consistente com o card de lucro líquido e o custo mostrado no próprio card — é a mesma divisão.
+
+Keys vendidas com `individual_cost` zerado (lote sem TF2, key nunca calculada) carregam um `sale_profit_percent` astronômico por causa do piso de €0,01 do cálculo por key; no agregado elas pesam apenas o próprio custo e não distorcem o indicador.
 
 ### Estoque atual (snapshot sem filtro de data)
 
@@ -146,13 +163,14 @@ Aba de análise financeira do negócio, acessível em `/sales`. Permite filtrar 
 
 ### Gráfico — Evolução dos últimos 12 meses
 
-Barras agrupadas por mês de `sold_at`:
+Barras agrupadas por mês de `sold_at`, com a margem como linha em eixo próprio (%):
 - **Receita** — `SUM(sold_price)` por mês
 - **Lucro** — `SUM(sale_profit)` por mês
+- **Margem** — `SUM(sale_profit) / SUM(individual_cost) × 100` por mês
 
 ### Tabela de jogos vendidos
 
-Lista todas as keys vendidas no período (ordenadas por maior lucro), com totais na primeira linha. O total de receita e lucro deve bater com os cards de KPI.
+Lista todas as keys vendidas no período (ordenadas por maior lucro), com totais na primeira linha. Colunas: jogo, região, key, **custo** (`individual_cost`), preço vendido, lucro, margem e data — nessa ordem, para que a conta de cada linha (custo → venda → lucro → margem) seja lida da esquerda para a direita. O total de custo, receita e lucro deve bater com os cards de KPI. A coluna **Margem** de cada linha é a margem individual da key (`sale_profit_percent`); o valor na linha de total é a margem ponderada do período, não a média das linhas abaixo.
 
 ## Fechamento mensal
 

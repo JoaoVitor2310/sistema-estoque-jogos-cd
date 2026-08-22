@@ -129,4 +129,38 @@ describe('ProfitCalculator', function () {
             expect(ProfitCalculator::saleProfitPercent(-2.50, 1.50))->toEqualWithDelta(-166.67, 0.01);
         });
     });
+
+    // ── weightedMarginPercent ─────────────────────────────────────────────────
+
+    describe('weightedMarginPercent()', function () {
+        it('is total profit over total cost', function () {
+            // (2.30 / 20.06) × 100 = 11.465 → 11.47
+            expect(ProfitCalculator::weightedMarginPercent(2.30, 20.06))->toEqualWithDelta(11.47, 0.01);
+        });
+
+        it('weights each sale by its cost instead of averaging percentages', function () {
+            // Key barata: custo 0.06, lucro 0.30 → 500% de margem individual
+            // Key cara:   custo 20.00, lucro 2.00 → 10% de margem individual
+            // Média simples seria 255%; a ponderada reflete o capital real.
+            $weighted = ProfitCalculator::weightedMarginPercent(0.30 + 2.00, 0.06 + 20.00);
+
+            expect($weighted)->toEqualWithDelta(11.47, 0.01);
+            expect($weighted)->toBeLessThan(255.0);
+        });
+
+        it('returns 0.0 when there is no cost in the period', function () {
+            expect(ProfitCalculator::weightedMarginPercent(0.0, 0.0))->toBe(0.0);
+        });
+
+        it('returns 0.0 instead of an astronomic percentage when cost is zero but profit is not', function () {
+            // Sem piso de 0.01 aqui: no agregado o piso produziria justamente
+            // o número distorcido que a ponderação existe para evitar.
+            expect(ProfitCalculator::weightedMarginPercent(3.40, 0.0))->toBe(0.0);
+        });
+
+        it('is negative when the period closed at a loss', function () {
+            // (-5.00 / 20.00) × 100 = -25%
+            expect(ProfitCalculator::weightedMarginPercent(-5.00, 20.00))->toEqualWithDelta(-25.0, 0.01);
+        });
+    });
 });
