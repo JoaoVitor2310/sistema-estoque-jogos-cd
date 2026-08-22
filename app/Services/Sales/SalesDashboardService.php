@@ -3,6 +3,7 @@
 namespace App\Services\Sales;
 
 use App\Domain\Keys\KeyEligibility;
+use App\Domain\Pricing\ProfitCalculator;
 use App\Models\Key;
 use Illuminate\Support\Carbon;
 
@@ -32,15 +33,19 @@ class SalesDashboardService
                 COUNT(*) as count,
                 COALESCE(SUM(sold_price), 0) as gross_revenue,
                 COALESCE(SUM(sale_profit), 0) as net_profit,
-                COALESCE(AVG(sale_profit_percent), 0) as avg_margin
+                COALESCE(SUM(individual_cost), 0) as total_cost
             ')
             ->first();
+
+        $netProfit = round((float) $result->net_profit, 2);
+        $totalCost = round((float) $result->total_cost, 2);
 
         return [
             'count' => (int) $result->count,
             'gross_revenue' => round((float) $result->gross_revenue, 2),
-            'net_profit' => round((float) $result->net_profit, 2),
-            'avg_margin' => round((float) $result->avg_margin, 1),
+            'net_profit' => $netProfit,
+            'total_cost' => $totalCost,
+            'margin_percent' => round(ProfitCalculator::weightedMarginPercent($netProfit, $totalCost), 1),
         ];
     }
 
@@ -108,13 +113,14 @@ class SalesDashboardService
         return Key::whereNotNull('sold_at')
             ->whereYear('sold_at', $year)
             ->when($month > 0, fn ($q) => $q->whereMonth('sold_at', $month))
-            ->select('game_name', 'region', 'key_code', 'sold_price', 'sale_profit', 'sale_profit_percent', 'sold_at')
+            ->select('game_name', 'region', 'key_code', 'individual_cost', 'sold_price', 'sale_profit', 'sale_profit_percent', 'sold_at')
             ->orderByDesc('sale_profit')
             ->get()
             ->map(fn ($k) => [
                 'game_name' => $k->game_name,
                 'region' => $k->region,
                 'key_code' => $k->key_code,
+                'individual_cost' => round((float) $k->individual_cost, 2),
                 'sold_price' => round((float) $k->sold_price, 2),
                 'sale_profit' => round((float) $k->sale_profit, 2),
                 'sale_profit_percent' => round((float) $k->sale_profit_percent, 1),
@@ -129,17 +135,23 @@ class SalesDashboardService
         // Agrupamento feito no PHP com Carbon::format para evitar TO_CHAR (PostgreSQL-only).
         $rows = Key::whereNotNull('sold_at')
             ->where('sold_at', '>=', Carbon::now()->subMonths(11)->startOfMonth())
-            ->select('sold_at', 'sold_price', 'sale_profit')
+            ->select('sold_at', 'sold_price', 'sale_profit', 'individual_cost')
             ->get();
 
         return $rows
             ->groupBy(fn ($k) => Carbon::parse($k->sold_at)->format('Y-m'))
-            ->map(fn ($group, $month) => [
-                'month' => $month,
-                'count' => $group->count(),
-                'gross_revenue' => round((float) $group->sum('sold_price'), 2),
-                'net_profit' => round((float) $group->sum('sale_profit'), 2),
-            ])
+            ->map(function ($group, $month) {
+                $netProfit = round((float) $group->sum('sale_profit'), 2);
+                $totalCost = round((float) $group->sum('individual_cost'), 2);
+
+                return [
+                    'month' => $month,
+                    'count' => $group->count(),
+                    'gross_revenue' => round((float) $group->sum('sold_price'), 2),
+                    'net_profit' => $netProfit,
+                    'margin_percent' => round(ProfitCalculator::weightedMarginPercent($netProfit, $totalCost), 1),
+                ];
+            })
             ->sortKeys()
             ->values()
             ->toArray();

@@ -39,6 +39,10 @@ _Avoid_: key expirada (já passou do prazo — conceito distinto, não coberto h
 Uma key cujo código é uma URL de resgate, não um código de ativação direto — nunca elegível para listagem automática.
 _Avoid_: key de link.
 
+**Margem ponderada**:
+A margem de um conjunto de vendas calculada como Σ lucro ÷ Σ custo — matematicamente, a média das margens individuais em que cada key pesa proporcionalmente ao custo que consumiu. É o indicador do período na aba Financeiro. Diferente da margem de uma key isolada (`sale_profit_percent`), que é sempre sobre o custo daquela key só. Uma média simples dessas margens não descreve o negócio: uma key de €0,06 com 500% pesaria igual a uma de €20 com 10%.
+_Avoid_: margem média (sugere média simples, que é justamente o que ela não é), margem sobre receita (aqui é sempre sobre custo — 100% significa dobrar o dinheiro).
+
 ### Bundles
 
 **Bundle**:

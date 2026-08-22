@@ -111,4 +111,26 @@ final class ProfitCalculator
 
         return round(($saleProfit / $cost) * 100, 2);
     }
+
+    /**
+     * Margem consolidada de um conjunto de vendas: (Σ lucro / Σ custo) × 100.
+     *
+     * Equivale à média das margens individuais ponderada pelo custo de cada key —
+     * cada venda pesa proporcionalmente ao capital que consumiu. Difere da média
+     * simples das margens, onde uma key de €0,01 pesa igual a uma de €20 e uma
+     * única venda barata com lucro percentual altíssimo distorce o indicador.
+     *
+     * Retorna 0.0 quando o custo total é zero (período sem vendas, ou vendas
+     * cujo custo individual nunca foi calculado) — aqui o piso de MINIMUM_COST
+     * não se aplica: num agregado ele produziria justamente o percentual
+     * astronômico que a ponderação existe para evitar.
+     */
+    public static function weightedMarginPercent(float $totalSaleProfit, float $totalCost): float
+    {
+        if ($totalCost <= 0.0) {
+            return 0.0;
+        }
+
+        return round(($totalSaleProfit / $totalCost) * 100, 2);
+    }
 }
