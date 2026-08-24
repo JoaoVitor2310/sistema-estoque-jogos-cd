@@ -105,6 +105,47 @@ container em produção e merece ser feito com o site parado.
 
 ---
 
+## Resiliência da VPS — pendências do incidente de 2026-08-24
+
+A VPS ficou inacessível por SSH com CPU em 100% e o OOM killer em loop. **Duas causas
+independentes se somando**, nenhuma delas o bot de trading do sócio (MetaTrader sob Wine, que era
+o suspeito inicial e estava normal):
+
+| Causa | Efeito | Estado |
+|---|---|---|
+| `app-cd` rodando a imagem anterior à correção do `APP_ENV` de 20/08, em modo `local` | Vite dev server em polling sobre `vendor/` — um core preso por semanas | **Corrigido** neste repo (ver abaixo) |
+| `price_researcher` vazando um Chromium por scraping falho de AllKeyShop | 7,4 GB de 7,9 GB consumidos em 16h, 211 zumbis, OOM em loop | Contido por `mem_limit`/`pids_limit` no compose dele; causa raiz é o item 6 da Alta Prioridade do backlog do `price-cd` |
+
+O que já foi feito neste repo: o entrypoint passou a resolver o ambiente pelo `.env`
+(`docker/resolve-app-env.sh`, guardado por `tests/Feature/EnvironmentTest.php`), o ramo de
+produção apaga `public/hot`, e o watcher do Vite deixou de vigiar `vendor/` e `storage/`.
+
+Na máquina, a VPS ganhou **4 GB de swap** (`/swapfile`, persistido no `/etc/fstab`) — ela rodava com
+zero, e era isso que fazia a pressão de memória ir direto para o OOM killer em vez de degradar,
+transformando "lenta" em "inacessível por SSH". O swap não conserta vazamento: compra o tempo
+necessário para entrar na máquina e intervir.
+
+O gatilho da rajada é o agendamento **deste** sistema — `ResolveSteamIds` às 06:00 e
+`UpdatePopularity` às 07:00 (`routes/console.php`) —, mas o defeito é do `price_researcher` e a
+pendência mora no backlog dele, não aqui.
+
+O que continua pendente neste repo:
+
+### 7. VPS sem atualização há 221 dias
+
+**Onde:** infraestrutura, fora de qualquer repositório.
+
+165 pacotes pendentes, 29 correções de segurança, ESM desligado e `System restart required` — há
+atualização de kernel esperando desde antes do uptime atual, então boa parte só entra em vigor com
+o reboot.
+
+**Ação:** `apt update && apt upgrade` e reiniciar numa janela combinada. Todos os serviços têm
+política de restart, então voltam sozinhos; conferir mesmo assim com `docker ps` depois do boot, e
+que `systemctl is-enabled docker` responde `enabled`.
+
+**Origem:** incidente de 2026-08-24.
+
+
 ## Trilha de eventos da entrega de trade
 
 **Onde:** domínio da entrega (`/deliveries/{uuid}`), ver [`docs/adr/0008`](adr/0008-supplier-fills-trade-through-tokenised-link.md).

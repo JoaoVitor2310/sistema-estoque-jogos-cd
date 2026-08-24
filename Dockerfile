@@ -64,4 +64,9 @@ COPY . .
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
+# O entrypoint lê o ambiente por aqui. Vai para /usr/local/bin junto com ele
+# para não depender do bind mount do projeto estar montado.
+COPY docker/resolve-app-env.sh /usr/local/bin/resolve-app-env.sh
+RUN chmod +x /usr/local/bin/resolve-app-env.sh
+
 CMD ["php-fpm"]

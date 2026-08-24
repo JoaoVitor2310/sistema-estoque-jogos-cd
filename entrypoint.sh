@@ -11,10 +11,18 @@ composer install --no-interaction
 # Dependências Node
 npm install
 
-APP_ENV="${APP_ENV:-local}"
+# Ambiente: resolvido a partir do `.env`, que é o que o Laravel lê em runtime —
+# a variável de shell é só fallback. Ver docker/resolve-app-env.sh para o porquê.
+APP_ENV="$(/usr/local/bin/resolve-app-env.sh /var/www/html/.env)"
+echo "[entrypoint] APP_ENV resolvido: $APP_ENV"
 
 if [ "$APP_ENV" = "production" ]; then
     echo "[entrypoint] Ambiente: production"
+
+    # Marcador do Vite: se sobrou de uma subida anterior em modo dev, o Blade
+    # aponta os assets para localhost:5173 e a página carrega sem nunca montar.
+    rm -f /var/www/html/public/hot
+
     npm run build
 
     php artisan config:cache
