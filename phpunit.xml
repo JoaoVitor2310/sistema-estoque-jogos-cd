@@ -23,8 +23,8 @@
              shutdown, com a suíte inteira verde e exit code de falha. -->
         <ini name="memory_limit" value="512M"/>
         <!-- APP_ENV precisa vir também como <server>: o compose define
-             APP_ENV=local no ambiente do container (o entrypoint decide por ela
-             entre `npm run dev` e `npm run build`), e isso popula $_SERVER. O
+             APP_ENV=local no ambiente do container (como fallback do ambiente,
+             ver docker-compose.yml), e isso popula $_SERVER. O
              <env> do PHPUnit escreve em $_ENV/putenv, mas o ServerConstAdapter
              do Laravel lê $_SERVER primeiro — sem a linha abaixo o app roda os
              testes como `local`, ValidateCsrfToken::runningUnitTests() devolve

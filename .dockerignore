@@ -3,3 +3,12 @@ vendor
 .env
 docker/postgres/data-cd
 *.log
+
+# Dumps do banco. Na VPS o `backups/` fica dentro do projeto, e o `COPY . .` do
+# Dockerfile assaria as keys em texto puro numa camada da imagem — de onde não
+# saem mais, mesmo apagando o arquivo depois. Mesmos padrões do .gitignore, pelo
+# mesmo motivo.
+backups
+*.sql
+dump-*
+*.dump

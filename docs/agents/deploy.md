@@ -13,7 +13,7 @@ Fluxo: merge na `main` → `ci.yml` (Pint + PHPStan + Pest) → `deploy.yml` (bu
 
 ## O que o deploy **não** faz
 
-- **Não recria container.** Roda `git pull` e `docker exec`; mudança em `docker-compose.yml` (porta, volume, variável de ambiente) só vale depois de `docker compose up -d <serviço>` na VPS, à mão.
+- **Não recria container nem reconstrói imagem.** Roda `git pull` e `docker exec`. Mudança em `docker-compose.yml` (porta, volume, variável de ambiente) só vale depois de `docker compose up -d <serviço>` na VPS, à mão; mudança em `Dockerfile`, `entrypoint.sh` ou `docker/resolve-app-env.sh` exige `docker compose up -d --build <serviço>`, porque esses arquivos são copiados **para dentro da imagem** — o bind mount do projeto não os alcança em `/usr/local/bin`. Um container pode continuar rodando com o comportamento de meses atrás enquanto o repositório na VPS já está atualizado. *(Já aconteceu: em 2026-08-24 o `app-cd` ainda rodava a imagem anterior à correção do `APP_ENV` de 20/08 — quatro dias de `git pull` verdes sobre um container que nunca recebeu a correção. Ver `docs/IMPROVEMENTS.md`.)*
 - **Não sobrescreve arquivo alterado no servidor.** Editar `.conf`, `backup.sh` ou qualquer arquivo versionado direto na VPS faz o `git pull` abortar. Desde 2026-08-19 o deploy **falha** nesse caso, listando os arquivos: antes ele seguia em frente e terminava verde sobre o código antigo, porque o `appleboy/ssh-action` só olha o código de saída do último comando. É o que `script_stop: true` e a checagem de working tree resolvem.
 - **Não reverte migration.** `migrate --force` só avança.
 

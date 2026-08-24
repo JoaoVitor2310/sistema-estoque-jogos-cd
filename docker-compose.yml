@@ -1,10 +1,22 @@
 networks:
   sistema-estoque-cd:
     name: sistema-estoque-cd
+    # A rede é compartilhada com o price-cd (que a consome como external).
+    # Sem `external: true` aqui, este projeto vira dono dela e um
+    # `docker compose down` a destrói, deixando os containers parados do
+    # price-cd apontando para um ID de rede que não existe mais.
+    # Criar uma vez por máquina: docker network create sistema-estoque-cd
+    external: true
 
 services:
   app-cd:
     container_name: app-cd
+    # `unless-stopped`, e não `always` como os irmãos: um `docker stop app-cd`
+    # deliberado — o jeito de estancar uma emergência sem derrubar banco e nginx
+    # junto — precisa continuar valendo depois de um restart do daemon. Até
+    # 2026-08-24 este era o único serviço sem política nenhuma, e um reboot
+    # deixava o site em 502 até alguém subir o container à mão.
+    restart: unless-stopped
     build:
       context: .
       dockerfile: Dockerfile
@@ -21,11 +33,13 @@ services:
       # código-fonte do projeto para quem alcançar a porta.
       - "127.0.0.1:5173:5173" # Vite HMR (dev)
     environment:
-      # O entrypoint decide entre `npm run dev` e `npm run build` por esta
-      # variável, e ela precisa existir no ambiente do container — o `.env` do
-      # Laravel é lido pelo PHP, não pelo shell. Sem isto o default é `local` e
-      # a produção sobe o Vite dev server, que grava `public/hot` e faz o Blade
-      # apontar os assets para `localhost:5173`: a página carrega e nunca monta.
+      # Fallback do ambiente e fonte do `$_SERVER['APP_ENV']` que o phpunit.xml
+      # precisa sobrescrever (ver docs/agents/testing.md). Quem decide entre
+      # `npm run dev` e `npm run build` é o `.env`, lido pelo entrypoint via
+      # docker/resolve-app-env.sh — esta variável só vale se o arquivo não
+      # declarar `APP_ENV`. Foi essa divergência que derrubou a VPS em
+      # 2026-08-24: o Compose não interpolou aqui, o shell caiu em `local` e a
+      # produção subiu o Vite dev server enquanto o Laravel rodava `production`.
       - APP_ENV=${APP_ENV:-local}
     entrypoint: /usr/local/bin/entrypoint.sh
     extra_hosts:
