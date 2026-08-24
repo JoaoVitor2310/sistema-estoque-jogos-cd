@@ -1,8 +1,14 @@
 #!/bin/bash
 set -e
 
-# Permissões de storage e cache
-chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+# Permissões de storage e cache. Diretório e arquivo levam modos diferentes de
+# propósito: `chmod -R 775` ligava o bit de execução também nos arquivos, e os
+# dez `.gitignore` versionados dentro de storage/ e bootstrap/cache/ passavam de
+# 100644 para 100755 aos olhos do git. O deploy então abortava por working tree
+# suja na VPS, sem uma linha de conteúdo alterada (2026-08-24). 664 basta para o
+# www-data escrever, e o git não distingue 664 de 644 — só o bit de execução.
+find /var/www/html/storage /var/www/html/bootstrap/cache -type d -exec chmod 775 {} +
+find /var/www/html/storage /var/www/html/bootstrap/cache -type f -exec chmod 664 {} +
 chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 
 # Dependências PHP
