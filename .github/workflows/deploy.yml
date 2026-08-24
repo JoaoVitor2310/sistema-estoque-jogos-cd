@@ -81,11 +81,22 @@ jobs:
 
             cd /var/www/sistema-estoque-jogos-cd
 
-            # Arquivo editado direto no servidor faz o `git pull` abortar. A mensagem
-            # do git some no meio do log; esta para o deploy dizendo qual é o arquivo.
-            if ! git diff --quiet || ! git diff --cached --quiet; then
+            # Arquivo versionado editado direto no servidor faz o `git pull` abortar.
+            # A mensagem do git some no meio do log; esta para o deploy dizendo qual é.
+            #
+            # `storage/` e `bootstrap/cache/` ficam de fora: são diretórios de runtime
+            # que o container reescreve a cada subida (logs, views compiladas, caches,
+            # e o modo dos `.gitignore` versionados dentro deles). Desvio ali nunca é
+            # código a preservar, e travava o deploy sem motivo — 2026-08-24.
+            #
+            # `--untracked-files=no` porque arquivo não-rastreado não impede o pull:
+            # ele só entupia a mensagem de erro (88 linhas de log e view compilada
+            # escondendo as 10 que de fato bloqueavam).
+            DIRTY="$(git status --porcelain --untracked-files=no \
+              -- . ':(exclude)storage' ':(exclude)bootstrap/cache')"
+            if [ -n "$DIRTY" ]; then
               echo "::error::Working tree sujo na VPS — o pull não roda com estes arquivos alterados:"
-              git status --porcelain
+              echo "$DIRTY"
               exit 1
             fi
 
