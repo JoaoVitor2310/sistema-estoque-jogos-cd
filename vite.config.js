@@ -43,6 +43,23 @@ export default defineConfig({
         },
         watch: {
             usePolling: true,
+            // Polling faz stat() na árvore inteira a cada intervalo, e o bind
+            // mount do container traz junto `vendor/` — milhares de arquivos do
+            // Composer que nunca mudam em runtime. O ignore default do chokidar
+            // cobre só `node_modules` e `.git`; sem a lista abaixo o watcher
+            // sozinho ocupa um core inteiro (incidente de 2026-08-24, quando um
+            // container subiu em modo dev na VPS e a máquina ficou inacessível).
+            // `storage/` entra pelo motivo oposto: muda o tempo todo (logs,
+            // cache, sessões) e dispara reload sem que nada de fonte tenha
+            // mudado.
+            ignored: [
+                '**/vendor/**',
+                '**/storage/**',
+                '**/backups/**',
+                '**/docker/**',
+                '**/node_modules/**',
+                '**/.git/**',
+            ],
         },
     },
 });
