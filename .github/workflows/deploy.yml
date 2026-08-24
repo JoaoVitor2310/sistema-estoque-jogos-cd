@@ -65,13 +65,20 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT }}
-          # Sem isto, o script segue depois de um comando que falhou e o job termina
-          # verde: só o código de saída do último comando conta. Foi o que aconteceu
-          # em 2026-08-19 — o `git pull` abortou por arquivo alterado na VPS, o resto
-          # rodou sobre o código velho e o GitHub mostrou ✅ num deploy que não
-          # deployou nada.
-          script_stop: true
+          # A VPS roda com CPU limitada quando a Hostinger aplica mitigação; o
+          # default de 30s não dá margem para o handshake nesse estado.
+          timeout: 60s
           script: |
+            # `set -e` no lugar do input `script_stop`, que o appleboy/ssh-action@v1
+            # deixou de aceitar — a tag `v1` é móvel e uma release removeu o input,
+            # que passou a ser ignorado com um mero warning no log (visto em
+            # 2026-08-24). Sem parar no primeiro erro, o job termina verde: só o
+            # código de saída do último comando conta. Foi o que aconteceu em
+            # 2026-08-19 — o `git pull` abortou por arquivo alterado na VPS, o resto
+            # rodou sobre o código velho e o GitHub mostrou ✅ num deploy que não
+            # deployou nada.
+            set -e
+
             cd /var/www/sistema-estoque-jogos-cd
 
             # Arquivo editado direto no servidor faz o `git pull` abortar. A mensagem
