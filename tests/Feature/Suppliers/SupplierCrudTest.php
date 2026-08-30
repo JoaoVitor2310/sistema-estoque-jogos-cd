@@ -19,7 +19,7 @@
 |     7. Limpa category para null
 |
 |   DELETE /suppliers/{id} (destroy):
-|     8. Remove supplier do banco       → 200
+|     8. Soft-deleta supplier (some das queries, linha permanece) → 200
 |
 |   POST /suppliers/execute/{id} (executeList):
 |     9.  Supplier sem steam_id           → 400
@@ -160,7 +160,7 @@ describe('PUT /suppliers/{id} — update', function () {
 
 describe('DELETE /suppliers/{id} — destroy', function () {
 
-    it('deletes supplier and returns 200', function () {
+    it('soft-deletes supplier and returns 200', function () {
         $user = makeSupplierTestUser();
         $id = seedSupplierForCrud();
 
@@ -168,7 +168,10 @@ describe('DELETE /suppliers/{id} — destroy', function () {
             ->deleteJson("/suppliers/{$id}")
             ->assertStatus(200);
 
-        $this->assertDatabaseMissing('suppliers', ['id' => $id]);
+        // Soft-delete: a linha continua no banco, só sai das queries padrão.
+        $this->assertSoftDeleted('suppliers', ['id' => $id]);
+        expect(\App\Models\Supplier::find($id))->toBeNull();
+        expect(\App\Models\Supplier::withTrashed()->find($id))->not->toBeNull();
     });
 });
 

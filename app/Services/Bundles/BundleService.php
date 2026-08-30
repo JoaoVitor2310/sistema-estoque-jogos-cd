@@ -29,6 +29,9 @@ class BundleService
                 ->select('bundles.name as bundle_name', 'games.normalized_name')
                 ->where('bundles.release_date', '>=', now()->subMonths(BundleGameLookup::RECENT_MONTHS))
                 ->whereIn('games.normalized_name', $normalized)
+                // Query builder não aplica o global scope de soft-delete — filtrar à mão.
+                ->whereNull('bundles.deleted_at')
+                ->whereNull('games.deleted_at')
                 ->orderByDesc('bundles.release_date')
                 ->get();
 

@@ -309,7 +309,7 @@ const exportCSV = () => {
           <div class="d-flex justify-content-between">
             <div class="d-flex gap-2 flex-column flex-md-row" v-if="canEdit">
               <Button label="Deletar" :disabled="!selectedProduct || selectedProduct.length === 0" aria-label="Deletar"
-                severity="danger" icon="pi pi-plus" @click="handleDeleteButton($event)" raised />
+                severity="danger" icon="pi pi-trash" @click="handleDeleteButton($event)" raised />
             </div>
             <div class="d-flex gap-2 flex-column flex-md-row ms-auto">
               <Button label="Pesquisar" aria-label="Pesquisar" severity="info" icon="pi pi-search"

@@ -13,9 +13,16 @@
 | Agora a existência é validada na fronteira (DeleteManyRequest) e a exclusão é
 | um `whereIn` só — atômico por construção, sem transação.
 |
+| `games` e `keys` são soft-delete (docs/adr/0011), então a contagem sai pelo
+| Eloquent: "apagado" aqui significa fora das queries da aplicação, e a linha
+| segue no banco. `fees`/`assets`/`authorized_users` continuam hard delete e por
+| isso contam por `DB::table` — a diferença entre as duas famílias é o ponto.
+|
 */
 
 use App\Models\AuthorizedUsers;
+use App\Models\Game;
+use App\Models\Key;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
@@ -52,7 +59,7 @@ it('deletes every game of the batch', function () {
     $this->deleteJson('/games', ['games' => array_map(fn ($id) => ['id' => $id], $ids)])
         ->assertStatus(200);
 
-    expect(DB::table('games')->count())->toBe(0);
+    expect(Game::count())->toBe(0);
 });
 
 it('deletes nothing when one id of the batch does not exist', function () {
@@ -64,7 +71,7 @@ it('deletes nothing when one id of the batch does not exist', function () {
         'games' => [['id' => $ids[0]], ['id' => $ids[1]], ['id' => 999999]],
     ])->assertStatus(422);
 
-    expect(DB::table('games')->count())->toBe(2);
+    expect(Game::count())->toBe(2);
 });
 
 it('rejects an empty batch', function () {
@@ -83,7 +90,7 @@ it('ignores the extra row fields the table sends along', function () {
         'games' => [['id' => $ids[0], 'name' => 'Game 0', 'popularity' => 10]],
     ])->assertStatus(200);
 
-    expect(DB::table('games')->count())->toBe(0);
+    expect(Game::count())->toBe(0);
 });
 
 it('accepts the payload key each screen actually sends', function () {
@@ -92,7 +99,7 @@ it('accepts the payload key each screen actually sends', function () {
 
     $this->deleteJson('/games', ['assets' => [['id' => $ids[0]]]])->assertStatus(422);
 
-    expect(DB::table('games')->count())->toBe(1);
+    expect(Game::count())->toBe(1);
 });
 
 it('deletes keys under the games key', function () {
@@ -121,7 +128,7 @@ it('deletes keys under the games key', function () {
 
     $this->deleteJson('/keys', ['games' => [['id' => $id]]])->assertStatus(200);
 
-    expect(DB::table('keys')->count())->toBe(0);
+    expect(Key::count())->toBe(0);
 });
 
 it('deletes fees under the taxas key', function () {

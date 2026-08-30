@@ -5,9 +5,12 @@ namespace App\Models;
 use App\Domain\Enums\FinancialMonthStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class FinancialMonth extends Model
 {
+    use SoftDeletes;
+
     protected $table = 'financial_months';
 
     protected $fillable = [

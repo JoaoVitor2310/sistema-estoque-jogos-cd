@@ -36,8 +36,15 @@ class ReopenFinancialMonthUseCase
 
         return DB::transaction(function () use ($month) {
             // O draft corrente foi criado por este fechamento; some junto com seus
-            // movimentos (cascade). Sem isso, reabrir deixaria dois drafts.
-            FinancialMonth::where('status', FinancialMonthStatus::Draft)->delete();
+            // movimentos. Sem isso, reabrir deixaria dois drafts. Com soft-delete
+            // não há cascata do banco, então os movimentos são removidos à mão
+            // para não sobrar linha viva sob um mês apagado.
+            $currentDraft = FinancialMonth::where('status', FinancialMonthStatus::Draft)->first();
+
+            if ($currentDraft !== null) {
+                $currentDraft->movements()->delete();
+                $currentDraft->delete();
+            }
 
             $month->movements()->where('is_generated', true)->delete();
 

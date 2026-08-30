@@ -9,9 +9,12 @@ use App\Domain\Enums\MovementCategory;
 use App\Domain\Enums\MovementDirection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class FinancialMovement extends Model
 {
+    use SoftDeletes;
+
     protected $table = 'financial_movements';
 
     protected $fillable = [
