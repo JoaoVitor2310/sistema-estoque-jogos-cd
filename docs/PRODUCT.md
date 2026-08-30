@@ -233,6 +233,8 @@ Não são apagáveis:
 | Movimento gerado (`is_generated`) | Quem o desfaz é o `reopen`, em bloco |
 | Saldo de abertura (`opening`) | Carrega o mês anterior; sumiria sem nada o repor |
 
+O que passa por essas regras é apagado como **soft-delete**: a linha sai do extrato e dos saldos, mas permanece no banco (`deleted_at`). Não há tela para restaurar — a recuperação de um apagamento errado é manual, no banco. Vale para todo o conjunto curado de tabelas (keys, trades, suppliers, games, bundles, meses e movimentos financeiros); ver [`docs/adr/0011`](adr/0011-soft-delete-on-curated-tables.md).
+
 ## Bundles
 
 ### Definição

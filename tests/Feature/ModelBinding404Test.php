@@ -16,6 +16,7 @@
 */
 
 use App\Models\AuthorizedUsers;
+use App\Models\Game;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
@@ -62,7 +63,8 @@ it('resolves the model when the record exists', function () {
 
     $this->deleteJson("/games/{$id}")->assertStatus(200);
 
-    expect(DB::table('games')->count())->toBe(0);
+    // `games` é soft-delete (docs/adr/0011): some do Eloquent, não do banco.
+    expect(Game::count())->toBe(0);
 });
 
 it('leaves an unknown URL to the fallback route', function () {

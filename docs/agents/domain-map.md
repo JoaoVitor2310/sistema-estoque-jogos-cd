@@ -94,3 +94,11 @@ Regras de negócio completas (roteiro dos 8 passos, exclusão, carry-forward): [
 
 - `AuthorizedUsers` — controla acesso (`can-edit`)
 - Admin: `Gate::define('is-admin', ...)` em `AppServiceProvider`, comparando contra `config('app.admin_gate_email')` — chave própria, separada de `config('app.admin_email')` (ver [`security-and-guardrails.md`](security-and-guardrails.md#fallback-de-config-depende-do-que-a-ausência-causa))
+
+## 9. Soft-delete (conjunto curado)
+
+Rede de proteção contra apagamento acidental. `deleted_at` + trait `SoftDeletes` em **7 tabelas**: `keys`, `trades`, `suppliers`, `games`, `bundles`, `financial_months`, `financial_movements`.
+
+**Fora, de propósito:** `trade_lines` (a exclusão de linha reindexa a `position` das irmãs — uma linha soft-deletada guardaria a posição antiga e o `restore()` duplicaria posição), `bundle_games` (pivot), `fees`/`assets`/`authorized_users` (lookup) e `users` (o provider de auth usa `newModelQuery()`, que não aplica o global scope).
+
+Sem UI de lixeira — `restore()` é manual. Detalhes, índice `unique` parcial e armadilhas em [`docs/adr/0011`](../adr/0011-soft-delete-on-curated-tables.md).

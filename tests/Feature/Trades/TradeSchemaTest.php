@@ -42,10 +42,21 @@ describe('trades schema', function () {
         expect($trade->lines->pluck('game_name')->all())->toBe(['Half-Life', 'Portal']);
     });
 
-    it('drops the lines with the trade (cascade)', function () {
+    // `trades` é soft-delete (docs/adr/0011) e `trade_lines` não. O cascade do
+    // banco continua existindo, mas só um apagamento físico o dispara — o que
+    // preserva a linha quando a trade é apenas ocultada, e a devolve no restore.
+    it('keeps the lines when the trade is only soft deleted', function () {
         $trade = TradeFactory::withLines(['Half-Life']);
 
         $trade->delete();
+
+        expect(DB::table('trade_lines')->where('trade_id', $trade->id)->count())->toBe(1);
+    });
+
+    it('drops the lines with the trade on a force delete (cascade)', function () {
+        $trade = TradeFactory::withLines(['Half-Life']);
+
+        $trade->forceDelete();
 
         expect(DB::table('trade_lines')->where('trade_id', $trade->id)->count())->toBe(0);
     });

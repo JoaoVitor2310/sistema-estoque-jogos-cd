@@ -75,6 +75,18 @@ Toda tela com exclusão em lote (`DeleteManyRequest`) manda a seleção do Prime
 
 No Eloquent, `$model->relation()->detach(null)` desvincula **todos** os registros, não nenhum — então rota de remoção sem FormRequest transforma payload vazio em "esvazie a relação inteira", respondendo 200. Toda rota que remove vínculo declara `required|array|min:1`. *(Já aconteceu: `DELETE /bundles/{bundle}/games` sem `games` limpava o bundle inteiro.)*
 
+## `delete()` é soft nas 7 tabelas curadas
+
+`keys`, `trades`, `suppliers`, `games`, `bundles`, `financial_months` e `financial_movements` usam `SoftDeletes`: a linha ganha `deleted_at` e some das queries Eloquent, mas continua no banco. Três consequências que não se percebem lendo o código de chamada:
+
+| Armadilha | O que fazer |
+|---|---|
+| Query builder cru (`DB::table(...)`) **não** aplica o global scope | filtrar `->whereNull('deleted_at')` à mão |
+| Os `ON DELETE` do banco (`nullOnDelete`/`cascadeOnDelete`) **não disparam** em soft-delete | cascata que importa vive no app (ex: `ReopenFinancialMonthUseCase` apaga os movimentos do draft descartado explicitamente) |
+| `unique` bloquearia recriar um valor de linha apagada | virou índice parcial `WHERE deleted_at IS NULL` em `suppliers.steam_id` e `financial_months (year, month)` |
+
+Somar dinheiro é o caso mais sensível: `FinancialMonthService::accountBalances` deriva o saldo de `$month->movements` (Eloquent, respeita o scope). Trocar por `DB::table('financial_movements')->sum()` voltaria a contar linha apagada. Ver [`docs/adr/0011`](../adr/0011-soft-delete-on-curated-tables.md).
+
 ## Validação com enums usa `Rule::enum()`
 
 Nunca use `'in:valor1,valor2'` para validar um campo que tem enum correspondente. Use `Rule::enum(MinhaEnum::class)` no FormRequest. Assim a validação se mantém sincronizada automaticamente quando o enum crescer.
