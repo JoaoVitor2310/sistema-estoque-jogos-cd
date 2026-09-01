@@ -10,6 +10,64 @@ Ordem: roadmap/qualidade/features primeiro, dívida técnica de code-review no f
 
 ---
 
+## `simulated_income` negativo — verificar se é legítimo
+
+**Onde:** `app/Domain/Pricing/IncomeCalculator.php`, coluna `keys.simulated_income`.
+
+**Ação:** confirmar com o negócio se income negativo deve existir. Ele é plausível — quando o preço
+de mercado é baixo o bastante, as taxas da Gamivo superam o valor da venda, e o número diz
+literalmente "vender isso dá prejuízo" — mas convém decidir se o certo é gravar o valor negativo,
+zerar, ou marcar a key como inviável. Hoje 8 keys estão assim, 5 delas já vendidas.
+
+**Origem:** encontrado em 2026-09-01 ao limpar os `individual_cost` negativos. É a origem provável
+deles: o rateio do custo multiplica pelo income do jogo. Diferente do custo, o income negativo
+**não** foi saneado — ele pode ser um fato do mercado, não um dado inválido.
+
+---
+
+## Reembolso não tem registro próprio
+
+**Onde:** tabela `keys` (`sold_price`, `sale_profit`), `app/Console/Commands/BackfillSoldPricesCommand.php`.
+
+**Ação:** dar ao reembolso um registro próprio — uma coluna de status da venda (`sold`,
+`refunded`) ou um lançamento na `financial_movements` — em vez de codificá-lo sobrescrevendo
+`sold_price`/`sale_profit` com o resultado financeiro final. Hoje o desfecho de um reembolso mora
+nos mesmos dois campos de uma venda normal, então o sistema não sabe **quantos** reembolsos houve,
+nem quanto se perdeu em taxa de €1, nem qual fornecedor devolveu o dinheiro — dados que só existem
+na memória de quem lançou.
+
+O custo prático já apareceu: o backfill precisa preservar esses lançamentos e só consegue
+reconhecê-los por assinatura — `sold_price ≤ 0`, ou `sold_price = individual_cost` com
+`sale_profit` exatamente zero. Funciona, mas é leitura de rastro: um ajuste manual que não siga
+nenhum dos dois padrões passa despercebido e precisa de `--except` na mão. Com um marcador
+explícito, o comando não precisaria adivinhar nada.
+
+**Origem:** conversa de 2026-08-27 durante a validação do backfill, ao investigar uma key com
+`sold_price = −1,00`. Convenção documentada no verbete "Venda reembolsada" em
+[`CONTEXT.md`](../CONTEXT.md).
+
+---
+
+## Observabilidade do rateio igual na baixa de vendas
+
+**Onde:** `app/UseCases/Marketplaces/Gamivo/UpdateSoldOffersUseCase.php`,
+`app/Domain/Enums/OrderPayoutAttribution.php`.
+
+**Ação:** hoje um pedido que cai em `partially_matched`/`equal_split` só aparece como
+contagem em `orders_by_attribution` e como `Log::warning` no `schedulers.log` — para
+saber *quais* pedidos foram chutados é preciso ler o log linha a linha. Levar a
+atribuição para um lugar consultável: coluna na `keys` (ou tabela de auditoria da
+baixa) gravada junto com `sold_price`, e um alerta quando a proporção de pedidos não
+`matched` passar de um limiar numa passada. Sem isso, um `gamivo_id` faltando numa key
+degrada o valor gravado em silêncio e ninguém percebe até conferir o extrato.
+
+**Origem:** code-review da correção do rateio por linha (2026-08-27). O comportamento do
+fallback foi mantido de propósito — registrar a receita vale mais que a precisão por
+key; o que falta é enxergar quando ele age. Ver a tabela de casos em
+[`docs/GAMIVO.md`](GAMIVO.md#baixa-de-vendas-uma-linha-de-histórico-por-oferta).
+
+---
+
 ## Segurança das keys — pendências da revisão de 2026-08-19
 
 O que sobrou da revisão feita quando a entrega (`/deliveries/{uuid}`) passou a levar gente de fora

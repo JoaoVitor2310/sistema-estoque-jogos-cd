@@ -5,9 +5,11 @@ namespace App\Models;
 use App\Domain\Enums\ClaimType;
 use App\Domain\Enums\KeyFormat;
 use App\Domain\Enums\SellPlatform;
+use App\Domain\Pricing\ProfitCalculator;
 use Carbon\Carbon;
 use Database\Factories\KeyFactory;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -58,6 +60,19 @@ class Key extends Model
         'claim_type' => ClaimType::class,
         'sell_platform' => SellPlatform::class,
     ];
+
+    /**
+     * Custo individual nunca é negativo — a regra mora no ProfitCalculator.
+     *
+     * Barrar na escrita e não só no cálculo evita que o valor inválido volte a
+     * entrar no banco por importação ou edição direta, como já aconteceu.
+     */
+    protected function individualCost(): Attribute
+    {
+        return Attribute::set(
+            fn ($value) => $value === null ? null : ProfitCalculator::normalizeCost((float) $value),
+        );
+    }
 
     public function supplier()
     {

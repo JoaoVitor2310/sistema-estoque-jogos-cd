@@ -209,6 +209,18 @@ class KeyRepository
     }
 
     /**
+     * Busca várias keys de uma vez, indexadas pelo key_code.
+     * Evita uma consulta por key ao processar um pedido inteiro da Gamivo.
+     *
+     * @param  string[]  $keyCodes
+     * @return Collection<string, Key>
+     */
+    public function findByKeyCodes(array $keyCodes): Collection
+    {
+        return Key::whereIn('key_code', $keyCodes)->get()->keyBy('key_code');
+    }
+
+    /**
      * Retorna todas as keys vinculadas a uma trade (mesmo lote), ordenadas por id ASC.
      * Usado no recálculo do rateio de custo ao editar uma key. Ver docs/adr/0004.
      *

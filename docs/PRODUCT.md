@@ -117,6 +117,29 @@ Quando uma key tem problema, a Gamivo nos dá a opção de reembolsar o cliente 
 10 euros - Aplicada quando uma chave foi revogada, ou seja, vendemos para um cliente na Gamivo mas os desenvolvedores revogaram essa chave. Menos comum de acontecer, normalmente acontece quando caímos em golpe e não somos reembolsados da key nem dessa taxa, é muito prejuízo e esse cenário deve ser evitado ao máximo.
 
 
+### Como o reembolso é registrado no sistema
+
+Não existe campo próprio para venda desfeita: o desfecho é gravado **sobrescrevendo à mão**
+`sold_price` e `sale_profit` da key com o resultado financeiro final. O que determina os valores é
+o que o **fornecedor** devolveu, não o que a Gamivo cobrou:
+
+| O fornecedor devolveu | `sold_price` | `sale_profit` | Leitura |
+|---|---|---|---|
+| a key e a taxa | igual ao `individual_cost` | 0 | operação zerada — nem lucro nem prejuízo |
+| só a key, não a taxa | `individual_cost` − 1 | −1 | perdeu-se só a punição da Gamivo |
+| nada (golpe, key revogada) | negativo | prejuízo da key **e** da taxa | pior caso |
+
+Consequência prática: uma key reembolsada continua parecendo vendida no banco, e a "venda" que
+aparece no Financeiro é na verdade o encerramento do prejuízo. É por isso que o
+`gamivo:backfill-sold-prices` se recusa a sobrescrever esses lançamentos — o payout que a Gamivo
+ainda reporta para aquele pedido não vale mais. Ele reconhece as três formas pela aritmética
+entre `sold_price`, `individual_cost` e `sale_profit`, sem precisar de marcador.
+
+O que o sistema **não** sabe hoje, justamente por não ter marcador próprio: quantos reembolsos
+houve, quanto se perdeu em taxa de €1 e de €10, e quais fornecedores devolvem o dinheiro. Melhorar
+essa rastreabilidade está em [`docs/IMPROVEMENTS.md`](IMPROVEMENTS.md).
+
+
 ## Financeiro
 
 Aba de análise financeira do negócio, acessível em `/sales`. Permite filtrar por mês e ano. Todas as métricas de venda são baseadas em `sold_at` (data de venda); métricas de compra são baseadas em `acquired_at`.
@@ -149,6 +172,8 @@ O denominador da margem é o custo das keys **vendidas** no período (`sold_at`)
 Por que a margem é ponderada e não a média das margens individuais: cada key pesa proporcionalmente ao capital que consumiu. Na média simples, uma key de €0,06 vendida a €0,36 (500%) pesava igual a uma de €20 vendida a €22 (10%) e sozinha levava o indicador a 255%, quando o negócio de fato fechou o período em 11,5%. Como consequência, a margem exibida é sempre consistente com o card de lucro líquido e o custo mostrado no próprio card — é a mesma divisão.
 
 Keys vendidas com `individual_cost` zerado (lote sem TF2, key nunca calculada) carregam um `sale_profit_percent` astronômico por causa do piso de €0,01 do cálculo por key; no agregado elas pesam apenas o próprio custo e não distorcem o indicador.
+
+**Custo individual nunca é negativo.** `ProfitCalculator::normalizeCost` trata qualquer valor abaixo de zero como zero, e o modelo `Key` aplica a mesma regra na escrita. Custo negativo não é um dado possível no domínio — é lixo de importação, e antes do saneamento ele contaminava duas contas ao mesmo tempo: entrava **somando** no lucro absoluto e virava **divisor negativo** no percentual, fazendo uma venda lucrativa aparecer com margem negativa. *(Já aconteceu: uma key vendida por €0,20 com custo −0,01 exibia −2100% de margem; sete linhas assim foram limpas pela migration `clamp_negative_individual_costs` em 2026-09-01.)* Zero continua sendo legítimo — key de graça — e segue tratado pelo piso na divisão.
 
 ### Estoque atual (snapshot sem filtro de data)
 

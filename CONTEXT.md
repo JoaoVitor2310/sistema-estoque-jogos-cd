@@ -14,6 +14,14 @@ _Avoid_: licença, item, código (isoladamente).
 Entre as keys que compartilham a mesma oferta (mesmo produto no marketplace), a mais antiga — define os limites de preço (`min_api`/`max_api`) da oferta inteira, pois o marketplace vende por ordem de chegada (FIFO). Antes de listada (decisão do `AutoSellUseCase`, entre as aprovadas para entrar), "mais antiga" é a de menor `id` — ainda não existe `listed_at` pra comparar. Depois de listada (reprecificação do `UpdateOffersUseCase`, entre as já na oferta), "mais antiga" é a de menor `listed_at`, com `id` como desempate (`listed_at` é `date`, sem hora — keys do mesmo lote empatam).
 _Avoid_: key primária, key líder.
 
+**Pedido** (`order_id`):
+Uma compra do cliente no marketplace, que pode levar **várias ofertas** de uma vez. É a unidade de cobrança da taxa de mediação e a unidade de entrega das keys — o marketplace só informa quais keys saíram olhando o pedido inteiro, nunca oferta a oferta.
+_Avoid_: venda, order (isoladamente — "venda" é a linha, não o pedido).
+
+**Linha de venda**:
+Uma oferta vendida dentro de um pedido, com seu próprio produto, quantidade e lucro. É a granularidade do histórico de vendas da Gamivo: um pedido de três jogos aparece como três linhas com o mesmo `order_id`. É por linha que se sabe **quanto** cada key rendeu — o valor do pedido não se divide por igual entre as keys.
+_Avoid_: item, venda (isoladamente), produto vendido.
+
 **Preço de mercado** (`market_price`):
 O preço pesquisado do jogo **no dia da trade**, congelado ali. É a base do rateio do custo do lote e dos lucros de compra, e por isso não é atualizado depois: não é foto desatualizada por descuido, é o valor daquela compra. Preço de hoje é outro conceito, e o sistema não o guarda — quando a precificação precisa de uma referência de mercado, ela usa este mesmo campo e aceita a defasagem.
 _Avoid_: preço atual, valor de mercado (os dois sugerem preço corrente).
@@ -42,6 +50,22 @@ _Avoid_: key de link.
 **Margem ponderada**:
 A margem de um conjunto de vendas calculada como Σ lucro ÷ Σ custo — matematicamente, a média das margens individuais em que cada key pesa proporcionalmente ao custo que consumiu. É o indicador do período na aba Financeiro. Diferente da margem de uma key isolada (`sale_profit_percent`), que é sempre sobre o custo daquela key só. Uma média simples dessas margens não descreve o negócio: uma key de €0,06 com 500% pesaria igual a uma de €20 com 10%.
 _Avoid_: margem média (sugere média simples, que é justamente o que ela não é), margem sobre receita (aqui é sempre sobre custo — 100% significa dobrar o dinheiro).
+
+**Venda reembolsada**:
+Uma venda desfeita depois de entregue — key inválida, já usada ou com problema na Gamivo — em que o dinheiro volta ao comprador e a Gamivo cobra €1 do vendedor pelo reembolso. Não existe campo próprio para isso: o desfecho é registrado **sobrescrevendo `sold_price` e `sale_profit`** com o resultado financeiro final, conforme o que o fornecedor da key devolveu.
+
+| O fornecedor devolveu | `sold_price` | `sale_profit` |
+|---|---|---|
+| a key e a taxa | igual ao `individual_cost` | 0 |
+| só a key, não a taxa | `individual_cost` − 1 | −1 |
+| nada | negativo | prejuízo da key **e** da taxa |
+
+As três formas são reconhecíveis de fora pela aritmética entre `sold_price`, `individual_cost` e `sale_profit`: nenhum payout de venda real é ≤ 0, e uma venda de verdade que caísse exatamente sobre o custo teria lucro calculado, não zero cravado — desde que o valor não se repita entre keys do mesmo pedido, o que seria digital do rateio errado e não de um lançamento. É por essas assinaturas que o `gamivo:backfill-sold-prices` se recusa a sobrescrever esses lançamentos. Reconhecer não é o mesmo que registrar, porém: o sistema continua sem saber quantos reembolsos houve nem quanto se perdeu em taxa — ver [`docs/IMPROVEMENTS.md`](docs/IMPROVEMENTS.md).
+_Avoid_: cancelamento (o pedido foi entregue e concluído — o que se desfez foi o pagamento), estorno.
+
+**Payout do pedido**:
+O que a Gamivo efetivamente deposita por um pedido: a soma, em cada linha vendida, de `profit` **mais** `seller_tax`, menos uma única taxa de mediação de €0,01 por pedido. O `seller_tax` é o VAT que o comprador europeu pagou por cima do preço; como a operação é brasileira e não recolhe VAT na UE, a Gamivo repassa esse valor ao vendedor em vez de retê-lo — por isso ele **entra** no payout, nunca é descontado. A alíquota acompanha o país do comprador (`tax_rate`, ex.: `23% SK`, `23% PT`), então duas vendas do mesmo jogo pelo mesmo preço podem render payouts diferentes.
+_Avoid_: lucro da venda (`sale_profit` é outra coisa — payout menos custo da key), `profit` da API isolado (não inclui o imposto repassado).
 
 ### Bundles
 

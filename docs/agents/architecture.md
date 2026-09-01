@@ -78,6 +78,7 @@ app/
 │   │   ├── ProfitCalculator.php
 │   │   ├── IncomeCalculator.php
 │   │   ├── SalePriceCalculator.php
+│   │   ├── OrderPayoutSplitter.php      # rateia o líquido de um pedido entre as keys entregues
 │   │   ├── OfferCalculator.php          # TF2 keys a oferecer a um supplier por margem alvo
 │   │   ├── ComparisonAlgorithm.php      # reprecificação vs. concorrentes (dumpers, bots, wholesale)
 │   │   ├── ComparisonResult.php / OfferData.php
@@ -122,7 +123,8 @@ app/
 │       ├── OffersUpdateMode.php         # WeAreLowest / WeAreNotLowest
 │       ├── PresenceFilter.php           # filled / empty — filtro por coluna preenchida
 │       ├── SupplierCategory.php         # vip / blocked
-│       └── TradeImportBlocker.php       # o que impede uma trade de virar keys
+│       ├── TradeImportBlocker.php       # o que impede uma trade de virar keys
+│       └── OrderPayoutAttribution.php   # quanto do casamento linha↔key fechou numa baixa de venda
 │
 ├── UseCases/
 │   ├── Keys/                             # operações agnósticas de marketplace
@@ -140,7 +142,9 @@ app/
 │   │   └── Gamivo/                       # quando vier outro: Eneba/, G2A/, etc.
 │   │       ├── AutoSellUseCase.php           # agrupa por gamivo_id (FIFO); trava max_api de keys >= 8 meses
 │   │       ├── RegulateMinApiUseCase.php     # recalcula min_api via MinimumMarginPolicy (07:30)
-│   │       ├── UpdateSoldOffersUseCase.php
+│   │       ├── UpdateSoldOffersUseCase.php   # casa linha do histórico com key entregue e rateia o líquido
+│   │       ├── DTO/
+│   │       │   └── OrderPayoutBreakdownDTO.php   # baixas de um pedido + como o líquido foi atribuído
 │   │       ├── UpdateOffersUseCase.php       # reprecifica via ComparisonAlgorithm — 1min, passada única (sobe e desce)
 │   │       └── UpdatePopularityUseCase.php   # scraping SteamCharts — migração Gamivo Fase 2
 │   ├── Bundles/

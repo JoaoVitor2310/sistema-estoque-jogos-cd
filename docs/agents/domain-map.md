@@ -10,13 +10,13 @@ Campos relevantes:
 - `claim_type` — enum do tipo de problema que ocorreu na key
 - `steam_id` — ID na Steam
 - `game_name`, `region` — nome do jogo e região de bloqueio (ex: EU)
-- `individual_cost` — custo individual da key
+- `individual_cost` — custo individual da key; **nunca negativo** (`ProfitCalculator::normalizeCost`, aplicado também no mutator do modelo `Key`)
 - `tf2_quantity` — quantidade de TF2 keys pagas pela trade
 - `market_price` — preço no marketplace na data de compra
 - `simulated_income` — receita líquida após taxas Gamivo
 - `purchase_profit`, `purchase_profit_percent` — lucro na compra
 - `sold_price`, `sale_profit`, `sale_profit_percent` — dados da venda
-- `gamivo_id` — ID externo no marketplace Gamivo
+- `gamivo_id` — ID externo no marketplace Gamivo. É o **`product_id`** da Gamivo (não o `offer_id`): é por ele que o `AutoSellUseCase` consulta as ofertas do produto e que o `UpdateSoldOffersUseCase` casa cada linha do histórico de vendas com a key entregue
 - `key_code` — código da key entregue ao cliente
 - `acquired_at`, `listed_at`, `sold_at`, `expires_at` — datas do ciclo de vida
 - `supplier_url` — URL do perfil do fornecedor
