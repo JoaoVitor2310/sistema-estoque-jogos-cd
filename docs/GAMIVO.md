@@ -54,7 +54,8 @@ Dia 0          Dia 21              Dia 120+
 - **Delay de 500ms entre criar oferta e fazer upload de key:** necessário — a Gamivo precisa de tempo para registrar a oferta antes de aceitar chaves.
 - **Upload de keys com até 5 tentativas e 1s de delay:** race condition real na API — sempre implementar retry.
 - **`400 "Wait for the current action to end. Progress: X/Y"`:** a Gamivo processa **uma ação por oferta de cada vez** (upload de key, mudança de status). Qualquer mutação na mesma oferta enquanto a anterior não terminou retorna esse 400. Ele é **transitório, não é falha** — aguardar e reenviar resolve. `GamivoApiService::sendWithActionLockRetry()` reaplica esse retry (`ACTION_LOCK_RETRIES` × `ACTION_LOCK_RETRY_DELAY_S`s) em **todos** os endpoints de mutação (`createOffer`, `updateOffer`, `changeOfferStatus`, `uploadKeys`). Atenção especial: reativar a oferta (`change-status`) logo após `uploadKeys` colide com o job de upload ainda em andamento — daí o `Progress: 1/1`. `isKeyListed` confirmar a key **não** garante que o job já terminou no lado da Gamivo.
-- **`GET /accounts/sales/order-details/{orderId}` — chave do objeto:** é `<offer_id>` (integer como string), não `product_name`. Verificar ao usar.
+- **`GET /accounts/sales/history` devolve uma linha por oferta vendida, não por pedido.** Várias linhas podem compartilhar o mesmo `order_id`, cada uma com seu próprio `product_id`, `quantity`, `profit` e `seller_tax`. Ver "Baixa de vendas" nas notas de implementação.
+- **`GET /accounts/sales/order-details/{orderId}` — chave do objeto:** é `<offer_id>` (integer como string), não `product_name`. O endpoint devolve as keys do **pedido inteiro**, não da oferta que se estava consultando.
 - **Scraping SteamCharts:** frágil. O **segundo** `span.num` é o pico 24h. Se o HTML mudar, para de funcionar.
 
 ---
@@ -206,7 +207,7 @@ Definidos em `routes/console.php`, fuso `America/Sao_Paulo`:
 | Expressão CRON | Fuso | Use Case | Finalidade |
 |---|---|---|---|
 | `* * * * *` | America/Sao_Paulo | `UpdateOffersUseCase` (sem mode) | A cada minuto: sobe o preço onde já somos os mais baratos e desce onde não somos, numa única passada |
-| `0 6,18 * * *` | America/Sao_Paulo | `UpdateSoldOffersUseCase::executeFromGamivo` | Dá baixa nas vendas — janela de 2 dias |
+| `0 6,18 * * *` | America/Sao_Paulo | `UpdateSoldOffersUseCase::executeFromGamivo` | Dá baixa nas vendas — janela de 30 dias |
 | `0 7 * * *` | America/Sao_Paulo | `UpdatePopularityUseCase` | Atualiza popularidade via SteamCharts |
 | `0 7 * * *` | America/Sao_Paulo | `AlertExpiringKeysUseCase` | Alerta de keys expirando |
 | `0 7 * * *` | America/Sao_Paulo | `AlertDollarVariationUseCase` | Alerta de câmbio |
@@ -255,6 +256,138 @@ for ($attempt = 1; $attempt <= 5; $attempt++) {
 ```
 
 > Além disso, todos os endpoints **mutadores** (`createOffer`, `updateOffer`, `changeOfferStatus`, `uploadKeys`) reprocessam automaticamente o `400 "Wait for the current action to end"` via `GamivoApiService::sendWithActionLockRetry()` — a Gamivo só processa uma ação por oferta de cada vez.
+
+### Baixa de vendas: uma linha de histórico por oferta
+
+O `UpdateSoldOffersUseCase` reconcilia keys vendidas cruzando dois endpoints com granularidades diferentes:
+
+| Endpoint | Granularidade | O que traz |
+|---|---|---|
+| `GET /accounts/sales/history` | uma linha por **oferta** vendida | `product_id`, `quantity`, `profit`, `seller_tax` daquela oferta |
+| `GET /accounts/sales/order-details/{orderId}` | um objeto por **pedido** | todas as keys entregues, agrupadas por `offer_id` |
+
+Um pedido com três ofertas produz **três linhas** de histórico com o mesmo `order_id` e **um** order-details com as três keys. Por isso o use case agrupa as linhas por `order_id` (elas podem até cair em páginas diferentes da paginação) e chama o order-details **uma vez por pedido**.
+
+**Linha repetida pela paginação:** o histórico é lido em páginas de 25 por offset, e vendas novas
+entrando durante a varredura empurram as linhas — a mesma pode ser lida em duas páginas. Como uma
+oferta é única por produto, o `groupByOrder` descarta a segunda linha com o mesmo `product_id` no
+mesmo pedido; sem isso o bruto do pedido dobra e o excedente é distribuído entre as keys. Só
+janelas que terminam em *hoje* correm esse risco: um intervalo fechado no passado não ganha linhas
+novas enquanto é paginado. *(Encontrado em 2026-09-01 no pedido `ed3cc6f3`, que chegou com duas
+linhas do mesmo jogo e distribuiu €1,79 num pedido de €1,43.)*
+
+**Casamento linha ↔ key:** o histórico expõe `product_id` e o order-details expõe `offer_id` — não dão join direto. O elo é local: `keys.gamivo_id` **é** o `product_id` da Gamivo, então cada linha reivindica, entre as keys entregues, `quantity` keys cujo `gamivo_id` bate com seu `product_id`.
+
+**Casamento parcial:** o casamento é **linha a linha**, não tudo-ou-nada — uma key entregue que não está na base não tira das outras o valor da própria oferta. Só o que sobra sem par é rateado. Da situação mais comum para a mais extrema:
+
+| Situação | O que cada key recebe | Atribuição registrada |
+|---|---|---|
+| toda linha achou suas keys | o líquido da própria oferta | `matched` |
+| sobrou linha **e** sobrou key | as linhas que casaram mantêm o valor exato; o bruto das linhas órfãs é dividido por igual entre as keys órfãs | `partially_matched` |
+| sobrou key, mas nenhuma linha | as keys órfãs ficam **sem baixa** — não gravar é retentável na passada seguinte, gravar chute é definitivo | `partially_matched` |
+| sobrou linha, mas nenhuma key para recebê-la | o bruto do pedido inteiro dividido por igual entre todas as keys — errado por key, mas preserva o total recebido | `equal_split` |
+| nada casou | idem acima | `equal_split` |
+| pedido sem detalhes / sem key de texto | nenhuma key é tocada | `no_order_details` / `no_text_keys` |
+
+Os casos são o enum `App\Domain\Enums\OrderPayoutAttribution`. Todo pedido que não seja `matched` gera um `Log::warning` no canal `schedulers` (o mesmo do resumo do run) dizendo qual pedido e o que sobrou, e o resumo traz o campo `orders_by_attribution` com a contagem por caso — sem ele um run cheio de rateio igual pareceria saudável.
+
+> **Por que não pular o pedido inteiro no rateio igual:** um `sold_price` gravado é definitivo, porque `execute()` nunca sobrescreve key já vendida. O rateio igual é mantido por decisão de produto (registrar a receita vale mais que a precisão por key); a melhoria de observabilidade em cima dele está em [`docs/IMPROVEMENTS.md`](IMPROVEMENTS.md).
+
+**`seller_tax` entra no payout, não sai dele.** O bruto de uma linha é `profit + seller_tax` (`UpdateSoldOffersUseCase::grossOf`). O `seller_tax` é o VAT que o comprador pagou por cima — na linha, `gross_price = net_price + seller_tax`, e o `profit` é calculado sobre o `net_price`, já sem imposto. Como a operação é brasileira e não recolhe VAT na UE, a Gamivo **repassa** esse valor ao vendedor; somá-lo é o comportamento correto, e não uma inflação do valor gravado. A alíquota acompanha o país do comprador (`tax_rate`, ex.: `23% PT`, `23% SK`), então o payout da mesma oferta varia conforme quem compra. *(Confirmado com o dono da conta em 2026-08-27, contra dois pedidos reais: `ab6c09d8` — `profit` 0,30/0,13 com `seller_tax` 0,13/0,09 — e `5ae0af1c` — `profit` 1,90/1,15/0,63 com `seller_tax` 0,46/0,30/0,19, cujo payout de €4,62 confere com `Σ(profit + seller_tax) − 0,01`.)*
+
+**Taxa de mediação:** `IncomeCalculator::MEDIATION_FEE` (€0,01) é cobrada **uma vez por pedido**, não por linha — descontá-la em cada linha multiplicaria a taxa pelo número de ofertas. O desconto e o arredondamento acontecem no `OrderPayoutSplitter`, que usa o método do maior resto para que a soma dos `sold_price` gravados seja exatamente o líquido do pedido (dividir €1,00 entre 3 keys grava 0,34 / 0,33 / 0,33, nunca 0,99).
+
+> Antes dessa correção, cada linha do histórico era tratada como o pedido inteiro: o use case buscava as N keys do pedido para **cada** uma das N linhas e dividia o profit *daquela linha* por N. A idempotência do `execute()` fazia **uma linha qualquer** vencer — as outras N−1 eram descartadas como "já vendidas", e qual delas sobrava dependia da ordem em que a paginação por data devolvia as linhas, não do pedido. O valor gravado era, na prática, sorteado: um pedido de €4,62 em três volumes de Nekopara ficou como 0,48 em cada key (a linha de 1,45 dividida por 3), e um de €0,64 em duas keys ficou como 0,11 em cada (a linha de 0,13 + 0,09 dividida por 2).
+
+### Backfill: corrigir venda já gravada errada
+
+`php artisan gamivo:backfill-sold-prices` é o único caminho para consertar um `sold_price`
+errado, porque o cron não o alcança: `execute()` nunca sobrescreve key já vendida.
+
+Ele **não** procura o erro por heurística. Chama o mesmo `processOrder` do cron
+(`UpdateSoldOffersUseCase::reconcileFromGamivo`, que recalcula sem gravar), compara com o que
+está no banco e só age onde diverge — o que torna impossível estragar uma venda correta. No
+banco, aliás, não dá para distinguir as duas coisas: `sold_at` é `date`, sem hora, e não existe
+coluna de `order_id`, então duas vendas do mesmo dia pelo mesmo valor podem ser um pedido
+rateado errado ou dois pedidos independentes. Só a API sabe.
+
+| Opção | Padrão | Para quê |
+|---|---|---|
+| `--days` | 30 | janela em dias contados de hoje |
+| `--since` / `--until` | — / hoje | janela por data; `--since=2024-01-01` varre a base inteira |
+| `--order` | — | corrige só estes pedidos, consultados um a um; repetível |
+| `--except` | — | deixa de fora um pedido ajustado à mão; repetível |
+| `--except-key` | — | deixa de fora uma key só, corrigindo as irmãs do pedido; repetível |
+| `--tolerance` | 0,01 | diferença ignorada como ruído do maior resto |
+| `--apply` | desligado | sem ela nada é gravado; com ela ainda pede confirmação |
+
+**Corrigir uma lista conhecida:** com `--order`, o comando usa o filtro `order` da API e consulta
+cada pedido isoladamente — dois requests por pedido, em vez de paginar a janela inteira. É o que
+permite descobrir *quais* pedidos corrigir num ambiente (varredura completa, minutos) e aplicar em
+outro em segundos, sem perder nenhuma verificação: o valor continua sendo recalculado e comparado
+contra o banco daquele ambiente, e a trilha é gravada igual. `storage/app/order_list.php` monta a
+linha de comando a partir das trilhas de dry-run.
+
+**Trilha de auditoria:** toda passada — inclusive o dry-run — grava um JSON em
+`storage/app/diagnostics/backfill-sold-prices-<data>-{dry-run,applied}.json` com o **antes e o
+depois** de cada key (`sold_at`, `sold_price`, `sale_profit`, `sale_profit_percent`), o motivo da
+correção (`rateio por linha` ou `venda sem baixa`), a atribuição do pedido, e também o que foi
+deliberadamente **preservado**. É o que permite conferir depois que nada foi alterado além do
+previsto — sem ele, uma correção em massa é irreversível e invisível.
+
+**Varrer a base inteira:** `--since=2024-01-01` cobre desde a primeira venda. Cada pedido custa uma
+chamada de order-details, então uma janela de anos são milhares de requisições e vários minutos —
+por isso há barra de progresso. A varredura completa é feita **por trimestre**, não numa passada
+única: cada fatia gera sua própria trilha, e um erro no meio não invalida o resto.
+
+```bash
+bash storage/app/backfill_quarters.sh            # dry-run das 11 fatias
+bash storage/app/backfill_quarters.sh --apply    # grava fatia a fatia
+
+docker compose exec -T app-cd php artisan tinker \
+  --execute="require 'storage/app/audit_summary.php';"   # consolida as trilhas
+```
+
+Os dois scripts vivem em `storage/app/` (fora do git, como as demais ferramentas de bancada). O
+primeiro roda as fatias em sequência e concentra a saída em
+`~/backfill-logs/quarters-<data>.log` (o diretório do host, porque `storage/app/` pertence ao
+`www-data` e o script roda como o usuário); o segundo lê todos os JSONs de trilha e imprime uma
+linha por passada mais o total do que foi efetivamente gravado.
+
+**O que ele se recusa a fazer:**
+
+- **Pedido sem base para corrigir.** Atribuição `equal_split`, `no_order_details` ou
+  `no_text_keys` é listada e **pulada** — trocar um valor errado por um chutado não é conserto.
+  Só `matched` e `partially_matched` viram escrita.
+- **Reembolso lançado à mão.** Duas assinaturas, ambas preservadas e listadas à parte (ver
+  "Venda reembolsada" em [`CONTEXT.md`](../CONTEXT.md)):
+
+  | `sold_price` | Significa | Rótulo no relatório |
+  |---|---|---|
+  | = `individual_cost` − 1 **e** `sale_profit` = −1 | fornecedor devolveu a key, não a taxa | `só a taxa de €1 perdida` |
+  | = `individual_cost` **e** `sale_profit` = 0 | fornecedor devolveu key e taxa | `zerada contra o custo` |
+  | ≤ 0 | fornecedor não devolveu nada; prejuízo da key e da taxa | `prejuízo lançado à mão` |
+
+  As três cobrem os desfechos de [`docs/PRODUCT.md`](PRODUCT.md#como-o-reembolso-é-registrado-no-sistema).
+  A regra da taxa exige as duas condições juntas — prejuízo de exatamente €1 **e** custo recuperado
+  por inteiro — porque só o prejuízo de €1 pode ser venda real no vermelho. *(Na base há 38 keys
+  com essa assinatura, e nas 38 o `sold_price` é o custo menos €1 exato.)*
+  A regra do custo exige o lucro **exatamente** zero e **não vale** quando o valor se repete entre
+  keys do mesmo pedido: o rateio errado gravava o mesmo número em todas as keys, e quando esse
+  número calhava de ser o custo de uma delas o lucro dava zero por acaso. Valor repetido entre
+  irmãs é digital do bug; reembolso é lançado key a key. *(Caso real: no pedido `ab6c09d8` a
+  SteamWorld Build tem custo 0,11 e o rateio gravou 0,11 nas duas keys.)* Ajuste manual que não
+  siga nenhum dos três padrões precisa de `--except=<order_id>` (pedido inteiro) ou
+  `--except-key=<key_code>` (uma key só, deixando as irmãs serem corrigidas).
+
+`sold_price` nulo é o caso oposto: é venda que passou da janela de 30 dias do cron sem baixa
+nenhuma, aparece como `— sem baixa` no relatório e deve mesmo ser gravada.
+
+A gravação inteira roda numa transação.
+
+Ao gravar, recalcula também `sale_profit`/`sale_profit_percent` e corrige o `sold_at` para a
+data da linha — a correção do rateio muda o lucro da key, e deixar o lucro velho seria pior que
+o valor velho.
 
 ### Auto-sell: agrupamento por `gamivo_id` (venda FIFO)
 

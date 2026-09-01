@@ -14,6 +14,24 @@ use App\Domain\Pricing\ProfitCalculator;
 
 describe('ProfitCalculator', function () {
 
+    // ── normalizeCost ─────────────────────────────────────────────────────────
+
+    describe('normalizeCost()', function () {
+        it('treats a negative cost as zero', function () {
+            // Custo negativo é lixo de dado: contamina o lucro somando e inverte a margem
+            expect(ProfitCalculator::normalizeCost(-0.01))->toBe(0.0)
+                ->and(ProfitCalculator::normalizeCost(-8.0))->toBe(0.0);
+        });
+
+        it('keeps a zero cost, which is legitimate for a free key', function () {
+            expect(ProfitCalculator::normalizeCost(0.0))->toBe(0.0);
+        });
+
+        it('keeps a positive cost untouched', function () {
+            expect(ProfitCalculator::normalizeCost(2.5))->toBe(2.5);
+        });
+    });
+
     // ── individualCost ────────────────────────────────────────────────────────
 
     describe('individualCost()', function () {
@@ -57,6 +75,11 @@ describe('ProfitCalculator', function () {
             expect(ProfitCalculator::purchaseProfit(0.0, 1.60))->toBe(0.0);
         });
 
+        it('does not gain from a negative cost', function () {
+            // 0,13 − (−0,01) daria 0,14: um custo inválido virando lucro
+            expect(ProfitCalculator::purchaseProfit(0.13, -0.01))->toEqualWithDelta(0.13, 0.001);
+        });
+
         it('can be negative when cost exceeds income', function () {
             // 1.00 - 3.00 = -2.00
             expect(ProfitCalculator::purchaseProfit(1.00, 3.00))->toEqualWithDelta(-2.00, 0.001);
@@ -73,6 +96,12 @@ describe('ProfitCalculator', function () {
 
         it('returns 0.0 when profit is zero', function () {
             expect(ProfitCalculator::purchaseProfitPercent(0.0, 1.60))->toBe(0.0);
+        });
+
+        it('stays positive for a profitable purchase with a negative cost', function () {
+            $profit = ProfitCalculator::purchaseProfit(0.13, -0.01);
+
+            expect(ProfitCalculator::purchaseProfitPercent($profit, -0.01))->toEqualWithDelta(1300.0, 0.01);
         });
 
         it('uses 0.01 as cost floor when individual cost is zero', function () {
@@ -92,6 +121,11 @@ describe('ProfitCalculator', function () {
         it('returns null when the key has not been sold yet', function () {
             // null no banco significa não vendida — diferente de lucro zero
             expect(ProfitCalculator::saleProfit(null, 1.60))->toBeNull();
+        });
+
+        it('does not gain from a negative cost', function () {
+            // 0,20 − (−0,01) daria 0,21
+            expect(ProfitCalculator::saleProfit(0.20, -0.01))->toEqualWithDelta(0.20, 0.001);
         });
 
         it('returns the total loss when soldPrice is negative (refund with Gamivo penalty)', function () {
@@ -116,6 +150,13 @@ describe('ProfitCalculator', function () {
 
         it('returns 0.0 when sale profit is zero', function () {
             expect(ProfitCalculator::saleProfitPercent(0.0, 1.60))->toBe(0.0);
+        });
+
+        it('stays positive for a profitable sale with a negative cost', function () {
+            // Caso real: key vendida por €0,20 com custo −0,01 exibia −2100% de margem
+            $profit = ProfitCalculator::saleProfit(0.20, -0.01);
+
+            expect(ProfitCalculator::saleProfitPercent($profit, -0.01))->toEqualWithDelta(2000.0, 0.01);
         });
 
         it('uses 0.01 as cost floor when individual cost is zero', function () {

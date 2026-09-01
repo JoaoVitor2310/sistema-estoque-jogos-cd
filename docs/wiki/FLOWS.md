@@ -100,3 +100,16 @@ Tabelas completas de critérios, tiers e cenários de reprecificação em [AUTOM
 **Por que uma "governante"?** A Gamivo vende por ordem de chegada (FIFO) dentro de uma oferta, e a oferta tem um preço só — então só faz sentido a primeira key da fila definir esse preço. Ver [`docs/adr/0002`](../adr/0002-fifo-grouping-by-marketplace-product.md).
 
 **`gamivo:auto-sell` é manual** — não existe cron chamando o `AutoSellUseCase` hoje. Mapa completo de agendamentos em [AUTOMATIONS.md](AUTOMATIONS.md).
+
+### O que acontece dentro da baixa de vendas (passo 4)
+
+| # | Sub-etapa | Detalhe |
+|---|---|---|
+| 4.1 | Paginar o histórico | Janela de 30 dias, status `COMPLETED`, 25 linhas por página |
+| 4.2 | Agrupar por pedido | A Gamivo devolve **uma linha por oferta vendida** — várias podem dividir o mesmo `order_id`, até em páginas diferentes |
+| 4.3 | Buscar as keys entregues | Um `order-details` por pedido, que traz as keys de **todas** as ofertas dele |
+| 4.4 | Casar linha ↔ key | Pelo `product_id` da linha contra o `gamivo_id` da key; cada linha consome `quantity` keys |
+| 4.5 | Ratear o líquido | Cada key fica com o líquido da **sua** oferta; a taxa de mediação sai uma vez do pedido |
+| 4.6 | Gravar a venda | `sold_at`, `sold_price`, `sale_profit` e `sale_profit_percent`; key já vendida nunca é sobrescrita |
+
+O passo 4.4 casa **linha a linha**: uma key fora da base não custa às outras o valor da própria oferta. Só o que sobra sem par é dividido por igual, e a linha que sobra sem key nenhuma para receber devolve o pedido inteiro ao rateio igual. Cada pedido é contado por como foi atribuído (`orders_by_attribution` no resumo do scheduler) e todo caso diferente de `matched` gera `Log::warning` no canal `schedulers`. Tabela completa dos casos, endpoints e arredondamento em [`docs/GAMIVO.md`](../GAMIVO.md#baixa-de-vendas-uma-linha-de-histórico-por-oferta).

@@ -18,6 +18,29 @@ final class ProfitCalculator
     private const MINIMUM_COST = 0.01;
 
     /**
+     * Custo saneado para uso nos cálculos: negativo não existe no domínio.
+     *
+     * Um custo negativo é lixo de dado (importação antiga, edição manual), e sem este
+     * saneamento ele contamina tudo: entra somando no lucro absoluto e vira divisor
+     * negativo no percentual, fazendo uma venda lucrativa aparecer com margem negativa.
+     * Zero é legítimo — key de graça — e continua tratado pelo piso MINIMUM_COST na divisão.
+     */
+    public static function normalizeCost(float $individualCost): float
+    {
+        return max(0.0, $individualCost);
+    }
+
+    /**
+     * Divisor seguro para os percentuais: nunca zero, nunca negativo.
+     */
+    private static function costDivisor(float $individualCost): float
+    {
+        $cost = self::normalizeCost($individualCost);
+
+        return $cost == 0.0 ? self::MINIMUM_COST : $cost;
+    }
+
+    /**
      * Calcula o valor pago individualmente por uma key dentro de um lote.
      *
      * Fórmula: (qtdTF2 × tf2EuroPrice / somatorioIncomes) × gameIncome
@@ -53,14 +76,14 @@ final class ProfitCalculator
             return 0.0;
         }
 
-        return round($incomeSimulado - $individualCost, 2);
+        return round($incomeSimulado - self::normalizeCost($individualCost), 2);
     }
 
     /**
      * Lucro percentual esperado na compra: (lucroRS / custo individual) × 100.
      *
      * Retorna 0.0 quando lucroRS é zero — interpretado como sem lucro.
-     * Quando custo individual é zero, usa 0.01 como piso para evitar
+     * Custo zero (ou negativo, que é dado inválido) usa 0.01 como piso para evitar
      * divisão por zero — o percentual será muito alto (lucro "infinito").
      */
     public static function purchaseProfitPercent(float $lucroRS, float $individualCost): float
@@ -69,9 +92,7 @@ final class ProfitCalculator
             return 0.0;
         }
 
-        $cost = $individualCost == 0.0 ? self::MINIMUM_COST : $individualCost;
-
-        return round(($lucroRS / $cost) * 100, 2);
+        return round(($lucroRS / self::costDivisor($individualCost)) * 100, 2);
     }
 
     /**
@@ -86,7 +107,7 @@ final class ProfitCalculator
             return null;
         }
 
-        return round($soldPrice - $individualCost, 2);
+        return round($soldPrice - self::normalizeCost($individualCost), 2);
     }
 
     /**
@@ -94,7 +115,7 @@ final class ProfitCalculator
      *
      * Retorna null quando saleProfit é null (key não vendida).
      * Retorna 0.0 quando saleProfit é zero — interpretado como sem lucro.
-     * Quando custo individual é zero, usa 0.01 como piso para evitar
+     * Custo zero (ou negativo, que é dado inválido) usa 0.01 como piso para evitar
      * divisão por zero.
      */
     public static function saleProfitPercent(?float $saleProfit, float $individualCost): ?float
@@ -107,9 +128,7 @@ final class ProfitCalculator
             return 0.0;
         }
 
-        $cost = $individualCost == 0.0 ? self::MINIMUM_COST : $individualCost;
-
-        return round(($saleProfit / $cost) * 100, 2);
+        return round(($saleProfit / self::costDivisor($individualCost)) * 100, 2);
     }
 
     /**

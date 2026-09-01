@@ -41,7 +41,7 @@ Schedule::call(fn () => app(ResolveSteamIdsUseCase::class)->execute())
 Schedule::call(fn () => app(RegulateMinApiUseCase::class)->execute())
     ->cron('30 7 * * *')->timezone('America/Sao_Paulo')->environments('production');
 
-// Baixa das keys vendidas na Gamivo (janela de 2 dias para cobrir bordas de fuso)
+// Baixa das keys vendidas na Gamivo (janela de 30 dias para cobrir vendas não processadas)
 Schedule::call(fn () => app(UpdateSoldOffersUseCase::class)->executeFromGamivo())
     ->cron('0 6,18 * * *')->timezone('America/Sao_Paulo')->environments('production');
 
