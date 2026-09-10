@@ -99,6 +99,8 @@ app/
 │   │   └── AssetAlert.php               # limiar de alerta de variação de câmbio
 │   ├── Trades/
 │   │   ├── CommentPolicy.php            # decide se recomenta um supplier (14 dias / jogos mudaram)
+│   │   ├── DeliveryCredential.php       # link + código da entrega: formato, emissão, limites e prazo
+│   │   ├── GamivoIdentity.php           # quando trocar jogo/região invalida o gamivo_id da linha
 │   │   ├── TradeGameComparison.php
 │   │   ├── TradeLineBuilder.php         # monta a linha a partir da saída do price_researcher
 │   │   ├── TradeLineValue.php           # normalização por campo — compartilhada backfill/aba

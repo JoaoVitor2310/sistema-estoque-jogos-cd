@@ -9,7 +9,8 @@
 |
 |   A credencial (uma por trade, criada com ela):
 |     1. token guardado encriptado, legível de volta para a equipe
-|     2. não existe rota para emitir um segundo código
+|     2. token guardado com outra chave não autentica ninguém
+|     3. não existe rota para emitir um segundo código
 |
 |   Token (supplier):
 |     4. token certo abre a sessão
@@ -31,6 +32,7 @@
 |    13. o supplier grava key_code, region e expires_at
 |    14. a validade vai e volta em mm/dd/aaaa, o formato que ele lê
 |    15. o supplier não altera game_name nem market_price pela rota da entrega
+|   15b. corrigir a região apaga o gamivo_id da linha, e a resposta segue vazia
 |    16. escrita sem sessão é recusada
 |    17. sessão morre com a credencial que a abriu
 |    18. escrita numa trade já importada é recusada
@@ -48,6 +50,7 @@ use App\Domain\Trades\DeliveryCredential;
 use App\Models\AuthorizedUsers;
 use App\Models\Trade;
 use App\Models\User;
+use Illuminate\Encryption\Encrypter;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
@@ -89,6 +92,21 @@ describe('The credential a trade is born with', function () {
         expect($trade->delivery_uuid)->not->toBeNull()
             ->and($trade->delivery_token)->toBe($token)
             ->and($raw)->not->toContain($token);
+    });
+
+    it('refuses a token whose stored value does not open with the current key', function () {
+        // Ilegível não autentica ninguém: sem código conferível, a entrega fica
+        // fechada — e a rota responde como token errado, não com 500.
+        [$trade, $token] = tradeWithDelivery(['Portal']);
+
+        $foreign = new Encrypter(Encrypter::generateKey('aes-256-cbc'), 'aes-256-cbc');
+
+        DB::table('trades')->where('id', $trade->id)->update([
+            'delivery_token' => $foreign->encryptString($token),
+        ]);
+
+        $this->postJson("/deliveries/{$trade->delivery_uuid}/token", ['token' => $token])
+            ->assertStatus(422);
     });
 
     it('has no route for minting a second one', function () {
@@ -322,6 +340,24 @@ describe('writes made by the supplier', function () {
         expect($line->key_code)->toBe('AAA-BBB-CCC')
             ->and($line->region)->toBe('EU')
             ->and($line->expires_at?->format('Y-m-d'))->toBe('2027-06-02');
+    });
+
+    it('clears the gamivo id when he corrects the region, without ever seeing it', function () {
+        // O id endereça um produto da Gamivo, e o produto é o par jogo+região:
+        // ele corrigindo a região é o caso que mais passa despercebido. A
+        // resposta continua vazia — a limpeza é efeito de domínio, não uma
+        // coluna que a página dele passa a conhecer.
+        $trade = openDelivery([['game_name' => 'Portal', 'region' => 'EU', 'gamivo_id' => '77']]);
+        $line = $trade->lines->first();
+
+        $this->patchJson("/deliveries/{$trade->delivery_uuid}/lines/{$line->id}", ['region' => 'BR'])
+            ->assertStatus(200)
+            ->assertExactJson([]);
+
+        $line->refresh();
+
+        expect($line->region)->toBe('BR')
+            ->and($line->gamivo_id)->toBeNull();
     });
 
     it('reads the expiry date back in the same format it accepts', function () {

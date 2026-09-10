@@ -545,10 +545,25 @@ function scheduleAutosave(trade: TradeEntry) {
 /** Uma linha da trade — grava só ela, sem tocar nas demais. */
 function scheduleLineSave(trade: TradeEntry, row: Row) {
   scheduleSave(`line:${row.id}`, trade, async () => {
-    await axiosInstance.patch(
+    const payload = rowPayload(row);
+
+    const { data } = await axiosInstance.patch(
       route('trades.lines.update', { trade: trade.id, line: row.id }),
-      rowPayload(row),
+      payload,
     );
+
+    // O servidor apaga o ID Gamivo quando o nome ou a região mudam: o id vale
+    // para um par só. Espelhar na tela não é cosmético — esta gravação manda a
+    // linha inteira, então um campo desatualizado reenviaria na próxima tecla o
+    // id que o servidor acabou de tirar de circulação.
+    //
+    // Só se o campo ainda tiver o que foi mandado: se ele digitou um id
+    // enquanto a gravação ia, quem vale é o que ele digitou.
+    const saved = (data?.gamivo_id ?? '') as string;
+
+    if (saved !== payload.gamivo_id && row.gamivo_id === payload.gamivo_id) {
+      row.gamivo_id = saved;
+    }
   });
 }
 
@@ -1437,28 +1452,39 @@ function formatDeliveredAt(iso: string): string {
             <i :class="trade.copiedKey === 'delivery-link' ? 'pi pi-check' : 'pi pi-copy'" />
           </button>
 
-          <button
-            type="button"
-            class="delivery-chip"
-            :class="{ 'delivery-chip--copied': trade.copiedKey === 'delivery-code' }"
-            title="Copiar só o código"
-            @click="copyDelivery(trade, 'code')"
-          >
-            <span class="delivery-chip-key">Code</span>
-            <span class="delivery-chip-value font-monospace">{{ trade.deliveryToken }}</span>
-            <i :class="trade.copiedKey === 'delivery-code' ? 'pi pi-check' : 'pi pi-copy'" />
-          </button>
+          <template v-if="trade.deliveryToken">
+            <button
+              type="button"
+              class="delivery-chip"
+              :class="{ 'delivery-chip--copied': trade.copiedKey === 'delivery-code' }"
+              title="Copiar só o código"
+              @click="copyDelivery(trade, 'code')"
+            >
+              <span class="delivery-chip-key">Code</span>
+              <span class="delivery-chip-value font-monospace">{{ trade.deliveryToken }}</span>
+              <i :class="trade.copiedKey === 'delivery-code' ? 'pi pi-check' : 'pi pi-copy'" />
+            </button>
 
-          <button
-            type="button"
-            class="btn btn-sm"
-            :class="trade.copiedKey === 'delivery-both' ? 'btn-success' : 'btn-outline-purple'"
-            title="Copiar a mensagem pronta com o link e o código"
-            @click="copyDelivery(trade, 'both')"
-          >
-            <i :class="trade.copiedKey === 'delivery-both' ? 'pi pi-check' : 'pi pi-send'" class="me-1" />
-            {{ trade.copiedKey === 'delivery-both' ? 'Copiado' : 'Enviar acesso' }}
-          </button>
+            <button
+              type="button"
+              class="btn btn-sm"
+              :class="trade.copiedKey === 'delivery-both' ? 'btn-success' : 'btn-outline-purple'"
+              title="Copiar a mensagem pronta com o link e o código"
+              @click="copyDelivery(trade, 'both')"
+            >
+              <i :class="trade.copiedKey === 'delivery-both' ? 'pi pi-check' : 'pi pi-send'" class="me-1" />
+              {{ trade.copiedKey === 'delivery-both' ? 'Copiado' : 'Enviar acesso' }}
+            </button>
+          </template>
+
+          <!-- Sem código legível: o guardado não abre com a chave de
+               criptografia deste ambiente. O link continua valendo — quem não
+               abre é o código —, então ele fica copiável e o aviso ocupa o
+               lugar do par. -->
+          <span v-else class="delivery-strip-warn">
+            <i class="pi pi-exclamation-triangle me-1" />
+            Código indisponível neste ambiente
+          </span>
         </div>
 
         <!-- Observação do supplier: o canal para o caso irregular que o resto
@@ -1935,6 +1961,15 @@ function formatDeliveredAt(iso: string): string {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.delivery-strip-warn {
+  font-size: 0.75rem;
+  color: #6a4a00;
+  background: #fff8e1;
+  border: 1px solid #ffe08a;
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
 }
 
 .delivery-chip-value--url {

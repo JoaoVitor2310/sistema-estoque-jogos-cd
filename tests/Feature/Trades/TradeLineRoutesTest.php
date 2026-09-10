@@ -11,7 +11,8 @@
 |   DELETE /trades/{trade}/lines/{line}   remove e fecha o buraco na ordem
 |
 | Cobre também o que a aba depende para não corromper dado: escrita parcial
-| não zera o resto da linha, e a linha de uma trade não é alcançável pela URL
+| não zera o resto da linha, a resposta devolve o `gamivo_id` que o servidor
+| apagou por conta própria, e a linha de uma trade não é alcançável pela URL
 | de outra.
 |
 */
@@ -181,6 +182,25 @@ describe('PATCH /trades/{trade}/lines/{line}', function () {
             ->assertStatus(200);
 
         expect($line->refresh()->region)->toBeNull();
+    });
+
+    it('answers with the gamivo id it cleared when the game changed', function () {
+        // A aba manda a linha inteira a cada gravação. Sem o id de volta na
+        // resposta, o campo continuaria exibindo o valor apagado e o reenviaria
+        // na tecla seguinte, ressuscitando o id que a regra tirou de circulação.
+        $trade = TradeFactory::withLines([['game_name' => 'Portal', 'region' => 'EU', 'gamivo_id' => '77']]);
+        $line = $trade->lines->first();
+
+        $this->actingAs(lineRouteUser())
+            ->patchJson("/trades/{$trade->id}/lines/{$line->id}", [
+                'game_name' => 'Portal 2',
+                'region' => 'EU',
+                'gamivo_id' => '77',
+            ])
+            ->assertStatus(200)
+            ->assertExactJson(['gamivo_id' => null]);
+
+        expect($line->refresh()->gamivo_id)->toBeNull();
     });
 
     it('parses a dd/mm/yyyy expiry into a date', function () {

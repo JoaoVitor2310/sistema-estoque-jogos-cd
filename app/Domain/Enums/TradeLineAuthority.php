@@ -28,6 +28,12 @@ enum TradeLineAuthority: string
      * `game_name` porque o conjunto de linhas é da equipe: ele preenche o que
      * existe, não redefine o que foi negociado.
      *
+     * Fora desta lista, uma única coluna muda por efeito: corrigir a região
+     * apaga o `gamivo_id` daquela linha (ver
+     * [[App\Domain\Trades\GamivoIdentity]]). Não é brecha no escopo — ele não
+     * escolhe o que vai lá; o id é derivado do par jogo+região, e o que a regra
+     * faz é tirar de circulação um valor que deixou de valer.
+     *
      * `bundle` é a exceção entre os campos pesquisados (2026-08-19): ele chega
      * pré-preenchido pela nossa busca, mas quem teve a key na mão sabe melhor
      * de onde ela veio — e é a origem que costuma explicar o region lock. O que

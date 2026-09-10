@@ -6,7 +6,7 @@
  * equipe. Enquanto não houver mecanismo de tradução no projeto, telas de
  * terceiros ficam em inglês literal.
  */
-import { computed, reactive, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import axiosInstance from '@/axios';
 import DeliveryLayout from '@/components/core/DeliveryLayout.vue';
 
@@ -72,6 +72,55 @@ async function unlock() {
     unlocking.value = false;
   }
 }
+
+// ─── Rolagem horizontal da tabela ────────────────────────────────────────────
+
+/**
+ * A tabela não cabe na largura de um celular, e a barra de rolagem do toque é
+ * invisível até o dedo encostar: sem aviso, o supplier preenchia o que via —
+ * `Game` e `Key` — e ia embora sem saber que existiam Region, Expires e Bundle.
+ *
+ * Medido, não presumido por breakpoint: quem decide se há aviso é o overflow
+ * real do elemento, então o aviso não aparece na tela larga onde tudo já cabe,
+ * e some assim que ele chega ao fim das colunas.
+ */
+const scroller = ref<HTMLElement | null>(null);
+const scrollable = ref(false);
+const atScrollEnd = ref(false);
+
+// Folga de 1px: `scrollLeft` fracionário (zoom do navegador, tela com DPR não
+// inteiro) nunca soma exatamente a largura, e sem a folga o aviso ficaria preso
+// na tela mesmo com o fim das colunas à vista.
+const SCROLL_END_TOLERANCE_PX = 1;
+
+function measureScroll() {
+  const el = scroller.value;
+  if (!el) return;
+
+  scrollable.value = el.scrollWidth - el.clientWidth > SCROLL_END_TOLERANCE_PX;
+  atScrollEnd.value =
+    el.scrollLeft + el.clientWidth >= el.scrollWidth - SCROLL_END_TOLERANCE_PX;
+}
+
+let observer: ResizeObserver | null = null;
+
+onMounted(() => {
+  measureScroll();
+
+  // Girar o aparelho muda as duas larguras da conta — e o `resize` da janela
+  // sozinho não cobre a tabela crescendo com o conteúdo.
+  if (typeof ResizeObserver !== 'undefined' && scroller.value) {
+    observer = new ResizeObserver(measureScroll);
+    observer.observe(scroller.value);
+  }
+
+  window.addEventListener('resize', measureScroll);
+});
+
+onBeforeUnmount(() => {
+  observer?.disconnect();
+  window.removeEventListener('resize', measureScroll);
+});
 
 // ─── Preenchimento ───────────────────────────────────────────────────────────
 
@@ -356,84 +405,100 @@ async function submitDelivery() {
         </span>
       </div>
 
-      <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
-          <thead class="table-light">
-            <tr>
-              <!-- As larguras mínimas somam menos que o container (860px): a
-                   barra de rolagem horizontal é para o celular, e aparecer numa
-                   tela larga só sugere que existe coluna escondida. -->
-              <th style="min-width: 170px;">Game</th>
-              <th style="min-width: 210px;"><span class="text-purple fw-bold">Key</span></th>
-              <th style="min-width: 140px;">
-                Region
-                <span class="th-hint">anything you know — blank if none</span>
-              </th>
-              <th style="min-width: 110px;">Expires</th>
-              <th class="col-bundle">
-                Bundle
-                <span class="th-hint">anything you know — blank if none</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="line in form.lines" :key="line.id">
-              <td class="fw-semibold">{{ line.game_name || '—' }}</td>
-              <td>
-                <input
-                  v-model="line.key_code"
-                  :readonly="locked"
-                  type="text"
-                  class="cell-input font-monospace"
-                  placeholder="XXXXX-XXXXX-XXXXX"
-                  autocomplete="off"
-                  spellcheck="false"
-                  @input="saveLine(line, 'key_code')"
-                />
-              </td>
-              <td>
-                <input
-                  v-model="line.region"
-                  :readonly="locked"
-                  type="text"
-                  class="cell-input"
-                  autocomplete="off"
-                  @input="saveLine(line, 'region')"
-                />
-              </td>
-              <td>
-                <input
-                  v-model="line.expires_at"
-                  :readonly="locked"
-                  type="text"
-                  inputmode="numeric"
-                  maxlength="10"
-                  class="cell-input"
-                  :class="{ 'cell-input--invalid': expiryLooksWrong(line) }"
-                  placeholder="mm/dd/yyyy"
-                  autocomplete="off"
-                  @input="maskExpiry(line)"
-                  @focus="editingExpiry = line.id"
-                  @blur="editingExpiry = null"
-                />
-                <span v-if="expiryLooksWrong(line)" class="cell-error">use mm/dd/yyyy</span>
-              </td>
-              <!-- Chega pré-preenchido pela nossa busca de bundle, e ele
-                   corrige: quem teve a key na mão sabe melhor de onde ela veio,
-                   e a origem é o que costuma explicar o region lock. -->
-              <td>
-                <input
-                  v-model="line.bundle"
-                  :readonly="locked"
-                  type="text"
-                  class="cell-input"
-                  autocomplete="off"
-                  @input="saveLine(line, 'bundle')"
-                />
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <!-- O aviso vem antes da tabela, não depois: quem chega ao fim da página
+           já preencheu o que viu. -->
+      <div v-if="scrollable" class="scroll-hint" :class="{ 'scroll-hint--end': atScrollEnd }">
+        <i class="pi" :class="atScrollEnd ? 'pi-check' : 'pi-arrow-right'" />
+        <span v-if="atScrollEnd">That's every column.</span>
+        <span v-else>
+          <strong>Swipe the table sideways</strong> — there are more columns
+          (Region, Expires, Bundle) past the edge.
+        </span>
+      </div>
+
+      <div
+        class="table-scroll-frame"
+        :class="{ 'table-scroll-frame--more': scrollable && !atScrollEnd }"
+      >
+        <div ref="scroller" class="table-responsive" @scroll.passive="measureScroll">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <!-- As larguras mínimas somam menos que o container (860px): a
+                     barra de rolagem horizontal é para o celular, e aparecer numa
+                     tela larga só sugere que existe coluna escondida. -->
+                <th style="min-width: 170px;">Game</th>
+                <th style="min-width: 210px;"><span class="text-purple fw-bold">Key</span></th>
+                <th style="min-width: 140px;">
+                  Region
+                  <span class="th-hint">anything you know — blank if none</span>
+                </th>
+                <th style="min-width: 110px;">Expires</th>
+                <th class="col-bundle">
+                  Bundle
+                  <span class="th-hint">anything you know — blank if none</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="line in form.lines" :key="line.id">
+                <td class="fw-semibold">{{ line.game_name || '—' }}</td>
+                <td>
+                  <input
+                    v-model="line.key_code"
+                    :readonly="locked"
+                    type="text"
+                    class="cell-input font-monospace"
+                    placeholder="XXXXX-XXXXX-XXXXX"
+                    autocomplete="off"
+                    spellcheck="false"
+                    @input="saveLine(line, 'key_code')"
+                  />
+                </td>
+                <td>
+                  <input
+                    v-model="line.region"
+                    :readonly="locked"
+                    type="text"
+                    class="cell-input"
+                    autocomplete="off"
+                    @input="saveLine(line, 'region')"
+                  />
+                </td>
+                <td>
+                  <input
+                    v-model="line.expires_at"
+                    :readonly="locked"
+                    type="text"
+                    inputmode="numeric"
+                    maxlength="10"
+                    class="cell-input"
+                    :class="{ 'cell-input--invalid': expiryLooksWrong(line) }"
+                    placeholder="mm/dd/yyyy"
+                    autocomplete="off"
+                    @input="maskExpiry(line)"
+                    @focus="editingExpiry = line.id"
+                    @blur="editingExpiry = null"
+                  />
+                  <span v-if="expiryLooksWrong(line)" class="cell-error">use mm/dd/yyyy</span>
+                </td>
+                <!-- Chega pré-preenchido pela nossa busca de bundle, e ele
+                     corrige: quem teve a key na mão sabe melhor de onde ela veio,
+                     e a origem é o que costuma explicar o region lock. -->
+                <td>
+                  <input
+                    v-model="line.bundle"
+                    :readonly="locked"
+                    type="text"
+                    class="cell-input"
+                    autocomplete="off"
+                    @input="saveLine(line, 'bundle')"
+                  />
+                </td>
+              </tr>
+              </tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -591,6 +656,63 @@ async function submitDelivery() {
 .missing-note .pi {
   margin-top: 0.12rem;
   color: #b8860b;
+}
+
+/* ── Aviso e sombra da rolagem horizontal ────────────────────────────────── */
+
+.scroll-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.8rem;
+  line-height: 1.3;
+  color: #5b1e8c;
+  background: #f4ecfd;
+  border-top: 1px solid #e0cdf7;
+  border-bottom: 1px solid #e0cdf7;
+}
+
+.scroll-hint--end {
+  color: #1a6c47;
+  background: #eaf7f0;
+  border-color: #c6e8d5;
+}
+
+/* A seta acompanha o gesto que ele precisa fazer; para quando ele chega ao fim
+   junto com o resto do aviso. */
+.scroll-hint:not(.scroll-hint--end) .pi {
+  animation: scroll-nudge 1.4s ease-in-out infinite;
+}
+
+@keyframes scroll-nudge {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(4px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scroll-hint .pi {
+    animation: none;
+  }
+}
+
+/* A borda sombreada é o segundo sinal, o que continua visível enquanto ele
+   rola: diz que a tabela segue à direita, e some no fim. O gradiente mora num
+   wrapper e não no próprio scroller — um absoluto dentro do elemento que rola
+   se ancora no conteúdo e andaria para fora da tela junto com ele. */
+.table-scroll-frame {
+  position: relative;
+}
+
+.table-scroll-frame--more::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 28px;
+  pointer-events: none;
+  background: linear-gradient(to right, rgba(255, 255, 255, 0), rgba(0, 0, 0, 0.12));
 }
 
 .th-hint {

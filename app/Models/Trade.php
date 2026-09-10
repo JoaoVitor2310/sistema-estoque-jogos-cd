@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Domain\Enums\TradeDeliveryState;
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -40,6 +41,26 @@ class Trade extends Model
         // copiar, e isso exige poder lê-lo de volta (ver docs/adr/0008).
         'delivery_token' => 'encrypted',
     ];
+
+    /**
+     * O token da entrega, ou `null` quando o valor guardado não abre com a
+     * `APP_KEY` corrente.
+     *
+     * O cast `encrypted` lança na **leitura**, e o token é lido para toda trade
+     * listada: uma linha encriptada com outra chave — chave rotacionada, ou um
+     * dump de um ambiente aberto em outro — derrubava a aba inteira com 500.
+     * Aqui a falha fica contida na trade: ela aparece sem código, e as demais
+     * continuam. Todo leitor do token passa por aqui; ninguém lê a propriedade
+     * direto.
+     */
+    public function readableDeliveryToken(): ?string
+    {
+        try {
+            return $this->delivery_token;
+        } catch (DecryptException) {
+            return null;
+        }
+    }
 
     /**
      * Em que ponto da entrega esta trade está — derivado de `delivered_at` e

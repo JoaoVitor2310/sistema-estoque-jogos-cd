@@ -63,6 +63,8 @@ Rate limit no token nos **dois** eixos (por entrega e por IP): só por IP um ata
 
 O token fica **encriptado** (cast `encrypted` em `Trade`), não em hash, porque a aba de Trades o exibe para a equipe copiar. Duas consequências que não podem ser afrouxadas: ele sai **só** pela projeção do `TradeService` — a projeção da entrega (`DeliveryTradeResource`) não devolve token nenhum —, e `delivery_token` está no `$hidden` do model, para não escapar numa serialização automática. Um `toArray()` de `Trade` numa rota nova não pode virar o caminho por onde o token de toda trade vaza.
 
+**Ler o token nunca pode derrubar a página.** Toda leitura passa por `Trade::readableDeliveryToken()`, que devolve `null` quando o valor guardado não abre com a `APP_KEY` corrente — chave rotacionada, ou um dump de produção aberto em outro ambiente. Sem isso, o cast lança `DecryptException` e, como a projeção lê o token de toda trade da página, **uma** linha ilegível derruba a aba inteira com 500 *(já aconteceu)*. Degradar assim não afrouxa nada: um token que não abre não confere com nada, e a entrega correspondente fica fechada.
+
 ## Lote é `whereIn`, não loop
 
 Exclusão/atualização em massa não itera chamando `find()` + `delete()` por item: se um id falha no meio, os anteriores já foram gravados e a resposta de erro descreve um estado que mudou pela metade. Valide a existência **na fronteira** (`exists:tabela,id` no FormRequest, ver `DeleteManyRequest`) e execute num statement só — assim o lote é atômico por construção, sem precisar de transação, e ainda deixa de ser N+1. *(Já aconteceu: 4 dos 5 `destroyArray` apagavam parcialmente e respondiam erro.)*

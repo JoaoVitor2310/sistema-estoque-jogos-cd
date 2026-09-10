@@ -40,6 +40,17 @@ Trades é uma compra realizada com nossos fornecedores. Nessa troca pode ter div
 
 Significa que foi gasto 5,5 TF2 keys para um trade de 8 jogos. Esses 8 jogos serão enviados de uma única vez, e o valorPagoIndividual vai conseguir calcular o preço de cada jogo.
 
+### ID Gamivo de uma linha
+
+O `gamivo_id` de uma linha endereça um produto na Gamivo, e o produto é o par **jogo + região** — o mesmo jogo é um item diferente em cada região. Por isso, alterar o nome do jogo ou a região de uma linha **apaga o `gamivo_id` dela**, venha a alteração da aba ou da página do supplier.
+
+| Regra | Por quê |
+|---|---|
+| Mudou nome ou região → o id é apagado | quem corrige um dos dois no meio da negociação quase sempre trocou o jogo tradado, e o detalhe passa despercebido; o id antigo entraria na key calado |
+| Se a mesma gravação traz um id **diferente**, ele é mantido | corrigir o jogo e já colar o id certo é uma decisão explícita, e apagá-la desfaria a correção |
+| Retoque de caixa ou espaço não conta como troca | o lookup do id casa o nome sem diferenciar maiúscula; apagar a cada retoque seria ruído |
+| Apagar é melhor que manter um id duvidoso | linha sem id é resolvida de novo no import, pelo par novo; id errado atravessa a importação calado **e** é propagado para a tabela `games` |
+
 ### Entrega pelo supplier
 
 Fechada a negociação, quem digita os `key_code` pode ser o próprio supplier: toda trade já traz na aba o **link** e o **código** da entrega, copiáveis em separado ou juntos, prontos para colar no chat da Steam. Na página, ele preenche a key, a região e a validade de cada jogo, o total de TF2 acertado e um recado livre. Deixar um jogo em branco é resposta válida — significa que ele não tem mais aquele jogo —, mas o total de TF2 é obrigatório: sem ele o lote chega travado para o import, e recuperar o número relendo a conversa é a transcrição que esta página existe para evitar. Validade pela metade também segura o envio — em branco pode, `02` não. A alternativa de sempre continua valendo — a equipe transcrever do chat na aba de Trades.
@@ -47,7 +58,7 @@ Fechada a negociação, quem digita os `key_code` pode ser o próprio supplier: 
 | Regra | Por quê |
 |---|---|
 | Ele preenche as linhas existentes, mas **não cria nem apaga** nenhuma | linha criada por ele nasceria sem preço pesquisado, e o rateio do custo do lote depende desse preço |
-| Ele **não vê** preço de mercado, popularidade nem `gamivo_id` | é quanto o jogo dele vale para nós; visto uma vez, renegocia toda trade futura com o número na mão |
+| Ele **não vê** preço de mercado, popularidade nem `gamivo_id` | é quanto o jogo dele vale para nós; visto uma vez, renegocia toda trade futura com o número na mão. Corrigir a região ainda assim apaga o id derivado dela (ver "ID Gamivo de uma linha") — ele não escolhe o valor, só desfaz um que deixou de valer |
 | Ele **vê e corrige o bundle** de origem, que chega pré-preenchido pela nossa busca | é o que costuma carregar o region lock da key, e quem teve a key na mão sabe de onde ela veio melhor que o nosso lookup |
 | Linha em branco significa "não entreguei este jogo" | trade parcial é caso normal; quem limpa antes do import é a equipe |
 | Entregar **fecha** a página para ele: dali em diante quem corrige é a equipe, avisada pelo chat | entre a entrega e o import passam dias, e nesse intervalo as keys entregues são a única cópia que existe — quem entregou não pode esvaziar a trade, por arrependimento ou por acidente |
