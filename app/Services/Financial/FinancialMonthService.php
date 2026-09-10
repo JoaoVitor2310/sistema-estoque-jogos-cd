@@ -64,6 +64,32 @@ class FinancialMonthService
     }
 
     /**
+     * O mês inteiro, para a tela de detalhes: os movimentos e os saldos que
+     * eles produzem.
+     *
+     * Fora do `overview()` de propósito. A página carrega os movimentos **só**
+     * do mês em aberto; o histórico manda o cabeçalho de cada mês e busca o
+     * resto quando alguém abre um — mesmo critério das linhas de trade (ver
+     * [`docs/adr/0009`](../../../docs/adr/0009-trade-lines-loaded-on-demand.md)).
+     * Um ano fechado são doze meses de extrato num payload que quase ninguém
+     * abre.
+     *
+     * Serve mês fechado e mês em aberto sem distinção: o estado do mês não muda
+     * o que "o que aconteceu nele" quer dizer.
+     *
+     * @return array{month: FinancialMonth, balances: array<string, float>}
+     */
+    public function details(FinancialMonth $month): array
+    {
+        $month->load('movements');
+
+        return [
+            'month' => $month,
+            'balances' => $this->accountBalances($month),
+        ];
+    }
+
+    /**
      * Sugestão de verba de TF2 para o mês corrente, tirada do mês anterior:
      * quanto foi alocado no total e a que preço unitário da última vez.
      *

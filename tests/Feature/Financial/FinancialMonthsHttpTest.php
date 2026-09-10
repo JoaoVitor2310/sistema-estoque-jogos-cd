@@ -307,6 +307,26 @@ describe('FinancialMonth HTTP contracts', function () {
         expect($july->movements()->count())->toBeGreaterThan(0);
     });
 
+    it('serves the extract of a closed month', function () {
+        // Fechar tira o mês da tela, não do sistema: o histórico busca o extrato
+        // por aqui quando alguém abre os detalhes de um mês.
+        $this->postJson('/financial-months', bootstrapPayload())->assertStatus(201);
+        $this->postJson('/financial-months/close')->assertStatus(201);
+
+        $july = FinancialMonth::where('month', 7)->first();
+
+        $response = $this->getJson("/financial-months/{$july->id}")->assertStatus(200);
+
+        expect($response->json('month.id'))->toBe($july->id)
+            ->and($response->json('month.status'))->toBe(FinancialMonthStatus::Closed->value)
+            ->and($response->json('month.movements'))->not->toBeEmpty()
+            ->and($response->json('balances'))->toHaveKeys(['principal', 'tf2', 'reinvestment', 'emergency']);
+    });
+
+    it('404s on an unknown month', function () {
+        $this->getJson('/financial-months/99999')->assertStatus(404);
+    });
+
     it('reopens the most recent closed month', function () {
         $this->postJson('/financial-months', bootstrapPayload())->assertStatus(201);
         $this->postJson('/financial-months/close')->assertStatus(201);

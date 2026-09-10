@@ -8,6 +8,31 @@ use Tests\Support\FinancialMonthFactory;
 
 describe('FinancialMonthService', function () {
 
+    describe('details()', function () {
+
+        it('returns the movements and the balances of a closed month', function () {
+            // O `overview()` manda o extrato só do mês em aberto; o do histórico
+            // vem por aqui, quando alguém abre os detalhes daquele mês.
+            $month = FinancialMonthFactory::closed();
+            FinancialMonthFactory::credit($month, AccountType::Principal, 1000.00);
+            FinancialMonthFactory::allocateTf2($month, 10, 25.00);
+
+            $details = app(FinancialMonthService::class)->details($month);
+
+            expect($details['month']->id)->toBe($month->id)
+                ->and($details['month']->movements)->toHaveCount(3)
+                ->and($details['balances']['principal'])->toBe(750.00)
+                ->and($details['balances']['tf2'])->toBe(250.00);
+        });
+
+        it('returns empty balances for a month without movements', function () {
+            $details = app(FinancialMonthService::class)->details(FinancialMonthFactory::closed());
+
+            expect($details['month']->movements)->toBeEmpty()
+                ->and($details['balances']['principal'])->toBe(0.0);
+        });
+    });
+
     describe('overview()', function () {
 
         it('returns null current and balances when there is no draft', function () {

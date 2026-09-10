@@ -45,6 +45,19 @@ class FinancialMonthController extends Controller
         return Inertia::render('FinancialMonths', $this->financialMonthService->overview());
     }
 
+    /**
+     * O extrato de um mês, buscado quando a tela abre os detalhes dele.
+     *
+     * Vale para qualquer mês, fechado ou em aberto: o estado não muda o que se
+     * quer ver. Só leitura, mas atrás do mesmo `CheckPermission` das demais
+     * rotas do fechamento — é o caixa da operação, e não fica mais frouxo por
+     * ser leitura.
+     */
+    public function show(FinancialMonth $financialMonth): JsonResponse
+    {
+        return response()->json($this->financialMonthService->details($financialMonth), 200);
+    }
+
     public function store(StoreFinancialMonthRequest $request): JsonResponse
     {
         try {

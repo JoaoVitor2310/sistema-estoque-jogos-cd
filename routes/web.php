@@ -49,6 +49,9 @@ Route::prefix('financial-months')
     ->controller(FinancialMonthController::class)
     ->group(function () {
         Route::post('/', 'store')->name('financial-months.store');
+        // Extrato de um mês, buscado ao abrir os detalhes dele. A página manda
+        // os movimentos só do mês em aberto; o histórico vem sob demanda.
+        Route::get('/{financialMonth}', 'show')->name('financial-months.show');
         // Um endpoint por tipo de lançamento: cada um valida campos diferentes e
         // os que geram mais de uma linha precisam do próprio UseCase.
         Route::post('/movements', 'storeMovement')->name('financial-months.movements.store');
