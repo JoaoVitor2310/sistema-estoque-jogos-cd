@@ -13,6 +13,13 @@ DEV_API_PRICE_RESEARCHER=
 API_GAMIVO_URL=https://backend.gamivo.com
 API_KEY_GAMIVO=
 
+# Cotação de moeda (AwesomeAPI) — aba Recursos, conversão entre BRL/USD/EUR
+# Lida por config('services.awesome_api.key'), nunca por env() em runtime: o
+# deploy roda `config:cache` e a partir daí env() devolve null. Em branco, a
+# chamada cai no tier público, limitado por IP, e o servidor leva 429 — a tela
+# grava o preço digitado sem converter os outros dois.
+API_KEY_AWESOME_API=
+
 # Google OAuth
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=

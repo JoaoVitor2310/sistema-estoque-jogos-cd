@@ -55,6 +55,14 @@ return [
         'dev_base_url' => env('DEV_API_PRICE_RESEARCHER'),
     ],
 
+    // Cotação de moeda (AwesomeAPI). Vive aqui e não num `env()` dentro do
+    // service: o deploy roda `config:cache`, e a partir daí `env()` devolve
+    // null em runtime — a chave sumia só em produção, e a conversão caía no
+    // limite por IP do tier público (429).
+    'awesome_api' => [
+        'key' => env('API_KEY_AWESOME_API'),
+    ],
+
     'gamivo' => [
         'url' => env('API_GAMIVO_URL', 'https://backend.gamivo.com'),
         'token' => env('API_KEY_GAMIVO'),

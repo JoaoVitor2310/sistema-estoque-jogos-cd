@@ -121,3 +121,51 @@ it('falls back to local when neither the file nor the shell declares it', functi
 it('treats an empty APP_ENV in the .env as absent', function () {
     expect(resolveAppEnv("APP_ENV=\n", shellValue: 'production'))->toBe('production');
 });
+
+/*
+|--------------------------------------------------------------------------
+| `env()` fora de config/ — guarda
+|--------------------------------------------------------------------------
+|
+| Guarda do incidente de 2026-09-09: `CurrencyConversionService` lia a chave da
+| AwesomeAPI com `env()` em runtime. O deploy roda `php artisan config:cache`
+| (.github/workflows/deploy.yml) e, a partir daí, `env()` devolve null — o
+| `.env` deixa de ser lido. Local, sem cache, funcionava; em produção a chamada
+| ia sem chave, caía no tier público limitado por IP e voltava 429. O sintoma
+| era a aba Recursos gravar o preço digitado sem converter os outros dois.
+|
+| A leitura de `.env` mora em `config/`, e o resto do código lê `config()`.
+|
+*/
+
+it('never reads env() at runtime outside config/', function () {
+    $offenders = [];
+
+    /** @var SplFileInfo $file */
+    foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(base_path('app'))) as $file) {
+        if ($file->getExtension() !== 'php') {
+            continue;
+        }
+
+        // Pelos tokens, e não por regex: `env(` aparece dentro de comentário e
+        // de string, e um grep acusaria os dois.
+        $tokens = token_get_all((string) file_get_contents($file->getPathname()));
+
+        foreach ($tokens as $index => $token) {
+            if (! is_array($token) || $token[0] !== T_STRING || $token[1] !== 'env') {
+                continue;
+            }
+
+            // Chamada, não `->env` nem `Algo::env`.
+            $previous = $tokens[$index - 1] ?? null;
+            $isMemberAccess = is_array($previous)
+                && in_array($previous[0], [T_OBJECT_OPERATOR, T_DOUBLE_COLON, T_FUNCTION], true);
+
+            if (! $isMemberAccess) {
+                $offenders[] = str_replace(base_path().'/', '', $file->getPathname()).':'.$token[2];
+            }
+        }
+    }
+
+    expect($offenders)->toBe([]);
+});
