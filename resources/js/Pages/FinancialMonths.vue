@@ -2,8 +2,6 @@
 import { computed, reactive, ref, watch } from 'vue';
 
 // PrimeVue
-import DataTable from 'primevue/datatable';
-import Column from 'primevue/column';
 import InputText from 'primevue/inputtext';
 import InputNumber from 'primevue/inputnumber';
 import Select from 'primevue/select';
@@ -22,39 +20,27 @@ import axiosInstance from '../axios';
 import { showResponse } from '../helpers/showResponse';
 import { formatDateToBR } from '@/helpers/formatHelpers';
 
-type AccountType = 'principal' | 'tf2' | 'reinvestment' | 'emergency';
-type Numeric = string | number | null;
+// O vocabulário do fechamento — rótulos, tipos e números derivados — mora fora
+// da página porque o modal do histórico lê o mesmo mês (ver helpers/financial).
+import MonthDetailsDialog from '@/components/financial/MonthDetailsDialog.vue';
+import MonthMovementsTable from '@/components/financial/MonthMovementsTable.vue';
+import {
+  ACCOUNTS,
+  BALANCE_GRID_ACCOUNTS,
+  EXPENSE_CATEGORIES,
+  INCOME_CATEGORIES,
+  brl,
+  groupSizeOf,
+  monthLabel,
+  percentOf,
+  tf2SummaryOf,
+  totalBalanceOf,
+  type AccountType,
+  type Balances,
+  type FinancialMonth,
+  type Movement,
+} from '@/helpers/financial';
 
-interface Movement {
-  id: number;
-  group_id: string | null;
-  account_type: AccountType;
-  direction: 'credit' | 'debit';
-  category: string;
-  expense_category: string | null;
-  income_category: string | null;
-  amount: Numeric;
-  description: string | null;
-  occurred_at: string;
-  quantity: Numeric;
-  unit_price: Numeric;
-  partner_slot: number | null;
-  is_generated: boolean;
-}
-
-interface FinancialMonth {
-  id: number;
-  year: number;
-  month: number;
-  status: 'draft' | 'closed';
-  reinvestment_percent: Numeric;
-  emergency_percent: Numeric;
-  partner_one_share: Numeric;
-  closed_at: string | null;
-  movements?: Movement[];
-}
-
-type Balances = Record<AccountType, number>;
 
 interface Tf2Prefill {
   quantity: number | null;
@@ -71,113 +57,13 @@ const props = defineProps<{
 const toast = useToast();
 const confirm = useConfirm();
 
-// ── Rótulos e formatação ──────────────────────────────────────────────────────
+// ── Saldos e verba de TF2 ─────────────────────────────────────────────────────
 
-const MONTHS = [
-  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
-];
+// As duas leituras são as mesmas do modal do histórico, e vêm do mesmo lugar —
+// ver `helpers/financial`.
+const totalBalance = computed(() => totalBalanceOf(props.balances));
 
-const CATEGORY_LABELS: Record<string, string> = {
-  opening: 'Abertura',
-  income: 'Entrada',
-  expense: 'Saída',
-  tf2_allocation: 'Verba de TF2',
-  tf2_purchase: 'Compra de TF2',
-  transfer: 'Transferência',
-  partner_distribution: 'Saque de sócio',
-};
-
-const ACCOUNTS: { label: string; value: AccountType }[] = [
-  { label: 'Principal', value: 'principal' },
-  { label: 'Verba de TF2', value: 'tf2' },
-  { label: 'Reinvestimento', value: 'reinvestment' },
-  { label: 'Emergência', value: 'emergency' },
-];
-
-// A TF2 tem painel dedicado (saldo + progresso da meta), então sai do grid
-// genérico de saldos — mas continua uma conta como qualquer outra em ACCOUNTS
-// (selects de conta, cálculo do total da empresa etc.).
-const BALANCE_GRID_ACCOUNTS = ACCOUNTS.filter((a) => a.value !== 'tf2');
-
-const accountLabel = (account: AccountType): string =>
-  ACCOUNTS.find((a) => a.value === account)?.label ?? account;
-
-const EXPENSE_CATEGORIES = [
-  { label: 'Compra de Jogo', value: 'game_purchase' },
-  { label: 'Impostos', value: 'taxes' },
-  { label: 'Assinaturas', value: 'subscriptions' },
-  { label: 'Outros', value: 'other' },
-];
-
-const INCOME_CATEGORIES = [
-  { label: 'Saque Gamivo', value: 'gamivo_payout' },
-  { label: 'Investimento externo', value: 'external_investment' },
-  { label: 'Rendimentos', value: 'yield' },
-  { label: 'Outros', value: 'other' },
-];
-
-const subcategoryLabel = (movement: Movement): string => {
-  if (movement.expense_category) {
-    return EXPENSE_CATEGORIES.find((c) => c.value === movement.expense_category)?.label ?? movement.expense_category;
-  }
-  if (movement.income_category) {
-    return INCOME_CATEGORIES.find((c) => c.value === movement.income_category)?.label ?? movement.income_category;
-  }
-
-  return '—';
-};
-
-const brl = (value: Numeric): string =>
-  value == null ? '—' : Number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-
-const monthLabel = (month: FinancialMonth): string => `${MONTHS[month.month - 1]}/${month.year}`;
-
-const signedAmount = (movement: Movement): string =>
-  `${movement.direction === 'credit' ? '+' : '−'} ${brl(movement.amount)}`;
-
-const movementLabel = (movement: Movement): string => {
-  const base = CATEGORY_LABELS[movement.category] ?? movement.category;
-
-  return movement.partner_slot ? `${base} ${movement.partner_slot}` : base;
-};
-
-// ── Saldos ────────────────────────────────────────────────────────────────────
-
-const totalBalance = computed(() =>
-  props.balances ? ACCOUNTS.reduce((sum, a) => sum + props.balances![a.value], 0) : 0,
-);
-
-// A alocação grava duas pernas com a mesma quantidade (débito no Principal,
-// crédito no TF2); somar só a perna que credita o TF2 evita contar em dobro —
-// mesmo cuidado do prefill (ver FinancialMonthService::tf2AllocationPrefill).
-const tf2AllocatedQuantity = computed(() => {
-  const movements = props.current?.movements ?? [];
-
-  return movements
-    .filter((m) => m.category === 'tf2_allocation' && m.account_type === 'tf2')
-    .reduce((sum, m) => sum + Number(m.quantity ?? 0), 0);
-});
-
-// Soma das compras reais do mês — o que já saiu da verba, independente de ter
-// sido confirmado na Gamivo ou não (a categoria já garante que é TF2 pago).
-const tf2PurchasedQuantity = computed(() => {
-  const movements = props.current?.movements ?? [];
-
-  return movements
-    .filter((m) => m.category === 'tf2_purchase')
-    .reduce((sum, m) => sum + Number(m.quantity ?? 0), 0);
-});
-
-// Negativo quando a meta foi batida — a UI trata esse caso como destaque, não
-// como "falta comprar -30".
-const tf2RemainingQuantity = computed(() => tf2AllocatedQuantity.value - tf2PurchasedQuantity.value);
-
-const tf2ProgressPercent = computed(() => {
-  if (tf2AllocatedQuantity.value <= 0) return 0;
-
-  return Math.min(100, Math.round((tf2PurchasedQuantity.value / tf2AllocatedQuantity.value) * 100));
-});
+const tf2 = computed(() => tf2SummaryOf(props.current?.movements ?? []));
 
 const mostRecentClosedId = computed(() => (props.closed.length ? props.closed[0].id : null));
 
@@ -229,8 +115,6 @@ const submitBootstrap = async () => {
 };
 
 // ── Porcentagens do mês (só prefill — nada é aplicado sozinho) ────────────────
-
-const percentOf = (value: Numeric): number => Math.round(Number(value ?? 0) * 100);
 
 const monthPercents = computed(() => ({
   reinvestment: props.current ? percentOf(props.current.reinvestment_percent) : 20,
@@ -500,15 +384,6 @@ const submitDistribution = async () => {
 
 // Espelha a MovementDeletionPolicy: o que o sistema gerou e o saldo de abertura
 // não são lançamentos do usuário.
-const canDelete = (movement: Movement): boolean =>
-  !movement.is_generated && movement.category !== 'opening';
-
-// Uma transferência vira duas linhas; apagar leva o par junto.
-const groupSize = (movement: Movement): number =>
-  movement.group_id
-    ? (props.current?.movements ?? []).filter((m) => m.group_id === movement.group_id).length
-    : 1;
-
 const deleteMovement = async (movement: Movement) => {
   try {
     const res = await axiosInstance.delete(`/financial-months/movements/${movement.id}`);
@@ -520,7 +395,7 @@ const deleteMovement = async (movement: Movement) => {
 };
 
 const confirmDelete = (event: Event, movement: Movement) => {
-  const lines = groupSize(movement);
+  const lines = groupSizeOf(props.current?.movements ?? [], movement);
 
   confirm.require({
     target: event.currentTarget as HTMLElement,
@@ -547,6 +422,20 @@ const routineSteps = computed(() => [
   { step: 1, label: 'Lançar movimento', icon: 'pi pi-wallet', run: () => openMovementDialog() },
   { step: 2, label: 'Sacar sócios', icon: 'pi pi-users', run: () => openDistributionDialog() },
 ]);
+
+// ── Detalhes de um mês do histórico ───────────────────────────────────────────
+
+// O mês fechado guarda o cabeçalho aqui e o extrato no servidor: o modal busca
+// ao abrir (ver MonthDetailsDialog). A referência é ao objeto da lista, então
+// um `router.reload` que troque a lista não deixa o modal apontando para um mês
+// que saiu dela.
+const detailsDialog = ref(false);
+const detailsMonth = ref<FinancialMonth | null>(null);
+
+const openDetails = (month: FinancialMonth) => {
+  detailsMonth.value = month;
+  detailsDialog.value = true;
+};
 
 // ── Fechar / Reabrir ──────────────────────────────────────────────────────────
 
@@ -698,21 +587,21 @@ const confirmReopen = (event: Event, month: FinancialMonth) => {
               <div class="fs-5 fw-bold" :class="{ 'text-danger': balances.tf2 < 0 }">{{ brl(balances.tf2) }}</div>
             </div>
 
-            <template v-if="tf2AllocatedQuantity > 0">
+            <template v-if="tf2.allocated > 0">
               <div class="col-6 col-md-3">
                 <div class="text-muted small">Meta</div>
-                <div class="fs-5 fw-bold">{{ tf2AllocatedQuantity }} TF2</div>
+                <div class="fs-5 fw-bold">{{ tf2.allocated }} TF2</div>
               </div>
               <div class="col-6 col-md-3">
                 <div class="text-muted small">Comprado</div>
-                <div class="fs-5 fw-bold">{{ tf2PurchasedQuantity }} TF2</div>
+                <div class="fs-5 fw-bold">{{ tf2.purchased }} TF2</div>
               </div>
               <div class="col-6 col-md-3">
-                <div class="text-muted small">{{ tf2RemainingQuantity >= 0 ? 'Falta comprar' : 'Meta batida' }}</div>
-                <div class="fs-5 fw-bold" :class="{ 'text-success': tf2RemainingQuantity < 0 }">
-                  {{ tf2RemainingQuantity >= 0
-                    ? `${tf2RemainingQuantity} TF2`
-                    : `+${-tf2RemainingQuantity} TF2 além da meta` }}
+                <div class="text-muted small">{{ tf2.remaining >= 0 ? 'Falta comprar' : 'Meta batida' }}</div>
+                <div class="fs-5 fw-bold" :class="{ 'text-success': tf2.remaining < 0 }">
+                  {{ tf2.remaining >= 0
+                    ? `${tf2.remaining} TF2`
+                    : `+${-tf2.remaining} TF2 além da meta` }}
                 </div>
               </div>
             </template>
@@ -721,9 +610,9 @@ const confirmReopen = (event: Event, month: FinancialMonth) => {
             </div>
           </div>
 
-          <div v-if="tf2AllocatedQuantity > 0" class="progress mt-3" style="height: 8px;">
-            <div class="progress-bar" :class="tf2RemainingQuantity < 0 ? 'bg-success' : 'bg-primary'"
-              :style="{ width: `${tf2ProgressPercent}%` }" />
+          <div v-if="tf2.allocated > 0" class="progress mt-3" style="height: 8px;">
+            <div class="progress-bar" :class="tf2.remaining < 0 ? 'bg-success' : 'bg-primary'"
+              :style="{ width: `${tf2.percent}%` }" />
           </div>
         </div>
       </div>
@@ -751,46 +640,7 @@ const confirmReopen = (event: Event, month: FinancialMonth) => {
       </div>
 
       <!-- Movimentos -->
-      <DataTable :value="current.movements ?? []" showGridlines size="small" scrollable
-        scrollHeight="min(55vh, 560px)" dataKey="id" tableStyle="min-width: 40rem;">
-        <template #empty>Nenhum lançamento ainda.</template>
-        <Column field="occurred_at" header="Data" :style="{ width: '7rem' }">
-          <template #body="{ data }">{{ formatDateToBR(data.occurred_at) }}</template>
-        </Column>
-        <Column field="category" header="Lançamento">
-          <template #body="{ data }">{{ movementLabel(data) }}</template>
-        </Column>
-        <Column field="account_type" header="Conta" :style="{ width: '9rem' }">
-          <template #body="{ data }">{{ accountLabel(data.account_type) }}</template>
-        </Column>
-        <Column header="Categoria" :style="{ width: '9rem' }">
-          <template #body="{ data }">{{ subcategoryLabel(data) }}</template>
-        </Column>
-        <Column field="amount" header="Valor" :style="{ width: '9rem' }">
-          <template #body="{ data }">
-            <span :class="data.direction === 'credit' ? 'text-success' : 'text-danger'">{{ signedAmount(data) }}</span>
-          </template>
-        </Column>
-        <Column header="Qtd × Preço" :style="{ width: '10rem' }">
-          <template #body="{ data }">
-            <span v-if="data.quantity">{{ Number(data.quantity) }} × {{ brl(data.unit_price) }}</span>
-            <span v-else class="text-muted">—</span>
-          </template>
-        </Column>
-        <Column field="description" header="Descrição">
-          <template #body="{ data }">
-            <span>{{ data.description ?? '—' }}</span>
-            <Tag v-if="data.is_generated" value="gerado" severity="secondary" class="ms-2" />
-          </template>
-        </Column>
-        <Column header="" :style="{ width: '4rem' }" frozen alignFrozen="right">
-          <template #body="{ data }">
-            <Button v-if="canDelete(data)" icon="pi pi-trash" severity="danger" text rounded size="small"
-              :title="groupSize(data) > 1 ? `Apaga as ${groupSize(data)} linhas do lançamento` : 'Apagar lançamento'"
-              @click="confirmDelete($event, data)" />
-          </template>
-        </Column>
-      </DataTable>
+      <MonthMovementsTable :movements="current.movements ?? []" deletable @delete="confirmDelete" />
     </div>
 
     <!-- ── Histórico ───────────────────────────────────────────────────────── -->
@@ -805,12 +655,20 @@ const confirmReopen = (event: Event, month: FinancialMonth) => {
               em {{ formatDateToBR(month.closed_at.slice(0, 10)) }}
             </span>
           </h6>
-          <Button v-if="month.id === mostRecentClosedId" label="Reabrir" icon="pi pi-lock-open"
-            severity="danger" outlined size="small" @click="confirmReopen($event, month)" />
+          <div class="d-flex flex-wrap gap-2">
+            <!-- Detalhes existe para **todo** mês fechado; Reabrir, só para o
+                 último — reabrir é desfazer, e só o topo da pilha se desfaz. -->
+            <Button label="Detalhes" icon="pi pi-list" severity="secondary" outlined size="small"
+              @click="openDetails(month)" />
+            <Button v-if="month.id === mostRecentClosedId" label="Reabrir" icon="pi pi-lock-open"
+              severity="danger" outlined size="small" @click="confirmReopen($event, month)" />
+          </div>
         </div>
       </div>
     </div>
   </div>
+
+  <MonthDetailsDialog v-model:visible="detailsDialog" :month="detailsMonth" />
 
   <!-- ── Dialog: verba de TF2 ──────────────────────────────────────────────── -->
   <Dialog v-model:visible="allocationDialog" modal header="Definir a verba de TF2" :style="{ width: '460px' }">

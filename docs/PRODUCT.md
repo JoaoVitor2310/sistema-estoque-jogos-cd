@@ -257,6 +257,12 @@ Roteiro, não invariante: nada é bloqueado se você pular ou trocar a ordem.
 - **Carry-forward:** o novo draft herda as 3 porcentagens (só como **prefill de formulário**, nunca aplicadas sozinhas) e os saldos, como movimentos `opening`.
 - **Reabrir** só o fechamento mais recente: apaga o draft seguinte, desfaz os movimentos gerados e volta o status.
 
+### Consultar um mês fechado
+
+Fechar tira o mês da área de trabalho, não do sistema. No **Histórico**, cada mês fechado tem **Detalhes** — abre o extrato daquele mês em leitura: saldos com que ele terminou, meta de TF2 e quanto dela foi comprado (sem barra de progresso: mês fechado tem resultado, não andamento), as porcentagens que valiam ali e a lista de lançamentos, a mesma tabela do mês em aberto, sem o botão de apagar. **Reabrir** continua só no mês mais recente: consultar é de todos, desfazer é do topo da pilha.
+
+O extrato é buscado quando o modal abre, não junto da página: um ano fechado são doze meses de lançamentos que quase ninguém abre de uma vez.
+
 ### Correção de erro
 
 Não há edição — só exclusão, e **por lançamento inteiro**. Um lançamento pode virar mais de uma linha (a transferência grava débito *e* crédito), e as linhas irmãs compartilham `group_id` para sumirem juntas. Apagar só uma delas criaria ou destruiria dinheiro.

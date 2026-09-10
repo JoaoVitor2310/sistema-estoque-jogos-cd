@@ -211,6 +211,11 @@ describe('Guest — mutations return 403', function () {
         $this->postJson('/financial-months', [])->assertStatus(403);
     });
 
+    it('blocks GET /financial-months/{month}', function () {
+        // Leitura, e mesmo assim atrás do gate: é o extrato do caixa.
+        $this->getJson('/financial-months/1')->assertStatus(403);
+    });
+
     it('blocks POST /financial-months/movements', function () {
         $this->postJson('/financial-months/movements', [])->assertStatus(403);
     });
