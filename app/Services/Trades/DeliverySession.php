@@ -28,7 +28,7 @@ final class DeliverySession
     {
         $session->put(self::PREFIX.$trade->delivery_uuid, [
             'at' => now()->getTimestamp(),
-            'token' => DeliveryCredential::fingerprint((string) $trade->delivery_token),
+            'token' => DeliveryCredential::fingerprint((string) $trade->readableDeliveryToken()),
         ]);
     }
 
@@ -40,7 +40,7 @@ final class DeliverySession
             return false;
         }
 
-        $current = DeliveryCredential::fingerprint((string) $trade->delivery_token);
+        $current = DeliveryCredential::fingerprint((string) $trade->readableDeliveryToken());
 
         if (! hash_equals($current, (string) $entry['token'])) {
             return false;

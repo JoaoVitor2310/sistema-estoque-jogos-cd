@@ -22,6 +22,7 @@ use App\Domain\Trades\DeliveryCredential;
 use App\Models\AuthorizedUsers;
 use App\Models\Trade;
 use App\Models\User;
+use Illuminate\Encryption\Encrypter;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\Support\TradeFactory;
@@ -196,6 +197,28 @@ describe('GET /trades — the review queue', function () {
             ->get('/trades')
             ->assertInertia(fn ($page) => $page
                 ->where('trades.data.0.delivery_token', $credential['delivery_token'])
+                ->where('trades.data.0.delivery_url', route('deliveries.show', ['trade' => $trade->fresh()->delivery_uuid]))
+            );
+    });
+
+    it('still lists the trade when its stored token does not open with the current key', function () {
+        // Um dump de outro ambiente, ou a APP_KEY rotacionada: o token de uma
+        // trade deixa de abrir. A aba tem de continuar de pé — o link segue
+        // válido, e quem some é só o código daquela trade.
+        $trade = seedIndexTrade(['date' => '2025-06-02']);
+        $trade->forceFill(DeliveryCredential::issue())->save();
+
+        $foreign = new Encrypter(Encrypter::generateKey('aes-256-cbc'), 'aes-256-cbc');
+
+        DB::table('trades')->where('id', $trade->id)->update([
+            'delivery_token' => $foreign->encryptString('ABCD-EFGH-JKMN-PQRS'),
+        ]);
+
+        $this->actingAs(makeAuthorizedIndexUser())
+            ->get('/trades')
+            ->assertStatus(200)
+            ->assertInertia(fn ($page) => $page
+                ->where('trades.data.0.delivery_token', null)
                 ->where('trades.data.0.delivery_url', route('deliveries.show', ['trade' => $trade->fresh()->delivery_uuid]))
             );
     });

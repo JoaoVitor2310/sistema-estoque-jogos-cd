@@ -36,7 +36,7 @@ class AuthenticateDeliveryUseCase
             }
         }
 
-        if (! DeliveryCredential::matches($token, $trade->delivery_token)) {
+        if (! DeliveryCredential::matches($token, $trade->readableDeliveryToken())) {
             foreach (array_keys($limits) as $key) {
                 RateLimiter::hit($key, DeliveryCredential::ATTEMPT_WINDOW_MINUTES * 60);
             }

@@ -11,6 +11,7 @@
 |
 */
 
+use Illuminate\Encryption\Encrypter;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\DeliveryFactory;
 
@@ -25,5 +26,21 @@ describe('The delivery token in the trades table', function () {
 
         expect($trade->delivery_token)->toBe($token)
             ->and($raw)->not->toContain($token);
+    });
+
+    it('reads back as null when the stored value does not open with the current key', function () {
+        // O caso real: um dump de outro ambiente aberto aqui, ou a APP_KEY
+        // rotacionada. O cast lança na leitura, e o token é lido para toda
+        // trade listada — sem esta tolerância, uma linha ilegível derrubava a
+        // aba inteira com 500 em vez de deixar só ela sem código.
+        [$trade] = DeliveryFactory::tradeWithCredential();
+
+        $foreign = new Encrypter(Encrypter::generateKey('aes-256-cbc'), 'aes-256-cbc');
+
+        DB::table('trades')->where('id', $trade->id)->update([
+            'delivery_token' => $foreign->encryptString('ABCD-EFGH-JKMN-PQRS'),
+        ]);
+
+        expect($trade->fresh()->readableDeliveryToken())->toBeNull();
     });
 });

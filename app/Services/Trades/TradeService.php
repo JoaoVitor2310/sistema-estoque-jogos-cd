@@ -242,7 +242,7 @@ class TradeService
             'delivery_url' => $trade->delivery_uuid
                 ? route('deliveries.show', ['trade' => $trade->delivery_uuid])
                 : null,
-            'delivery_token' => $trade->delivery_token,
+            'delivery_token' => $trade->readableDeliveryToken(),
             'delivered_at' => $trade->delivered_at?->toIso8601String(),
             'supplier_notes' => $trade->supplier_notes,
         ];

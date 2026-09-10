@@ -289,6 +289,13 @@ divergência de grafia esperada em vez de excepcional.
 `KeyRegion`, migrar os dados e trocar os inputs por select. Não bloqueia a entrega de
 trade — a conferência antes do import é a mitigação atual.
 
+**Um efeito colateral novo, desde que mudar a região apaga o `gamivo_id` da linha
+(`GamivoIdentity`):** o supplier escrevendo `Europe` onde a equipe escreveu `EU` passa a
+apagar um id que era válido. O custo é limitado — o import refaz o lookup —, mas com
+grafia divergente esse lookup também não casa, e a key entra sem id. É mais um argumento
+para a canonização: enquanto `region` for texto livre, grafia é indistinguível de troca
+de produto.
+
 **O campo da entrega fica de fora do select.** O supplier costuma saber menos que a
 grafia canônica e mais que o rótulo — em que país a key não funciona, se veio de uma
 loja regional — e a página pede isso explicitamente ("anything you know"). Fechar o

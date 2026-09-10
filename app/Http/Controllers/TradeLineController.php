@@ -54,11 +54,19 @@ class TradeLineController extends Controller
         return response()->json(['id' => $line->id, 'position' => $line->position], 201);
     }
 
+    /**
+     * Devolve o `gamivo_id` porque ele é a única coluna que o servidor muda por
+     * conta própria: trocar o nome ou a região da linha apaga o id derivado
+     * daquele par (ver [[App\Domain\Trades\GamivoIdentity]]). Sem isso a tela
+     * seguiria exibindo o id apagado — e o reenviaria na gravação seguinte, que
+     * manda a linha inteira, ressuscitando exatamente o valor que a regra
+     * existe para tirar de circulação.
+     */
     public function update(TradeLineRequest $request, Trade $trade, TradeLine $line): JsonResponse
     {
         $this->updateTradeLine->execute($line, $request->toDTO(), TradeLineAuthority::Team);
 
-        return response()->json([], 200);
+        return response()->json(['gamivo_id' => $line->gamivo_id], 200);
     }
 
     public function destroy(Trade $trade, TradeLine $line): JsonResponse

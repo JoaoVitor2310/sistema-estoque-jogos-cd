@@ -7,7 +7,9 @@
 |
 | O que a rota não cobre e vive aqui: a semântica de patch parcial (só o que
 | o payload trouxe muda) e o escopo por autoridade — o filtro que impede o
-| supplier de alcançar coluna que não é dele acontece aqui, não no Request.
+| supplier de alcançar coluna que não é dele acontece aqui, não no Request. E a
+| limpeza do `gamivo_id` quando o par jogo+região muda, que vale para as duas
+| autoridades (a regra pura está em tests/Unit/Domain/Trades/GamivoIdentityTest).
 |
 */
 
@@ -78,6 +80,71 @@ describe('UpdateTradeLineUseCase — partial patch', function () {
         );
 
         expect($trade->fresh()->lines->pluck('game_name')->all())->toBe(['Portal 2', 'Half-Life']);
+    });
+});
+
+describe('UpdateTradeLineUseCase — derived gamivo id', function () {
+
+    it('clears the gamivo id when the game name changes', function () {
+        // O id endereça um produto da Gamivo, e o produto é o par jogo+região.
+        // Mudar o nome no meio da negociação é quase sempre trocar o jogo
+        // tradado — e o id antigo entraria na key calado.
+        $trade = TradeFactory::withLines([['game_name' => 'Portal', 'region' => 'EU', 'gamivo_id' => '77']]);
+        $line = $trade->lines->first();
+
+        app(UpdateTradeLineUseCase::class)->execute(
+            $line,
+            TradeLineFactory::dto(['game_name' => 'Portal 2', 'gamivo_id' => '77']),
+            TradeLineAuthority::Team,
+        );
+
+        expect($line->refresh()->gamivo_id)->toBeNull();
+    });
+
+    it('clears the gamivo id when the supplier changes the region on his page', function () {
+        // A limpeza vale para as duas autoridades: o supplier não escolhe o que
+        // vai em `gamivo_id` — ele mexe na região, e o id derivado dela cai
+        // junto. É o caso que mais passa despercebido, porque quem corrige a
+        // região é ele.
+        $trade = TradeFactory::withLines([['game_name' => 'Portal', 'region' => 'EU', 'gamivo_id' => '77']]);
+        $line = $trade->lines->first();
+
+        app(UpdateTradeLineUseCase::class)->execute(
+            $line,
+            TradeLineFactory::dto(['region' => 'BR']),
+            TradeLineAuthority::Supplier,
+        );
+
+        $line->refresh();
+
+        expect($line->region)->toBe('BR')
+            ->and($line->gamivo_id)->toBeNull();
+    });
+
+    it('keeps a gamivo id that the same write redefines', function () {
+        $trade = TradeFactory::withLines([['game_name' => 'Portal', 'region' => 'EU', 'gamivo_id' => '77']]);
+        $line = $trade->lines->first();
+
+        app(UpdateTradeLineUseCase::class)->execute(
+            $line,
+            TradeLineFactory::dto(['game_name' => 'Portal 2', 'gamivo_id' => '99']),
+            TradeLineAuthority::Team,
+        );
+
+        expect($line->refresh()->gamivo_id)->toBe('99');
+    });
+
+    it('leaves the gamivo id alone when the write touches neither name nor region', function () {
+        $trade = TradeFactory::withLines([['game_name' => 'Portal', 'region' => 'EU', 'gamivo_id' => '77']]);
+        $line = $trade->lines->first();
+
+        app(UpdateTradeLineUseCase::class)->execute(
+            $line,
+            TradeLineFactory::dto(['key_code' => 'AAA-BBB', 'gamivo_id' => '77']),
+            TradeLineAuthority::Team,
+        );
+
+        expect($line->refresh()->gamivo_id)->toBe('77');
     });
 });
 
