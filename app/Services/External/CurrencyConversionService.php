@@ -8,6 +8,12 @@ use Illuminate\Support\Facades\Log;
 /**
  * Converte valores entre moedas (BRL, USD, EUR) via AwesomeAPI.
  * Infraestrutura pura — sem lógica de negócio.
+ *
+ * A chave sai de `config('services.awesome_api.key')`, **nunca** de um `env()`
+ * aqui: o deploy roda `config:cache` e, a partir daí, `env()` devolve null em
+ * runtime. Sem chave a chamada cai no tier público, limitado por IP, e o
+ * servidor leva 429 — o que se via na tela era o preço entrando sem converter,
+ * só em produção. *(Já aconteceu.)*
  */
 class CurrencyConversionService
 {
@@ -66,7 +72,7 @@ class CurrencyConversionService
 
         try {
             $response = Http::withHeaders([
-                'x-api-key' => env('API_KEY_AWESOME_API'),
+                'x-api-key' => config('services.awesome_api.key'),
             ])->withOptions([
                 'verify' => false,
             ])->get('https://economia.awesomeapi.com.br/json/last/USD-BRL,EUR-BRL');

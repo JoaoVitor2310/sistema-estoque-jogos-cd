@@ -101,6 +101,10 @@ Nada de `Mail::send`/`Mail::raw` com closure e endereço no meio do código: cad
 
 Antes de escrever um default, pergunte de que lado erra melhor: para *entrega*, mandar ao endereço padrão pode ser melhor que não mandar; para *autorização*, conceder acesso por omissão de config é o pior desfecho possível. Por isso `admin_email` (entrega) e `admin_gate_email` (Gate `is-admin`, definido em `AppServiceProvider`) são chaves separadas mesmo lendo hoje o mesmo `ADMIN_EMAIL` sem fallback — a separação existe para que um default reintroduzido de um lado nunca vaze para o outro.
 
+## `env()` em runtime não sobrevive ao deploy
+
+O deploy roda `php artisan config:cache` (`.github/workflows/deploy.yml`), e a partir daí **`env()` devolve null**: o `.env` deixa de ser lido e vale só o array compilado de `config/`. Toda variável se lê por `config()`; `env()` aparece exclusivamente dentro de `config/`. A diferença não aparece em desenvolvimento — local, sem cache de config, o `env()` funciona —, então o modo de falha é sempre "só quebra em produção". Guarda de regressão em `tests/Feature/EnvironmentTest.php` ("never reads env() at runtime outside config/"), que varre `app/` pelos tokens do PHP. *(Já aconteceu: `CurrencyConversionService` lia a chave da AwesomeAPI com `env()`; em produção a chamada ia sem chave, caía no tier público limitado por IP e voltava 429 — a aba Recursos gravava o preço digitado e não convertia os outros dois.)*
+
 ## `.env.example` é ambiente de verdade
 
 O CI faz `cp .env.example .env` e todo clone novo nasce dele: variável obrigatória deixada em branco ali significa suíte rodando com config vazia e sistema novo nascendo quebrado. Ao remover um fallback, preencha o `.env.example` no mesmo passo.
