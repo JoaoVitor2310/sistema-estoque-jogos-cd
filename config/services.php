@@ -53,6 +53,11 @@ return [
     'price_researcher' => [
         'base_url' => env('API_PRICE_RESEARCHER'),
         'dev_base_url' => env('DEV_API_PRICE_RESEARCHER'),
+        // Token que o price_researcher exige para processar de verdade. Sem ele
+        // (ou errado) o serviço não recusa: cai num modo demo síncrono que
+        // processa 10 jogos, devolve 200 e **nunca chama o callback**. Por isso
+        // o disparo trata `demo: true` como erro de configuração, e não sucesso.
+        'internal_secret' => env('INTERNAL_SECRET'),
     ],
 
     // Cotação de moeda (AwesomeAPI). Vive aqui e não num `env()` dentro do

@@ -83,6 +83,8 @@ describe('an account created from outside', function () {
         $this->actingAs($user)->putJson('/keys/1', [])->assertStatus(403);
         $this->actingAs($user)->deleteJson('/keys/1')->assertStatus(403);
         $this->actingAs($user)->postJson('/suppliers', [])->assertStatus(403);
+        // Conta de fora também não enfileira trabalho no price_researcher.
+        $this->actingAs($user)->postJson('/bundles/1/research')->assertStatus(403);
     });
 
     it('opens no team page at all', function () {

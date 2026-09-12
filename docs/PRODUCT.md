@@ -313,6 +313,26 @@ As informações dos bundles são obtidas por integrações externas, principalm
   - data de expiração;
   - jogos contidos no bundle;
 
+### Pesquisar o preço dos jogos do bundle
+
+A opção **"Pesquisar Preços"** no menu de cada bundle pede ao `price_researcher` o preço e a popularidade atuais dos jogos daquele bundle. Serve para decidir se vale comprar: o bundle inteiro custa o preço de capa, e o que dá lucro é o que os jogos dele valem revendidos.
+
+| Etapa | O que acontece |
+|---|---|
+| 1. Disparo | Manda os nomes dos jogos do bundle ao `price_researcher`, com os critérios de corte do fluxo (em `BundleResearchRequest`) — frouxos de propósito: a decisão é sobre o pacote inteiro |
+| 2. Resposta imediata | O serviço apenas enfileira e responde na hora — a tela avisa "Pesquisa enfileirada", nada aparece ainda |
+| 3. Resultado (minutos depois) | Chega pelo callback e vira uma **trade** com o nome do bundle, uma linha por jogo qualificado, já com preço, popularidade e o vínculo com o bundle preenchidos |
+
+Ao contrário da pesquisa de listas de fornecedor, esta **não exige oferta na Gamivo**: na compra de bundle interessa o retrato do pacote todo, inclusive do que ainda não é vendável lá. O jogo sem oferta volta sem `gamivo_id`, e a linha da trade nasce sem ele — o id é resolvido depois, na importação das keys.
+
+Também **não corta jogo barato**: o piso de preço vai zerado, porque o bundle é precificado completo e o jogo de centavos também soma no pacote. (O serviço tem um piso default de €0,50 que descartaria justamente esses jogos — por isso o zero é mandado explicitamente.)
+
+O que ainda descarta, sem comunicar de volta: jogo abaixo do piso de popularidade, jogo sem preço encontrado e jogo a exatamente €0,00. Se **nenhum** jogo do bundle qualificar, não chega callback nenhum — a trade nunca é criada, e não há como distinguir isso de uma pesquisa ainda em andamento.
+
+O preço pesquisado é o **melhor preço do AllKeyShop** entre os marketplaces, não o da Gamivo.
+
+Contrato técnico em [`docs/PRICE_RESEARCHER.md`](PRICE_RESEARCHER.md).
+
 ### Choices
 
 Choices são tratados como uma categoria específica de bundle.

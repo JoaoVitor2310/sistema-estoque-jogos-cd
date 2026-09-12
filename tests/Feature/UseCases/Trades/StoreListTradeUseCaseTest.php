@@ -230,3 +230,80 @@ describe('StoreListTradeUseCase — bundle lookup', function () {
         expect($trade->lines->first()->bundle)->toBe('Bundle Recente');
     });
 });
+
+describe('StoreListTradeUseCase — bundle named by the title', function () {
+
+    // A pesquisa disparada de um bundle devolve o nome dele no `title`. Saber
+    // de que bundle o jogo veio vence o palpite por nome + recência, que erra
+    // justamente onde esta pesquisa é mais usada.
+
+    it('attributes every line to the bundle the title names', function () {
+        BundleFactory::withGame('Taiji', 'Humble Perplexing Puzzles Bundle', now()->subMonths(1)->toDateString());
+
+        $trade = app(StoreListTradeUseCase::class)->execute([
+            'title' => 'Humble Perplexing Puzzles Bundle',
+            'games' => [
+                ['name' => 'Taiji', 'price_euro' => 1.40, 'popularity' => 100, 'region' => null],
+                // Jogo do mesmo bundle que o AllKeyShop devolveu com outro
+                // nome: o lookup por nome não o alcançaria.
+                ['name' => 'Viewfinder: Director Cut', 'price_euro' => 5.72, 'popularity' => 300, 'region' => null],
+            ],
+        ]);
+
+        expect($trade->lines[0]->bundle)->toBe('Humble Perplexing Puzzles Bundle')
+            ->and($trade->lines[1]->bundle)->toBe('Humble Perplexing Puzzles Bundle');
+    });
+
+    it('attributes by title even when the bundle is older than the recent window', function () {
+        // O caso que motivou a correção: bundle fora da janela de 3 meses
+        // devolvia toda linha com bundle null, mesmo o callback trazendo o
+        // nome exato do bundle.
+        BundleFactory::withGame('Taiji', 'Bundle Antigo', now()->subMonths(6)->toDateString());
+
+        $trade = app(StoreListTradeUseCase::class)->execute([
+            'title' => 'Bundle Antigo',
+            'games' => [['name' => 'Taiji', 'price_euro' => 1.40, 'popularity' => 100, 'region' => null]],
+        ]);
+
+        expect($trade->lines->first()->bundle)->toBe('Bundle Antigo');
+    });
+
+    it('ignores a title that names no bundle', function () {
+        BundleFactory::withGame('Stardew Valley', 'Indie Bundle', now()->subMonths(1)->toDateString());
+
+        $trade = app(StoreListTradeUseCase::class)->execute([
+            'title' => 'Lista qualquer do supplier',
+            'games' => [['name' => 'Stardew Valley', 'price_euro' => 5.00, 'popularity' => 100, 'region' => null]],
+        ]);
+
+        // Cai no palpite por nome, que aqui acerta.
+        expect($trade->lines->first()->bundle)->toBe('Indie Bundle');
+    });
+
+    it('does not attribute by title when the trade has a supplier', function () {
+        // Lista comentada também manda `title` — e ali ele é o nome da lista no
+        // SteamTrades. Lista chamada como um bundle não faz de todo jogo dela
+        // um jogo daquele bundle.
+        BundleFactory::withGame('Taiji', 'Humble Choice', now()->subMonths(1)->toDateString());
+
+        $trade = app(StoreListTradeUseCase::class)->execute([
+            'supplier_steam_id' => '76561198012345678',
+            'title' => 'Humble Choice',
+            'games' => [['name' => 'Jogo Fora De Bundle', 'price_euro' => 5.00, 'popularity' => 100, 'region' => null]],
+        ]);
+
+        expect($trade->lines->first()->bundle)->toBeNull();
+    });
+
+    it('ignores a title naming a soft-deleted bundle', function () {
+        BundleFactory::withGame('Taiji', 'Bundle Apagado', now()->subMonths(1)->toDateString());
+        DB::table('bundles')->where('name', 'Bundle Apagado')->update(['deleted_at' => now()]);
+
+        $trade = app(StoreListTradeUseCase::class)->execute([
+            'title' => 'Bundle Apagado',
+            'games' => [['name' => 'Taiji', 'price_euro' => 1.40, 'popularity' => 100, 'region' => null]],
+        ]);
+
+        expect($trade->lines->first()->bundle)->toBeNull();
+    });
+});

@@ -515,6 +515,27 @@ por texto livre no `Trades.vue` e enviado diretamente pelo `price_researcher`.
 
 ---
 
+## Pesquisa de bundle não tem estado — "enfileirada" e "acabou em nada" são indistinguíveis
+
+**Onde:** `app/UseCases/Bundles/ResearchBundleGamesUseCase.php` e o callback `app/UseCases/Trades/StoreListTradeUseCase.php`.
+
+O disparo é fire-and-forget e o contrato do `price_researcher` não tem callback de erro nem de fim: depois do `202`, três desfechos chegam ao operador exatamente iguais — **nada acontece na tela**.
+
+| Desfecho | O que o operador vê | O que realmente houve |
+|---|---|---|
+| Trade aparece minutos depois | funcionou | jogos qualificaram e viraram linhas |
+| Nada aparece, ainda | igual a "acabou em nada" | job na fila (concorrência 1 do lado de lá — pode estar atrás de outro) |
+| Nada aparece, nunca | igual a "ainda processando" | nenhum jogo passou pelo piso de popularidade, ou nenhum teve preço encontrado, e o job terminou **sem chamar** o callback |
+| Nada aparece, nunca | igual aos dois acima | erro de scraping no `price_researcher`, logado só do lado de lá |
+
+Na prática o operador só descobre disparando de novo, e cada redisparo é minutos de scraping do outro lado.
+
+**Ação:** gravar o estado do disparo por bundle (`requested_at` + desfecho), marcar como "processado sem resultado" por timeout, e mostrar isso no menu do bundle — hoje o item "Pesquisar Preços" fica sempre igual, disparado ou não. Distinguir "acabou sem nada" de "erro" exige mudança no contrato do `price_researcher` (um callback de fim de job, mesmo sem jogos); a parte do timeout dá para fazer só deste lado.
+
+**Origem:** ressalva 1 do contrato de pesquisa de bundle, na implementação da opção "Pesquisar Preços" (2026-09-12).
+
+---
+
 ## `ResolveSteamIdsUseCase` — "não encontrado" e "sem dados" viram o mesmo carimbo
 
 **Onde:** `app/UseCases/Games/ResolveSteamIdsUseCase.php` (marcação de `games.steamcharts_searched_at`).

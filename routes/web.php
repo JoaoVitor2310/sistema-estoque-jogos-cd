@@ -222,6 +222,7 @@ Route::prefix('bundles')
         Route::post('/', 'store')->name('bundles.store');
         Route::put('/{bundle}', 'update')->name('bundles.update');
         Route::delete('/{bundle}', 'destroy')->name('bundles.destroy');
+        Route::post('/{bundle}/research', 'research')->name('bundles.research');
         Route::post('/{bundle}/games', 'addGames')->name('bundles.addGames');
         Route::delete('/{bundle}/games', 'removeGames')->name('bundles.removeGames');
     });
