@@ -11,6 +11,51 @@ use Illuminate\Support\Facades\Log;
 class BundleService
 {
     /**
+     * Atribui **todos** os jogos pesquisados a um bundle nomeado pelo título.
+     *
+     * Vale para a pesquisa disparada de um bundle: o `title` volta idêntico do
+     * price_researcher, então sabemos de onde cada jogo veio em vez de adivinhar.
+     * É mais confiável que `recentBundleByGameNames()` em dois casos que o
+     * palpite por nome erra — bundle fora da janela recente, e jogo que o
+     * AllKeyShop devolve com outro nome.
+     *
+     * Só quem não tem supplier pode usar: a lista comentada também manda
+     * `title` (o nome da lista no SteamTrades), e lista chamada "Humble Choice"
+     * não faz de todo jogo dela um jogo de bundle.
+     *
+     * @param  string[]  $gameNames
+     * @return array<string, string> normalized game name → bundle name; vazio quando o título não nomeia bundle nenhum
+     */
+    public function bundleByTitle(?string $title, array $gameNames): array
+    {
+        if (! $title || $gameNames === []) {
+            return [];
+        }
+
+        try {
+            // Eloquent aplica o global scope de soft-delete — bundle apagado
+            // não reivindica jogo nenhum.
+            if (! Bundle::where('name', $title)->exists()) {
+                return [];
+            }
+
+            return array_fill_keys(
+                array_map([GameNameNormalizer::class, 'normalize'], $gameNames),
+                $title,
+            );
+        } catch (\Throwable $e) {
+            // Mesma postura de recentBundleByGameNames: o vínculo com bundle é
+            // enfeite da linha, e perdê-lo não pode derrubar a criação da trade.
+            Log::error('[BundleService] bundleByTitle failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return [];
+        }
+    }
+
+    /**
      * @param  string[]  $gameNames
      * @return array<string, string> normalized game name → bundle name (bundle mais recente vence)
      */

@@ -18,6 +18,18 @@ Da identificação de um fornecedor até a key entrar no estoque.
 | 8 | Conferir | A entrega sobe ao topo de Abertas; a equipe revisa antes de importar | aba de Trades |
 | 9 | Importar as keys da trade | Entrada no estoque, com `individual_cost` rateado pelo lote — **único** caminho de entrada de keys | `POST /trades/{trade}/import` → `RegisterKeyUseCase` |
 
+### Segunda porta de entrada: pesquisa de bundle
+
+O fluxo acima parte de um **supplier**. A opção "Pesquisar Preços" no menu de um bundle (aba de Bundles) parte de um **bundle** e desemboca no mesmo lugar — uma trade com uma linha por jogo — pulando as etapas 1 a 4.
+
+| # | Etapa | O que acontece | Onde vive |
+|---|---|---|---|
+| 1 | Disparar a pesquisa | Manda os jogos do bundle ao serviço externo, com os critérios de corte do fluxo — frouxos: **sem** exigir oferta na Gamivo e **sem** piso de preço | `ResearchBundleGamesUseCase` + `BundleResearchRequest` |
+| 2 | Enfileirar | O serviço responde na hora; a tela só confirma que entrou na fila | `price_researcher` (assíncrono) |
+| 3 | Receber o resultado | Minutos depois, vira uma trade com o nome do bundle e uma linha por jogo qualificado | callback → `StoreListTradeUseCase` |
+
+Daí em diante é o fluxo normal, a partir da etapa 5. **Jogo descartado não é comunicado, e bundle sem nenhum jogo qualificado não gera callback nenhum** — a trade simplesmente não aparece, sem distinção entre "ainda processando" e "acabou em nada" (pendência em [`IMPROVEMENTS.md`](../IMPROVEMENTS.md)).
+
 ### Quando o fluxo para antes do fim
 
 | Situação | O que acontece |

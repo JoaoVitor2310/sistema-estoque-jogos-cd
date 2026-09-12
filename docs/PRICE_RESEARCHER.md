@@ -70,7 +70,7 @@ Busca popularidade e preço de uma lista de jogos. Resposta síncrona (aguarda t
 ```
 
 > **Atenção:** só retorna jogos que passaram no filtro de popularidade **e** tiveram preço encontrado.
-> Jogos abaixo do mínimo de popularidade e acima de €2.00 são silenciosamente descartados.
+> O descarte é silencioso — jogo que não qualificou simplesmente não aparece no resultado.
 
 **Response 400** (validação):
 ```json
@@ -191,12 +191,77 @@ Enfileira a busca de novos fornecedores no SteamTrades. Resposta imediata (202);
 
 ---
 
+### 6. `POST /api/games/research` — Pesquisa assíncrona dos jogos de um bundle
+
+Enfileira a pesquisa de preço e popularidade de uma lista de jogos. Resposta imediata (202); o resultado é enviado para `POST /trades/from-price-researcher` no sistema-estoque quando concluído, e vira uma trade.
+
+Disparado pela opção **"Pesquisar Preços"** do menu de cada bundle em `Bundles.vue` → `POST /bundles/{bundle}/research` → `ResearchBundleGamesUseCase`.
+
+**Request body** (`Content-Type: application/json`):
+
+```json
+{
+  "minPopularity": 1,
+  "gameNames": ["Taiji", "Viewfinder"],
+  "checkGamivoOffer": false,
+  "minPrice": 0,
+  "internal_secret": "<INTERNAL_SECRET>",
+  "title": "Humble Perplexing Puzzles Bundle"
+}
+```
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `minPopularity` | `number` | sim | Pico mínimo de jogadores em 24h. Bundles usam `1` (`BundleResearchRequest::MIN_POPULARITY`) — não `0`, que desligaria o filtro: o piso só corta o que o SteamCharts não conhece |
+| `gameNames` | `string[]` | sim | Nomes dos jogos do bundle (mín. 1 item) |
+| `checkGamivoOffer` | `boolean` | sim | `false` para bundles (`BundleResearchRequest::CHECK_GAMIVO_OFFER`) — jogo sem oferta ativa na Gamivo **não** é descartado; volta com `gamivo_id` nulo |
+| `minPrice` | `number >= 0` | não | Piso de preço em euros: jogo com preço **menor ou igual** a ele é descartado. **Omitido, vale o default do serviço, €0,50.** Bundles mandam `0` (`BundleResearchRequest::MIN_PRICE`) — o pacote é precificado completo, e o default cortaria os jogos mais baratos. Como o corte inclui o piso, jogo a exatamente €0,00 ainda é descartado |
+| `internal_secret` | `string` | sim | Autentica o disparo. Ver a ressalva do modo demo abaixo |
+| `title` | `string` | sim | Nome do bundle. Volta **idêntico** no callback — é por ele que a trade nasce com o nome do bundle |
+| `steam_id` | `string` | não | Volta como `supplier_steam_id` no callback |
+| `list_code` | `string` | não | Volta como `list_code` no callback |
+
+> **Schema estrito:** campo desconhecido no corpo derruba a request com `400`. O payload sai inteiro de `App\Domain\Bundles\BundleResearchRequest::payload()` — não acrescente chaves sem combinar com o price-researcher antes.
+
+**Response 202** (enfileirado):
+```json
+{ "success": true, "status": "queued" }
+```
+
+> ⚠️ **Modo demo é falso sucesso.** Sem `internal_secret` (ou com ele errado) o serviço **não recusa**: responde `200` com `{ "success": true, "demo": true, "games": [...] }`, processa só 10 jogos e **nunca chama o callback**. `ResearchBundleGamesUseCase` trata esse `200` como erro de configuração (500 + log) justamente porque o disparo pareceria ter dado certo e nunca viraria trade.
+
+**Preço:** o `price_euro` que volta no callback é o melhor preço do AllKeyShop entre os marketplaces — nunca foi o preço da Gamivo, e com `checkGamivoOffer: false` o jogo pode nem ter oferta lá.
+
+---
+
+## Callback — `POST /trades/from-price-researcher`
+
+Endpoint **do sistema-estoque**, destino do resultado dos fluxos assíncronos (endpoints 4 e 6). Autenticado por `Authorization: Bearer <EXTERNAL_SECRET>` (middleware `VerifySecret`; sem o header, `401`). Path fixo, definido do lado do price-researcher.
+
+```json
+{
+  "title": "Humble Perplexing Puzzles Bundle",
+  "games": [
+    { "name": "Taiji", "price_euro": 1.23, "popularity": 542, "region": "global", "id_steam": "70", "gamivo_id": "12345" }
+  ]
+}
+```
+
+`StoreListTradeUseCase` cria a trade com `title` e uma linha por jogo (`TradeLineBuilder::fromResearch`). Qualquer `2xx` é sucesso; um `4xx`/`5xx` é apenas logado do lado do price-researcher — **não há retry**.
+
+O `title` não é só o nome da trade: quando a trade **não tem supplier** e o título nomeia um bundle existente, toda linha é atribuída a ele (`BundleService::bundleByTitle()`) — é o que permite reconstruir "estes jogos são deste bundle" mesmo quando o AllKeyShop renomeia o jogo ou o bundle já saiu da janela recente. Nos demais casos vale o palpite por nome + recência. Tabela completa em [`agents/domain-map.md`](agents/domain-map.md#6-suppliers-e-trades-suppliertradetradeline--tabelas-supplierstradestrade_lines).
+
+> **Bundle sem jogo qualificado não gera callback nenhum.** Se todos caírem pelo piso de popularidade, pelo piso de preço ou ficarem sem preço encontrado, o job termina sem chamar o endpoint, e o sistema-estoque não tem como distinguir "ainda processando" de "acabou sem resultado". Pendência registrada em [`IMPROVEMENTS.md`](IMPROVEMENTS.md). Com os critérios frouxos do bundle (`minPopularity: 1`, `minPrice: 0`, sem filtro de Gamivo) isso ficou raro, mas não impossível — bundle inteiro de jogo que o AllKeyShop não conhece volta vazio.
+
+---
+
 ## Comportamento geral de preços
 
 - **Fonte de popularidade:** SteamCharts (pico de jogadores nas últimas 24h)
 - **Fonte de preço:** AllKeyShop (e Gamivo quando `checkGamivoOffer: true`)
-- Jogos **abaixo** do `minPopularity` e com preço **acima de €2.00** são descartados
-- Jogos **abaixo** do `minPopularity` mas com preço **≤ €2.00** ainda aparecem no resultado
+- Jogos **abaixo** do `minPopularity` são descartados; `minPopularity: 0` desliga esse filtro
+- Jogo sem preço encontrado não entra no resultado
+- Em `/api/games/research`, jogo com preço **≤ `minPrice`** é descartado — e o `minPrice` omitido vale €0,50
 - Nomes são normalizados internamente (algarismos romanos → arábicos, sufixos de edição removidos, etc.) — não é necessário tratar o nome antes de enviar
 
 ---

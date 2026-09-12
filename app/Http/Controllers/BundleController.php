@@ -10,6 +10,8 @@ use App\Services\Bundles\BundleService;
 use App\Traits\HttpResponses;
 use App\UseCases\Bundles\AddGamesToBundleUseCase;
 use App\UseCases\Bundles\CreateBundleUseCase;
+use App\UseCases\Bundles\ResearchBundleGamesUseCase;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
@@ -22,6 +24,7 @@ class BundleController extends Controller
         private readonly BundleService $bundleService,
         private readonly CreateBundleUseCase $createBundleUseCase,
         private readonly AddGamesToBundleUseCase $addGamesToBundleUseCase,
+        private readonly ResearchBundleGamesUseCase $researchBundleGamesUseCase,
     ) {}
 
     public function index(Request $request)
@@ -88,6 +91,23 @@ class BundleController extends Controller
         $bundle->games()->detach($request->gameIds());
 
         return $this->response(200, 'Jogos removidos do bundle com sucesso', $bundle);
+    }
+
+    /**
+     * Dispara a pesquisa de preço/popularidade dos jogos do bundle.
+     *
+     * Responde 202 porque o price_researcher só enfileira: a trade com os jogos
+     * do bundle nasce depois, quando o resultado chega pelo callback.
+     */
+    public function research(Bundle $bundle): JsonResponse
+    {
+        $result = $this->researchBundleGamesUseCase->execute($bundle);
+
+        if (! $result['success']) {
+            return $this->error($result['code'], $result['message'], [], $result['data']);
+        }
+
+        return $this->response(202, 'Pesquisa dos jogos do bundle enfileirada.', $result['data']);
     }
 
     public function destroy(Bundle $bundle)

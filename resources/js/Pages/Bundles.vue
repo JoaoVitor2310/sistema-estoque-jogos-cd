@@ -437,12 +437,44 @@ const handleDeleteSelectedGames = (event: any, bundleId: number) => {
   });
 };
 
+// Bundles em pesquisa, por id — evita disparo duplicado enquanto o request voa.
+const researchingBundles = ref<number[]>([]);
+
+// O price-researcher só enfileira e responde na hora; a trade com os jogos do
+// bundle aparece minutos depois, quando o resultado chega pelo callback. Por
+// isso não há nada para recarregar aqui.
+const handleResearchBundle = async (bundle: Bundle): Promise<void> => {
+  if (researchingBundles.value.includes(bundle.id)) return;
+
+  researchingBundles.value.push(bundle.id);
+
+  try {
+    const res = await axiosInstance.post(`/bundles/${bundle.id}/research`);
+    showResponse(res, toast.add);
+  } catch (error: any) {
+    toast.add({
+      severity: 'error',
+      summary: 'Erro ao pesquisar os jogos do bundle',
+      detail: error?.response?.data?.message ?? 'Não foi possível iniciar a pesquisa',
+      life: 7000
+    });
+  } finally {
+    researchingBundles.value = researchingBundles.value.filter(id => id !== bundle.id);
+  }
+};
+
 // Opções de menu do bundle
 const menuRefs = ref({});
 const getBundleOptions = (bundle: Bundle) => [
   {
     label: 'Opções',
     items: [
+      {
+        label: 'Pesquisar Preços',
+        icon: 'pi pi-search',
+        disabled: researchingBundles.value.includes(bundle.id),
+        command: () => handleResearchBundle(bundle)
+      },
       {
         label: 'Editar Bundle',
         icon: 'pi pi-pencil',

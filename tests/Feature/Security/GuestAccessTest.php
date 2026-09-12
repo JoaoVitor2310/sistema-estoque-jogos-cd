@@ -207,6 +207,12 @@ describe('Guest — mutations return 403', function () {
         $this->postJson('/suppliers', [])->assertStatus(403);
     });
 
+    it('blocks POST /bundles/1/research', function () {
+        // Além de mutação, é gasto: o disparo põe o price_researcher para
+        // raspar por minutos. Visitante não enfileira trabalho externo.
+        $this->postJson('/bundles/1/research')->assertStatus(403);
+    });
+
     it('blocks POST /financial-months', function () {
         $this->postJson('/financial-months', [])->assertStatus(403);
     });
@@ -264,6 +270,20 @@ describe('Guest — model binding does not leak whether a record exists', functi
 
         expect($this->deleteJson('/keys/1')->status())
             ->toBe($this->deleteJson('/keys/999999')->status())
+            ->toBe(403);
+    });
+
+    it('answers 403 for both an existing and a missing bundle', function () {
+        DB::table('bundles')->insert([
+            'id' => 1,
+            'name' => 'Humble Choice',
+            'release_date' => '2026-08-01',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        expect($this->postJson('/bundles/1/research')->status())
+            ->toBe($this->postJson('/bundles/999999/research')->status())
             ->toBe(403);
     });
 

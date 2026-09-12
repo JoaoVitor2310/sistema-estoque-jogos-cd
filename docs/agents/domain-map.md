@@ -38,6 +38,8 @@ Tiers de taxa, fórmulas de `simulated_income`, `min_api`/`max_api` e o teto de 
 
 Agrupamento de jogos (`bundle` ou `choice`). Many-to-many com `Game` via `bundle_games`. Regra da janela de exclusão de 21 dias (`KeyEligibility::BUNDLE_EXCLUSION_DAYS`): ver [`docs/wiki/DOMAIN.md#bundle-vs-choice`](../wiki/DOMAIN.md#bundle-vs-choice) e [`docs/GAMIVO.md`](../GAMIVO.md).
 
+**Pesquisa de preço dos jogos do bundle.** `ResearchBundleGamesUseCase` dispara `POST /api/games/research` no `price_researcher` com o payload de `App\Domain\Bundles\BundleResearchRequest` — que guarda os três critérios de negócio do fluxo: `MIN_POPULARITY = 1`, `CHECK_GAMIVO_OFFER = false` e `MIN_PRICE = 0`. Os três são frouxos de propósito — na compra de bundle a decisão é sobre o pacote inteiro, então jogo impopular, barato ou ainda sem oferta na Gamivo também conta. `MIN_PRICE` precisa ir explícito: omitido, o serviço aplica o default de €0,50. É assíncrono: o retorno confirma só o enfileiramento, e o resultado volta minutos depois pelo callback `POST /trades/from-price-researcher`, virando uma trade com o nome do bundle. Contrato completo em [`docs/PRICE_RESEARCHER.md`](../PRICE_RESEARCHER.md).
+
 ## 4. Assets (`Asset` → tabela `assets`)
 
 Representa ativos de troca (ex: TF2 key). Campos: `price_euro`, `price_dollar`, `price_brl`. Usado por `KeyCalculationService` para converter o custo da trade em euros.
@@ -75,7 +77,16 @@ Taxas do marketplace. Campos: `name`, `preco`. Chaves usadas: `gamivoPercentualM
   - **Rate limit:** dois eixos em `AuthenticateDeliveryUseCase` (por entrega e por IP). O 429 devolve o tempo restante no header `Retry-After` e no texto da mensagem — a janela é de uma hora, e sem o número o supplier volta cedo demais e conclui que o link quebrou
   - **Na aba de Trades:** `TradeService::VIEW_AWAITING_REVIEW` é a fila de conferência; em `open` as entregues sobem para o topo, e `awaitingReviewCount` alimenta a contagem no rótulo do filtro
 
-**Os dois caminhos que criam trade pelo `price_researcher` resolvem bundle do mesmo jeito** desde 2026-08-19: `StoreListTradeUseCase` e `ProspectSupplierUseCase` consultam `BundleService::recentBundleByGameNames()` (uma query batelada, janela de `BundleGameLookup::RECENT_MONTHS`) e passam o mapa ao `TradeLineBuilder::fromResearch`. Na prospecção a consulta fica **dentro** do `if ($shouldComment)`: ela avalia muitos perfis e comenta poucos, e resolver antes cobraria uma query por perfil avaliado.
+**Como cada caminho do `price_researcher` resolve o bundle da linha.** Todos passam um mapa (nome normalizado do jogo → nome do bundle) ao `TradeLineBuilder::fromResearch`; o que muda é de onde o mapa vem — da ordem mais confiável para a menos:
+
+| Caminho | Origem do mapa | Por quê |
+|---|---|---|
+| Pesquisa disparada de um bundle (trade **sem** supplier) | `BundleService::bundleByTitle()` — o `title` do callback nomeia o bundle, e **toda** linha é dele | Nós sabemos de que bundle os jogos saíram; não é palpite |
+| Lista comentada (`StoreListTradeUseCase` com supplier) e prospecção (`ProspectSupplierUseCase`) | `BundleService::recentBundleByGameNames()` — query batelada, janela de `BundleGameLookup::RECENT_MONTHS` | A origem da key é desconhecida; casa por nome + recência |
+
+O título só vale quando **não há supplier**: a lista comentada manda `title` também, e ali ele é o nome da lista no SteamTrades — lista chamada "Humble Choice" não faz de todo jogo dela um jogo de bundle. Sem bundle nomeado pelo título, o caminho cai no palpite por nome.
+
+Na prospecção a consulta fica **dentro** do `if ($shouldComment)`: ela avalia muitos perfis e comenta poucos, e resolver antes cobraria uma query por perfil avaliado.
 
 Fluxo de prospecção/importação completo: [`docs/PRODUCT.md`](../PRODUCT.md) (seção "Fluxo de Compra"). `ProspectSupplierUseCase`, `ExecuteSupplierListUseCase`, `TradeService::paginate()` são as classes de entrada.
 
