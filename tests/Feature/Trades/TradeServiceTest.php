@@ -13,6 +13,7 @@
 |     - tf2_min / tf2_max filtram sobre trades.tf2_qty
 |     - sort=tf2_qty asc ordena corretamente
 |     - is_imported vem no shape retornado
+|     - canal de compra e bundle vêm no shape retornado
 |
 */
 
@@ -72,6 +73,28 @@ describe('TradeService::paginate — default view', function () {
 
         expect($item)->toHaveKey('is_imported')
             ->and($item['is_imported'])->toBeFalse();
+    });
+});
+
+describe('TradeService::paginate — purchase channel', function () {
+
+    it('exposes the purchase channel and the bundle in the response shape', function () {
+        $bundleId = DB::table('bundles')->insertGetId(['name' => 'Humble Choice September', 'created_at' => now(), 'updated_at' => now()]);
+        makeTrade(['date' => '2025-06-01', 'purchase_channel' => 'bundle_store', 'bundle_id' => $bundleId]);
+
+        $row = app(TradeService::class)->paginate()->items()[0];
+
+        expect($row['purchase_channel'])->toBe('bundle_store')
+            ->and($row['bundle_id'])->toBe($bundleId);
+    });
+
+    it('exposes a trade without channel as a supplier trade with no bundle', function () {
+        makeTrade(['date' => '2025-06-01']);
+
+        $row = app(TradeService::class)->paginate()->items()[0];
+
+        expect($row['purchase_channel'])->toBe('supplier_trade')
+            ->and($row['bundle_id'])->toBeNull();
     });
 });
 

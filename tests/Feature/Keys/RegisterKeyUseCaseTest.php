@@ -12,6 +12,8 @@
 |   - Criação do jogo quando inexistente e vínculo com o fornecedor da trade
 |   - Isolamento de erros: falha em uma key não interrompe o lote
 |   - Recusa do lote quando a trade não está pronta para importar
+|   - Canal de compra: compra direta e Gamivo entram sem fornecedor, com a
+|     origem legível (nome do bundle / "Gamivo") em supplier_url
 |
 | O lote sai da trade gravada, então o seed é uma trade com linhas
 | (`Tests\Support\TradeFactory`) em vez de um array de entrada.
@@ -352,6 +354,64 @@ describe('RegisterKeyUseCase', function () {
 
         // Ambas as keys devem referenciar o mesmo fornecedor
         expect($suppliers)->toHaveCount(1);
+    });
+
+    // ── Canal de compra ───────────────────────────────────────────────────────
+
+    it('registers a direct bundle store purchase without a supplier, naming the bundle as source', function () {
+        $bundleId = DB::table('bundles')->insertGetId(['name' => 'Humble Choice September', 'created_at' => now(), 'updated_at' => now()]);
+        $trade = TradeFactory::withLines([makeLine()], [
+            'purchase_channel' => 'bundle_store',
+            'bundle_id' => $bundleId,
+            'tf2_qty' => 2.0,
+            'date' => now()->toDateString(),
+        ]);
+
+        $key = app(RegisterKeyUseCase::class)->execute($trade)['games'][0];
+
+        expect($key->supplier_id)->toBeNull()
+            ->and($key->supplier_url)->toBe('Humble Choice September');
+    });
+
+    it('prices the floor of a direct bundle store purchase with the bundle store margin', function () {
+        $bundleId = DB::table('bundles')->insertGetId(['name' => 'Humble Choice September', 'created_at' => now(), 'updated_at' => now()]);
+        $trade = TradeFactory::withLines([makeLine()], [
+            'purchase_channel' => 'bundle_store',
+            'bundle_id' => $bundleId,
+            'tf2_qty' => 2.0,
+            'date' => now()->toDateString(),
+        ]);
+
+        $key = app(RegisterKeyUseCase::class)->execute($trade)['games'][0];
+
+        expect((float) $key->min_api)->toEqualWithDelta(round((float) $key->individual_cost * 1.40, 2), 0.001);
+    });
+
+    it('refuses a direct bundle store purchase without its bundle', function () {
+        $trade = TradeFactory::withLines([makeLine()], [
+            'purchase_channel' => 'bundle_store',
+            'tf2_qty' => 2.0,
+            'date' => now()->toDateString(),
+        ]);
+
+        $result = app(RegisterKeyUseCase::class)->execute($trade);
+
+        expect($result['games'])->toBeEmpty()
+            ->and($result['message'])->toBe('Nenhuma key foi cadastrada — compra direta sem bundle')
+            ->and(DB::table('keys')->count())->toBe(0);
+    });
+
+    it('registers a Gamivo purchase without supplier or bundle, with Gamivo as source', function () {
+        $trade = TradeFactory::withLines([makeLine()], [
+            'purchase_channel' => 'gamivo',
+            'tf2_qty' => 2.0,
+            'date' => now()->toDateString(),
+        ]);
+
+        $key = app(RegisterKeyUseCase::class)->execute($trade)['games'][0];
+
+        expect($key->supplier_id)->toBeNull()
+            ->and($key->supplier_url)->toBe('Gamivo');
     });
 
     // ── Game table ────────────────────────────────────────────────────────────

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Domain\Enums\PurchaseChannel;
 use App\Domain\Keys\KeyEligibility;
 use App\Domain\Pricing\ComparisonAlgorithm;
 use App\Domain\Pricing\MinimumMarginPolicy;
@@ -52,7 +53,8 @@ class GamivoUnlistedMinApiReportCommand extends Command
         $fee = $this->keyCalculationService->getMarketplaceFee();
         $sellerName = config('services.gamivo.seller_name');
 
-        $keys = $this->keyRepository->findEligibleForAutoSell();
+        // `trade` traz o canal de compra, que muda a margem inicial (ver marginBucket).
+        $keys = $this->keyRepository->findEligibleForAutoSell()->load('trade');
         $this->info($keys->count().' keys elegíveis para auto-sell (ainda não listadas).');
 
         $groups = $keys->groupBy('gamivo_id');
@@ -152,7 +154,7 @@ class GamivoUnlistedMinApiReportCommand extends Command
     private function marginBucket(Key $key): string
     {
         if ($key->acquired_at === null) {
-            return 'cost tier';
+            return $this->initialMarginBucket($key);
         }
 
         $acquiredAt = Carbon::parse($key->acquired_at);
@@ -170,7 +172,15 @@ class GamivoUnlistedMinApiReportCommand extends Command
             return 'age >=4m unlisted (40%)';
         }
 
-        return 'cost tier';
+        return $this->initialMarginBucket($key);
+    }
+
+    /** Sem decaimento por tempo, a margem é a inicial — que depende do canal de compra. */
+    private function initialMarginBucket(Key $key): string
+    {
+        return $key->purchaseChannel() === PurchaseChannel::BundleStore
+            ? 'bundle store ('.round(MinimumMarginPolicy::BUNDLE_STORE_MARGIN * 100).'%)'
+            : 'cost tier';
     }
 
     private function writeJson(Collection $rows, string $path): void

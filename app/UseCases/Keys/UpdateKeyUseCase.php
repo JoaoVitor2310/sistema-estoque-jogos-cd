@@ -57,7 +57,7 @@ class UpdateKeyUseCase
 
         // Campos derivados de key_code/game_name — atualizam em qualquer edição
         $attributes['identified_platform'] = PlatformIdentifier::identify($attributes['key_code']);
-        $attributes['supplier_id'] = $this->supplierService->findOrCreate($attributes['supplier_url']);
+        $attributes['supplier_id'] = $this->resolveSupplierId($existing, $attributes['supplier_url']);
         $attributes['is_duplicate'] = $this->keyRepository->findByKeyCode($attributes['key_code'], $existing->id) !== null;
 
         // Sincroniza gamivo_id
@@ -156,6 +156,20 @@ class UpdateKeyUseCase
      *
      * @param  array<string, mixed>  $validated
      */
+    /**
+     * O fornecedor da key a partir do texto de origem editado.
+     *
+     * Só a key de trade com fornecedor tem um: na compra direta e na Gamivo o
+     * texto é o nome do bundle ou "Gamivo", e resolvê-lo criaria um `Supplier`
+     * falso a cada edição.
+     */
+    private function resolveSupplierId(Key $key, string $source): ?int
+    {
+        return $key->purchaseChannel()->requiresSupplier()
+            ? $this->supplierService->findOrCreate($source)
+            : null;
+    }
+
     private function marketPriceChanged(Key $existing, array $validated): bool
     {
         $new = number_format((float) ($validated['market_price'] ?? 0), 2, '.', '');

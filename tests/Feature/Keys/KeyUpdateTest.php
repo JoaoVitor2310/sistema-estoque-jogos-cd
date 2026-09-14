@@ -18,6 +18,10 @@
 | A edição de min_api é transitória por natureza: RegulateMinApiUseCase
 | reescreve o piso de toda key não vendida às 07:30 (ver docs/adr/0003).
 |
+| supplier_url é a origem legível da key e nunca fica vazio: URL do supplier,
+| nome do bundle (compra direta) ou "Gamivo". Quando esse texto vira Supplier
+| é regra do UseCase — tests/Feature/Keys/UpdateKeyUseCaseTest.php.
+|
 */
 
 use App\Models\AuthorizedUsers;
@@ -176,5 +180,18 @@ describe('PUT /keys/{key} — min_api and max_api', function () {
         expect((float) $key->market_price)->toBe(9.00)
             ->and((float) $key->min_api)->toBe(6.00)
             ->and((float) $key->max_api)->toBe(40.00);
+    });
+});
+
+describe('PUT /keys/{key} — supplier', function () {
+
+    beforeEach(fn () => seedKeyUpdateFks());
+
+    it('rejects an edit that blanks the source of the key', function () {
+        $id = keyToEdit();
+
+        editKey($id, ['supplier_url' => null])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('supplier_url');
     });
 });

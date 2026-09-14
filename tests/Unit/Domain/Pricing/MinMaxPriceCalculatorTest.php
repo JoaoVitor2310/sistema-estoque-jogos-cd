@@ -22,6 +22,7 @@
 |
 */
 
+use App\Domain\Enums\PurchaseChannel;
 use App\Domain\Pricing\MinMaxPriceCalculator;
 use Carbon\Carbon;
 
@@ -38,13 +39,20 @@ describe('MinMaxPriceCalculator::calculate()', function () {
 
     describe('minimum delegation to MinimumMarginPolicy', function () {
         it('uses the cost tier for a young key (default margin, 50%)', function () {
-            $result = MinMaxPriceCalculator::calculate(5.0, 5.0, Carbon::now());
+            $result = MinMaxPriceCalculator::calculate(5.0, 5.0, Carbon::now(), PurchaseChannel::SupplierTrade);
 
             expect($result['min'])->toEqualWithDelta(7.5, 0.001);
         });
 
+        it('uses the bundle store margin for a young direct purchase (40%)', function () {
+            // 5.00 × 1.40 = 7.00, contra 7.50 da faixa default de fornecedor
+            $result = MinMaxPriceCalculator::calculate(5.0, 5.0, Carbon::now(), PurchaseChannel::BundleStore);
+
+            expect($result['min'])->toEqualWithDelta(7.0, 0.001);
+        });
+
         it('uses the aging tier for an old key, idade vence o custo (15%)', function () {
-            $result = MinMaxPriceCalculator::calculate(5.0, 5.0, Carbon::now()->subMonths(7));
+            $result = MinMaxPriceCalculator::calculate(5.0, 5.0, Carbon::now()->subMonths(7), PurchaseChannel::SupplierTrade);
 
             expect($result['min'])->toEqualWithDelta(5.75, 0.001);
         });
@@ -53,14 +61,14 @@ describe('MinMaxPriceCalculator::calculate()', function () {
     describe('maximum price tiers', function () {
         it('is individualCost × 8 when individualCost is at or above €1', function () {
             // 15.0 × 8 = 120.0
-            $result = MinMaxPriceCalculator::calculate(15.0, 10.0, Carbon::now());
+            $result = MinMaxPriceCalculator::calculate(15.0, 10.0, Carbon::now(), PurchaseChannel::SupplierTrade);
 
             expect($result['max'])->toEqualWithDelta(120.0, 0.001);
         });
 
         it('is individualCost × 30 when individualCost is below €1', function () {
             // 0.5 × 30 = 15.0
-            $result = MinMaxPriceCalculator::calculate(0.5, 0.3, Carbon::now());
+            $result = MinMaxPriceCalculator::calculate(0.5, 0.3, Carbon::now(), PurchaseChannel::SupplierTrade);
 
             expect($result['max'])->toEqualWithDelta(15.0, 0.001);
         });
@@ -68,7 +76,7 @@ describe('MinMaxPriceCalculator::calculate()', function () {
         it('is recalculated as clientPrice × 8 when clientPrice reaches or exceeds the initial max', function () {
             // individualCost=5.0 → initial max = 5.0 × 8 = 40.0
             // clientPrice=50.0 >= 40.0 → override: 50.0 × 8 = 400.0
-            $result = MinMaxPriceCalculator::calculate(5.0, 50.0, Carbon::now());
+            $result = MinMaxPriceCalculator::calculate(5.0, 50.0, Carbon::now(), PurchaseChannel::SupplierTrade);
 
             expect($result['max'])->toEqualWithDelta(400.0, 0.001);
         });
@@ -77,13 +85,13 @@ describe('MinMaxPriceCalculator::calculate()', function () {
     describe('0.02 floor', function () {
         it('applies to the minimum when individualCost is zero', function () {
             // custo=0 → guard FLOOR (0.02), tier 55% → 0.02 × 1.55 = 0.031 → 0.03
-            $result = MinMaxPriceCalculator::calculate(0.0, 0.0, Carbon::now());
+            $result = MinMaxPriceCalculator::calculate(0.0, 0.0, Carbon::now(), PurchaseChannel::SupplierTrade);
 
             expect($result['min'])->toEqualWithDelta(0.03, 0.001);
         });
 
         it('applies to the maximum when individualCost is zero', function () {
-            $result = MinMaxPriceCalculator::calculate(0.0, 0.0, Carbon::now());
+            $result = MinMaxPriceCalculator::calculate(0.0, 0.0, Carbon::now(), PurchaseChannel::SupplierTrade);
 
             expect($result['max'])->toEqualWithDelta(0.02, 0.001);
         });
@@ -91,7 +99,7 @@ describe('MinMaxPriceCalculator::calculate()', function () {
 
     describe('return shape', function () {
         it('always returns an array with min and max keys', function () {
-            $result = MinMaxPriceCalculator::calculate(5.0, 5.0, Carbon::now());
+            $result = MinMaxPriceCalculator::calculate(5.0, 5.0, Carbon::now(), PurchaseChannel::SupplierTrade);
 
             expect($result)->toHaveKeys(['min', 'max']);
         });
@@ -101,7 +109,7 @@ describe('MinMaxPriceCalculator::calculate()', function () {
         it(
             'calculates min and max correctly',
             function (float $individualCost, float $clientPrice, float $expectedMin, float $expectedMax) {
-                $result = MinMaxPriceCalculator::calculate($individualCost, $clientPrice, Carbon::now());
+                $result = MinMaxPriceCalculator::calculate($individualCost, $clientPrice, Carbon::now(), PurchaseChannel::SupplierTrade);
 
                 expect($result['min'])->toEqualWithDelta($expectedMin, 0.001)
                     ->and($result['max'])->toEqualWithDelta($expectedMax, 0.001);
@@ -213,7 +221,7 @@ describe('MinMaxPriceCalculator::soleSellerPrice()', function () {
     it('stays far below the appreciation ceiling that max_api would have produced', function () {
         // É o bug que motivou a regra: custo €1 e mercado €20 dão max_api = 20 × 8 = 160,
         // e sem concorrente esse teto virava o preço praticado.
-        $maxApi = MinMaxPriceCalculator::calculate(1.00, 20.00, Carbon::now())['max'];
+        $maxApi = MinMaxPriceCalculator::calculate(1.00, 20.00, Carbon::now(), PurchaseChannel::SupplierTrade)['max'];
 
         expect($maxApi)->toBe(160.0)
             ->and(MinMaxPriceCalculator::soleSellerPrice(20.00, 1.50, $maxApi))->toBe(22.00);

@@ -35,7 +35,19 @@ Significa que esse jogo só pode ser ativado por usuários que estão nessas reg
 
 
 ## Trades
-Trades é uma compra realizada com nossos fornecedores. Nessa troca pode ter diversos jogos, cada jogo é calculado individualmente e no final é enviado o somatório dos valores dos jogos, resultando no valor da trade. Cada trade é inserida de uma vez no sistema para facilitar, e o Valor Pago Total é um reflexo disso, exemplo:
+Trades é uma compra realizada de uma só vez — no caso comum, com nossos fornecedores.
+
+O **canal de compra** (`trades.purchase_channel`, enum `PurchaseChannel`) diz de quem o lote foi comprado. É escolhido na aba de Trades, no cabeçalho de cada trade; na compra direta o bundle não é escolhido — é o bundle cujo nome é exatamente o título da trade:
+
+| Canal | Quando | Contraparte gravada na trade |
+|---|---|---|
+| Fornecedor (`supplier_trade`, default) | Troca com um supplier da Steam | `supplier_id` |
+| Compra direta (`bundle_store`) | Keys compradas na loja do bundle (Humble, Fanatical, Green Man Gaming…) | `bundle_id`, casado pelo título |
+| Gamivo (`gamivo`) | Keys compradas no próprio marketplace | nenhuma |
+
+A contraparte que o canal não usa é descartada ao gravar a trade — uma trade nunca guarda fornecedor e bundle ao mesmo tempo. Em todos os canais o custo continua lançado em TF2 (o valor pago em euro é convertido), porque é da quantidade de TF2 que sai o rateio de `individual_cost`. Pesquisar preços de um bundle **não** marca a trade como compra direta: a pesquisa também serve para ofertar os jogos ao supplier ou decidir se vale comprar direto.
+
+Nessa troca pode ter diversos jogos, cada jogo é calculado individualmente e no final é enviado o somatório dos valores dos jogos, resultando no valor da trade. Cada trade é inserida de uma vez no sistema para facilitar, e o Valor Pago Total é um reflexo disso, exemplo:
 5.5x TF2 Keys / 8
 
 Significa que foi gasto 5,5 TF2 keys para um trade de 8 jogos. Esses 8 jogos serão enviados de uma única vez, e o valorPagoIndividual vai conseguir calcular o preço de cada jogo.
@@ -102,6 +114,8 @@ A margem-base varia por faixa de custo (jogo caro tolera margem menor; jogo muit
 | €1–€10 | 50% (default) |
 | €10–€15 | 45% |
 | > €15 | 40% |
+
+Na **compra direta** na loja do bundle (canal `bundle_store`), a margem-base não olha o custo: é **40%** fixa (`MinimumMarginPolicy::BUNDLE_STORE_MARGIN`), porque pagamos mais caro que numa trade e a faixa de custo seguraria a key sem vender. Daí em diante o decaimento por tempo e os pisos abaixo são os mesmos de qualquer key — e como nenhuma margem de tempo passa de 40%, o decaimento nunca sobe o piso dela. A compra na Gamivo segue a faixa de custo, como a trade com fornecedor.
 
 Essa margem decai com o tempo, e a curva depende de a key já estar listada ou não:
 
@@ -434,7 +448,7 @@ Fechada a negociação, o operador preenche os `key_code` recebidos nas linhas d
 `POST /trades/{trade}/import`, **único** caminho de entrada de keys no estoque.
 
 O import leva **exatamente o que está gravado na trade**: a requisição não tem corpo, e o servidor
-lê as linhas, a data, o fornecedor e a quantidade de TF2 do banco. Isso importa porque o
+lê as linhas, a data, o canal de compra (com o fornecedor ou o bundle) e a quantidade de TF2 do banco. Isso importa porque o
 `market_price` de cada linha é o peso do rateio de `individual_cost` do lote inteiro (ver
 [`docs/adr/0004`](adr/0004-recalculate-trade-on-key-edit.md)) — enquanto ele vinha do navegador, o
 custo de todas as keys da trade dependia do que o cliente mandasse.
@@ -453,7 +467,8 @@ Uma linha conta como **preenchida** quando tem nome do jogo **ou** preço de mer
 | Linha preenchida sem preço de mercado, ou com preço zerado | É o peso do rateio de `individual_cost` — sem ele o lote inteiro sai errado |
 | Linha preenchida sem nome do jogo | A key não teria como ser casada com o catálogo `games` |
 | Trade sem quantidade de TF2 | O rateio de `individual_cost` rodaria sem custo nenhum |
-| Trade sem fornecedor | É de onde saem `keys.supplier_id` e `supplier_url` |
+| Trade com fornecedor (canal `supplier_trade`) sem fornecedor | É de onde saem `keys.supplier_id` e `supplier_url` |
+| Compra direta (canal `bundle_store`) sem bundle | A compra direta é identificada pelo bundle comprado |
 | Nenhuma linha preenchida | Não há o que importar |
 
 ### Observação importante

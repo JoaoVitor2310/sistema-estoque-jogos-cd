@@ -62,7 +62,7 @@ class RegisterKeyUseCase
      */
     public function execute(Trade $trade): array
     {
-        $trade->loadMissing(['lines', 'supplier']);
+        $trade->loadMissing(['lines', 'supplier', 'bundle']);
 
         $blockers = ImportReadinessPolicy::blockers(
             $trade->lines->map(fn (TradeLine $line) => [
@@ -71,7 +71,9 @@ class RegisterKeyUseCase
                 'key_code' => $line->key_code,
             ])->all(),
             $trade->tf2_qty,
+            $trade->purchase_channel,
             $trade->supplier?->url,
+            $trade->bundle_id,
         );
 
         if ($blockers !== []) {
@@ -186,9 +188,11 @@ class RegisterKeyUseCase
             'gamivo_id' => $line->gamivo_id,
             'expires_at' => $line->expires_at?->format('Y-m-d'),
             'acquired_at' => $trade->date?->format('Y-m-d'),
-            // Garantidos pela ImportReadinessPolicy, que já recusou o lote sem eles.
-            'supplier_url' => $trade->supplier->url,
+            // Garantido pela ImportReadinessPolicy, que já recusou o lote sem ele.
             'tf2_quantity' => $trade->tf2_qty,
+            // A origem legível da key em qualquer canal: URL do supplier, nome do
+            // bundle ou "Gamivo". O supplier_id só existe na trade com fornecedor.
+            'supplier_url' => $trade->purchase_channel->keySource($trade->supplier?->url, $trade->bundle?->name),
         ];
     }
 
@@ -199,8 +203,8 @@ class RegisterKeyUseCase
      */
     private function registerKey(array $game, Trade $trade, float $somatorioIncomes, int $totalGames): Key
     {
-        // Toda key nasce vinculada à trade de origem, e ao fornecedor dela —
-        // o supplier já foi resolvido quando a trade foi preenchida.
+        // Toda key nasce vinculada à trade de origem, e ao fornecedor dela quando
+        // o canal tem um — o supplier já foi resolvido quando a trade foi preenchida.
         $game['trade_id'] = $trade->id;
         $game['supplier_id'] = $trade->supplier_id;
 
@@ -216,7 +220,7 @@ class RegisterKeyUseCase
         $game['identified_platform'] = PlatformIdentifier::identify($game['key_code']);
 
         // Calcula min/max da API Gamivo
-        $game = $this->calculationService->calculateMinMaxApi($game);
+        $game = $this->calculationService->calculateMinMaxApi($game, $trade->purchase_channel);
 
         // Normaliza nome do jogo
         $game['game_name'] = trim($game['game_name']);
@@ -283,6 +287,7 @@ class RegisterKeyUseCase
             TradeImportBlocker::MissingKeyCode => 'linha preenchida sem key code',
             TradeImportBlocker::MissingTf2Quantity => 'trade sem quantidade de TF2',
             TradeImportBlocker::MissingSupplierUrl => 'trade sem fornecedor',
+            TradeImportBlocker::MissingBundle => 'compra direta sem bundle',
         }, $blockers);
 
         return 'Nenhuma key foi cadastrada — '.implode('; ', $reasons);

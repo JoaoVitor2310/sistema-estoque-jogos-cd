@@ -34,10 +34,12 @@ Vale para key recém-comprada e ainda não envelhecida. Jogo caro tolera margem 
 
 | Custo individual | Margem | Constante |
 |---|---|---|
-| €1 – €10 | **60%** | `DEFAULT_MARGIN` |
+| €1 – €10 | **50%** | `DEFAULT_MARGIN` |
 | < €1 | 55% | `LOW_COST_MARGIN` |
 | €10 – €15 | 45% | `HIGH_COST_MARGIN` |
 | > €15 | 40% | `VERY_HIGH_COST_MARGIN` |
+
+**Exceção — compra direta** (trade com canal `bundle_store`): a margem base é **40%** fixa, qualquer que seja o custo (`BUNDLE_STORE_MARGIN`). O canal vem da trade da key (`Key::purchaseChannel()`; key sem trade conta como trade com fornecedor). O decaimento e os pisos abaixo valem igual.
 
 ### 2. Decaimento por tempo (substitui a margem base conforme envelhece)
 

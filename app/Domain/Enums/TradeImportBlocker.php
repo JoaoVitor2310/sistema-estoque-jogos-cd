@@ -23,5 +23,9 @@ enum TradeImportBlocker: string
     /** Sem quantidade de TF2 o rateio de `individual_cost` rodaria sem custo. */
     case MissingTf2Quantity = 'missing_tf2_quantity';
 
+    /** Trade com fornecedor (ver [[PurchaseChannel::SupplierTrade]]) sem fornecedor vinculado. */
     case MissingSupplierUrl = 'missing_supplier_url';
+
+    /** Compra direta (ver [[PurchaseChannel::BundleStore]]) sem o bundle da compra. */
+    case MissingBundle = 'missing_bundle';
 }

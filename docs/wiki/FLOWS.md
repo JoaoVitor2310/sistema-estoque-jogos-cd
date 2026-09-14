@@ -28,7 +28,7 @@ O fluxo acima parte de um **supplier**. A opção "Pesquisar Preços" no menu de
 | 2 | Enfileirar | O serviço responde na hora; a tela só confirma que entrou na fila | `price_researcher` (assíncrono) |
 | 3 | Receber o resultado | Minutos depois, vira uma trade com o nome do bundle e uma linha por jogo qualificado | callback → `StoreListTradeUseCase` |
 
-Daí em diante é o fluxo normal, a partir da etapa 5. **Jogo descartado não é comunicado, e bundle sem nenhum jogo qualificado não gera callback nenhum** — a trade simplesmente não aparece, sem distinção entre "ainda processando" e "acabou em nada" (pendência em [`IMPROVEMENTS.md`](../IMPROVEMENTS.md)).
+Daí em diante é o fluxo normal, a partir da etapa 5. A pesquisa não decide o canal de compra: a trade nasce como trade com fornecedor, e só vira **compra direta** quando a equipe escolhe esse canal no cabeçalho — o bundle é casado pelo título da trade, que a pesquisa já preencheu com o nome dele; a mesma pesquisa serve para ofertar os jogos ao supplier ou decidir se vale comprar direto na loja. **Jogo descartado não é comunicado, e bundle sem nenhum jogo qualificado não gera callback nenhum** — a trade simplesmente não aparece, sem distinção entre "ainda processando" e "acabou em nada" (pendência em [`IMPROVEMENTS.md`](../IMPROVEMENTS.md)).
 
 ### Quando o fluxo para antes do fim
 

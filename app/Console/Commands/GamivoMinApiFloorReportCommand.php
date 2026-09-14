@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Domain\Enums\PurchaseChannel;
 use App\Domain\Pricing\ComparisonAlgorithm;
 use App\Domain\Pricing\MinimumMarginPolicy;
 use App\Domain\Pricing\OfferData;
@@ -155,7 +156,7 @@ class GamivoMinApiFloorReportCommand extends Command
             'is_floor_bound' => $isFloorBound,
             'is_ceiling_bound' => $isCeilingBound,
             'individual_cost' => (float) $key->individual_cost,
-            'cost_tier' => $this->costTierLabel((float) $key->individual_cost),
+            'cost_tier' => $this->costTierLabel($key),
             'competitor_count' => count($offers) > 0 ? count($offers) - 1 : 0,
             'listed_months_ago' => $key->listed_at !== null ? Carbon::parse($key->listed_at)->diffInMonths(now()) : null,
             'acquired_months_ago' => $key->acquired_at !== null ? Carbon::parse($key->acquired_at)->diffInMonths(now()) : null,
@@ -168,7 +169,9 @@ class GamivoMinApiFloorReportCommand extends Command
      */
     private function findGoverningKeys(array $productIds): Collection
     {
-        return Key::whereIn('gamivo_id', array_map('strval', $productIds))
+        // `trade` traz o canal de compra, lido em costTierLabel.
+        return Key::with('trade')
+            ->whereIn('gamivo_id', array_map('strval', $productIds))
             ->whereNotNull('listed_at')
             ->whereNull('sold_at')
             ->orderBy('listed_at')
@@ -178,8 +181,18 @@ class GamivoMinApiFloorReportCommand extends Command
             ->map(fn (Collection $group) => $group->first());
     }
 
-    private function costTierLabel(float $cost): string
+    /**
+     * A margem inicial da key: faixa de custo, ou a margem fixa da compra direta
+     * (MinimumMarginPolicy::BUNDLE_STORE_MARGIN), que não olha o custo.
+     */
+    private function costTierLabel(Key $key): string
     {
+        if ($key->purchaseChannel() === PurchaseChannel::BundleStore) {
+            return 'bundle_store ('.round(MinimumMarginPolicy::BUNDLE_STORE_MARGIN * 100).'%)';
+        }
+
+        $cost = (float) $key->individual_cost;
+
         return match (true) {
             $cost > MinimumMarginPolicy::VERY_HIGH_COST_THRESHOLD => 'very_high (>15)',
             $cost > MinimumMarginPolicy::HIGH_COST_THRESHOLD => 'high (10-15)',

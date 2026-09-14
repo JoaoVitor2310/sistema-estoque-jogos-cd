@@ -15,7 +15,9 @@
 |
 */
 
+use App\Domain\Enums\PurchaseChannel;
 use App\Models\Trade;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Tests\Support\TradeFactory;
 
@@ -28,6 +30,18 @@ describe('trades schema', function () {
     it('keeps trade_lines as the place a line lives', function () {
         expect(Schema::hasTable('trade_lines'))->toBeTrue()
             ->and(Schema::hasColumn('trade_lines', 'game_name'))->toBeTrue();
+    });
+
+    it('gives a new trade the supplier trade channel, in memory and in the database', function () {
+        // O default do model espelha o do banco: sem ele, o `purchase_channel`
+        // de uma trade recém-criada só existiria depois de um fresh().
+        $trade = Trade::create(['title' => 'Sem canal']);
+
+        expect($trade->purchase_channel)->toBe(PurchaseChannel::SupplierTrade)
+            ->and($trade->fresh()->purchase_channel)->toBe(PurchaseChannel::SupplierTrade);
+
+        $rawId = DB::table('trades')->insertGetId(['created_at' => now(), 'updated_at' => now()]);
+        expect(DB::table('trades')->where('id', $rawId)->value('purchase_channel'))->toBe('supplier_trade');
     });
 
     it('creates a trade without ever mentioning games', function () {

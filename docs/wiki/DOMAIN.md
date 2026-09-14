@@ -8,7 +8,7 @@ Para as definições precisas de cada termo (o que é / o que evitar chamar), ve
 |---|---|---|
 | **Key** | `keys` | Unidade central — uma chave comprada e/ou vendida. Tudo (preço, listagem, trade) gira em torno dela. |
 | **Supplier** | `suppliers` | Perfil Steam de onde keys são obtidas via troca. Rastreia `has_traded` (já trocou alguma vez) e `is_added` (curado manualmente) de forma independente. |
-| **Trade** | `trades` | Uma lista de jogos comentada/ofertada a um Supplier em um momento específico. |
+| **Trade** | `trades` | Um lote de jogos comprado de uma só vez. O canal de compra (`purchase_channel`) diz de quem: um Supplier (caso comum), a loja de um Bundle (compra direta) ou a Gamivo. |
 | **Game** | `games` | Catálogo de jogos — nome, `gamivo_id`, popularidade, preço de referência. |
 | **Bundle** | `bundles` | Pacote de jogos vendidos juntos (Humble Bundle, Fanatical, Green Man Gaming...). Tipo `bundle` ou `choice`, resolvido pelo título. |
 | **Asset** | `assets` | Ativo de troca (ex.: TF2 Key) com preço em EUR/USD/BRL — usado para converter o custo de uma trade. |
@@ -23,7 +23,8 @@ Vínculos reais no banco, começando pelos da Key (a entidade central):
 | Key | Supplier | N : 1 | `keys.supplier_id` → `suppliers.id` (FK, nullable) |
 | Key | Trade | N : 1 | `keys.trade_id` → `trades.id` (FK, nullable) — o lote de onde a key veio; populado só no import por trade |
 | Key | Game | N : 1 | `keys.gamivo_id` ↔ `games.gamivo_id` — **join por string, sem FK** |
-| Trade | Supplier | N : 1 | `trades.supplier_id` → `suppliers.id` (FK) |
+| Trade | Supplier | N : 1 | `trades.supplier_id` → `suppliers.id` (FK, nullable) — só no canal `supplier_trade` |
+| Trade | Bundle | N : 1 | `trades.bundle_id` → `bundles.id` (FK, nullable) — só na compra direta (`bundle_store`) |
 | Game | Bundle | N : N | pivot `bundle_games` (com `bundle_launch_price`) |
 
 O join `Key ↔ Game` por string é dívida conhecida — não há integridade referencial e `game_name`/`region` ficam duplicados em `keys`. Plano de normalização em [`docs/IMPROVEMENTS.md`](../IMPROVEMENTS.md).

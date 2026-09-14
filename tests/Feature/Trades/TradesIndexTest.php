@@ -12,6 +12,7 @@
 |   - sort=tf2_qty & dir=asc
 |   - sort/dir/view fora da whitelist → 422
 |   - paginação: per_page default 40, page=2 traz os próximos
+|   - canal de compra e bundle da trade
 |
 | Segurança de guest é coberta em tests/Feature/Security/GuestAccessTest.php
 | (bloco "blocks GET /trades" já existente).
@@ -366,5 +367,19 @@ describe('GET /trades — pagination', function () {
                 ->where('trades.current_page', 2)
                 ->has('trades.data', 5)
             );
+    });
+});
+
+describe('GET /trades — purchase channel', function () {
+
+    it('exposes the purchase channel and the bundle of the trade', function () {
+        $bundleId = DB::table('bundles')->insertGetId(['name' => 'Humble Choice September', 'created_at' => now(), 'updated_at' => now()]);
+        seedIndexTrade(['date' => '2025-06-02', 'purchase_channel' => 'bundle_store', 'bundle_id' => $bundleId]);
+
+        $this->actingAs(makeAuthorizedIndexUser())
+            ->get('/trades')
+            ->assertInertia(fn ($page) => $page
+                ->where('trades.data.0.purchase_channel', 'bundle_store')
+                ->where('trades.data.0.bundle_id', $bundleId));
     });
 });

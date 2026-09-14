@@ -125,6 +125,7 @@ app/
 │       ├── OffersUpdateMode.php         # WeAreLowest / WeAreNotLowest
 │       ├── PresenceFilter.php           # filled / empty — filtro por coluna preenchida
 │       ├── SupplierCategory.php         # vip / blocked
+│       ├── PurchaseChannel.php          # de quem a trade foi comprada: supplier / loja do bundle / Gamivo
 │       ├── TradeImportBlocker.php       # o que impede uma trade de virar keys
 │       └── OrderPayoutAttribution.php   # quanto do casamento linha↔key fechou numa baixa de venda
 │

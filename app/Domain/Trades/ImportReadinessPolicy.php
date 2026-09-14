@@ -2,6 +2,7 @@
 
 namespace App\Domain\Trades;
 
+use App\Domain\Enums\PurchaseChannel;
 use App\Domain\Enums\TradeImportBlocker;
 
 /**
@@ -34,11 +35,21 @@ final class ImportReadinessPolicy
     /**
      * Tudo que impede o import, de uma vez — o operador corrige numa passada só.
      *
+     * A contraparte exigida depende do canal de compra: fornecedor para trade
+     * com supplier, bundle para compra direta na loja, nenhuma para compra na
+     * Gamivo. A quantidade de TF2 vale para todos — o custo de qualquer canal é
+     * convertido para TF2, e é dela que sai o rateio de `individual_cost`.
+     *
      * @param  list<array{game_name: ?string, market_price: ?string, key_code: ?string}>  $lines  na ordem de exibição
      * @return list<TradeImportBlocker>
      */
-    public static function blockers(array $lines, ?string $tf2Quantity, ?string $supplierUrl): array
-    {
+    public static function blockers(
+        array $lines,
+        ?string $tf2Quantity,
+        PurchaseChannel $channel,
+        ?string $supplierUrl,
+        ?int $bundleId,
+    ): array {
         $filled = array_values(array_filter(
             $lines,
             fn (array $line) => self::isFilled($line['game_name'], $line['market_price']),
@@ -66,8 +77,12 @@ final class ImportReadinessPolicy
             $blockers[] = TradeImportBlocker::MissingTf2Quantity;
         }
 
-        if (trim((string) $supplierUrl) === '') {
+        if ($channel->requiresSupplier() && trim((string) $supplierUrl) === '') {
             $blockers[] = TradeImportBlocker::MissingSupplierUrl;
+        }
+
+        if ($channel->requiresBundle() && $bundleId === null) {
+            $blockers[] = TradeImportBlocker::MissingBundle;
         }
 
         return $blockers;

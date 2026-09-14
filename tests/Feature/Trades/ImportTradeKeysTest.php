@@ -18,6 +18,8 @@
 |   7. reimportação de uma trade já marcada como is_imported é aceita
 |   8. lote recusado quando falta key_code numa linha preenchida, ou TF2 na trade
 |   9. visitante não autorizado não importa
+|  10. compra direta importa sem fornecedor; sem bundle, é recusada (demais
+|      canais em tests/Feature/Keys/RegisterKeyUseCaseTest.php)
 |
 */
 
@@ -214,6 +216,39 @@ describe('POST /trades/{trade}/import', function () {
         $this->actingAs(makeAuthorizedImportUser())
             ->postJson(route('trades.import', ['trade' => $trade->id]))
             ->assertStatus(422);
+
+        expect(DB::table('keys')->count())->toBe(0);
+    });
+
+    // ── Canal de compra ───────────────────────────────────────────────────────
+
+    it('imports a direct bundle store purchase without a supplier', function () {
+        $bundleId = DB::table('bundles')->insertGetId(['name' => 'Humble Choice September', 'created_at' => now(), 'updated_at' => now()]);
+        $trade = importableTrade(null, [
+            'supplier_id' => null,
+            'purchase_channel' => 'bundle_store',
+            'bundle_id' => $bundleId,
+        ]);
+
+        $this->actingAs(makeAuthorizedImportUser())
+            ->postJson(route('trades.import', ['trade' => $trade->id]))
+            ->assertStatus(201);
+
+        $this->assertDatabaseHas('keys', [
+            'key_code' => 'AAAAA-BBBBB-CCCCC',
+            'trade_id' => $trade->id,
+            'supplier_id' => null,
+            'supplier_url' => 'Humble Choice September',
+        ]);
+    });
+
+    it('refuses a direct bundle store purchase without its bundle', function () {
+        $trade = importableTrade(null, ['supplier_id' => null, 'purchase_channel' => 'bundle_store']);
+
+        $this->actingAs(makeAuthorizedImportUser())
+            ->postJson(route('trades.import', ['trade' => $trade->id]))
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Nenhuma key foi cadastrada — compra direta sem bundle');
 
         expect(DB::table('keys')->count())->toBe(0);
     });

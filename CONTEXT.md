@@ -116,8 +116,16 @@ Um perfil Steam de onde keys são obtidas via troca — rastreado independenteme
 _Avoid_: fornecedor (termo antigo do banco), vendor.
 
 **Trade**:
-Uma lista de jogos comentada/ofertada a um supplier em um momento específico.
+Um lote de jogos comprado (ou em negociação) de uma só vez. O caso comum é a lista comentada/ofertada a um supplier em um momento específico; mas o **canal de compra** diz de quem o lote veio — a trade também registra uma compra direta na loja de um bundle ou uma compra na Gamivo.
 _Avoid_: vip list, lista (isoladamente).
+
+**Canal de compra** (`purchase_channel`):
+De quem compramos as keys de uma trade: um supplier (`supplier_trade`), a loja de um bundle (`bundle_store` — ver **compra direta**) ou a própria Gamivo (`gamivo`). É fato do lote inteiro, não de cada key. O canal decide a contraparte que a trade guarda: fornecedor para trade com supplier, bundle para compra direta, nenhuma para Gamivo.
+_Avoid_: origem (isoladamente — confunde com o bundle de onde a key saiu), tipo de trade.
+
+**Compra direta**:
+Compra das keys na própria loja do bundle (Humble, Fanatical, Green Man Gaming…), sem supplier no meio. A trade aponta para o bundle comprado (`trades.bundle_id`), identificado pelo título da trade — que, vinda da pesquisa de bundle, é o nome exato dele. Não confundir com o bundle da **linha da trade** (`trade_lines.bundle`), que diz de que bundle a key **saiu** — uma key comprada de supplier também pode ter saído de um bundle. Pesquisar os preços de um bundle não faz da trade uma compra direta: a pesquisa também serve para ofertar ao supplier.
+_Avoid_: key de bundle, compra de bundle (os dois se confundem com a origem da key).
 
 **Prospecção**:
 Avaliar a lucratividade dos jogos oferecidos por um supplier e decidir se vale comentar (de novo) naquela lista.
@@ -136,7 +144,7 @@ Linha da trade que tem nome do jogo **ou** preço de mercado. É o que separa da
 _Avoid_: linha válida, linha completa (completa é a que já passou pela **prontidão para importar**).
 
 **Prontidão para importar**:
-Condição da trade inteira para virar keys: toda linha preenchida com nome, preço > 0 e `key_code`, mais quantidade de TF2 e fornecedor na trade. Recusada, nenhuma key entra — a importação é tudo ou nada.
+Condição da trade inteira para virar keys: toda linha preenchida com nome, preço > 0 e `key_code`, mais quantidade de TF2 na trade e a contraparte que o **canal de compra** exige (fornecedor ou bundle). Recusada, nenhuma key entra — a importação é tudo ou nada.
 _Avoid_: trade válida, trade completa.
 
 **Entrega**:

@@ -22,6 +22,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -577,6 +578,35 @@ describe('AutoSellUseCase', function () {
 
                 return $body['keys'] === ['B-LOW-MIN'];
             });
+        });
+
+        it('logs the net seller price for each skipped key', function () {
+            // Concorrente a 1.50 → preço líquido de mercado bem abaixo do min_api 10.00 → pulada
+            Http::fake([
+                '*/products/*/offers' => Http::response([
+                    ['id' => 99, 'seller_name' => 'Rival', 'retail_price' => 1.50,
+                        'completed_orders' => 1000, 'wholesale_mode' => 0, 'stock_available' => 5,
+                        'rating' => 4.5, 'invoicable' => false, 'is_preorder' => false],
+                ], 200),
+            ]);
+
+            $keyId = insertAutoSellKey('440', ['key_code' => 'SKIP-LOG', 'min_api' => 10.00]);
+
+            $captured = [];
+            Log::listen(function (\Illuminate\Log\Events\MessageLogged $event) use (&$captured) {
+                if ($event->message === 'AutoSellUseCase') {
+                    $captured = $event->context;
+                }
+            });
+
+            app(AutoSellUseCase::class)->execute();
+
+            $details = $captured['skipped_details'][0] ?? null;
+
+            expect($details)->not->toBeNull()
+                ->and($details['key_id'])->toBe($keyId)
+                ->and($details['net_seller_price'])->toBeGreaterThan(0.0)
+                ->and($details['net_seller_price'])->toBeLessThan(1.50);
         });
 
         it('lists an old key (min_api at FLOOR) even when a newer group-mate is skipped below its own min_api', function () {

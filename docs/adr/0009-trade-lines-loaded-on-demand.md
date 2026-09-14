@@ -6,7 +6,7 @@ A aba de Trades manda, por página, **quantas linhas** cada trade tem (`lines_co
 
 Isto **reverte** o comportamento anterior, em que `TradeService::paginate` fazia `with('lines')` e as trades abertas nasciam expandidas.
 
-**O colapso é só da tabela de jogos.** O cabeçalho da trade fica à vista sempre: título, data, fornecedor, quantidade de TF2, os selos de estado, "Mensagem enviada" e o par link + código da entrega. A linha compacta que as importadas usavam foi removida — ela mostrava o título e a maioria das trades não tem um, então a lista virava uma coluna de "sem título". São os outros campos do cabeçalho que identificam uma trade, e são justamente os que não custam nada para renderizar.
+**O colapso é só da tabela de jogos.** O cabeçalho da trade fica à vista sempre: título, data, canal de compra, fornecedor (ou bundle, na compra direta), quantidade de TF2, os selos de estado, "Mensagem enviada" e o par link + código da entrega. A linha compacta que as importadas usavam foi removida — ela mostrava o título e a maioria das trades não tem um, então a lista virava uma coluna de "sem título". São os outros campos do cabeçalho que identificam uma trade, e são justamente os que não custam nada para renderizar.
 
 ## O problema era o DOM, não a query
 
@@ -37,4 +37,4 @@ Por isso baixar `PER_PAGE` não resolveria: o custo é por linha, não por trade
 - **As linhas são buscadas uma vez por card.** Reabrir usa o que está em memória: rebuscar apagaria da tela edição ainda no debounce de gravação.
 - **Falha no carregamento fecha o card de volta.** Card aberto e vazio pareceria trade sem jogos, e o usuário gravaria por cima de linhas que existem.
 - **`+ Linha` e `Importar keys` só aparecem com a tabela aberta.** Os dois dependem das linhas, e `ImportReadinessPolicy` decide o import sobre a trade inteira: com a tabela fechada o botão só saberia dizer "não", e diria errado. `Excluir` continua sempre visível — não depende das linhas e já pede confirmação.
-- **Os avisos de dado faltando nas linhas (key, preço, nome) só aparecem com a tabela aberta.** Os do cabeçalho — fornecedor e TF2 em falta — seguem visíveis sempre, porque são campos da própria trade.
+- **Os avisos de dado faltando nas linhas (key, preço, nome) só aparecem com a tabela aberta.** Os do cabeçalho — fornecedor ou bundle e TF2 em falta — seguem visíveis sempre, porque são campos da própria trade.

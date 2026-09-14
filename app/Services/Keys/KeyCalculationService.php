@@ -2,6 +2,7 @@
 
 namespace App\Services\Keys;
 
+use App\Domain\Enums\PurchaseChannel;
 use App\Domain\Pricing\IncomeCalculator;
 use App\Domain\Pricing\MinMaxPriceCalculator;
 use App\Domain\Pricing\ProfitCalculator;
@@ -127,14 +128,16 @@ class KeyCalculationService
      * Calcula min e max para a API do Gamivo e devolve o array do jogo enriquecido.
      *
      * @param  array<string, mixed>  $game
+     * @param  PurchaseChannel  $channel  canal de compra da trade de origem — muda a margem inicial do min
      * @return array<string, mixed>
      */
-    public function calculateMinMaxApi(array $game): array
+    public function calculateMinMaxApi(array $game, PurchaseChannel $channel): array
     {
         $result = MinMaxPriceCalculator::calculate(
             individualCost: (float) $game['individual_cost'],
             clientPrice: (float) $game['market_price'],
             acquiredAt: Carbon::parse($game['acquired_at']),
+            channel: $channel,
         );
 
         $game['min_api'] = $result['min'];
