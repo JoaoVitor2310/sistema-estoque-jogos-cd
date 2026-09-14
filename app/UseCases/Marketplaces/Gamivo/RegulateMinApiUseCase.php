@@ -30,7 +30,9 @@ class RegulateMinApiUseCase
      */
     public function execute(): array
     {
+        // `trade` carrega o canal de compra — sem o eager load, uma query por key.
         $keys = Key::query()
+            ->with('trade')
             ->withGamivoId()
             ->whereNull('sold_at')
             ->whereNotNull('acquired_at')
@@ -43,6 +45,7 @@ class RegulateMinApiUseCase
             $newMinApi = MinimumMarginPolicy::minApi(
                 individualCost: (float) $key->individual_cost,
                 acquiredAt: Carbon::parse($key->acquired_at),
+                channel: $key->purchaseChannel(),
                 listedAt: $key->listed_at !== null ? Carbon::parse($key->listed_at) : null,
                 expiresAt: $key->expires_at !== null ? Carbon::parse($key->expires_at) : null,
             );

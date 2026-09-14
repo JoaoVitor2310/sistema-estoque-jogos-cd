@@ -2,6 +2,7 @@
 
 namespace App\Domain\Pricing;
 
+use App\Domain\Enums\PurchaseChannel;
 use App\Domain\Keys\KeyEligibility;
 use Carbon\Carbon;
 
@@ -29,13 +30,18 @@ use Carbon\Carbon;
  * Não listada (decaimento por tempo de estoque, via acquired_at):
  *  - Comprada há >= UNLISTED_AGING_MONTHS meses     → 15%
  *  - Comprada há >= UNLISTED_MODERATE_MONTHS meses  → 40%
- *  - Default — apenas custo                          → custo × multiplicador
+ *  - Default — margem inicial                        → custo × multiplicador
  *
  * Listada (decaimento por tempo listado, via listed_at):
  *  - Listada há >= LISTED_AGING_MONTHS meses    → 20%
  *  - Listada há >= LISTED_MODERATE_MONTHS meses → 30%
  *  - Listada há >= LISTED_EARLY_MONTHS meses    → 40%
- *  - Default — apenas custo                      → custo × multiplicador
+ *  - Default — margem inicial                    → custo × multiplicador
+ *
+ * A margem inicial depende do canal de compra: a compra direta na loja do
+ * bundle usa BUNDLE_STORE_MARGIN fixa; os demais canais, a faixa de custo. O
+ * decaimento por tempo é o mesmo para todos — e como nenhuma margem de tempo
+ * passa de BUNDLE_STORE_MARGIN, o decaimento nunca sobe o piso da compra direta.
  */
 final class MinimumMarginPolicy
 {
@@ -50,6 +56,14 @@ final class MinimumMarginPolicy
 
     /** Margem exigida para keys de custo muito alto (> €15) — mercado de itens caros costuma cair mais. */
     public const VERY_HIGH_COST_MARGIN = 0.40;
+
+    /**
+     * Margem inicial da compra direta na loja do bundle, no lugar da faixa de
+     * custo — pagamos mais caro que numa trade, e a faixa (até 55%) seguraria a
+     * key sem vender. Não pode passar das margens de tempo: acima delas, o
+     * decaimento subiria o piso.
+     */
+    public const BUNDLE_STORE_MARGIN = 0.40;
 
     /** Limiar de custo abaixo do qual se aplica LOW_COST_MARGIN. */
     public const LOW_COST_THRESHOLD = 1.0;
@@ -103,10 +117,14 @@ final class MinimumMarginPolicy
      * foi comprada. Não cobre o FLOOR de limbo (>= LIMBO_MONTHS_THRESHOLD)
      * nem o de estoque antigo (>= OLD_KEY_MONTHS) — esses são resolvidos em
      * minApi(), pois não fazem sentido como percentual.
+     *
+     * O canal é obrigatório, sem padrão: esquecê-lo precificaria a compra
+     * direta pela faixa de custo sem erro nenhum.
      */
     public static function requiredMargin(
         float $individualCost,
         Carbon $acquiredAt,
+        PurchaseChannel $channel,
         ?Carbon $listedAt = null,
         ?Carbon $now = null,
     ): float {
@@ -118,14 +136,14 @@ final class MinimumMarginPolicy
                 $listedAt->lt($now->copy()->subMonths(self::LISTED_AGING_MONTHS)) => self::LISTED_AGING_MARGIN,
                 $listedAt->lt($now->copy()->subMonths(self::LISTED_MODERATE_MONTHS)) => self::LISTED_MODERATE_MARGIN,
                 $listedAt->lt($now->copy()->subMonths(self::LISTED_EARLY_MONTHS)) => self::LISTED_EARLY_MARGIN,
-                default => self::costTierMargin($cost),
+                default => self::initialMargin($cost, $channel),
             };
         }
 
         return match (true) {
             $acquiredAt->lt($now->copy()->subMonths(self::UNLISTED_AGING_MONTHS)) => self::UNLISTED_AGING_MARGIN,
             $acquiredAt->lt($now->copy()->subMonths(self::UNLISTED_MODERATE_MONTHS)) => self::UNLISTED_MODERATE_MARGIN,
-            default => self::costTierMargin($cost),
+            default => self::initialMargin($cost, $channel),
         };
     }
 
@@ -142,6 +160,7 @@ final class MinimumMarginPolicy
     public static function minApi(
         float $individualCost,
         Carbon $acquiredAt,
+        PurchaseChannel $channel,
         ?Carbon $listedAt = null,
         ?Carbon $expiresAt = null,
         ?Carbon $now = null,
@@ -166,9 +185,17 @@ final class MinimumMarginPolicy
         }
 
         $cost = max($individualCost, MinMaxPriceCalculator::FLOOR);
-        $margin = self::requiredMargin($cost, $acquiredAt, $listedAt, $now);
+        $margin = self::requiredMargin($cost, $acquiredAt, $channel, $listedAt, $now);
 
         return round($cost * (1 + $margin), 2);
+    }
+
+    /** Margem da key antes de qualquer decaimento por tempo. */
+    private static function initialMargin(float $cost, PurchaseChannel $channel): float
+    {
+        return $channel === PurchaseChannel::BundleStore
+            ? self::BUNDLE_STORE_MARGIN
+            : self::costTierMargin($cost);
     }
 
     private static function costTierMargin(float $cost): float

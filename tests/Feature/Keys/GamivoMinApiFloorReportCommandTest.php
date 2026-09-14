@@ -27,7 +27,7 @@ function seedFloorReportFees(): void
     ], uniqueBy: ['name'], update: ['preco']);
 }
 
-function insertFloorReportGoverningKey(int $gamivoId, float $minApi, float $maxApi): void
+function insertFloorReportGoverningKey(int $gamivoId, float $minApi, float $maxApi, ?int $tradeId = null): void
 {
     DB::table('suppliers')->insertOrIgnore([
         'id' => 88,
@@ -50,6 +50,7 @@ function insertFloorReportGoverningKey(int $gamivoId, float $minApi, float $maxA
         'sell_platform' => 'Gamivo',
         'listed_at' => now()->toDateString(),
         'sold_at' => null,
+        'trade_id' => $tradeId,
         'created_at' => now(),
         'updated_at' => now(),
     ]);
@@ -96,6 +97,28 @@ describe('gamivo:min-api-floor-report', function () {
             ->and($rows[0]['min_api'])->toBe(3.00)
             ->and($rows[0]['natural_seller_price'])->toBeLessThan(3.00)
             ->and($rows[0]['gap_below_floor'])->toBeGreaterThan(0);
+    });
+
+    it('labels the initial margin of a direct purchase as bundle store, not a cost tier', function () {
+        $tradeId = DB::table('trades')->insertGetId(['purchase_channel' => 'bundle_store', 'created_at' => now(), 'updated_at' => now()]);
+        insertFloorReportGoverningKey(442, minApi: 2.80, maxApi: 20.00, tradeId: $tradeId);
+
+        Http::fake([
+            '*/api/public/v1/offers*' => Http::response([
+                ['product_id' => 442, 'status' => 1, 'seller_price' => 3.00, 'retail_price' => 3.50],
+            ], 200),
+            '*/products/442/offers' => Http::response([
+                ['id' => 1, 'seller_name' => 'CarcaDeals', 'retail_price' => 1.00, 'completed_orders' => 5, 'wholesale_mode' => 0],
+                ['id' => 2, 'seller_name' => 'Rival', 'retail_price' => 1.05, 'completed_orders' => 5, 'wholesale_mode' => 0],
+            ], 200),
+        ]);
+
+        $this->artisan('gamivo:min-api-floor-report', ['--json' => $this->jsonPath, '--delay-ms' => 0])
+            ->assertExitCode(0);
+
+        $rows = json_decode(file_get_contents($this->jsonPath), true);
+
+        expect($rows[0]['cost_tier'])->toBe('bundle_store (40%)');
     });
 
     it('does not flag an offer when the market already clears min_api', function () {

@@ -24,6 +24,7 @@
 |
 */
 
+use App\Domain\Enums\PurchaseChannel;
 use App\Services\Keys\KeyCalculationService;
 
 dataset('min/max price scenarios', [
@@ -50,23 +51,32 @@ describe('CalculateService::calculateMinMaxApi()', function () {
     describe('minimum price (young key → cost tiers)', function () use ($game) {
         it('is valorPago × 1.45 when valorPago is above €10', function () use ($game) {
             // 15 → 45% → 21.75
-            $result = $this->service->calculateMinMaxApi($game(15.0, 10.0));
+            $result = $this->service->calculateMinMaxApi($game(15.0, 10.0), PurchaseChannel::SupplierTrade);
 
             expect($result['min_api'])->toEqualWithDelta(21.75, 0.001);
         });
 
         it('is valorPago × 1.5 in the default tier', function () use ($game) {
             // 5 → 50% → 7.5
-            $result = $this->service->calculateMinMaxApi($game(5.0, 5.0));
+            $result = $this->service->calculateMinMaxApi($game(5.0, 5.0), PurchaseChannel::SupplierTrade);
 
             expect($result['min_api'])->toEqualWithDelta(7.5, 0.001);
         });
 
         it('is valorPago × 1.55 when valorPago is below €1', function () use ($game) {
             // 0.5 → 55% → 0.775 → 0.78
-            $result = $this->service->calculateMinMaxApi($game(0.5, 0.3));
+            $result = $this->service->calculateMinMaxApi($game(0.5, 0.3), PurchaseChannel::SupplierTrade);
 
             expect($result['min_api'])->toEqualWithDelta(0.78, 0.001);
+        });
+    });
+
+    describe('minimum price delegates the purchase channel to MinimumMarginPolicy', function () use ($game) {
+        it('applies the bundle store margin to a young direct purchase (40%)', function () use ($game) {
+            $result = $this->service->calculateMinMaxApi($game(15.0, 10.0), PurchaseChannel::BundleStore);
+
+            // 15.00 × 1.40 = 21.00, contra 21.75 da faixa >10 de fornecedor
+            expect($result['min_api'])->toEqualWithDelta(21.0, 0.001);
         });
     });
 
@@ -76,7 +86,7 @@ describe('CalculateService::calculateMinMaxApi()', function () {
                 'individual_cost' => 5.0,
                 'market_price' => 5.0,
                 'acquired_at' => now()->subMonths(7)->toDateString(),
-            ]);
+            ], PurchaseChannel::SupplierTrade);
 
             expect($result['min_api'])->toEqualWithDelta(5.75, 0.001);
         });
@@ -84,19 +94,19 @@ describe('CalculateService::calculateMinMaxApi()', function () {
 
     describe('maximum price tiers', function () use ($game) {
         it('is valorPago × 8 when valorPago is at or above €1', function () use ($game) {
-            $result = $this->service->calculateMinMaxApi($game(15.0, 10.0));
+            $result = $this->service->calculateMinMaxApi($game(15.0, 10.0), PurchaseChannel::SupplierTrade);
 
             expect($result['max_api'])->toEqualWithDelta(120.0, 0.001);
         });
 
         it('is valorPago × 30 when valorPago is below €1', function () use ($game) {
-            $result = $this->service->calculateMinMaxApi($game(0.5, 0.3));
+            $result = $this->service->calculateMinMaxApi($game(0.5, 0.3), PurchaseChannel::SupplierTrade);
 
             expect($result['max_api'])->toEqualWithDelta(15.0, 0.001);
         });
 
         it('is recalculated as precoCliente × 8 when precoCliente reaches or exceeds the initial max', function () use ($game) {
-            $result = $this->service->calculateMinMaxApi($game(5.0, 50.0));
+            $result = $this->service->calculateMinMaxApi($game(5.0, 50.0), PurchaseChannel::SupplierTrade);
 
             expect($result['max_api'])->toEqualWithDelta(400.0, 0.001);
         });
@@ -105,13 +115,13 @@ describe('CalculateService::calculateMinMaxApi()', function () {
     describe('0.02 floor', function () use ($game) {
         it('applies the cost guard when the calculated value would be zero', function () use ($game) {
             // custo=0 → guard FLOOR (0.02), tier 55% → 0.02 × 1.55 = 0.031 → 0.03
-            $result = $this->service->calculateMinMaxApi($game(0, 0));
+            $result = $this->service->calculateMinMaxApi($game(0, 0), PurchaseChannel::SupplierTrade);
 
             expect($result['min_api'])->toEqualWithDelta(0.03, 0.001);
         });
 
         it('applies to the maximum when the calculated value would be zero', function () use ($game) {
-            $result = $this->service->calculateMinMaxApi($game(0, 0));
+            $result = $this->service->calculateMinMaxApi($game(0, 0), PurchaseChannel::SupplierTrade);
 
             expect($result['max_api'])->toEqualWithDelta(0.02, 0.001);
         });
@@ -121,7 +131,7 @@ describe('CalculateService::calculateMinMaxApi()', function () {
         it(
             'calculates min and max correctly',
             function (float $valorPago, float $precoCliente, float $expectedMin, float $expectedMax) use ($game) {
-                $result = $this->service->calculateMinMaxApi($game($valorPago, $precoCliente));
+                $result = $this->service->calculateMinMaxApi($game($valorPago, $precoCliente), PurchaseChannel::SupplierTrade);
 
                 expect($result['min_api'])->toEqualWithDelta($expectedMin, 0.001)
                     ->and($result['max_api'])->toEqualWithDelta($expectedMax, 0.001);

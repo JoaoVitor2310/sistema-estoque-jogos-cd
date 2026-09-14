@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Domain\Enums\PurchaseChannel;
 use App\Domain\Enums\TradeDeliveryState;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Database\Eloquent\Model;
@@ -21,7 +22,7 @@ class Trade extends Model
      * explícita. São o endereço, o segredo e o marco da entrega — nada que
      * chegue de um payload deve alcançá-los por atribuição em massa.
      */
-    protected $fillable = ['supplier_id', 'list_code', 'last_commented_at', 'title', 'date', 'message_sent', 'is_imported', 'tf2_qty', 'supplier_notes'];
+    protected $fillable = ['supplier_id', 'purchase_channel', 'bundle_id', 'list_code', 'last_commented_at', 'title', 'date', 'message_sent', 'is_imported', 'tf2_qty', 'supplier_notes'];
 
     /**
      * O token nunca sai numa serialização automática. Quem o expõe é a projeção
@@ -30,7 +31,16 @@ class Trade extends Model
      */
     protected $hidden = ['delivery_token'];
 
+    /**
+     * Espelha o default do banco para o model recém-criado já saber o canal sem
+     * precisar de `fresh()`.
+     */
+    protected $attributes = [
+        'purchase_channel' => 'supplier_trade',
+    ];
+
     protected $casts = [
+        'purchase_channel' => PurchaseChannel::class,
         'message_sent' => 'boolean',
         'is_imported' => 'boolean',
         'last_commented_at' => 'datetime',
@@ -74,6 +84,11 @@ class Trade extends Model
     public function supplier(): BelongsTo
     {
         return $this->belongsTo(Supplier::class);
+    }
+
+    public function bundle(): BelongsTo
+    {
+        return $this->belongsTo(Bundle::class);
     }
 
     public function keys(): HasMany

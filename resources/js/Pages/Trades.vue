@@ -29,6 +29,15 @@ interface TradeLine {
   gamivo_id: string | null;
 }
 
+// Espelho de App\Domain\Enums\PurchaseChannel — de quem as keys foram compradas.
+type PurchaseChannel = 'supplier_trade' | 'bundle_store' | 'gamivo';
+
+const PURCHASE_CHANNEL_OPTIONS: { value: PurchaseChannel; label: string }[] = [
+  { value: 'supplier_trade', label: 'Fornecedor' },
+  { value: 'bundle_store', label: 'Compra direta' },
+  { value: 'gamivo', label: 'Gamivo' },
+];
+
 interface Trade {
   id: number;
   title: string | null;
@@ -37,7 +46,10 @@ interface Trade {
   lines_count: number;
   date: string | null;
   tf2_qty: string | null;
+  purchase_channel: PurchaseChannel;
   supplier: { url: string } | null;
+  // Só a compra direta tem bundle, resolvido pelo título; nos outros canais é nulo.
+  bundle_id: number | null;
   created_at: string;
   message_sent: boolean;
   is_imported: boolean;
@@ -124,7 +136,10 @@ interface TradeEntry {
   id: number;
   title: string;
   date: string;
+  purchaseChannel: PurchaseChannel;
   supplierUrl: string;
+  // Somente leitura: o servidor casa o título com um bundle a cada gravação.
+  bundleId: number | null;
   tf2Qty: string;
   rows: Row[];
   // Quantas linhas o servidor diz que existem. É o que a tela mostra enquanto
@@ -322,7 +337,9 @@ function toTradeEntry(t: Trade): TradeEntry {
     id: t.id,
     title: t.title ?? '',
     date: t.date ?? '',
+    purchaseChannel: t.purchase_channel ?? 'supplier_trade',
     supplierUrl: t.supplier?.url ?? '',
+    bundleId: t.bundle_id ?? null,
     tf2Qty: t.tf2_qty ?? '',
     rows: [],
     linesCount: t.lines_count ?? 0,
@@ -356,6 +373,7 @@ function rowPayload(row: Row): RowPayload {
 function tradePayload(trade: TradeEntry) {
   return {
     title: trade.title,
+    purchaseChannel: trade.purchaseChannel,
     supplierUrl: trade.supplierUrl,
     date: trade.date,
     tf2Qty: trade.tf2Qty.replace(',', '.'),
@@ -537,9 +555,18 @@ async function retrySaves(trade: TradeEntry) {
 
 /** Campos da própria trade — título, data, fornecedor, qtd de TF2. */
 function scheduleAutosave(trade: TradeEntry) {
-  scheduleSave(`trade:${trade.id}`, trade, async () => {
-    await axiosInstance.put(route('trades.update', { trade: trade.id }), tradePayload(trade));
-  });
+  scheduleSave(`trade:${trade.id}`, trade, saveTrade(trade));
+}
+
+/**
+ * Grava os campos da trade e traz de volta o bundle que o servidor casou pelo
+ * título — é o que diz, antes do import, se a compra direta está vinculada.
+ */
+function saveTrade(trade: TradeEntry) {
+  return async () => {
+    const { data } = await axiosInstance.put(route('trades.update', { trade: trade.id }), tradePayload(trade));
+    trade.bundleId = data?.bundle_id ?? null;
+  };
 }
 
 /** Uma linha da trade — grava só ela, sem tocar nas demais. */
@@ -633,16 +660,32 @@ async function addRow(trade: TradeEntry) {
   }
 }
 
-async function deleteRow(trade: TradeEntry, rowIdx: number) {
-  const row = trade.rows[rowIdx];
+/** Linha com key_code preenchido carrega uma key real: excluir pede confirmação. */
+function requestDeleteRow(event: Event, trade: TradeEntry, row: Row) {
+  if (!(row.key_code ?? '').trim()) {
+    deleteRow(trade, row);
+    return;
+  }
 
+  confirm.require({
+    target: event.currentTarget as HTMLElement,
+    message: 'Esta linha tem key code preenchido. Excluir mesmo assim?',
+    rejectProps: { label: 'Cancelar', severity: 'secondary', outlined: true },
+    acceptProps: { label: 'Excluir', severity: 'danger' },
+    accept: () => deleteRow(trade, row),
+  });
+}
+
+async function deleteRow(trade: TradeEntry, row: Row) {
   // Uma gravação ainda no debounce iria bater numa linha que não existe mais.
   cancelSave(`line:${row.id}`);
   trade.saveStatus = 'saving';
 
   try {
     await axiosInstance.delete(route('trades.lines.destroy', { trade: trade.id, line: row.id }));
-    trade.rows.splice(rowIdx, 1);
+    // Índice resolvido só agora: enquanto o popup estava aberto a lista pode ter mudado.
+    const rowIdx = trade.rows.indexOf(row);
+    if (rowIdx !== -1) trade.rows.splice(rowIdx, 1);
     closePositionGap(trade, row.position);
     trade.saveStatus = 'saved';
   } catch (err) {
@@ -725,7 +768,7 @@ function deleteTrade(event: Event, trade: TradeEntry) {
 
 async function toggleMessageSent(trade: TradeEntry) {
   trade.messageSent = !trade.messageSent;
-  await axiosInstance.put(route('trades.update', { trade: trade.id }), tradePayload(trade));
+  await saveTrade(trade)();
 }
 
 // ─── Importação de keys (por trade) ───────────────────────────────────────────
@@ -742,15 +785,19 @@ const hasMissingNames = (trade: TradeEntry) =>
   trade.rows.some(r => isRowMeaningful(r) && hasMissingName(r));
 const hasMissingTf2 = (trade: TradeEntry) =>
   !(parseFloat((trade.tf2Qty ?? '').replace(',', '.')) > 0);
+// Espelho de PurchaseChannel::requiresSupplier()/requiresBundle() no PHP.
 const hasMissingSupplierUrl = (trade: TradeEntry) =>
-  !(trade.supplierUrl ?? '').trim();
+  trade.purchaseChannel === 'supplier_trade' && !(trade.supplierUrl ?? '').trim();
+const hasMissingBundle = (trade: TradeEntry) =>
+  trade.purchaseChannel === 'bundle_store' && trade.bundleId === null;
 const canImport = (trade: TradeEntry) =>
   trade.rows.some(isRowMeaningful)
   && !hasMissingKeyCodes(trade)
   && !hasMissingMarketPrices(trade)
   && !hasMissingNames(trade)
   && !hasMissingTf2(trade)
-  && !hasMissingSupplierUrl(trade);
+  && !hasMissingSupplierUrl(trade)
+  && !hasMissingBundle(trade);
 
 function importTrade(event: Event, trade: TradeEntry) {
   if (!canImport(trade)) return;
@@ -1328,6 +1375,31 @@ function formatDeliveredAt(iso: string): string {
                 />
               </div>
               <div class="trade-meta-field">
+                <span class="trade-meta-label">Canal</span>
+                <select
+                  v-model="trade.purchaseChannel"
+                  class="cell-input trade-meta-input"
+                  @change="scheduleAutosave(trade)"
+                >
+                  <option v-for="channel in PURCHASE_CHANNEL_OPTIONS" :key="channel.value" :value="channel.value">
+                    {{ channel.label }}
+                  </option>
+                </select>
+              </div>
+              <div v-if="trade.purchaseChannel === 'bundle_store'" class="trade-meta-field">
+                <span class="trade-meta-label">Bundle</span>
+                <span v-if="!hasMissingBundle(trade)" class="trade-meta-bundle text-success">
+                  <i class="pi pi-check-circle me-1" />Vinculado pelo título
+                </span>
+                <span
+                  v-else
+                  class="trade-meta-bundle is-missing"
+                  title="O título da trade precisa ser exatamente o nome do bundle"
+                >
+                  <i class="pi pi-exclamation-triangle me-1" />Título não casa com nenhum bundle
+                </span>
+              </div>
+              <div v-if="trade.purchaseChannel === 'supplier_trade'" class="trade-meta-field">
                 <span class="trade-meta-label">Fornecedor</span>
                 <input
                   v-model="trade.supplierUrl"
@@ -1698,7 +1770,7 @@ function formatDeliveredAt(iso: string): string {
                         type="button"
                         class="btn btn-sm btn-link text-danger p-0"
                         title="Excluir linha"
-                        @click="deleteRow(trade, rowIdx)"
+                        @click="requestDeleteRow($event, trade, row)"
                       >
                         <i class="pi pi-times" style="font-size: 0.75rem;" />
                       </button>
@@ -1773,6 +1845,15 @@ function formatDeliveredAt(iso: string): string {
 .trade-meta-input {
   width: auto;
   font-size: 0.85rem;
+}
+
+.trade-meta-bundle {
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.trade-meta-bundle.is-missing {
+  color: #dc3545;
 }
 
 .trade-meta-input--url {

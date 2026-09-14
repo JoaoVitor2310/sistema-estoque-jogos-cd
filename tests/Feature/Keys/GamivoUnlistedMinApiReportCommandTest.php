@@ -135,6 +135,22 @@ describe('gamivo:unlisted-min-api-report', function () {
         expect($rows[0]['margin_bucket'])->toBe('age >=4m unlisted (40%)');
     });
 
+    it('classifies a young key of a direct purchase in the bundle store bucket, not the cost tier', function () {
+        $tradeId = DB::table('trades')->insertGetId(['purchase_channel' => 'bundle_store', 'created_at' => now(), 'updated_at' => now()]);
+        insertUnlistedReportKey(779, ['trade_id' => $tradeId, 'min_api' => 7.00]);
+
+        Http::fake([
+            '*/products/779/offers' => Http::response([], 200),
+        ]);
+
+        $this->artisan('gamivo:unlisted-min-api-report', ['--json' => $this->jsonPath, '--delay-ms' => 0])
+            ->assertExitCode(0);
+
+        $rows = json_decode(file_get_contents($this->jsonPath), true);
+
+        expect($rows[0]['margin_bucket'])->toBe('bundle store (40%)');
+    });
+
     it('groups multiple keys of the same gamivo_id into a single market query', function () {
         insertUnlistedReportKey(888, ['key_code' => 'KEY-888-A', 'min_api' => 1.00]);
         insertUnlistedReportKey(888, ['key_code' => 'KEY-888-B', 'min_api' => 1.00]);

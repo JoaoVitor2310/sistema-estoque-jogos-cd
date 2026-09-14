@@ -90,7 +90,9 @@ class TradeController extends Controller
     {
         $this->updateTradeUseCase->execute($trade, $request->validated());
 
-        return response()->json([], 200);
+        // O bundle da compra direta é resolvido aqui, pelo título — a aba não
+        // tem como saber se o título casou, e sem isso só descobriria no import.
+        return response()->json(['bundle_id' => $trade->bundle_id], 200);
     }
 
     public function destroy(Trade $trade): JsonResponse

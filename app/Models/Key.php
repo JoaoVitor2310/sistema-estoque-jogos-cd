@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Domain\Enums\ClaimType;
 use App\Domain\Enums\KeyFormat;
+use App\Domain\Enums\PurchaseChannel;
 use App\Domain\Enums\SellPlatform;
 use App\Domain\Pricing\ProfitCalculator;
 use Carbon\Carbon;
@@ -82,6 +83,17 @@ class Key extends Model
     public function trade()
     {
         return $this->belongsTo(Trade::class);
+    }
+
+    /**
+     * De quem a key foi comprada — o canal é do lote, então vem da trade.
+     *
+     * Key sem trade é anterior ao vínculo `trade_id`, quando só existia trade com
+     * fornecedor. Quem lê o canal de muitas keys deve carregar `trade` antes.
+     */
+    public function purchaseChannel(): PurchaseChannel
+    {
+        return $this->trade?->purchase_channel ?? PurchaseChannel::SupplierTrade;
     }
 
     public function game()

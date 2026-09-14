@@ -2,6 +2,7 @@
 
 namespace App\Domain\Pricing;
 
+use App\Domain\Enums\PurchaseChannel;
 use Carbon\Carbon;
 
 /**
@@ -98,9 +99,9 @@ final class MinMaxPriceCalculator
     /**
      * @return array{min: float, max: float}
      */
-    public static function calculate(float $individualCost, float $clientPrice, Carbon $acquiredAt): array
+    public static function calculate(float $individualCost, float $clientPrice, Carbon $acquiredAt, PurchaseChannel $channel): array
     {
-        $min = MinimumMarginPolicy::minApi($individualCost, $acquiredAt);
+        $min = MinimumMarginPolicy::minApi($individualCost, $acquiredAt, $channel);
         $max = self::computeMax($individualCost, $clientPrice);
 
         return [

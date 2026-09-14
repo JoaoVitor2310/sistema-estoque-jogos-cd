@@ -11,6 +11,8 @@
 |   - tf2_quantity é preservado do banco se ausente no input
 |   - Detecção de duplicidade exclui o próprio registro (excludeId)
 |   - Recebe a Key (route model binding) e devolve as keys afetadas + mensagem
+|   - O texto de origem (supplier_url) só vira Supplier na key de trade com
+|     fornecedor ou sem trade — na compra direta e na Gamivo criaria um falso
 |
 | Estes testes chamam o UseCase direto, entregando o array já validado — o que
 | passa por cima da whitelist do StoreGameRequest. O contrato da fronteira HTTP
@@ -325,5 +327,60 @@ describe('UpdateKeyUseCase', function () {
         );
 
         expect($result['message'])->toContain('plataforma não foi identificada');
+    });
+});
+
+describe('UpdateKeyUseCase — supplier by purchase channel', function () {
+
+    beforeEach(function () {
+        seedUpdateFks();
+        Cache::flush();
+    });
+
+    it('links the supplier from the source on a key of a supplier trade', function () {
+        $tradeId = DB::table('trades')->insertGetId(['purchase_channel' => 'supplier_trade', 'created_at' => now(), 'updated_at' => now()]);
+        $id = insertKeyForUpdate(['trade_id' => $tradeId, 'supplier_id' => null]);
+
+        app(UpdateKeyUseCase::class)->execute(
+            Key::findOrFail($id),
+            makeUpdateInput(['supplier_url' => 'https://steamcommunity.com/id/other'])
+        );
+
+        $supplierId = DB::table('suppliers')->where('url', 'https://steamcommunity.com/id/other')->value('id');
+
+        expect($supplierId)->not->toBeNull()
+            ->and(DB::table('keys')->where('id', $id)->value('supplier_id'))->toBe($supplierId);
+    });
+
+    it('links the supplier from the source on a key without trade', function () {
+        // Key anterior ao vínculo trade_id: só existia trade com fornecedor.
+        $id = insertKeyForUpdate(['supplier_id' => null]);
+
+        app(UpdateKeyUseCase::class)->execute(Key::findOrFail($id), makeUpdateInput());
+
+        expect(DB::table('keys')->where('id', $id)->value('supplier_id'))->toBe(1);
+    });
+
+    it('does not turn the bundle name of a direct purchase into a supplier', function () {
+        $tradeId = DB::table('trades')->insertGetId(['purchase_channel' => 'bundle_store', 'created_at' => now(), 'updated_at' => now()]);
+        $id = insertKeyForUpdate(['trade_id' => $tradeId, 'supplier_url' => 'Humble Choice September', 'supplier_id' => null]);
+
+        app(UpdateKeyUseCase::class)->execute(
+            Key::findOrFail($id),
+            makeUpdateInput(['supplier_url' => 'Humble Choice September'])
+        );
+
+        expect(DB::table('keys')->where('id', $id)->value('supplier_id'))->toBeNull()
+            ->and(DB::table('suppliers')->where('url', 'Humble Choice September')->exists())->toBeFalse();
+    });
+
+    it('does not turn Gamivo into a supplier', function () {
+        $tradeId = DB::table('trades')->insertGetId(['purchase_channel' => 'gamivo', 'created_at' => now(), 'updated_at' => now()]);
+        $id = insertKeyForUpdate(['trade_id' => $tradeId, 'supplier_url' => 'Gamivo', 'supplier_id' => null]);
+
+        app(UpdateKeyUseCase::class)->execute(Key::findOrFail($id), makeUpdateInput(['supplier_url' => 'Gamivo']));
+
+        expect(DB::table('keys')->where('id', $id)->value('supplier_id'))->toBeNull()
+            ->and(DB::table('suppliers')->where('url', 'Gamivo')->exists())->toBeFalse();
     });
 });

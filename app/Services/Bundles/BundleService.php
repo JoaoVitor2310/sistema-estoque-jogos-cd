@@ -99,6 +99,30 @@ class BundleService
     }
 
     /**
+     * O bundle cujo nome é exatamente o dado — o da compra direta, pelo título da trade.
+     *
+     * Casamento exato, como em `bundleByTitle()`: o título da trade criada pela
+     * pesquisa volta idêntico ao nome do bundle, então não há palpite. Com nomes
+     * repetidos vence o lançamento mais recente — a compra direta é quase sempre
+     * de um bundle que acabou de sair. Bundle soft-deletado não casa.
+     */
+    public function findIdByName(?string $name): ?int
+    {
+        $name = trim((string) $name);
+
+        if ($name === '') {
+            return null;
+        }
+
+        return Bundle::query()
+            ->where('name', $name)
+            ->orderByRaw('release_date IS NULL')
+            ->orderByDesc('release_date')
+            ->orderByDesc('id')
+            ->value('id');
+    }
+
+    /**
      * Get bundles with filters and pagination
      *
      * @param  array  $filters  Filters to apply

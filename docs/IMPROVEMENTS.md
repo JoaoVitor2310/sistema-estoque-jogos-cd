@@ -346,13 +346,13 @@ Já concluído: PHPStan (`phpstan/phpstan ^2.1`) e Pint rodam no CI (`.github/wo
 
 ---
 
-## Remover `supplier_url` de `keys`
+## Renomear `supplier_url` de `keys` para o que ela guarda
 
 **Onde:** `app/Models/Key.php`, `app/Http/Resources/KeyResource.php`, `app/UseCases/Keys/RegisterKeyUseCase.php`, `app/UseCases/Keys/UpdateKeyUseCase.php`, `app/Http/Requests/StoreGameRequest.php`.
 
-Campo redundante; o vínculo real é `keys.supplier_id → suppliers.id → suppliers.url`.
+Desde o canal de compra a coluna não é mais só redundante com `keys.supplier_id → suppliers.url`: ela guarda a **origem legível** da key em todo canal — URL do supplier, nome do bundle ou `Gamivo` (ver [`docs/adr/0012`](adr/0012-purchase-channel-on-trade.md)). O nome `supplier_url` (e o cabeçalho "URL Fornecedor" em `Keys.vue`) passou a mentir para os outros canais.
 
-**Ação:** garantir que todos os `supplier_id` estejam preenchidos → remover leituras/escritas de `supplier_url` → migration `dropColumn('supplier_url')`.
+**Ação:** renomear para algo como `source` (migration `renameColumn` + `Key`, `KeyResource`, `StoreGameRequest`, `KeyRepository::TEXT_FILTERS`, `Keys.vue`, `GameLine.ts`) e o cabeçalho para "Origem". Remover a coluna só faria sentido derivando a origem de `supplier_id`/`trade.bundle`/canal na leitura — perderia o filtro textual barato.
 
 **Origem:** roadmap do `CLAUDE.md`.
 
@@ -452,7 +452,7 @@ Hoje não existe processo para identificar ou decidir o que fazer com esse grupo
 - [ ] Job/relatório recorrente que roda a mesma comparação (mercado vs. `individual_cost`) e persiste o resultado, em vez de exigir rodar os comandos manualmente toda vez — os dois comandos atuais chamam a API Gamivo (read-only) e não têm agendamento
 - [ ] Definir um limiar de tempo "underwater" (ex: mercado abaixo do custo por ≥ N meses) que dispara alerta por e-mail, no mesmo padrão do `AlertExpiringKeysUseCase`
 - [ ] Decidir a política de liquidação: vender abaixo do custo pra liberar capital (após X tempo) vs. segurar indefinidamente — provavelmente uma decisão de negócio, não só técnica
-- [ ] Avaliar se o processo de compra deveria checar tendência de preço recente antes de fechar a trade (o sistema já verifica giveaways via `gamerpower.com/api-read`, ver `docs/PRODUCT.md` — pode ser o mesmo tipo de checagem preventiva, olhando queda de preço em vez de giveaway)
+- [ ] Avaliar se o processo de compra deveria checar tendência de preço recente antes de fechar a trade (a API `gamerpower.com/api-read` de giveaways foi identificada em `docs/PRODUCT.md`, mas **ainda não está integrada** — nenhuma checagem de giveaway roda hoje; queda de preço seria o mesmo tipo de checagem preventiva)
 
 **Origem:** sessão de diagnóstico de `min_api` (2026-08-09) — a investigação original era sobre `MinimumMarginPolicy::DEFAULT_MARGIN` (ajustado de 60% para 50%, ver `MinimumMarginPolicyTest.php`), mas separar os casos "mercado abaixo do custo" dos casos "margem alta demais" revelou que boa parte do volume travado é estoque morto, não ajuste de tier.
 

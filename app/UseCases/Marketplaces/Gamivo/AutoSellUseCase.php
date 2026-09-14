@@ -201,6 +201,8 @@ class AutoSellUseCase
             'game_name' => $key->game_name,
             'gamivo_id' => $key->gamivo_id,
             'min_api' => $key->min_api,
+            // Preço líquido do mercado (concorrente já com undercut e sem taxa); 0 = sem concorrente
+            'net_seller_price' => $marketPrice,
         ])->values()->all();
 
         if ($toList->isEmpty()) {

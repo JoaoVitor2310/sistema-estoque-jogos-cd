@@ -16,6 +16,8 @@
 |  5. FLOOR incondicional — expira em <= 30 dias
 |  6. Filtragem: pula vendidas, sem gamivo_id, sem acquired_at
 |  7. Não altera quando o min_api já está correto; retorna IDs atualizados
+|  8. Canal de compra da trade: compra direta usa BUNDLE_STORE_MARGIN como
+|     margem inicial; key sem trade é tratada como trade com fornecedor
 |
 | Sem chamadas à API Gamivo — apenas operações no banco.
 |
@@ -23,6 +25,7 @@
 
 use App\UseCases\Marketplaces\Gamivo\RegulateMinApiUseCase;
 use Illuminate\Support\Facades\DB;
+use Tests\Support\TradeFactory;
 
 // ── Helper ────────────────────────────────────────────────────────────────────
 
@@ -260,5 +263,49 @@ describe('RegulateMinApiUseCase', function () {
         $result = app(RegulateMinApiUseCase::class)->execute();
 
         expect($result)->toHaveCount(15);
+    });
+});
+
+describe('RegulateMinApiUseCase — purchase channel', function () {
+
+    beforeEach(function () {
+        DB::table('suppliers')->insert(['id' => 1, 'url' => 'https://steamcommunity.com/id/seed']);
+    });
+
+    it('applies the bundle store margin to a young key of a direct purchase (40%)', function () {
+        $trade = TradeFactory::withLines([], ['purchase_channel' => 'bundle_store']);
+        insertRegulateKey('440', ['individual_cost' => 2.00, 'trade_id' => $trade->id]);
+
+        app(RegulateMinApiUseCase::class)->execute();
+
+        expect((float) DB::table('keys')->where('gamivo_id', '440')->value('min_api'))->toBe(2.80);
+    });
+
+    it('applies the cost tier to a young key of a supplier trade (50%)', function () {
+        $trade = TradeFactory::withLines([], ['purchase_channel' => 'supplier_trade']);
+        insertRegulateKey('440', ['individual_cost' => 2.00, 'trade_id' => $trade->id]);
+
+        app(RegulateMinApiUseCase::class)->execute();
+
+        expect((float) DB::table('keys')->where('gamivo_id', '440')->value('min_api'))->toBe(3.00);
+    });
+
+    it('reads the channel of every key without one query per key', function () {
+        $trade = TradeFactory::withLines([], ['purchase_channel' => 'bundle_store']);
+        for ($i = 1; $i <= 10; $i++) {
+            insertRegulateKey((string) (2000 + $i), ['individual_cost' => 2.00, 'trade_id' => $trade->id]);
+        }
+
+        $selects = 0;
+        DB::listen(function ($query) use (&$selects) {
+            if (str_starts_with(strtolower(ltrim($query->sql)), 'select')) {
+                $selects++;
+            }
+        });
+
+        app(RegulateMinApiUseCase::class)->execute();
+
+        // keys + trades, independente de quantas keys
+        expect($selects)->toBe(2);
     });
 });
