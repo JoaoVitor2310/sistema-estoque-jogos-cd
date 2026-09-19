@@ -28,7 +28,7 @@ class StoreBundleRequest extends FormRequest
             'type' => 'required|string|in:bundle,choice',
             'description' => 'nullable|string|max:500',
             'minimum_price_tf2' => 'nullable|decimal:0,2|min:0',
-            'price_dolar' => 'nullable|decimal:0,2|min:0',
+            'price_euro' => 'nullable|decimal:0,2|min:0',
             'release_date' => 'required|date',
             'games' => 'nullable|array',
             'games.*' => 'nullable|integer|exists:games,id',

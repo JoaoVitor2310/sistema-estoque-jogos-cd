@@ -30,8 +30,8 @@ const searchData = reactive({
   description: '',
   minimum_price_tf2_min: null,
   minimum_price_tf2_max: null,
-  price_dolar_min: null,
-  price_dolar_max: null,
+  price_euro_min: null,
+  price_euro_max: null,
   release_date_start: '',
   release_date_end: '',
   game_name: '',
@@ -62,8 +62,8 @@ const handleClear = () => {
     description: '',
     minimum_price_tf2_min: null,
     minimum_price_tf2_max: null,
-    price_dolar_min: null,
-    price_dolar_max: null,
+    price_euro_min: null,
+    price_euro_max: null,
     release_date_start: '',
     release_date_end: '',
     game_name: '',
@@ -131,19 +131,19 @@ const handleClear = () => {
         </div>
       </div>
 
-      <!-- Faixa de Preços Dólar -->
+      <!-- Faixa de Preços Euro -->
       <div class="d-flex flex-column gap-2">
-        <label class="fw-bold">Faixa de Preço (Dólar)</label>
+        <label class="fw-bold">Faixa de Preço (Euro)</label>
         <div class="d-flex flex-column flex-md-row gap-3 align-items-center">
           <div class="flex-1">
-            <label for="search_price_dolar_min" class="text-sm">Preço Mínimo</label>
-            <InputNumber id="search_price_dolar_min" v-model="searchData.price_dolar_min" mode="decimal"
+            <label for="search_price_euro_min" class="text-sm">Preço Mínimo</label>
+            <InputNumber id="search_price_euro_min" v-model="searchData.price_euro_min" mode="decimal"
               :minFractionDigits="2" :maxFractionDigits="2" useGrouping placeholder="0.00" class="w-100" />
           </div>
           <span class="text-center">até</span>
           <div class="flex-1">
-            <label for="search_price_dolar_max" class="text-sm">Preço Máximo</label>
-            <InputNumber id="search_price_dolar_max" v-model="searchData.price_dolar_max" mode="decimal"
+            <label for="search_price_euro_max" class="text-sm">Preço Máximo</label>
+            <InputNumber id="search_price_euro_max" v-model="searchData.price_euro_max" mode="decimal"
               :minFractionDigits="2" :maxFractionDigits="2" useGrouping placeholder="0.00" class="w-100" />
           </div>
         </div>

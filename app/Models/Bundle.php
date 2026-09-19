@@ -21,7 +21,7 @@ class Bundle extends Model
         'url',
         'url_region_locks',
         'minimum_price_tf2',
-        'price_dolar',
+        'price_euro',
         'release_date',
         'end_date',
     ];

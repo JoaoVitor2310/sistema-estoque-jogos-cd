@@ -6,7 +6,7 @@ export type Bundle = {
     type: string;
     description: string;
     minimum_price_tf2: number;
-    price_dolar: number;
+    price_euro: number;
     release_date: string;
     created_at?: string | null;
     updated_at?: string | null;

@@ -178,7 +178,7 @@ class BundleService
     private function applyStringFilter($query, string $key, string $value): void
     {
         // Range filters (minimum values)
-        if (in_array($key, ['release_date_start', 'minimum_price_tf2_min', 'price_dolar_min'])) {
+        if (in_array($key, ['release_date_start', 'minimum_price_tf2_min', 'price_euro_min'])) {
             $actualKey = str_replace(['_start', '_min'], '', $key);
             $query->where($actualKey, '>=', $value);
 
@@ -186,7 +186,7 @@ class BundleService
         }
 
         // Range filters (maximum values)
-        if (in_array($key, ['release_date_end', 'minimum_price_tf2_max', 'price_dolar_max'])) {
+        if (in_array($key, ['release_date_end', 'minimum_price_tf2_max', 'price_euro_max'])) {
             $actualKey = str_replace(['_end', '_max'], '', $key);
             $query->where($actualKey, '<=', $value);
 
