@@ -17,7 +17,7 @@ use App\Domain\Games\GameNameNormalizer;
 final class TradeLineBuilder
 {
     /**
-     * @param  array<int, array{name: string, price_euro: float|string, popularity: int|string, region?: string|null, gamivo_id?: string|null}>  $games
+     * @param  array<int, array{name: string, price_euro: float|string, popularity: int|string, region?: string|null, gamivo_id?: string|null, is_overstocked?: bool}>  $games
      * @param  array<string, string>  $bundleMap  nome normalizado do jogo → nome do bundle; vazio quando nenhum jogo casou com bundle recente
      * @return array<int, array<string, mixed>> atributos de `trade_lines`, sem o vínculo com a trade
      */
@@ -40,6 +40,10 @@ final class TradeLineBuilder
                 'expires_at' => null,
                 'key_code' => null,
                 'gamivo_id' => TradeLineValue::text($game['gamivo_id'] ?? null),
+                // A marca de encalhe chega junto do jogo, avaliada uma vez por
+                // [[App\Services\Trades\OverstockService::markResearched]]. Jogo
+                // não avaliado (pesquisa que não passou por lá) nasce sem marca.
+                OverstockPolicy::FLAG_COLUMN => (bool) ($game[OverstockPolicy::FLAG_COLUMN] ?? false),
             ];
         }
 

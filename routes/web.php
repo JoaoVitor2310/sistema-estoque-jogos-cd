@@ -69,6 +69,9 @@ Route::prefix('trades')
     ->controller(TradeController::class)
     ->group(function () {
         Route::get('/', 'show')->name('trades');
+        // Antes de `{trade}` não há conflito — o grupo não tem rota GET com
+        // parâmetro —, mas o nome fixo vem primeiro por hábito de roteador.
+        Route::get('/overstocked-games', 'overstockedGames')->name('trades.overstocked-games');
         Route::post('/', 'store')->name('trades.store');
         Route::put('/{trade}', 'update')->name('trades.update');
         Route::delete('/{trade}', 'destroy')->name('trades.destroy');

@@ -4,6 +4,20 @@ use App\Domain\Trades\TradeLineBuilder;
 
 describe('TradeLineBuilder::fromResearch', function () {
 
+    it('copies the overstock mark the game carries', function () {
+        // A marca é avaliada uma vez, no serviço, e viaja com o jogo: a linha
+        // só a copia, como qualquer outro campo pesquisado.
+        $lines = TradeLineBuilder::fromResearch(
+            [
+                ['name' => 'Half-Life', 'price_euro' => 4.50, 'popularity' => 500, 'region' => null, 'is_overstocked' => true],
+                ['name' => 'Portal', 'price_euro' => 2.00, 'popularity' => 100, 'region' => null],
+            ],
+            [],
+        );
+
+        expect(array_column($lines, 'is_overstocked'))->toBe([true, false]);
+    });
+
     it('converts a researched game into trade line attributes', function () {
         $lines = TradeLineBuilder::fromResearch(
             [['name' => 'Half-Life', 'price_euro' => 4.50, 'popularity' => 500, 'region' => 'EU']],
@@ -20,6 +34,7 @@ describe('TradeLineBuilder::fromResearch', function () {
             'expires_at' => null,
             'key_code' => null,
             'gamivo_id' => null,
+            'is_overstocked' => false,
         ]);
     });
 

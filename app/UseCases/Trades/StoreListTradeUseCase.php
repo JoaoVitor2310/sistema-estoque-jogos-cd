@@ -7,6 +7,7 @@ use App\Domain\Trades\TradeLineBuilder;
 use App\Models\Trade;
 use App\Services\Bundles\BundleService;
 use App\Services\Suppliers\SupplierService;
+use App\Services\Trades\OverstockService;
 use Illuminate\Support\Facades\DB;
 
 class StoreListTradeUseCase
@@ -14,6 +15,7 @@ class StoreListTradeUseCase
     public function __construct(
         private readonly SupplierService $supplierService,
         private readonly BundleService $bundleService,
+        private readonly OverstockService $overstockService,
     ) {}
 
     /**
@@ -38,9 +40,16 @@ class StoreListTradeUseCase
             $bundleMap = $this->bundleService->recentBundleByGameNames($names);
         }
 
+        // O jogo encalhado continua virando linha: aqui não há oferta a montar,
+        // só o registro da lista pesquisada (docs/adr/0013).
+        $lines = TradeLineBuilder::fromResearch(
+            $this->overstockService->markResearched($data['games']),
+            $bundleMap,
+        );
+
         // Trade e linhas nascem juntas: uma trade sem as linhas pesquisadas
         // seria indistinguível de uma trade criada em branco.
-        return DB::transaction(function () use ($data, $supplier, $bundleMap) {
+        return DB::transaction(function () use ($data, $supplier, $lines) {
             $trade = Trade::create([
                 'supplier_id' => $supplier?->id,
                 'title' => ($data['title'] ?? null) ?: ($supplier?->name ?: null),
@@ -48,7 +57,7 @@ class StoreListTradeUseCase
                 'date' => now()->format('Y-m-d'),
             ]);
 
-            $trade->lines()->createMany(TradeLineBuilder::fromResearch($data['games'], $bundleMap));
+            $trade->lines()->createMany($lines);
 
             // Toda trade nasce com credencial de entrega — ver docs/adr/0008.
             $trade->forceFill(DeliveryCredential::issue())->save();

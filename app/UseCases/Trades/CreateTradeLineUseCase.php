@@ -2,13 +2,19 @@
 
 namespace App\UseCases\Trades;
 
+use App\Domain\Trades\OverstockPolicy;
 use App\Models\Trade;
 use App\Models\TradeLine;
+use App\Services\Trades\OverstockService;
 use App\UseCases\Trades\DTO\TradeLineDTO;
 use Illuminate\Support\Facades\DB;
 
 class CreateTradeLineUseCase
 {
+    public function __construct(
+        private readonly OverstockService $overstockService,
+    ) {}
+
     /**
      * Insere uma linha na trade. Sem `position`, entra no fim; com `position`,
      * entra naquela posição e empurra as seguintes — é assim que duplicar uma
@@ -16,7 +22,19 @@ class CreateTradeLineUseCase
      */
     public function execute(Trade $trade, TradeLineDTO $data): TradeLine
     {
-        return DB::transaction(function () use ($trade, $data) {
+        $attributes = $data->toAttributes();
+
+        // Linha que já nasce com jogo — a duplicata de outra — recebe a marca de
+        // encalhe como qualquer linha nova. A linha em branco não tem o que
+        // procurar, e é marcada quando o nome chegar pela edição. Calculada
+        // antes da transação: a agregação varre `keys`, e dentro dela seguraria
+        // o lock das posições da trade durante a varredura.
+        $attributes[OverstockPolicy::FLAG_COLUMN] = $this->overstockService->isOverstocked(
+            $attributes['game_name'] ?? null,
+            $attributes['region'] ?? null,
+        );
+
+        return DB::transaction(function () use ($trade, $data, $attributes) {
             $end = $this->nextPosition($trade);
 
             // Grampeado no fim: uma posição além dele abriria um buraco na
@@ -30,9 +48,7 @@ class CreateTradeLineUseCase
                 ->where('position', '>=', $position)
                 ->increment('position');
 
-            return $trade->lines()->create(
-                $data->toAttributes() + ['position' => $position],
-            );
+            return $trade->lines()->create($attributes + ['position' => $position]);
         });
     }
 

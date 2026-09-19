@@ -532,7 +532,8 @@ const capitalize = (str: string): string => {
           class="border border-gray-200 rounded p-3 mb-2 hover:bg-gray-50 transition-colors">
           <div class="d-flex justify-content-between align-items-center">
             <div class="flex-1">
-              <h6 class="mb-1 fw-semibold">{{ game.name }} ({{ game.region || 'Global' }})</h6>
+              <!-- Região vazia é a global e não se escreve; sem região, só o nome. -->
+              <h6 class="mb-1 fw-semibold">{{ game.name }}<template v-if="game.region"> ({{ game.region }})</template></h6>
               <div class="text-sm d-flex gap-2">
                 <span><strong>Preço TF2:</strong> {{ game.minimum_price_tf2 }}</span>
                 <span><strong>Preço Euro:</strong> €{{ game.price_dolar }}</span>

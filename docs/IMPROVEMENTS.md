@@ -458,6 +458,22 @@ Hoje não existe processo para identificar ou decidir o que fazer com esse grupo
 
 ---
 
+## Compra — o que a sinalização de jogo encalhado deixou de fora
+
+**Onde:** `app/Domain/Trades/OverstockPolicy.php`, `app/Services/Keys/KeyRepository.php` (`stockByGameIdentity`).
+
+A regra que sinaliza jogo encalhado nas trades ([`docs/adr/0013`](adr/0013-flag-overstocked-games-in-trades.md)) olha o **efeito** — estoque que não escoa — e ainda não barra a compra. A análise do dump de 2026-09-13 que a originou levantou três frentes que ficaram de fora:
+
+- [ ] **Keys nunca listadas contam como estoque parado.** Jogo sem `gamivo_id` nunca chegou a ser anunciado, e a regra o trata como sem procura — no dump eram Minion Masters (10 keys), Hacker Evolution (6), iRacing (6), Placid Plastic Duck (5) e Keylocker (5), além de Old World (5, com id e sem nenhuma key listada). Decidir entre corrigir o cadastro desses jogos ou contar só keys com `listed_at` na regra
+- [ ] **Teto de cópias do mesmo jogo por trade.** O outro padrão de encalhe é o lote grande de uma vez (30 keys de King's Bounty num lote, 16 de Curse of the Sea Rats de um fornecedor só). A regra atual só age 120 dias depois. A diferença de venda por tamanho de lote é moderada (61% em lotes de 10+ contra 80% em compra unitária), então o limite precisa ser decidido pelo negócio
+- [ ] **Conferir os limites com as trades marcadas.** O jogo encalhado já sai da oferta na prospecção; o que falta é, depois de algumas semanas, olhar as linhas marcadas e decidir se `MIN_STOCK`, `MIN_AGE_DAYS` e `MAX_COVERAGE_DAYS` estão nos valores certos — e se a lista comentada (`StoreListTradeUseCase`), que hoje só marca, também deveria deixar de ofertar
+- [ ] **A agregação de estoque varre a tabela inteira.** `KeyRepository::stockByGameIdentity` faz `Seq Scan` em `keys` (5.292 linhas hoje, ~1,5 ms). Roda uma vez por trade criada e a cada gravação de linha que troca nome ou região — o autosave da aba faz isso a cada pausa de digitação no nome. Não dói nesse tamanho, mas cresce com a tabela; a saída é um índice que sirva ao filtro ou um cache curto da agregação
+- [ ] **Detecção de giveaway.** É a causa dos lotes que encalham: o preço despenca quando o jogo sai de graça. Dois caminhos possíveis — integrar `gamerpower.com/api-read` (identificada em `docs/PRODUCT.md`, nunca integrada) ou comparar o preço pesquisado agora com o `market_price` das keys do mesmo jogo compradas nos últimos dias (no dump, Ballionaire foi comprado a €4,60 e dez dias depois a pesquisa trazia €0,57). O segundo não depende de serviço externo e pega também os giveaways que o GamerPower não cobre
+
+**Origem:** sessão de análise de estoque parado (2026-09-13), sobre o dump de produção. As três frentes foram levantadas e adiadas pelo negócio na mesma sessão, para a primeira versão da regra usar só o que já temos no banco.
+
+---
+
 ## Estrutura para um segundo marketplace (multi-marketplace)
 
 **Onde:** `app/UseCases/Marketplaces/`, `app/Domain/Pricing/`.

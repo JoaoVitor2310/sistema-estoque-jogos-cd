@@ -142,3 +142,5 @@ O preço final sempre passa por clamp entre `min_api` e `max_api` antes de ir pa
 | ~4 meses+ | Tende a já ter recuperado | Sim |
 
 A janela de 21 dias (`KeyEligibility::BUNDLE_EXCLUSION_DAYS`) bloqueia só a **venda** — não impede a compra. Na verdade é o contrário: a queda no lançamento é justamente o que torna o bundle uma boa oportunidade de **compra**. Ver o termo "Bundle" em [`CONTEXT.md`](../../CONTEXT.md).
+
+Do lado da compra há outra regra, que só **sinaliza**: a linha de trade de jogo **encalhado** nasce com o aviso "Encalhado", sem sair da oferta (`OverstockPolicy`, ver [`FLOWS.md`](FLOWS.md#fluxo-de-compra)). São eixos diferentes — bundle recente é preço em queda; encalhe é estoque que não gira.

@@ -3,7 +3,8 @@
 namespace App\Domain\Trades;
 
 /**
- * O `gamivo_id` de uma linha de trade é derivado do par (`game_name`, `region`).
+ * O `gamivo_id` de uma linha de trade é derivado do par (`game_name`, `region`)
+ * — ver [[LineGamePair]].
  *
  * O mesmo jogo é um produto diferente na Gamivo em cada região, então o id só
  * significa alguma coisa amarrado ao par que o encontrou. Mudou o par, o id
@@ -18,9 +19,6 @@ namespace App\Domain\Trades;
  */
 final class GamivoIdentity
 {
-    /** As colunas de que o id é derivado. */
-    public const IDENTIFYING_COLUMNS = ['game_name', 'region'];
-
     /** A coluna que deixa de valer quando o par muda. */
     public const DERIVED_COLUMN = 'gamivo_id';
 
@@ -42,34 +40,10 @@ final class GamivoIdentity
     public static function invalidatedBy(array $stored, array $patch): bool
     {
         if (array_key_exists(self::DERIVED_COLUMN, $patch)
-            && ! self::same($stored[self::DERIVED_COLUMN] ?? null, $patch[self::DERIVED_COLUMN])) {
+            && ! LineGamePair::same($stored[self::DERIVED_COLUMN] ?? null, $patch[self::DERIVED_COLUMN])) {
             return false;
         }
 
-        foreach (self::IDENTIFYING_COLUMNS as $column) {
-            if (array_key_exists($column, $patch)
-                && ! self::same($stored[$column] ?? null, $patch[$column])) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Igualdade como o lookup do id a enxerga: `GameService::getIdGamivo` casa o
-     * nome por `LOWER(...)`. Retocar a caixa ou um espaço sobrando não é trocar
-     * de jogo, e apagar o id a cada retoque desses seria ruído.
-     */
-    private static function same(mixed $before, mixed $after): bool
-    {
-        return self::canonical($before) === self::canonical($after);
-    }
-
-    private static function canonical(mixed $value): string
-    {
-        $collapsed = preg_replace('/\s+/u', ' ', (string) $value) ?? '';
-
-        return mb_strtolower(trim($collapsed));
+        return LineGamePair::changedBy($stored, $patch);
     }
 }

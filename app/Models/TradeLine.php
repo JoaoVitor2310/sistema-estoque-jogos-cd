@@ -12,9 +12,11 @@ class TradeLine extends Model
     protected $fillable = [
         'trade_id', 'position', 'game_name', 'market_price',
         'popularity', 'region', 'bundle', 'expires_at', 'key_code', 'gamivo_id',
+        'is_overstocked',
     ];
 
     protected $casts = [
+        'is_overstocked' => 'boolean',
         'position' => 'integer',
         'market_price' => 'decimal:2',
         'popularity' => 'integer',

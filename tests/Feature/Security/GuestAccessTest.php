@@ -199,6 +199,10 @@ describe('Guest — mutations return 403', function () {
         $this->postJson('/trades', [])->assertStatus(403);
     });
 
+    it('blocks GET /trades/overstocked-games', function () {
+        $this->getJson('/trades/overstocked-games')->assertStatus(403);
+    });
+
     it('blocks GET /suppliers', function () {
         $this->get('/suppliers')->assertStatus(403);
     });

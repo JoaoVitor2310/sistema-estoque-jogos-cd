@@ -14,6 +14,7 @@
 |
 */
 
+use App\Domain\Trades\OverstockPolicy;
 use App\Services\Keys\KeyRepository;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -299,5 +300,129 @@ describe('KeyRepository', function () {
             expect($governing)->toBeNull();
         });
 
+    });
+});
+
+// ── stockByGameIdentity ─────────────────────────────────────────────────────
+
+describe('KeyRepository::stockByGameIdentity()', function () {
+
+    beforeEach(fn () => seedRepoFks());
+
+    it('counts unsold keys of a game and the date of the oldest one', function () {
+        insertRepoKey(['game_name' => 'Depth', 'acquired_at' => now()->subDays(94)->toDateString()]);
+        insertRepoKey(['game_name' => 'Depth', 'acquired_at' => now()->subDays(10)->toDateString()]);
+
+        $stock = app(KeyRepository::class)->stockByGameIdentity()['depth|'];
+
+        expect($stock->stock)->toBe(2)
+            ->and($stock->displayName)->toBe('Depth')
+            ->and($stock->oldestAcquiredAt->toDateString())->toBe(now()->subDays(94)->toDateString())
+            ->and($stock->soldInWindow)->toBe(0);
+    });
+
+    it('merges spellings that normalize to the same game', function () {
+        insertRepoKey(['game_name' => 'Alien Shooter 2: Reloaded', 'acquired_at' => now()->subDays(178)->toDateString()]);
+        insertRepoKey(['game_name' => 'Alien Shooter 2 Reloaded', 'acquired_at' => now()->subDays(20)->toDateString()]);
+
+        $stock = app(KeyRepository::class)->stockByGameIdentity();
+
+        expect($stock['alien shooter 2 reloaded|']->stock)->toBe(2)
+            ->and($stock['alien shooter 2 reloaded|']->oldestAcquiredAt->toDateString())
+            ->toBe(now()->subDays(178)->toDateString());
+    });
+
+    it('counts sales inside the window and ignores older ones', function () {
+        insertRepoKey(['game_name' => 'Warpips', 'sold_at' => now()->subDays(10)->toDateString()]);
+        insertRepoKey(['game_name' => 'Warpips', 'sold_at' => now()->subDays(200)->toDateString()]);
+        insertRepoKey(['game_name' => 'Warpips', 'acquired_at' => now()->subDays(300)->toDateString()]);
+
+        $stock = app(KeyRepository::class)->stockByGameIdentity()['warpips|'];
+
+        expect($stock->stock)->toBe(1)
+            ->and($stock->soldInWindow)->toBe(1);
+    });
+
+    it('keeps the same game apart in each region', function () {
+        // Estoque parado em ROW não vira venda em EU: somar os dois deixaria
+        // um EU que vende esconder um ROW encalhado.
+        insertRepoKey(['game_name' => 'Portal', 'region' => 'EU']);
+        insertRepoKey(['game_name' => 'Portal', 'region' => 'ROW']);
+        insertRepoKey(['game_name' => 'Portal', 'region' => 'ROW']);
+
+        $stock = app(KeyRepository::class)->stockByGameIdentity();
+
+        expect($stock['portal|EU']->stock)->toBe(1)
+            ->and($stock['portal|ROW']->stock)->toBe(2);
+    });
+
+    it('groups keys without region as the global region, apart from the written ones', function () {
+        insertRepoKey(['game_name' => 'Portal', 'region' => null]);
+        insertRepoKey(['game_name' => 'Portal', 'region' => 'EU']);
+
+        $stock = app(KeyRepository::class)->stockByGameIdentity();
+
+        expect($stock['portal|']->stock)->toBe(1)
+            ->and($stock['portal|']->region)->toBeNull()
+            ->and($stock['portal|EU']->stock)->toBe(1);
+    });
+
+    it('merges a region written in different case', function () {
+        insertRepoKey(['game_name' => 'Portal', 'region' => 'LATAM']);
+        insertRepoKey(['game_name' => 'Portal', 'region' => 'latam']);
+
+        expect(app(KeyRepository::class)->stockByGameIdentity()['portal|LATAM']->stock)->toBe(2);
+    });
+
+    it('ignores soft-deleted keys', function () {
+        $id = insertRepoKey(['game_name' => 'Apagado', 'acquired_at' => now()->subDays(90)->toDateString()]);
+        DB::table('keys')->where('id', $id)->update(['deleted_at' => now()]);
+
+        expect(app(KeyRepository::class)->stockByGameIdentity())->not->toHaveKey('apagado|');
+    });
+
+    it('counts a sale exactly on the window edge', function () {
+        // Fronteira do `sold_at >= ?`: a janela de 90 dias é hoje e os 89
+        // anteriores; o 90º dia para trás já é o 91º e fica de fora. É o que
+        // separa jogo "sem venda nenhuma" de jogo com ritmo.
+        $now = Carbon::parse('2026-06-15 10:00:00');
+        insertRepoKey(['game_name' => 'Na Borda', 'sold_at' => $now->copy()->subDays(OverstockPolicy::SALES_WINDOW_DAYS - 1)->toDateString()]);
+        insertRepoKey(['game_name' => 'Na Borda', 'sold_at' => $now->copy()->subDays(OverstockPolicy::SALES_WINDOW_DAYS)->toDateString()]);
+
+        $stock = app(KeyRepository::class)->stockByGameIdentity($now)['na borda|'];
+
+        expect($stock->soldInWindow)->toBe(1);
+    });
+
+    it('aggregates without the Postgres-only FILTER clause', function () {
+        // Produção é Postgres e a suíte roda em SQLite: `COUNT(*) FILTER` passa
+        // aqui em versões recentes e quebraria calado no dia em que alguém
+        // "simplificasse" a agregação. Ver docs/agents/testing.md.
+        $statements = [];
+        DB::listen(function ($query) use (&$statements) {
+            $statements[] = $query->sql;
+        });
+
+        app(KeyRepository::class)->stockByGameIdentity();
+
+        $aggregate = collect($statements)->first(fn (string $sql) => str_contains($sql, 'oldest_acquired_at'));
+
+        $this->assertNotNull($aggregate, 'a query de estoque não foi executada');
+        $this->assertStringNotContainsString('FILTER (', $aggregate, 'agregação voltou a usar FILTER, que não roda em SQLite');
+        $this->assertStringContainsString('CASE WHEN', $aggregate);
+    });
+
+    it('falls back to created_at when the key has no acquisition date', function () {
+        // Keys antigas não têm acquired_at; sem o fallback, estoque velho
+        // pareceria sem idade e escaparia da regra de encalhe.
+        insertRepoKey([
+            'game_name' => 'Sem Data',
+            'acquired_at' => null,
+            'created_at' => now()->subDays(400),
+        ]);
+
+        $stock = app(KeyRepository::class)->stockByGameIdentity()['sem data|'];
+
+        expect($stock->oldestAcquiredAt->toDateString())->toBe(now()->subDays(400)->toDateString());
     });
 });

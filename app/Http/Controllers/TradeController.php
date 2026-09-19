@@ -3,11 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Domain\Pricing\OfferCalculator;
+use App\Domain\Trades\OverstockPolicy;
 use App\Http\Requests\IndexTradesRequest;
 use App\Http\Requests\StoreListTradeRequest;
 use App\Http\Requests\UpdateTradeRequest;
 use App\Models\Trade;
 use App\Services\Keys\KeyCalculationService;
+use App\Services\Trades\OverstockService;
 use App\Services\Trades\TradeService;
 use App\UseCases\Keys\RegisterKeyUseCase;
 use App\UseCases\Trades\CreateTradeUseCase;
@@ -26,6 +28,7 @@ class TradeController extends Controller
         private readonly CreateTradeUseCase $createTradeUseCase,
         private readonly UpdateTradeUseCase $updateTradeUseCase,
         private readonly StoreListTradeUseCase $storeListTradeUseCase,
+        private readonly OverstockService $overstockService,
     ) {}
 
     public function show(IndexTradesRequest $request): Response
@@ -65,6 +68,27 @@ class TradeController extends Controller
                 'fixedHigh' => $fee->fixedHigh,
             ],
             'profitTiers' => OfferCalculator::PROFIT_TIERS,
+        ]);
+    }
+
+    /**
+     * Os jogos encalhados hoje — os que fazem a linha da trade nascer
+     * sinalizada ([[App\Domain\Trades\OverstockPolicy]]).
+     *
+     * Rota própria e não um campo do `show`: a lista sai de uma agregação sobre
+     * a tabela de keys, e quem abre a aba quase nunca quer vê-la — mesmo
+     * critério das linhas de trade (ver docs/adr/0009).
+     */
+    public function overstockedGames(): JsonResponse
+    {
+        return response()->json([
+            'games' => $this->overstockService->overstockedGames(),
+            'rule' => [
+                'min_stock' => OverstockPolicy::MIN_STOCK,
+                'min_age_days' => OverstockPolicy::MIN_AGE_DAYS,
+                'sales_window_days' => OverstockPolicy::SALES_WINDOW_DAYS,
+                'max_coverage_days' => OverstockPolicy::MAX_COVERAGE_DAYS,
+            ],
         ]);
     }
 

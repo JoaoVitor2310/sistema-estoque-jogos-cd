@@ -3,8 +3,12 @@
 namespace App\Services\Keys;
 
 use App\Domain\Enums\PresenceFilter;
+use App\Domain\Games\GameNameNormalizer;
 use App\Domain\Keys\KeyEligibility;
+use App\Domain\Trades\GameStock;
+use App\Domain\Trades\OverstockPolicy;
 use App\Models\Key;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -282,5 +286,68 @@ class KeyRepository
             ->with('game.latestBundle')
             ->orderBy('id')
             ->get();
+    }
+
+    /**
+     * Estoque parado e ritmo de venda de cada jogo em cada região, indexados
+     * pela identidade [[GameStock::identityOf]] — a leitura que a sinalização
+     * de encalhe consome ([[App\Domain\Trades\OverstockPolicy]]).
+     *
+     * Uma query só, agregada no banco: marcar as linhas de uma trade nova
+     * consulta todos os jogos dela de uma vez, em vez de uma query por linha.
+     *
+     * O **resultado** traz só o que a regra usa — jogo com key parada ou com
+     * venda dentro da janela. A varredura, porém, é da tabela inteira (não há
+     * índice que sirva ao filtro); pendência em docs/IMPROVEMENTS.md.
+     *
+     * A normalização acontece em PHP porque ela é do domínio
+     * ([[App\Domain\Games\GameNameNormalizer]], espelho do price_researcher) e
+     * não tem equivalente em SQL; por isso as grafias saem separadas do banco
+     * — agrupadas por nome **e** região crus — e são somadas aqui por
+     * [[GameStock::combine]].
+     *
+     * `acquired_at` cai para `created_at` quando é nula: keys antigas não têm a
+     * data de aquisição, e sem o fallback um estoque velho pareceria sem idade.
+     *
+     * @return array<string, GameStock>
+     */
+    public function stockByGameIdentity(?Carbon $now = null): array
+    {
+        $now ??= Carbon::now();
+        $salesSince = OverstockPolicy::salesWindowStart($now)->toDateString();
+
+        $rows = Key::query()
+            ->select(['game_name', 'region'])
+            // SUM(CASE...) em vez de COUNT(*) FILTER: o `FILTER` é do Postgres e
+            // de SQLite recente, e a suíte roda em SQLite — ver docs/agents/testing.md.
+            ->selectRaw('SUM(CASE WHEN sold_at IS NULL THEN 1 ELSE 0 END) AS stock')
+            ->selectRaw('MIN(CASE WHEN sold_at IS NULL THEN COALESCE(acquired_at, created_at) END) AS oldest_acquired_at')
+            ->selectRaw('SUM(CASE WHEN sold_at >= ? THEN 1 ELSE 0 END) AS sold_in_window', [$salesSince])
+            ->where(fn (Builder $query) => $query
+                ->whereNull('sold_at')
+                ->orWhere('sold_at', '>=', $salesSince))
+            ->groupBy('game_name', 'region')
+            ->get();
+
+        $stock = [];
+
+        foreach ($rows as $row) {
+            $game = new GameStock(
+                GameNameNormalizer::normalize($row->game_name),
+                GameStock::canonicalRegion($row->region),
+                $row->game_name,
+                (int) $row->stock,
+                $row->oldest_acquired_at === null ? null : Carbon::parse($row->oldest_acquired_at),
+                (int) $row->sold_in_window,
+            );
+
+            $identity = $game->identity();
+
+            $stock[$identity] = isset($stock[$identity])
+                ? $stock[$identity]->combine($game)
+                : $game;
+        }
+
+        return $stock;
     }
 }

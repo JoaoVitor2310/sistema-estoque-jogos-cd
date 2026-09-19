@@ -1,6 +1,7 @@
 <?php
 
 use App\Domain\Games\GameNameNormalizer;
+use App\Domain\Trades\OverstockPolicy;
 use App\UseCases\Trades\StoreListTradeUseCase;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\BundleFactory;
@@ -305,5 +306,68 @@ describe('StoreListTradeUseCase — bundle named by the title', function () {
         ]);
 
         expect($trade->lines->first()->bundle)->toBeNull();
+    });
+});
+
+/** Estoque encalhado de um jogo: keys paradas e velhas o bastante. */
+function seedListTradeOverstock(string $gameName, int $stock = OverstockPolicy::MIN_STOCK): void
+{
+    for ($i = 0; $i < $stock; $i++) {
+        DB::table('keys')->insert([
+            'game_name' => $gameName,
+            'key_code' => 'LIST-STOCK-'.uniqid(),
+            'market_price' => 5.00,
+            'individual_cost' => 1.00,
+            'min_api' => 1.00,
+            'max_api' => 10.00,
+            'supplier_url' => 'https://steamcommunity.com/id/test',
+            'acquired_at' => now()->subDays(OverstockPolicy::MIN_AGE_DAYS + 10)->toDateString(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+}
+
+describe('StoreListTradeUseCase — overstocked games', function () {
+
+    it('flags the line of an overstocked game and still creates it', function () {
+        // A regra sinaliza, não corta: o jogo continua sendo ofertado.
+        seedListTradeOverstock('Curse of the Sea Rats');
+
+        $trade = app(StoreListTradeUseCase::class)->execute([
+            'supplier_steam_id' => '76561198000000001',
+            'games' => [
+                ['name' => 'Curse of the Sea Rats', 'price_euro' => 1.30, 'popularity' => 100, 'region' => null],
+                ['name' => 'Half-Life', 'price_euro' => 4.50, 'popularity' => 500, 'region' => null],
+            ],
+        ]);
+
+        expect($trade->lines->pluck('game_name')->all())->toBe(['Curse of the Sea Rats', 'Half-Life'])
+            ->and($trade->lines->pluck('is_overstocked')->all())->toBe([true, false]);
+    });
+
+    it('creates the trade even when every game is overstocked', function () {
+        seedListTradeOverstock('Curse of the Sea Rats');
+
+        $trade = app(StoreListTradeUseCase::class)->execute([
+            'supplier_steam_id' => '76561198000000001',
+            'games' => [['name' => 'Curse of the Sea Rats', 'price_euro' => 1.30, 'popularity' => 100, 'region' => null]],
+        ]);
+
+        expect($trade->lines)->toHaveCount(1)
+            ->and($trade->lines->first()->is_overstocked)->toBeTrue();
+    });
+
+    it('flags an overstocked game when the research came from a bundle', function () {
+        // A regra vale para qualquer canal de compra, não só para trade com
+        // supplier.
+        seedListTradeOverstock('Curse of the Sea Rats');
+
+        $trade = app(StoreListTradeUseCase::class)->execute([
+            'title' => 'Fanatical Bundle',
+            'games' => [['name' => 'Curse of the Sea Rats', 'price_euro' => 1.30, 'popularity' => 100, 'region' => null]],
+        ]);
+
+        expect($trade->lines->first()->is_overstocked)->toBeTrue();
     });
 });
