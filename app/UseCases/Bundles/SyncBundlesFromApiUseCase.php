@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\Mail;
  * Responsabilidades:
  *  - Buscar bundles na API GGDeals (GgDealsApiService)
  *  - Criar/atualizar Bundle e Games no banco (Eloquent)
- *  - Converter moedas para USD quando necessário (CurrencyConversionService)
+ *  - Converter moedas para EUR quando necessário (CurrencyConversionService)
  *  - Buscar preços de lançamento de jogos novos (price_researcher)
  *  - Enviar alertas de e-mail para novos Choices
  *  - Gerenciar a transação que envolve todo o fluxo
@@ -113,24 +113,28 @@ class SyncBundlesFromApiUseCase
     // -------------------------------------------------------------------------
 
     /**
-     * Converte o preço do top tier para USD, persiste price_dolar e minimum_price_tf2.
+     * Converte o preço do top tier para euro, persiste price_euro e minimum_price_tf2.
      * Retorna false e loga erro se a conversão falhar (bundle é pulado).
+     *
+     * `minimum_price_tf2` é a razão entre o preço do bundle e o de uma TF2 key —
+     * quantas keys o bundle custa. As duas pontas são lidas em euro justamente
+     * para a razão não depender de duas cotações diferentes.
      */
     private function saveBundlePrices(array $topTierBundle, array $apiBundle, Bundle $bundle): bool
     {
-        $priceDolar = $topTierBundle['currency'] === 'USD'
+        $priceEuro = $topTierBundle['currency'] === 'EUR'
             ? $topTierBundle['price']
             : null;
 
-        if ($priceDolar === null) {
+        if ($priceEuro === null) {
             $converted = $this->currencyService->convertCurrency(
                 $topTierBundle['currency'],
-                'USD',
+                'EUR',
                 $topTierBundle['price']
             );
 
             if ($converted['success']) {
-                $priceDolar = $converted['amount'];
+                $priceEuro = $converted['amount'];
             } else {
                 Log::error('Não foi possível converter preço do bundle: '.$apiBundle['title']);
                 Mail::to(config('app.admin_email'))->send(
@@ -141,10 +145,12 @@ class SyncBundlesFromApiUseCase
             }
         }
 
-        $tf2PriceDolar = Asset::where('name', 'TF2')->value('price_dollar');
+        $tf2PriceEuro = (float) Asset::where('name', 'TF2')->value('price_euro');
 
-        $bundle->price_dolar = $priceDolar;
-        $bundle->minimum_price_tf2 = $priceDolar / $tf2PriceDolar;
+        $bundle->price_euro = $priceEuro;
+        // Sem cotação da TF2 key na base não há razão a calcular — dividir por
+        // zero derrubaria a sincronização inteira; o preço do bundle já vale.
+        $bundle->minimum_price_tf2 = $tf2PriceEuro > 0 ? $priceEuro / $tf2PriceEuro : null;
         $bundle->save();
 
         return true;

@@ -7,9 +7,9 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 
 /**
- * Aviso de que a conversão do preço de um bundle para USD falhou.
+ * Aviso de que a conversão do preço de um bundle para EUR falhou.
  *
- * Sem o preço em dólar não dá para calcular `minimum_price_tf2`, então o bundle
+ * Sem o preço em euro não dá para calcular `minimum_price_tf2`, então o bundle
  * é pulado na sincronização e fica sem preço até a próxima rodada.
  */
 class BundlePriceConversionFailedMail extends Mailable
@@ -27,7 +27,7 @@ class BundlePriceConversionFailedMail extends Mailable
     {
         return new Content(
             htmlString: '<p>Não foi possível converter o preço do bundle'
-                .' <strong>'.e($this->bundleTitle).'</strong> para USD.</p>'
+                .' <strong>'.e($this->bundleTitle).'</strong> para EUR.</p>'
                 .'<p>O bundle foi pulado nesta sincronização e segue sem preço.</p>',
         );
     }

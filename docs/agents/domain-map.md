@@ -38,6 +38,10 @@ Tiers de taxa, fórmulas de `simulated_income`, `min_api`/`max_api` e o teto de 
 
 Agrupamento de jogos (`bundle` ou `choice`). Many-to-many com `Game` via `bundle_games`. Regra da janela de exclusão de 21 dias (`KeyEligibility::BUNDLE_EXCLUSION_DAYS`): ver [`docs/wiki/DOMAIN.md#bundle-vs-choice`](../wiki/DOMAIN.md#bundle-vs-choice) e [`docs/GAMIVO.md`](../GAMIVO.md).
 
+- `Bundle` — campos: `name`, `type`, `description`, `url` (chave única da sincronização), `url_region_locks`, `price_euro` (preço do tier mais caro, **sempre em euro**), `minimum_price_tf2` (quantas TF2 keys o bundle custa), `release_date`, `end_date`
+- `price_euro` nasceu com esse nome, virou `price_dolar` em 2025-09-21 e voltou a euro em 2026-09-18 — se algum código ou doc ainda citar `price_dolar`, é drift. Como o preço é convertido e de onde sai o `minimum_price_tf2`: [`docs/GG_DEALS.md`](../GG_DEALS.md#preço-do-bundle) (fonte única da fórmula)
+- O `price_tf2` de `games` **não** aparece na tela de Bundles: a coluna foi removida em 2026-09-18 por não estar em uso
+
 **Pesquisa de preço dos jogos do bundle.** `ResearchBundleGamesUseCase` dispara `POST /api/games/research` no `price_researcher` com o payload de `App\Domain\Bundles\BundleResearchRequest` — que guarda os três critérios de negócio do fluxo: `MIN_POPULARITY = 1`, `CHECK_GAMIVO_OFFER = false` e `MIN_PRICE = 0`. Os três são frouxos de propósito — na compra de bundle a decisão é sobre o pacote inteiro, então jogo impopular, barato ou ainda sem oferta na Gamivo também conta. `MIN_PRICE` precisa ir explícito: omitido, o serviço aplica o default de €0,50. É assíncrono: o retorno confirma só o enfileiramento, e o resultado volta minutos depois pelo callback `POST /trades/from-price-researcher`, virando uma trade com o nome do bundle. Contrato completo em [`docs/PRICE_RESEARCHER.md`](../PRICE_RESEARCHER.md).
 
 ## 4. Assets (`Asset` → tabela `assets`)

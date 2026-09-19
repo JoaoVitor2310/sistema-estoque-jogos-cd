@@ -70,9 +70,9 @@ SyncBundlesFromApiUseCase::syncBundles()
   │   ├── Se for "choice" recém-criado → envia e-mail de alerta
   │   │
   │   ├── Pega o tier de maior preço (max dos tiers)
-  │   ├── Converte preço para USD se necessário (via CurrencyConversionService::convertAll)
-  │   ├── Calcula minimum_price_tf2 = price_dolar / tf2_price_dolar (tabela recursos)
-  │   ├── Salva bundle com price_dolar e minimum_price_tf2
+  │   ├── Converte preço para EUR se necessário (via CurrencyConversionService::convertCurrency)
+  │   ├── Calcula minimum_price_tf2 = price_euro / assets.price_euro da TF2 key
+  │   ├── Salva bundle com price_euro e minimum_price_tf2
   │   │
   │   ├── Para cada jogo do tier:
   │   │   └── Game::firstOrCreate(name) + normalized_name (GameNameNormalizer)
@@ -96,9 +96,14 @@ O campo `type` é determinado pelo título:
 Apenas o **tier de maior preço** (`max($api_bundle['tiers'])`) é processado. Os jogos e o preço do bundle são extraídos desse tier.
 
 ### Preço do bundle
-- Se o tier já está em USD, usa diretamente.
-- Caso contrário, converte para USD via `CurrencyConversionService` (AwesomeAPI).
-- O `minimum_price_tf2` é calculado dividindo o `price_dolar` pelo preço atual da TF2 Key em dólar (tabela `recursos`, nome `TF2`).
+
+| Situação do tier | O que acontece |
+|---|---|
+| Já vem em EUR | Usa o valor direto, sem chamada à AwesomeAPI |
+| Vem em outra moeda | Converte para EUR via `CurrencyConversionService` (AwesomeAPI) |
+| Conversão falha | Bundle é pulado (sem preço e sem jogos) e um e-mail de alerta é disparado; a próxima rodada tenta de novo |
+
+O `minimum_price_tf2` é a razão entre o preço do bundle e o de **uma** TF2 key — quantas keys o bundle custa. As duas pontas são lidas em euro (`bundles.price_euro` ÷ `assets.price_euro` da linha `TF2`) justamente para a razão não depender de duas cotações diferentes. Sem preço da TF2 na base o campo fica nulo e o preço do bundle é gravado de qualquer forma.
 
 ### Preço de lançamento dos jogos (`bundle_launch_price`)
 Apenas para bundles **recém-criados** (primeira vez que aparecem na API). Chama o Price Researcher com os nomes dos jogos para obter o preço Gamivo no momento do lançamento. Esse preço é salvo na tabela pivot `bundle_games.bundle_launch_price` e é usado para calcular o lucro estimado da compra do bundle.

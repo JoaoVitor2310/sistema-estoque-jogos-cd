@@ -94,7 +94,7 @@ const selected = reactive({
   type: '',
   description: '',
   minimum_price_tf2: null,
-  price_dolar: null,
+  price_euro: null,
   release_date: '',
   games: []
 })
@@ -106,7 +106,7 @@ const bundleEditData = reactive({
   type: '',
   description: '',
   minimum_price_tf2: null,
-  price_dolar: null,
+  price_euro: null,
   release_date: ''
 })
 
@@ -120,7 +120,7 @@ const handleEditBundle = (bundle: Bundle) => {
     type: '',
     description: '',
     minimum_price_tf2: null,
-    price_dolar: null,
+    price_euro: null,
     release_date: ''
   });
 
@@ -131,7 +131,7 @@ const handleEditBundle = (bundle: Bundle) => {
     type: bundle.type,
     description: bundle.description,
     minimum_price_tf2: bundle.minimum_price_tf2,
-    price_dolar: bundle.price_dolar,
+    price_euro: bundle.price_euro,
     release_date: bundle.release_date
   });
 
@@ -188,7 +188,7 @@ const handleAddBundle = (): void => {
     type: 'bundle',
     description: '',
     minimum_price_tf2: null,
-    price_dolar: null,
+    price_euro: null,
     release_date: ''
   });
   BundleModalVisible.value = true;
@@ -535,8 +535,7 @@ const capitalize = (str: string): string => {
               <!-- Região vazia é a global e não se escreve; sem região, só o nome. -->
               <h6 class="mb-1 fw-semibold">{{ game.name }}<template v-if="game.region"> ({{ game.region }})</template></h6>
               <div class="text-sm d-flex gap-2">
-                <span><strong>Preço TF2:</strong> {{ game.minimum_price_tf2 }}</span>
-                <span><strong>Preço Euro:</strong> €{{ game.price_dolar }}</span>
+                <span><strong>Preço Euro:</strong> €{{ game.price_euro }}</span>
               </div>
             </div>
             <Button :label="isGameInCurrentBundle(game) ? 'Já adicionado' : 'Adicionar'"
@@ -608,7 +607,7 @@ const capitalize = (str: string): string => {
             <strong>Preço Mínimo TF2:</strong> {{ bundle.minimum_price_tf2 ?? 'Não informado' }}
           </div>
           <div class="col-12 col-md-3">
-            <strong>Preço Dólar:</strong> {{ bundle.price_dolar ?? 'Não informado' }}
+            <strong>Preço Euro:</strong> {{ bundle.price_euro ? '€' + bundle.price_euro : 'Não informado' }}
           </div>
         </div>
       </div>
@@ -645,8 +644,6 @@ const capitalize = (str: string): string => {
           <Column field="region" header="Região" sortable></Column>
           <Column field="popularity" header="Popularidade" sortable></Column>
           <Column field="pivot.bundle_launch_price" header="Preço lançamento(€)" sortable></Column>
-          <Column field="minimum_price_tf2" header="Preço Mín.(TF2)" sortable></Column>
-          <!-- <Column field="price_dolar" header="Preço(dólar)" sortable></Column> -->
           <!-- <Column field="release_date" header="Data de Lançamento" sortable>
             <template #body="slotProps">
               {{ formatDateToBR(slotProps.data.release_date) }}
