@@ -139,7 +139,8 @@ watch(() => props.visible, (isVisible, oldValue) => {
         <div v-for="game in selectedGames" :key="game.id"
           class="d-flex justify-content-between align-items-center mb-2">
           <span>
-            <strong>{{ game.name }} - {{ game.region || 'Global' }}</strong>
+            <!-- Região vazia é a global e não se escreve; sem região, só o nome. -->
+            <strong>{{ game.name }}<template v-if="game.region"> - {{ game.region }}</template></strong>
           </span>
         </div>
       </div>

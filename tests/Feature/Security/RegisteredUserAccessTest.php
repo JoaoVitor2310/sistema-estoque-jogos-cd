@@ -77,6 +77,12 @@ describe('an account created from outside', function () {
         $this->actingAs(outsider())->get('/trades')->assertStatus(403);
     });
 
+    it('cannot read the overstocked games of the trades tab', function () {
+        // A lista expõe o que temos parado em estoque e a que ritmo vende —
+        // leitura de operação, não de visitante autenticado.
+        $this->actingAs(outsider())->getJson('/trades/overstocked-games')->assertStatus(403);
+    });
+
     it('cannot change anything', function () {
         $user = outsider();
 

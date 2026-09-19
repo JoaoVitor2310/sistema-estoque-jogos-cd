@@ -50,14 +50,20 @@ class TradeLineController extends Controller
         $line = $this->createTradeLine->execute($trade, $request->toDTO());
 
         // A tela precisa do id para poder alterar e remover a linha em seguida,
-        // e da posição porque uma inserção no meio empurrou as demais.
-        return response()->json(['id' => $line->id, 'position' => $line->position], 201);
+        // e da posição porque uma inserção no meio empurrou as demais. A marca
+        // de encalhe vai junto porque a duplicata nasce com jogo e já é avaliada.
+        return response()->json([
+            'id' => $line->id,
+            'position' => $line->position,
+            'is_overstocked' => $line->is_overstocked,
+        ], 201);
     }
 
     /**
-     * Devolve o `gamivo_id` porque ele é a única coluna que o servidor muda por
-     * conta própria: trocar o nome ou a região da linha apaga o id derivado
-     * daquele par (ver [[App\Domain\Trades\GamivoIdentity]]). Sem isso a tela
+     * Devolve o `gamivo_id` e a marca de encalhe porque são as colunas que o
+     * servidor muda por conta própria: trocar o nome ou a região da linha apaga
+     * o id derivado daquele par (ver [[App\Domain\Trades\GamivoIdentity]]) e
+     * refaz a marca contra o estoque atual. Sem isso a tela
      * seguiria exibindo o id apagado — e o reenviaria na gravação seguinte, que
      * manda a linha inteira, ressuscitando exatamente o valor que a regra
      * existe para tirar de circulação.
@@ -66,7 +72,10 @@ class TradeLineController extends Controller
     {
         $this->updateTradeLine->execute($line, $request->toDTO(), TradeLineAuthority::Team);
 
-        return response()->json(['gamivo_id' => $line->gamivo_id], 200);
+        return response()->json([
+            'gamivo_id' => $line->gamivo_id,
+            'is_overstocked' => $line->is_overstocked,
+        ], 200);
     }
 
     public function destroy(Trade $trade, TradeLine $line): JsonResponse

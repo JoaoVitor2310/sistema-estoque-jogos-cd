@@ -131,6 +131,18 @@ _Avoid_: key de bundle, compra de bundle (os dois se confundem com a origem da k
 Avaliar a lucratividade dos jogos oferecidos por um supplier e decidir se vale comentar (de novo) naquela lista.
 _Avoid_: scouting.
 
+**Região global**:
+A ausência de region lock — a key ativa em qualquer lugar. **Não se escreve**: em toda a base e em toda a tela, região vazia significa global, e só as restritas (EU, ROW, LATAM…) carregam texto. Campo de região em branco nunca deve ser lido como dado faltando.
+_Avoid_: "Global" como valor escrito, GLOBAL, worldwide, sem região (sugere ausência de informação).
+
+**Jogo encalhado**:
+Jogo de que temos estoque parado demais numa região para o ritmo com que ele vende ali: keys não vendidas em quantidade, paradas há tempo e com **tempo de escoamento** longo demais — limites em [`docs/PRODUCT.md`](docs/PRODUCT.md#jogo-encalhado-é-sinalizado-na-trade). Cada região é contada à parte, e key sem região é a global. Em trade de qualquer canal de compra, a linha desse jogo recebe o aviso **Encalhado**; na prospecção ele também fica de fora do comentário postado ao fornecedor — não ofertamos o que já está parado, mas registramos que apareceu na lista. O encalhe é **derivado do estoque a cada consulta**; o que se grava é só a marca da linha, no momento em que ela nasce ou troca de jogo ou região.
+_Avoid_: jogo bloqueado, jogo ignorado (nada é barrado — e `blocked` já é categoria de supplier), jogo morto, estoque morto (é outra coisa: key cujo mercado caiu abaixo do custo).
+
+**Tempo de escoamento**:
+Em quantos dias o estoque atual de um jogo acabaria no ritmo das vendas da janela recente. É o que separa estoque grande de estoque encalhado — janela e exemplos em [`docs/PRODUCT.md`](docs/PRODUCT.md#jogo-encalhado-é-sinalizado-na-trade).
+_Avoid_: cobertura, giro (giro é a taxa, não o prazo).
+
 **Trade em estoque**:
 Uma trade é considerada "em estoque" quando pelo menos um dos `key_code` ofertados já está presente em alguma Key do estoque — ou seja, já compramos aquele jogo daquele lote.
 _Avoid_: trade concluída, trade fulfilled.

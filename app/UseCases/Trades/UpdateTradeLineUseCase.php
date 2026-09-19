@@ -4,13 +4,20 @@ namespace App\UseCases\Trades;
 
 use App\Domain\Enums\TradeLineAuthority;
 use App\Domain\Trades\GamivoIdentity;
+use App\Domain\Trades\LineGamePair;
+use App\Domain\Trades\OverstockPolicy;
 use App\Models\TradeLine;
+use App\Services\Trades\OverstockService;
 use App\UseCases\Trades\DTO\TradeLineDTO;
 
 class UpdateTradeLineUseCase
 {
-    /** As colunas que a regra do id derivado precisa ler antes de gravar. */
-    private const IDENTITY_COLUMNS = [...GamivoIdentity::IDENTIFYING_COLUMNS, GamivoIdentity::DERIVED_COLUMN];
+    /** As colunas que as regras derivadas do jogo precisam ler antes de gravar. */
+    private const IDENTITY_COLUMNS = [...LineGamePair::COLUMNS, GamivoIdentity::DERIVED_COLUMN];
+
+    public function __construct(
+        private readonly OverstockService $overstockService,
+    ) {}
 
     /**
      * Aplica um patch parcial numa linha: só as colunas que o payload trouxe
@@ -36,6 +43,8 @@ class UpdateTradeLineUseCase
             return $line;
         }
 
+        $stored = $line->only(self::IDENTITY_COLUMNS);
+
         // O `gamivo_id` é derivado do par (`game_name`, `region`) — ver
         // [[App\Domain\Trades\GamivoIdentity]]. Trocado o par, o id guardado
         // aponta para outro produto, e a linha segue para o import sem que nada
@@ -45,8 +54,22 @@ class UpdateTradeLineUseCase
         // supplier: ele continua sem escolher o que vai em `gamivo_id`. Apagar é
         // consequência de domínio de mudar a região, que ele alcança — e a
         // região é justamente o campo que ele corrige.
-        if (GamivoIdentity::invalidatedBy($line->only(self::IDENTITY_COLUMNS), $attributes)) {
+        if (GamivoIdentity::invalidatedBy($stored, $attributes)) {
             $attributes[GamivoIdentity::DERIVED_COLUMN] = null;
+        }
+
+        // A marca de encalhe também é do par: trocou o jogo ou a região, a linha
+        // é outro jogo, e a marca é refeita contra o estoque de agora. Pelo mesmo
+        // raciocínio do id, vale para as duas autoridades — o supplier que
+        // corrige a região muda de fato o grupo de estoque da key.
+        if (LineGamePair::changedBy($stored, $attributes)) {
+            // O patch é parcial: o que ele não traz continua como está gravado.
+            $game = $attributes + $stored;
+
+            $attributes[OverstockPolicy::FLAG_COLUMN] = $this->overstockService->isOverstocked(
+                $game['game_name'],
+                $game['region'],
+            );
         }
 
         $line->update($attributes);

@@ -187,6 +187,8 @@ Enfileira a busca de novos fornecedores no SteamTrades. Resposta imediata (202);
 { "success": true, "status": "queued" }
 ```
 
+> **A resposta de `POST /suppliers/prospect` pode trazer menos jogos do que foram pesquisados.** Jogo de que já há estoque encalhado é tirado de `profitable` e do `total_tf2_price` — é o que impede o comentário de oferecer o que já está parado. O que ficou de fora **não volta na resposta**: quem decide o que ofertar é o Sistema-Estoque, e o serviço só precisa do que comentar. Lista em que todo jogo lucrativo está encalhado responde `should_comment: false`. Regra em [`docs/PRODUCT.md`](PRODUCT.md#jogo-encalhado-é-sinalizado-na-trade).
+
 > O Sistema-Estoque propaga o `202` e a mensagem "Busca de novos fornecedores enfileirada." para o frontend — o botão "Procurar novos" (`Suppliers.vue`) não espera nem recarrega a lista após a chamada, pois o resultado chega de forma assíncrona pelo callback de `/suppliers/prospect`.
 
 ---

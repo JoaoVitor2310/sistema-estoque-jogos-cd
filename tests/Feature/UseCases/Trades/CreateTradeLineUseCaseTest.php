@@ -11,7 +11,9 @@
 |
 */
 
+use App\Domain\Trades\OverstockPolicy;
 use App\UseCases\Trades\CreateTradeLineUseCase;
+use Illuminate\Support\Facades\DB;
 use Tests\Support\TradeFactory;
 use Tests\Support\TradeLineFactory;
 
@@ -121,5 +123,62 @@ describe('CreateTradeLineUseCase — position', function () {
             ->and($line->market_price)->toBe('3.00')
             ->and($line->popularity)->toBe(120)
             ->and($line->expires_at->format('Y-m-d'))->toBe('2027-06-02');
+    });
+});
+
+describe('CreateTradeLineUseCase — overstock flag', function () {
+
+    it('flags a line born with an overstocked game, like a duplicate', function () {
+        foreach (range(1, OverstockPolicy::MIN_STOCK) as $i) {
+            DB::table('keys')->insert([
+                'game_name' => 'Portal',
+                'key_code' => 'CREATE-STOCK-'.$i,
+                'market_price' => 5.00,
+                'individual_cost' => 1.00,
+                'min_api' => 1.00,
+                'max_api' => 10.00,
+                'supplier_url' => 'https://steamcommunity.com/id/test',
+                'acquired_at' => now()->subDays(OverstockPolicy::MIN_AGE_DAYS + 10)->toDateString(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+        $supplierId = DB::table('suppliers')->insertGetId(['url' => 'https://steamcommunity.com/id/create']);
+        $trade = TradeFactory::withLines(['Portal'], ['supplier_id' => $supplierId]);
+
+        $line = app(CreateTradeLineUseCase::class)->execute($trade, TradeLineFactory::dto(['game_name' => 'Portal']));
+
+        expect($line->is_overstocked)->toBeTrue();
+    });
+
+    it('flags a line of a trade bought on any channel, not only from a supplier', function () {
+        foreach (range(1, OverstockPolicy::MIN_STOCK) as $i) {
+            DB::table('keys')->insert([
+                'game_name' => 'Portal',
+                'key_code' => 'CREATE-GAMIVO-'.$i,
+                'market_price' => 5.00,
+                'individual_cost' => 1.00,
+                'min_api' => 1.00,
+                'max_api' => 10.00,
+                'supplier_url' => 'Gamivo',
+                'acquired_at' => now()->subDays(OverstockPolicy::MIN_AGE_DAYS + 10)->toDateString(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+        $trade = TradeFactory::withLines(['Portal'], ['purchase_channel' => 'gamivo']);
+
+        $line = app(CreateTradeLineUseCase::class)->execute($trade, TradeLineFactory::dto(['game_name' => 'Portal']));
+
+        expect($line->is_overstocked)->toBeTrue();
+    });
+
+    it('does not flag a blank line', function () {
+        $supplierId = DB::table('suppliers')->insertGetId(['url' => 'https://steamcommunity.com/id/blank']);
+        $trade = TradeFactory::withLines([], ['supplier_id' => $supplierId]);
+
+        $line = app(CreateTradeLineUseCase::class)->execute($trade, TradeLineFactory::dto([]));
+
+        expect($line->refresh()->is_overstocked)->toBeFalse();
     });
 });

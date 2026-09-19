@@ -198,7 +198,7 @@ describe('PATCH /trades/{trade}/lines/{line}', function () {
                 'gamivo_id' => '77',
             ])
             ->assertStatus(200)
-            ->assertExactJson(['gamivo_id' => null]);
+            ->assertExactJson(['gamivo_id' => null, 'is_overstocked' => false]);
 
         expect($line->refresh()->gamivo_id)->toBeNull();
     });

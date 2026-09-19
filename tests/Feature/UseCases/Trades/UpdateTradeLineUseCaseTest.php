@@ -14,7 +14,10 @@
 */
 
 use App\Domain\Enums\TradeLineAuthority;
+use App\Domain\Trades\OverstockPolicy;
+use App\Models\Trade;
 use App\UseCases\Trades\UpdateTradeLineUseCase;
+use Illuminate\Support\Facades\DB;
 use Tests\Support\TradeFactory;
 use Tests\Support\TradeLineFactory;
 
@@ -206,5 +209,85 @@ describe('UpdateTradeLineUseCase — authority scope', function () {
 
         expect($line->market_price)->toBe('3.00')
             ->and($line->game_name)->toBe('Portal');
+    });
+});
+
+/** Keys paradas e velhas o bastante para o jogo estar encalhado na região. */
+function seedUpdateLineOverstock(string $gameName, ?string $region): void
+{
+    foreach (range(1, OverstockPolicy::MIN_STOCK) as $i) {
+        DB::table('keys')->insert([
+            'game_name' => $gameName,
+            'region' => $region,
+            'key_code' => 'UPD-STOCK-'.uniqid(),
+            'market_price' => 5.00,
+            'individual_cost' => 1.00,
+            'min_api' => 1.00,
+            'max_api' => 10.00,
+            'supplier_url' => 'https://steamcommunity.com/id/test',
+            'acquired_at' => now()->subDays(OverstockPolicy::MIN_AGE_DAYS + 10)->toDateString(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+}
+
+function supplierTradeWithLine(array $line): Trade
+{
+    $supplierId = DB::table('suppliers')->insertGetId(['url' => 'https://steamcommunity.com/id/'.uniqid()]);
+
+    return TradeFactory::withLines([$line], ['supplier_id' => $supplierId]);
+}
+
+describe('UpdateTradeLineUseCase — overstock flag', function () {
+
+    it('flags the line when the region moves it into an overstocked group', function () {
+        seedUpdateLineOverstock('Portal', 'ROW');
+        $line = supplierTradeWithLine(['game_name' => 'Portal', 'region' => 'EU'])->lines->first();
+
+        app(UpdateTradeLineUseCase::class)->execute($line, TradeLineFactory::dto(['region' => 'ROW']), TradeLineAuthority::Team);
+
+        expect($line->refresh()->is_overstocked)->toBeTrue();
+    });
+
+    it('clears the flag when the region moves the line out of the overstocked group', function () {
+        seedUpdateLineOverstock('Portal', 'ROW');
+        $line = supplierTradeWithLine(['game_name' => 'Portal', 'region' => 'ROW', 'is_overstocked' => true])->lines->first();
+
+        app(UpdateTradeLineUseCase::class)->execute($line, TradeLineFactory::dto(['region' => 'EU']), TradeLineAuthority::Team);
+
+        expect($line->refresh()->is_overstocked)->toBeFalse();
+    });
+
+    it('re-evaluates when the supplier corrects the region on delivery', function () {
+        // A região é justamente o campo que o supplier corrige, e ela muda o
+        // grupo de estoque da key.
+        seedUpdateLineOverstock('Portal', null);
+        $line = supplierTradeWithLine(['game_name' => 'Portal', 'region' => 'EU'])->lines->first();
+
+        app(UpdateTradeLineUseCase::class)->execute($line, TradeLineFactory::dto(['region' => '']), TradeLineAuthority::Supplier);
+
+        expect($line->refresh()->is_overstocked)->toBeTrue();
+    });
+
+    it('keeps the flag recorded when the write does not change the game', function () {
+        // A marca registra o que a regra viu quando a linha nasceu; editar a key
+        // não é motivo para reescrevê-la com o estoque de hoje.
+        $line = supplierTradeWithLine(['game_name' => 'Portal', 'region' => 'EU', 'is_overstocked' => true])->lines->first();
+
+        app(UpdateTradeLineUseCase::class)->execute($line, TradeLineFactory::dto(['key_code' => 'AAA-BBB', 'region' => 'eu']), TradeLineAuthority::Team);
+
+        expect($line->refresh()->is_overstocked)->toBeTrue();
+    });
+
+    it('flags a line of a trade without supplier', function () {
+        // A regra vale para qualquer canal de compra: bundle ou Gamivo também
+        // repõem estoque que não escoa.
+        seedUpdateLineOverstock('Portal', 'ROW');
+        $line = TradeFactory::withLines([['game_name' => 'Portal', 'region' => 'EU']])->lines->first();
+
+        app(UpdateTradeLineUseCase::class)->execute($line, TradeLineFactory::dto(['region' => 'ROW']), TradeLineAuthority::Team);
+
+        expect($line->refresh()->is_overstocked)->toBeTrue();
     });
 });

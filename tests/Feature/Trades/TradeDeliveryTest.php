@@ -243,6 +243,22 @@ describe('GET /deliveries/{uuid}', function () {
         expect($response->content())->not->toContain('Portal');
     });
 
+    it('never tells the supplier that a game is overstocked with us', function () {
+        // Saber que o jogo está encalhado do nosso lado ancora a negociação
+        // para baixo — é leitura só da equipe.
+        [$trade, $token] = tradeWithDelivery([
+            ['game_name' => 'Portal', 'is_overstocked' => true],
+        ]);
+
+        $this->postJson("/deliveries/{$trade->delivery_uuid}/token", ['token' => $token]);
+
+        $props = $this->get("/deliveries/{$trade->delivery_uuid}")
+            ->viewData('page')['props'];
+
+        expect($props['trade']['lines'][0])->not->toHaveKey('is_overstocked')
+            ->and(json_encode($props))->not->toContain('overstock');
+    });
+
     it('never exposes the researched price of the games', function () {
         [$trade, $token] = tradeWithDelivery([
             ['game_name' => 'Portal', 'market_price' => '3.00', 'popularity' => 987654, 'bundle' => 'Humble', 'gamivo_id' => 'GAMIVO-987'],

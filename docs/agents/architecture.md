@@ -101,7 +101,10 @@ app/
 │   │   ├── CommentPolicy.php            # decide se recomenta um supplier (14 dias / jogos mudaram)
 │   │   ├── DeliveryCredential.php       # link + código da entrega: formato, emissão, limites e prazo
 │   │   ├── GamivoIdentity.php           # quando trocar jogo/região invalida o gamivo_id da linha
+│   │   ├── LineGamePair.php             # quando uma escrita troca o jogo (nome/região) da linha
 │   │   ├── TradeGameComparison.php
+│   │   ├── GameStock.php                # estoque de um jogo numa região (keys paradas, idade, vendas na janela)
+│   │   ├── OverstockPolicy.php          # quando um jogo está encalhado (sinaliza a linha, não corta)
 │   │   ├── TradeLineBuilder.php         # monta a linha a partir da saída do price_researcher
 │   │   ├── TradeLineValue.php           # normalização por campo — compartilhada backfill/aba
 │   │   ├── LegacyTradeLine.php          # converte uma entrada do JSON legado em linha (backfill)
@@ -155,12 +158,12 @@ app/
 │   │   ├── CreateBundleUseCase.php       # cria + vincula os jogos na mesma transação
 │   │   └── AddGamesToBundleUseCase.php   # recusa o lote quando nenhum jogo é novo
 │   ├── Suppliers/
-│   │   ├── ProspectSupplierUseCase.php       # avalia lucratividade + decide comentar (CommentPolicy)
+│   │   ├── ProspectSupplierUseCase.php       # avalia lucratividade + decide comentar (CommentPolicy); marca encalhados
 │   │   ├── ExecuteSupplierListUseCase.php    # POST price_researcher /api/lists/run
 │   │   └── FindNewSuppliersUseCase.php       # POST price_researcher /api/suppliers/find-new
 │   ├── Trades/
 │   │   ├── CreateTradeUseCase.php
-│   │   ├── StoreListTradeUseCase.php
+│   │   ├── StoreListTradeUseCase.php         # callback do price_researcher; marca encalhados
 │   │   └── UpdateTradeUseCase.php
 │   └── Financial/
 │       ├── DTO/                              # input tipado, montado pelos FormRequests
@@ -190,7 +193,9 @@ app/
 │   │   ├── GameService.php              # lookup/preenchimento de gamivo_id e steam_id
 │   │   └── GameRepository.php           # paginate() com whitelist de filtros (IndexGamesRequest)
 │   ├── Suppliers/SupplierService.php
-│   ├── Trades/TradeService.php          # paginate() com filtros/sort/paginação; is_stocked scoped-to-page
+│   ├── Trades/
+│   │   ├── TradeService.php             # paginate() com filtros/sort/paginação; is_stocked scoped-to-page
+│   │   └── OverstockService.php         # estoque encalhado: marca das linhas + lista da aba
 │   ├── Financial/
 │   │   ├── FinancialMonthService.php   # leitura (CQRS): saldos derivados, draft corrente, prefill de TF2
 │   │   └── MovementRecorder.php        # escrita: grava as pernas com um group_id só, em transação

@@ -1,6 +1,7 @@
 <?php
 
 use App\Domain\Bundles\BundleGameLookup;
+use App\Domain\Trades\OverstockPolicy;
 use App\Models\Trade;
 use App\UseCases\Suppliers\ProspectSupplierUseCase;
 use Illuminate\Support\Facades\Cache;
@@ -405,4 +406,107 @@ describe('ProspectSupplierUseCase', function () {
                 ->and($queries)->toBe(0);
         });
     });
+});
+
+/** Estoque encalhado de um jogo: keys paradas e velhas o bastante. */
+function seedProspectOverstock(string $gameName, int $stock = OverstockPolicy::MIN_STOCK): void
+{
+    for ($i = 0; $i < $stock; $i++) {
+        DB::table('keys')->insert([
+            'game_name' => $gameName,
+            'key_code' => 'PROSPECT-STOCK-'.uniqid(),
+            'market_price' => 5.00,
+            'individual_cost' => 1.00,
+            'min_api' => 1.00,
+            'max_api' => 10.00,
+            'supplier_url' => 'https://steamcommunity.com/id/test',
+            'acquired_at' => now()->subDays(OverstockPolicy::MIN_AGE_DAYS + 10)->toDateString(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+}
+
+describe('ProspectSupplierUseCase — overstocked games', function () {
+
+    beforeEach(fn () => seedUseCaseDeps());
+
+    it('leaves the overstocked game out of the offer sent to the supplier', function () {
+        // `profitable` vira o comentário postado na lista do supplier: cada item
+        // é uma linha "Jogo --- X TF2". Ofertar o que já está parado é comprar
+        // mais do mesmo.
+        seedProspectOverstock('Curse of the Sea Rats');
+
+        $result = app(ProspectSupplierUseCase::class)->execute(
+            supplierSteamId(),
+            [
+                ['name' => 'Curse of the Sea Rats', 'price_euro' => 4.50, 'popularity' => 100, 'region' => null],
+                profitableGame(),
+            ],
+            'G0eXM',
+        );
+
+        expect(array_column($result['profitable'], 'name'))->toBe(['Half-Life'])
+            ->and($result['should_comment'])->toBeTrue();
+    });
+
+    it('sums the offered games only, so the comment total matches its lines', function () {
+        seedProspectOverstock('Curse of the Sea Rats');
+
+        $result = app(ProspectSupplierUseCase::class)->execute(
+            supplierSteamId(),
+            [
+                ['name' => 'Curse of the Sea Rats', 'price_euro' => 4.50, 'popularity' => 100, 'region' => null],
+                profitableGame(),
+            ],
+            'G0eXM',
+        );
+
+        expect($result['total_tf2_price'])->toBe($result['profitable'][0]['tf2_price']);
+    });
+
+    it('does not leak the mark into the offer payload', function () {
+        // Quem recebe lê `profitable` como "o que ofertar" e nada mais: o que
+        // ficou de fora é assunto nosso, e está na trade.
+        seedProspectOverstock('Curse of the Sea Rats');
+
+        $result = app(ProspectSupplierUseCase::class)->execute(supplierSteamId(), [profitableGame()], 'G0eXM');
+
+        expect($result['profitable'][0])->not->toHaveKey('is_overstocked');
+    });
+
+    it('keeps the overstocked game as a flagged line of the trade', function () {
+        seedProspectOverstock('Curse of the Sea Rats');
+
+        app(ProspectSupplierUseCase::class)->execute(
+            supplierSteamId(),
+            [
+                ['name' => 'Curse of the Sea Rats', 'price_euro' => 4.50, 'popularity' => 100, 'region' => null],
+                profitableGame(),
+            ],
+            'G0eXM',
+        );
+
+        $lines = Trade::where('list_code', 'G0eXM')->sole()->lines;
+
+        expect($lines->pluck('game_name')->all())->toBe(['Curse of the Sea Rats', 'Half-Life'])
+            ->and($lines->pluck('is_overstocked')->all())->toBe([true, false]);
+    });
+
+    it('does not comment and creates no trade when every profitable game is overstocked', function () {
+        // Sem nada a ofertar não há comentário, e sem comentário não há trade:
+        // a lista fica só no modal "Jogos encalhados".
+        seedProspectOverstock('Curse of the Sea Rats');
+
+        $result = app(ProspectSupplierUseCase::class)->execute(
+            supplierSteamId(),
+            [['name' => 'Curse of the Sea Rats', 'price_euro' => 4.50, 'popularity' => 100, 'region' => null]],
+            'G0eXM',
+        );
+
+        expect($result['should_comment'])->toBeFalse()
+            ->and($result['profitable'])->toBe([])
+            ->and(Trade::where('list_code', 'G0eXM')->exists())->toBeFalse();
+    });
+
 });

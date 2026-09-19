@@ -7,6 +7,7 @@ import ConfirmPopup from 'primevue/confirmpopup';
 import DatePicker from 'primevue/datepicker';
 import Paginator from 'primevue/paginator';
 import { useConfirm } from 'primevue/useconfirm';
+import OverstockedGamesDialog from '@/components/trades/OverstockedGamesDialog.vue';
 
 // ─── Tipos vindos do backend ─────────────────────────────────────────────────
 //
@@ -27,6 +28,9 @@ interface TradeLine {
   region: string | null;
   key_code: string | null;
   gamivo_id: string | null;
+  // O jogo estava encalhado no estoque quando a linha nasceu ou trocou de jogo
+  // (App\Domain\Trades\OverstockPolicy). Só sinaliza: a linha segue normal.
+  is_overstocked: boolean;
 }
 
 // Espelho de App\Domain\Enums\PurchaseChannel — de quem as keys foram compradas.
@@ -122,13 +126,15 @@ interface Row {
   region: string;
   key_code: string;
   gamivo_id: string;
+  isOverstocked: boolean;
   status: RowStatus;
   errorMsg: string;
   customTf2Override: string;
 }
 
 /** Só os campos que a linha grava — o resto é estado de tela. */
-type RowPayload = Omit<Row, 'id' | 'position' | 'status' | 'errorMsg' | 'customTf2Override'>;
+// `isOverstocked` fica fora: a marca é do servidor, e a escrita não a aceita.
+type RowPayload = Omit<Row, 'id' | 'position' | 'status' | 'errorMsg' | 'customTf2Override' | 'isOverstocked'>;
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -325,6 +331,7 @@ function toRow(l: TradeLine): Row {
     region: l.region ?? '',
     key_code: l.key_code ?? '',
     gamivo_id: l.gamivo_id ?? '',
+    isOverstocked: l.is_overstocked,
     status: 'pending',
     errorMsg: '',
     customTf2Override: '',
@@ -362,7 +369,7 @@ function toTradeEntry(t: Trade): TradeEntry {
 }
 
 function rowPayload(row: Row): RowPayload {
-  const { id, position, status, errorMsg, customTf2Override, ...payload } = row;
+  const { id, position, status, errorMsg, customTf2Override, isOverstocked, ...payload } = row;
   return payload;
 }
 
@@ -591,6 +598,10 @@ function scheduleLineSave(trade: TradeEntry, row: Row) {
     if (saved !== payload.gamivo_id && row.gamivo_id === payload.gamivo_id) {
       row.gamivo_id = saved;
     }
+
+    // A marca de encalhe é refeita pelo servidor quando o jogo ou a região
+    // mudam; ela não vai no payload, então não há digitação para preservar.
+    row.isOverstocked = Boolean(data?.is_overstocked);
   });
 }
 
@@ -651,6 +662,7 @@ async function addRow(trade: TradeEntry) {
       region: null,
       key_code: null,
       gamivo_id: null,
+      is_overstocked: Boolean(data.is_overstocked),
     }));
     // Sem shift: a linha nova entra no fim, então nada foi empurrado.
     trade.saveStatus = 'saved';
@@ -720,6 +732,7 @@ async function duplicateRow(trade: TradeEntry, rowIdx: number) {
       id: data.id,
       position: data.position,
       key_code: '',
+      isOverstocked: Boolean(data.is_overstocked),
       status: 'pending',
       errorMsg: '',
     });
@@ -734,6 +747,9 @@ async function duplicateRow(trade: TradeEntry, rowIdx: number) {
 
 const creatingTrade = ref(false);
 const confirm = useConfirm();
+
+// A lista em si vive dentro do modal, que a busca ao abrir.
+const overstockedDialogVisible = ref(false);
 
 async function createTrade() {
   creatingTrade.value = true;
@@ -948,7 +964,13 @@ function tierBadgeClass(tier: number): string {
 }
 
 function rowClass(row: Row): string {
+  // Erro de gravação vence o encalhe: um é problema a resolver agora, o outro é
+  // informação sobre o estoque.
   if (row.status === 'error') return 'table-danger';
+  // `table-warning` é a variante do próprio Bootstrap: ela mexe nas variáveis
+  // da tabela, então continua valendo com o hover e não briga por especificidade
+  // com o fundo que o `.table` põe em cada célula.
+  if (row.isOverstocked) return 'table-warning';
   return '';
 }
 
@@ -1138,6 +1160,15 @@ function formatDeliveredAt(iso: string): string {
         @click="createTrade"
       >
         <i class="pi pi-plus me-1" />Nova trade
+      </button>
+      <!-- As linhas encalhadas carregam só o aviso; o botão é onde a equipe vê
+           a regra e todos os jogos que ela está sinalizando hoje. -->
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-secondary"
+        @click="overstockedDialogVisible = true"
+      >
+        <i class="pi pi-exclamation-triangle me-1" />Jogos encalhados
       </button>
       <span class="badge bg-secondary">TF2 {{ formatEur(tf2Price) }}</span>
       <span class="text-muted small">
@@ -1689,13 +1720,24 @@ function formatDeliveredAt(iso: string): string {
                   </td>
 
                   <td>
-                    <input
-                      v-model="row.game_name"
-                      class="cell-input fw-semibold"
-                      :class="{ 'is-missing': isRowMeaningful(row) && hasMissingName(row) }"
-                      placeholder="Nome do jogo"
-                      @input="scheduleLineSave(trade, row)"
-                    />
+                    <div class="d-flex align-items-center gap-1">
+                      <input
+                        v-model="row.game_name"
+                        class="cell-input fw-semibold"
+                        :class="{ 'is-missing': isRowMeaningful(row) && hasMissingName(row) }"
+                        placeholder="Nome do jogo"
+                        @input="scheduleLineSave(trade, row)"
+                      />
+                      <!-- A linha inteira fica amarela (`table-warning`, ver rowClass);
+                           o badge diz o motivo, que a cor sozinha não conta. -->
+                      <span
+                        v-if="row.isOverstocked"
+                        class="badge text-bg-warning flex-shrink-0"
+                        title="Jogo encalhado no estoque nesta região quando a linha foi gravada. Veja em &quot;Jogos encalhados&quot;."
+                      >
+                        <i class="pi pi-exclamation-triangle me-1" />Encalhado
+                      </span>
+                    </div>
                   </td>
 
                   <td>
@@ -1822,6 +1864,8 @@ function formatDeliveredAt(iso: string): string {
     <div v-if="trades.total === 0" class="text-center text-muted py-5">
       Nenhuma trade encontrada com os filtros atuais.
     </div>
+
+    <OverstockedGamesDialog v-model:visible="overstockedDialogVisible" />
 
   </div>
 </template>

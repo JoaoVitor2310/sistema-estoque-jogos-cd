@@ -275,6 +275,10 @@ class TradeService
             'expires_at' => $line->expires_at?->format('d/m/Y'),
             'key_code' => $line->key_code,
             'gamivo_id' => $line->gamivo_id,
+            // Marca gravada quando a linha nasceu ou trocou de jogo — ver
+            // App\Domain\Trades\OverstockPolicy. Só a equipe lê: a projeção da
+            // entrega seleciona as colunas à mão e não a inclui.
+            'is_overstocked' => $line->is_overstocked,
         ];
     }
 }

@@ -33,6 +33,8 @@ Determina a região que um jogo pode ser ativado, exemplo:
 Jogo: Deceive Inc. - Region Lock: EU/NA
 Significa que esse jogo só pode ser ativado por usuários que estão nessas regiões(fisicamente ou por VPN). A regionalidade influencia o valor final do jogo.
 
+**Região vazia é a global, em todo o sistema.** Key, linha de trade e qualquer tela: só a região **restrita** é escrita (EU, ROW, LATAM…). Campo em branco não é dado faltando — é a key que ativa em qualquer lugar, e é assim que a pesquisa do `price_researcher` também a devolve. Por isso nada escreve "Global" na tela, e o agrupamento por região trata o vazio como um grupo próprio (ver "Jogo encalhado é sinalizado na trade").
+
 
 ## Trades
 Trades é uma compra realizada de uma só vez — no caso comum, com nossos fornecedores.
@@ -51,6 +53,32 @@ Nessa troca pode ter diversos jogos, cada jogo é calculado individualmente e no
 5.5x TF2 Keys / 8
 
 Significa que foi gasto 5,5 TF2 keys para um trade de 8 jogos. Esses 8 jogos serão enviados de uma única vez, e o valorPagoIndividual vai conseguir calcular o preço de cada jogo.
+
+### Jogo encalhado é sinalizado na trade
+
+Jogo de que já temos estoque parado na mesma região **não é ofertado ao fornecedor**, mas continua registrado: ele vira linha da trade com o aviso **"Encalhado"** na aba, para a equipe ver o que ficou de fora. Um jogo está encalhado quando as três condições valem **juntas** — uma sozinha condenaria jogo saudável:
+
+| Condição | Limite | Por que não basta sozinha |
+|---|---|---|
+| Keys paradas em estoque | 3 ou mais | Há jogo com 6 keys que vende toda semana |
+| Idade da key parada mais antiga | 120 dias ou mais | A mediana até vender é de 24 dias; e lote de bundle fica ~3 meses parado de propósito, esperando o preço se recuperar |
+| Tempo para o estoque escoar no ritmo do jogo | mais de 120 dias, ou nenhuma venda em 90 dias | O ritmo é o que separa estoque grande de estoque encalhado |
+
+O tempo de escoamento é o estoque dividido pelo ritmo das vendas dos últimos 90 dias: 9 keys com 4 vendas na janela escoam em ~203 dias e o jogo é sinalizado; 5 keys com 7 vendas escoam em ~64 dias e não é. Os 90 dias são contados em dias inteiros **incluindo hoje** (a data de venda não tem hora). O tempo de escoamento é comparado **sem arredondar** — 120,4 dias já passa do limite —, e a lista "Jogos encalhados" o exibe arredondado para cima.
+
+**O jogo é contado por região.** EU, ROW e as demais são grupos separados, e a key **sem região é a global** — um grupo como qualquer outro. Sem essa separação, um EU que vende esconderia um ROW encalhado. Maiúsculas e espaços da região não importam (`LATAM` = `latam`); siglas diferentes para o mesmo mercado (`US`/`USA`) ainda contam separadas.
+
+**Na prospecção de fornecedor**, o comentário que o `price_researcher` posta na lista do SteamTrades lista só os jogos ofertados, e o total em TF2 soma só eles. Se **todos** os jogos lucrativos da lista estiverem encalhados, não há comentário — e sem comentário não se cria trade nenhuma: aquela lista aparece só aqui na aba, pelo botão "Jogos encalhados".
+
+| Quando a marca é decidida | O que acontece |
+|---|---|
+| A linha nasce (prospecção, lista comentada, duplicar linha) | Avaliada contra o estoque daquele momento e gravada |
+| O nome ou a região da linha mudam — na aba ou na entrega do supplier | Avaliada de novo |
+| Qualquer outra edição (key, validade, preço…) | A marca gravada é mantida |
+
+Vale para **qualquer canal de compra** — trade com fornecedor, compra direta na loja do bundle ou compra na Gamivo: todo canal repõe estoque. O supplier nunca vê a marca.
+
+O botão **"Jogos encalhados"** da aba lista todo jogo encalhado **hoje**, por região, com o estoque, há quanto tempo está parado e em quantos dias escoaria. Por ser o estoque de hoje, uma linha marcada numa trade antiga pode não aparecer mais ali — o jogo escoou depois. Limites e alternativas descartadas: [`docs/adr/0013`](adr/0013-flag-overstocked-games-in-trades.md).
 
 ### ID Gamivo de uma linha
 
