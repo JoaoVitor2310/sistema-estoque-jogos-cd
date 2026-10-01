@@ -378,3 +378,18 @@ describe('MinimumMarginPolicy — direct bundle store purchase', function () {
             ->toEqualWithDelta(MinimumMarginPolicy::DEFAULT_MARGIN, 0.0001);
     });
 });
+
+describe('initialMarginRules', function () {
+    it('exposes the same thresholds and margins the policy applies', function () {
+        $rules = MinimumMarginPolicy::initialMarginRules();
+
+        expect($rules['lowCostThreshold'])->toBe(MinimumMarginPolicy::LOW_COST_THRESHOLD)
+            ->and($rules['highCostThreshold'])->toBe(MinimumMarginPolicy::HIGH_COST_THRESHOLD)
+            ->and($rules['veryHighCostThreshold'])->toBe(MinimumMarginPolicy::VERY_HIGH_COST_THRESHOLD)
+            ->and($rules['lowCostMargin'])->toBe(MinimumMarginPolicy::LOW_COST_MARGIN)
+            ->and($rules['defaultMargin'])->toBe(MinimumMarginPolicy::DEFAULT_MARGIN)
+            ->and($rules['highCostMargin'])->toBe(MinimumMarginPolicy::HIGH_COST_MARGIN)
+            ->and($rules['veryHighCostMargin'])->toBe(MinimumMarginPolicy::VERY_HIGH_COST_MARGIN)
+            ->and($rules['bundleStoreMargin'])->toBe(MinimumMarginPolicy::BUNDLE_STORE_MARGIN);
+    });
+});

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Domain\Pricing\MinimumMarginPolicy;
 use App\Domain\Pricing\OfferCalculator;
 use App\Domain\Trades\OverstockPolicy;
 use App\Http\Requests\IndexTradesRequest;
@@ -68,6 +69,7 @@ class TradeController extends Controller
                 'fixedHigh' => $fee->fixedHigh,
             ],
             'profitTiers' => OfferCalculator::PROFIT_TIERS,
+            'marginRules' => MinimumMarginPolicy::initialMarginRules(),
         ]);
     }
 

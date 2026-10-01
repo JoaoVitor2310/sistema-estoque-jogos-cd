@@ -54,6 +54,19 @@ Nessa troca pode ter diversos jogos, cada jogo é calculado individualmente e no
 
 Significa que foi gasto 5,5 TF2 keys para um trade de 8 jogos. Esses 8 jogos serão enviados de uma única vez, e o valorPagoIndividual vai conseguir calcular o preço de cada jogo.
 
+### Copiar oferta com lucro abaixo do `min_api` exige confirmação
+
+Não faz sentido comprar uma key por um preço em que o lucro fica abaixo do que o `min_api` praticaria para ela: a key nasceria encalhada, porque o auto-sell não a lista. Na aba de Trades, a célula de oferta (100%/80%/60%, a coluna personalizada e o override manual de TF2) cujo lucro fique abaixo do mínimo fica **vermelha**, e copiá-la abre um modal de confirmação ("Copiar mesmo assim"). Copiar uma **coluna inteira** pede a mesma confirmação quando ao menos um jogo dela está abaixo do mínimo, listando os jogos.
+
+| Item | Regra |
+|---|---|
+| Custo comparado | valor exato da célula em TF2 × preço do TF2 |
+| Lucro da célula | `renda líquida / custo − 1` (nos tiers, é o próprio tier) |
+| Mínimo exigido | margem **inicial** do `MinimumMarginPolicy` para o custo: faixa de custo (55% / 50% / 45% / 40%) ou `BUNDLE_STORE_MARGIN` (40%) na compra direta |
+| Tempo de estoque | não entra: a key ainda vai ser comprada |
+
+As margens chegam à tela pela prop `marginRules` (`MinimumMarginPolicy::initialMarginRules()`); a tela só projeta a escolha da faixa, como já faz com a renda líquida.
+
 ### Jogo encalhado é sinalizado na trade
 
 Jogo de que já temos estoque parado na mesma região **não é ofertado ao fornecedor**, mas continua registrado: ele vira linha da trade com o aviso **"Encalhado"** na aba, para a equipe ver o que ficou de fora. Um jogo está encalhado quando as três condições valem **juntas** — uma sozinha condenaria jogo saudável:
