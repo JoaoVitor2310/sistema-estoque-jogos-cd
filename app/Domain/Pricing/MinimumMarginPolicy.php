@@ -190,6 +190,27 @@ final class MinimumMarginPolicy
         return round($cost * (1 + $margin), 2);
     }
 
+    /**
+     * Regras da margem inicial como dados, para quem precisa avaliá-las fora do
+     * PHP (a tela de trades compara o lucro de cada oferta com o piso que o
+     * min_api praticaria). Espelha initialMargin(): mudou lá, muda aqui.
+     *
+     * @return array{lowCostThreshold: float, highCostThreshold: float, veryHighCostThreshold: float, lowCostMargin: float, defaultMargin: float, highCostMargin: float, veryHighCostMargin: float, bundleStoreMargin: float}
+     */
+    public static function initialMarginRules(): array
+    {
+        return [
+            'lowCostThreshold' => self::LOW_COST_THRESHOLD,
+            'highCostThreshold' => self::HIGH_COST_THRESHOLD,
+            'veryHighCostThreshold' => self::VERY_HIGH_COST_THRESHOLD,
+            'lowCostMargin' => self::LOW_COST_MARGIN,
+            'defaultMargin' => self::DEFAULT_MARGIN,
+            'highCostMargin' => self::HIGH_COST_MARGIN,
+            'veryHighCostMargin' => self::VERY_HIGH_COST_MARGIN,
+            'bundleStoreMargin' => self::BUNDLE_STORE_MARGIN,
+        ];
+    }
+
     /** Margem da key antes de qualquer decaimento por tempo. */
     private static function initialMargin(float $cost, PurchaseChannel $channel): float
     {

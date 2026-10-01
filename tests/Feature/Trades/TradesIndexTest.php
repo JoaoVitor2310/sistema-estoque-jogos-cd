@@ -88,6 +88,16 @@ describe('GET /trades — default view', function () {
             );
     });
 
+    it('passes the min_api margin rules to the view', function () {
+        $this->actingAs(makeAuthorizedIndexUser())
+            ->get('/trades')
+            ->assertInertia(fn ($page) => $page
+                ->where('marginRules.lowCostMargin', 0.55)
+                ->where('marginRules.bundleStoreMargin', 0.40)
+                ->where('marginRules.veryHighCostThreshold', 15)
+            );
+    });
+
     it('passes the current filters back to the view', function () {
         $this->actingAs(makeAuthorizedIndexUser())
             ->get('/trades')

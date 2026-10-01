@@ -5,6 +5,8 @@ import axiosInstance from '@/axios';
 import Checkbox from 'primevue/checkbox';
 import ConfirmPopup from 'primevue/confirmpopup';
 import DatePicker from 'primevue/datepicker';
+import Dialog from 'primevue/dialog';
+import Button from 'primevue/button';
 import Paginator from 'primevue/paginator';
 import { useConfirm } from 'primevue/useconfirm';
 import OverstockedGamesDialog from '@/components/trades/OverstockedGamesDialog.vue';
@@ -100,6 +102,17 @@ const props = defineProps<{
     fixedHigh: number;
   };
   profitTiers: number[];
+  // Espelho de MinimumMarginPolicy::initialMarginRules() (PHP).
+  marginRules: {
+    lowCostThreshold: number;
+    highCostThreshold: number;
+    veryHighCostThreshold: number;
+    lowCostMargin: number;
+    defaultMargin: number;
+    highCostMargin: number;
+    veryHighCostMargin: number;
+    bundleStoreMargin: number;
+  };
 }>();
 
 // ─── Tipos internos ──────────────────────────────────────────────────────────
@@ -419,6 +432,102 @@ function getNetIncome(row: Row): number {
 
 function getOffer(row: Row, tier: number): number {
   return calcOffer(getNetIncome(row), tier);
+}
+
+// ─── Lucro abaixo do min_api ─────────────────────────────────────────────────
+
+// Projeção client-side de MinimumMarginPolicy::initialMargin (PHP), com as
+// regras vindas do backend. Só a margem inicial entra: o tempo de estoque não
+// existe ainda, a key será comprada agora.
+function requiredMarginPct(cost: number, channel: PurchaseChannel): number {
+  const r = props.marginRules;
+  if (channel === 'bundle_store') return r.bundleStoreMargin * 100;
+  if (cost > r.veryHighCostThreshold) return r.veryHighCostMargin * 100;
+  if (cost > r.highCostThreshold) return r.highCostMargin * 100;
+  if (cost < r.lowCostThreshold) return r.lowCostMargin * 100;
+  return r.defaultMargin * 100;
+}
+
+// Tabela exibida no modal de aviso, na ordem de leitura (faixa do meio primeiro).
+const marginTable = computed(() => {
+  const r = props.marginRules;
+  const pct = (m: number) => Math.round(m * 100);
+  return [
+    { label: `€${r.lowCostThreshold} a €${r.highCostThreshold}`, margin: pct(r.defaultMargin) },
+    { label: `Menos de €${r.lowCostThreshold}`, margin: pct(r.lowCostMargin) },
+    { label: `€${r.highCostThreshold} a €${r.veryHighCostThreshold}`, margin: pct(r.highCostMargin) },
+    { label: `Mais de €${r.veryHighCostThreshold}`, margin: pct(r.veryHighCostMargin) },
+    { label: 'Compra direta (loja do bundle)', margin: pct(r.bundleStoreMargin) },
+  ];
+});
+
+// Tolerância de ponto flutuante: um tier que bate a margem exata não é "abaixo".
+const MARGIN_EPSILON = 1e-6;
+
+interface LowProfit {
+  game: string;
+  profit: number;
+  required: number;
+}
+
+/**
+ * Se pagar `tf2Value` TF2 pela key der menos lucro que o min_api praticaria
+ * para esse custo, devolve o lucro e o mínimo; senão null.
+ */
+function lowProfitOf(trade: TradeEntry, row: Row, tf2Value: number): LowProfit | null {
+  const netIncome = getNetIncome(row);
+  if (tf2Value <= 0 || props.tf2Price <= 0 || netIncome <= 0) return null;
+
+  const cost = tf2Value * props.tf2Price;
+  const profit = (netIncome / cost - 1) * 100;
+  const required = requiredMarginPct(cost, trade.purchaseChannel);
+
+  return profit < required - MARGIN_EPSILON ? { game: row.game_name, profit, required } : null;
+}
+
+function isLowTier(trade: TradeEntry, row: Row, tier: number): boolean {
+  return lowProfitOf(trade, row, getOffer(row, tier)) !== null;
+}
+
+function isLowCustom(trade: TradeEntry, row: Row): boolean {
+  return lowProfitOf(trade, row, getEffectiveCustomTf2(row)) !== null;
+}
+
+function lowInTier(trade: TradeEntry, tier: number): LowProfit[] {
+  return trade.rows
+    .map(row => lowProfitOf(trade, row, getOffer(row, tier)))
+    .filter((l): l is LowProfit => l !== null);
+}
+
+function lowInCustom(trade: TradeEntry): LowProfit[] {
+  return trade.rows
+    .map(row => lowProfitOf(trade, row, getEffectiveCustomTf2(row)))
+    .filter((l): l is LowProfit => l !== null);
+}
+
+// Cópia que precisa de confirmação: o modal abre e a cópia só roda se o
+// usuário insistir.
+const lowProfitDialog = reactive<{ visible: boolean; items: LowProfit[]; proceed: (() => Promise<void>) | null }>({
+  visible: false,
+  items: [],
+  proceed: null,
+});
+
+async function copyUnlessLowProfit(items: LowProfit[], doCopy: () => Promise<void>) {
+  if (items.length === 0) {
+    await doCopy();
+    return;
+  }
+  lowProfitDialog.items = items;
+  lowProfitDialog.proceed = doCopy;
+  lowProfitDialog.visible = true;
+}
+
+async function confirmLowProfitCopy() {
+  const proceed = lowProfitDialog.proceed;
+  lowProfitDialog.visible = false;
+  lowProfitDialog.proceed = null;
+  await proceed?.();
 }
 
 // ─── Override TF2 por linha ───────────────────────────────────────────────────
@@ -916,13 +1025,22 @@ async function copyToClipboard(text: string): Promise<void> {
   document.body.removeChild(textarea);
 }
 
-async function copyCell(trade: TradeEntry, name: string, value: number, cellKey: string) {
-  await copyToClipboard(`${name}\t${formatTf2(value)}`);
-  trade.copiedKey = cellKey;
-  setTimeout(() => { trade.copiedKey = null; }, 1500);
+async function copyCell(trade: TradeEntry, row: Row, value: number, cellKey: string) {
+  await copyUnlessLowProfit(
+    [lowProfitOf(trade, row, value)].filter((l): l is LowProfit => l !== null),
+    async () => {
+      await copyToClipboard(`${row.game_name}\t${formatTf2(value)}`);
+      trade.copiedKey = cellKey;
+      setTimeout(() => { trade.copiedKey = null; }, 1500);
+    },
+  );
 }
 
-async function copyTier(trade: TradeEntry, tier: number) {
+function copyTier(trade: TradeEntry, tier: number) {
+  return copyUnlessLowProfit(lowInTier(trade, tier), () => doCopyTier(trade, tier));
+}
+
+async function doCopyTier(trade: TradeEntry, tier: number) {
   const lines = trade.rows.map(row => `${row.game_name}\t${formatTf2(getOffer(row, tier))}`);
   const total = getTierTotal(trade, tier);
   lines.push(`total ${formatTf2(total)} tf2`);
@@ -931,7 +1049,11 @@ async function copyTier(trade: TradeEntry, tier: number) {
   setTimeout(() => { trade.copiedKey = null; }, 1500);
 }
 
-async function copyCustomTier(trade: TradeEntry) {
+function copyCustomTier(trade: TradeEntry) {
+  return copyUnlessLowProfit(lowInCustom(trade), () => doCopyCustomTier(trade));
+}
+
+async function doCopyCustomTier(trade: TradeEntry) {
   const lines = trade.rows
     .map(row => {
       const val = getEffectiveCustomTf2(row);
@@ -1029,6 +1151,10 @@ function sortIcon(field: string): string {
 }
 
 // ─── Totais por tier ──────────────────────────────────────────────────────────
+
+function getNetIncomeTotal(trade: TradeEntry): number {
+  return trade.rows.reduce((sum, row) => sum + getNetIncome(row), 0);
+}
 
 function getTierTotal(trade: TradeEntry, tier: number): number {
   return trade.rows.reduce((sum, row) => sum + getOffer(row, tier), 0);
@@ -1607,7 +1733,7 @@ function formatDeliveredAt(iso: string): string {
             <table class="table table-hover align-middle mb-0">
               <thead class="table-light">
                 <tr>
-                  <th class="sort-th" style="min-width: 110px;" @click="sortRowsBy('marketPrice')">
+                  <th class="sort-th" style="width: 96px; min-width: 96px; max-width: 96px;" @click="sortRowsBy('marketPrice')">
                     Preço Mercado <span class="text-muted fw-normal">(€)</span>
                     <i :class="sortIcon('marketPrice')" class="sort-icon" />
                   </th>
@@ -1615,13 +1741,13 @@ function formatDeliveredAt(iso: string): string {
                   <th class="sort-th" style="min-width: 100px;" @click="sortRowsBy('expiry')">
                     Expiração <i :class="sortIcon('expiry')" class="sort-icon" />
                   </th>
-                  <th style="min-width: 90px;">Popularidade</th>
-                  <th style="min-width: 90px;">Region</th>
+                  <th title="Popularidade" style="width: 72px; min-width: 72px; max-width: 72px; white-space: nowrap;">Popul.</th>
+                  <th style="width: 68px; min-width: 68px; max-width: 68px; white-space: nowrap;">Region</th>
                   <th style="min-width: 200px;">
                     <span class="text-primary fw-bold">Key Code</span>
                   </th>
                   <th style="min-width: 180px;">Nome do Jogo</th>
-                  <th style="min-width: 100px;">Gamivo ID</th>
+                  <th style="width: 90px; min-width: 90px; max-width: 90px; white-space: nowrap;">Gamivo ID</th>
                   <th class="text-end sort-th" style="min-width: 100px;" @click="sortRowsBy('netIncome')">
                     Income líq. <span class="text-muted fw-normal">(€)</span>
                     <i :class="sortIcon('netIncome')" class="sort-icon" />
@@ -1641,7 +1767,7 @@ function formatDeliveredAt(iso: string): string {
                       <button
                         type="button"
                         class="btn btn-sm"
-                        :class="trade.copiedKey === `tier-${tier}` ? 'btn-success' : 'btn-outline-secondary'"
+                        :class="trade.copiedKey === `tier-${tier}` ? 'btn-success' : lowInTier(trade, tier).length ? 'btn-outline-danger' : 'btn-outline-secondary'"
                         :title="`Copiar todos (${tier}%)`"
                         @click.stop="copyTier(trade, tier)"
                       >
@@ -1665,7 +1791,7 @@ function formatDeliveredAt(iso: string): string {
                       <button
                         type="button"
                         class="btn btn-sm"
-                        :class="trade.copiedKey === 'tier-custom' ? 'btn-success' : 'btn-outline-secondary'"
+                        :class="trade.copiedKey === 'tier-custom' ? 'btn-success' : lowInCustom(trade).length ? 'btn-outline-danger' : 'btn-outline-secondary'"
                         :disabled="customTier === null && !trade.rows.some(r => r.customTf2Override)"
                         title="Copiar todos"
                         @click.stop="copyCustomTier(trade)"
@@ -1756,9 +1882,9 @@ function formatDeliveredAt(iso: string): string {
                     <button
                       type="button"
                       class="btn btn-sm w-100"
-                      :class="trade.copiedKey === `${rowIdx}-${tier}` ? 'btn-success' : 'btn-outline-secondary'"
+                      :class="trade.copiedKey === `${rowIdx}-${tier}` ? 'btn-success' : isLowTier(trade, row, tier) ? 'btn-outline-danger' : 'btn-outline-secondary'"
                       :title="`Copiar: ${row.game_name} + ${formatTf2(getOffer(row, tier))} TF2`"
-                      @click="copyCell(trade, row.game_name, getOffer(row, tier), `${rowIdx}-${tier}`)"
+                      @click="copyCell(trade, row, getOffer(row, tier), `${rowIdx}-${tier}`)"
                     >
                       <i v-if="trade.copiedKey === `${rowIdx}-${tier}`" class="pi pi-check me-1" />
                       {{ formatTf2(getOffer(row, tier)) }}
@@ -1778,9 +1904,9 @@ function formatDeliveredAt(iso: string): string {
                           v-if="getEffectiveCustomTf2(row) > 0"
                           type="button"
                           class="btn btn-sm px-1"
-                          :class="trade.copiedKey === `${rowIdx}-custom` ? 'btn-success' : 'btn-outline-purple'"
+                          :class="trade.copiedKey === `${rowIdx}-custom` ? 'btn-success' : isLowCustom(trade, row) ? 'btn-outline-danger' : 'btn-outline-purple'"
                           :title="`Copiar: ${row.game_name} + ${formatTf2(getEffectiveCustomTf2(row))} TF2`"
-                          @click="copyCell(trade, row.game_name, getEffectiveCustomTf2(row), `${rowIdx}-custom`)"
+                          @click="copyCell(trade, row, getEffectiveCustomTf2(row), `${rowIdx}-custom`)"
                         >
                           <i
                             :class="trade.copiedKey === `${rowIdx}-custom` ? 'pi pi-check' : 'pi pi-copy'"
@@ -1823,7 +1949,8 @@ function formatDeliveredAt(iso: string): string {
               </tbody>
               <tfoot class="table-light">
                 <tr>
-                  <td colspan="9" class="text-end text-muted small fw-semibold pe-3">Total</td>
+                  <td colspan="8" class="text-end text-muted small fw-semibold pe-3">Total</td>
+                  <td class="text-end fw-bold small">{{ formatEur(getNetIncomeTotal(trade)) }}</td>
 
                   <td
                     v-for="tier in profitTiers"
@@ -1866,6 +1993,42 @@ function formatDeliveredAt(iso: string): string {
     </div>
 
     <OverstockedGamesDialog v-model:visible="overstockedDialogVisible" />
+
+    <Dialog
+      v-model:visible="lowProfitDialog.visible"
+      modal
+      header="Lucro abaixo do mínimo"
+      :style="{ width: '32rem' }"
+    >
+      <p class="mb-2">
+        {{ lowProfitDialog.items.length === 1 ? 'Esta key terá' : 'Estas keys terão' }}
+        menos lucro do que o <strong>min_api</strong> pratica.
+        Ela ficará parada: a venda automática não vai listá-la enquanto o mercado não cobrir o mínimo.
+      </p>
+      <table class="table table-sm small mb-2">
+        <thead>
+          <tr><th>Custo</th><th class="text-end">Lucro do min_api</th></tr>
+        </thead>
+        <tbody>
+          <tr v-for="rule in marginTable" :key="rule.label">
+            <td>{{ rule.label }}</td>
+            <td class="text-end">{{ rule.margin }}%</td>
+          </tr>
+        </tbody>
+      </table>
+      <ul class="list-unstyled small mb-0">
+        <li v-for="(item, i) in lowProfitDialog.items" :key="i" class="d-flex justify-content-between gap-3">
+          <span class="text-truncate">{{ item.game || 'Sem nome' }}</span>
+          <span class="text-danger flex-shrink-0">
+            {{ item.profit.toFixed(1) }}% &lt; {{ item.required.toFixed(0) }}%
+          </span>
+        </li>
+      </ul>
+      <template #footer>
+        <Button label="Cancelar" severity="secondary" text @click="lowProfitDialog.visible = false" />
+        <Button label="Copiar mesmo assim" severity="danger" @click="confirmLowProfitCopy" />
+      </template>
+    </Dialog>
 
   </div>
 </template>
