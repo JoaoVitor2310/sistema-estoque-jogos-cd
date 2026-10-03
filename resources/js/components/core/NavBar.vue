@@ -30,7 +30,6 @@ const handleLogout = async () => {
     <nav class="navbar navbar-expand-lg" style="background-color: #8009EF; color: white;">
       <div class="container-fluid">
         <Link class="navbar-brand" :href="route('keys')">
-        <!-- O erro em "route" é normal, o typescript não reconhece pq ele faz parte do ziggy. -->
         <img src="@\assets\images\logo.jpg" width="45" height="45" alt="logo"></Link>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent"
           aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">

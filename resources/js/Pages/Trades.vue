@@ -273,11 +273,11 @@ function applyFilters(overrides: Partial<Filters> = {}) {
 }
 
 /** Remove chaves vazias/nulas para não poluir a URL. */
-function pruneEmpty(obj: Record<string, unknown>): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
+function pruneEmpty(obj: Record<string, unknown>): Record<string, string | number | boolean> {
+  const out: Record<string, string | number | boolean> = {};
   for (const [k, v] of Object.entries(obj)) {
     if (v === null || v === undefined || v === '') continue;
-    out[k] = v;
+    out[k] = v as string | number | boolean;
   }
   return out;
 }

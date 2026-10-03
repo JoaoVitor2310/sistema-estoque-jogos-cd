@@ -8,6 +8,7 @@ Sistema de inventário e automação para trading de keys de jogos digitais: reg
 composer install && npm install   # setup
 npm run dev                       # frontend (Vite)
 npm run build                     # build de produção
+npm run typecheck                 # tipos do frontend (vue-tsc)
 ./vendor/bin/pint --test          # lint PHP (--test = check; sem flag = fix)
 ./vendor/bin/phpstan analyse --configuration=phpstan.neon --memory-limit=512M
 php artisan test --no-coverage    # suíte Pest completa

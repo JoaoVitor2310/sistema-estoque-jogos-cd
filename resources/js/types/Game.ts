@@ -5,9 +5,9 @@ export type Game = {
     gamivo_id: string;
     steam_id: string;
     release_date: string;
-    price_tf2: number;
-    price_euro: number;
-    popularity: number;
+    price_tf2: number | null;
+    price_euro: number | null;
+    popularity: number | null;
     created_at?: string | null;
     updated_at?: string | null;
 }

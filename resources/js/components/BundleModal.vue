@@ -91,7 +91,7 @@ const handleCancel = () => {
 };
 
 const handleSave = () => {
-  const bundleToSave = { ...localBundleData };
+  const bundleToSave: Partial<Bundle> = { ...localBundleData };
 
   // Se há jogos selecionados, adiciona os objetos Game ao bundle
   if (props.selectedGames.length > 0) {

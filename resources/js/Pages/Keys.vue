@@ -248,7 +248,7 @@ const getRowStyle = (data: GameLine) => {
     ? { backgroundColor: `#${data.color}` }
     : data.claim_type && styleMap[data.claim_type]
       ? { backgroundColor: styleMap[data.claim_type] }
-      : null;
+      : undefined;
 };
 
 const getKeyCodeStyle = (data: GameLine) => {
