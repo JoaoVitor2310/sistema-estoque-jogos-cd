@@ -26,6 +26,7 @@ import MonthDetailsDialog from '@/components/financial/MonthDetailsDialog.vue';
 import MonthMovementsTable from '@/components/financial/MonthMovementsTable.vue';
 import {
   ACCOUNTS,
+  accountLabel,
   BALANCE_GRID_ACCOUNTS,
   EXPENSE_CATEGORIES,
   INCOME_CATEGORIES,

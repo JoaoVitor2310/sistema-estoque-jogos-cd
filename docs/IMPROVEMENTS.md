@@ -224,7 +224,7 @@ adiado deliberadamente; a conferência humana antes do import é a mitigação a
 
 ## Teste automatizado de frontend
 
-**Onde:** `resources/js/`, `package.json` (hoje só `dev` e `build`), `.github/workflows/ci.yml` (três jobs, todos PHP).
+**Onde:** `resources/js/`, `package.json` (hoje `dev`, `build` e `typecheck`), `.github/workflows/ci.yml` (quatro jobs: Pint, PHPStan, Pest e vue-tsc).
 
 O frontend não tem runner nenhum: toda mudança de `.vue` é verificada por `npm run build`, que
 só prova que compila. Isso bastava enquanto o Vue era desenho, mas ele passou a carregar

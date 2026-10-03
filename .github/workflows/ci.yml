@@ -107,3 +107,34 @@ jobs:
 
       - name: Pest
         run: php artisan test --no-coverage
+
+  # ── Job 4: Tipos do frontend ──────────────────────────────────────────────
+  # O `route()` do Ziggy é tipado a partir de vendor/, então o composer install
+  # (sem scripts) é pré-requisito.
+  typecheck:
+    name: vue-tsc
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+
+      - name: Install PHP dependencies (types do Ziggy)
+        run: composer install --no-interaction --prefer-dist --no-scripts
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      - name: vue-tsc
+        run: npm run typecheck

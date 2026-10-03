@@ -23,6 +23,7 @@ import Paginator from 'primevue/paginator';
 // Inertia
 import { showResponse } from '../helpers/showResponse';
 import { Bundle } from '../types/Bundle';
+import type { Game } from '../types/Game';
 import { formatDateToBR } from '@/helpers/formatHelpers';
 
 // Components
@@ -84,9 +85,9 @@ const isEdit = ref(false); // Variável que define se é para criar ou editar no
 
 // Estados para o modal de adicionar jogo
 const searchTerm = ref('');
-const searchResults = ref([]);
+const searchResults = ref<Game[]>([]);
 const isSearching = ref(false);
-const currentBundle = ref(null);
+const currentBundle = ref<Bundle | null>(null);
 
 const selected = reactive({
   id: 0,
@@ -303,7 +304,7 @@ const addGameToBundle = async (game) => {
     toast.add({
       severity: 'error',
       summary: 'Erro',
-      detail: error.response.data.message,
+      detail: (error as any).response?.data?.message,
       life: 5000
     });
   }

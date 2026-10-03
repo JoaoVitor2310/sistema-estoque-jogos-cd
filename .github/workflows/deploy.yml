@@ -8,7 +8,7 @@ name: Deploy
 
 on:
   # Dispara automaticamente quando o CI (ci.yml) conclui com sucesso na main.
-  # Assim o deploy só acontece se Pint + PHPStan + Pest passarem.
+  # Assim o deploy só acontece se Pint + PHPStan + Pest + vue-tsc passarem.
   workflow_run:
     workflows: ["CI"]
     branches: [main]
