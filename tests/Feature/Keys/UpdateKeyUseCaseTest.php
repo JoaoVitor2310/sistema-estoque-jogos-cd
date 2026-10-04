@@ -374,6 +374,25 @@ describe('UpdateKeyUseCase — supplier by purchase channel', function () {
             ->and(DB::table('suppliers')->where('url', 'Humble Choice September')->exists())->toBeFalse();
     });
 
+    it('clears a gamivo_id the form emptied instead of looking it up again', function () {
+        // A irmã do mesmo jogo e região ainda carrega o id: uma nova busca o restauraria.
+        insertKeyForUpdate(['key_code' => 'SIB-KEY-00001', 'gamivo_id' => '999']);
+        $id = insertKeyForUpdate(['gamivo_id' => '999']);
+
+        app(UpdateKeyUseCase::class)->execute(Key::findOrFail($id), makeUpdateInput(['game_name' => 'Original Game', 'gamivo_id' => null]));
+
+        expect(DB::table('keys')->where('id', $id)->value('gamivo_id'))->toBeNull();
+    });
+
+    it('fills an empty gamivo_id from another key of the same game', function () {
+        insertKeyForUpdate(['key_code' => 'SIB-KEY-00001', 'gamivo_id' => '999']);
+        $id = insertKeyForUpdate();
+
+        app(UpdateKeyUseCase::class)->execute(Key::findOrFail($id), makeUpdateInput(['game_name' => 'Original Game', 'gamivo_id' => null]));
+
+        expect(DB::table('keys')->where('id', $id)->value('gamivo_id'))->toBe('999');
+    });
+
     it('does not turn Gamivo into a supplier', function () {
         $tradeId = DB::table('trades')->insertGetId(['purchase_channel' => 'gamivo', 'created_at' => now(), 'updated_at' => now()]);
         $id = insertKeyForUpdate(['trade_id' => $tradeId, 'supplier_url' => 'Gamivo', 'supplier_id' => null]);
