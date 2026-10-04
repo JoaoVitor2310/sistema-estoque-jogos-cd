@@ -6,7 +6,7 @@
 |--------------------------------------------------------------------------
 |
 | Dois campos não são digitados e sim derivados: normalized_name acompanha o
-| nome, e gamivo_id é procurado no estoque quando o formulário o deixa vazio.
+| nome, e gamivo_id é procurado no estoque quando o formulário o deixa vazio e o jogo ainda não tem um.
 |
 */
 
@@ -66,6 +66,24 @@ it('keeps the submitted gamivo_id instead of looking it up', function () {
     $game = seedGame();
 
     app(UpdateGameUseCase::class)->execute($game, ['name' => 'Half-Life', 'region' => 'ROW', 'gamivo_id' => '999']);
+
+    expect(DB::table('games')->find($game->id)->gamivo_id)->toBe('999');
+});
+
+it('clears a gamivo_id the form emptied instead of looking it up again', function () {
+    // Id digitado errado: o próprio jogo (e as keys) ainda o carregam, então
+    // uma nova busca o restauraria e a edição nunca teria efeito.
+    $game = seedGame(['name' => 'Half-Life', 'region' => 'ROW', 'gamivo_id' => '999']);
+
+    app(UpdateGameUseCase::class)->execute($game, ['name' => 'Half-Life', 'region' => 'ROW', 'gamivo_id' => null]);
+
+    expect(DB::table('games')->find($game->id)->gamivo_id)->toBeNull();
+});
+
+it('keeps an existing gamivo_id when the payload does not mention it', function () {
+    $game = seedGame(['gamivo_id' => '999']);
+
+    app(UpdateGameUseCase::class)->execute($game, ['popularity' => 10]);
 
     expect(DB::table('games')->find($game->id)->gamivo_id)->toBe('999');
 });
