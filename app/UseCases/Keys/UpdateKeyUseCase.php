@@ -60,8 +60,10 @@ class UpdateKeyUseCase
         $attributes['supplier_id'] = $this->resolveSupplierId($existing, $attributes['supplier_url']);
         $attributes['is_duplicate'] = $this->keyRepository->findByKeyCode($attributes['key_code'], $existing->id) !== null;
 
-        // Sincroniza gamivo_id
-        if (empty($attributes['gamivo_id'])) {
+        // Sincroniza gamivo_id. A busca só preenche key que ainda não tem um: esvaziar
+        // o campo de uma key que já tem id é um pedido de apagar (id digitado errado), e
+        // procurar de novo devolveria o mesmo id — a própria key e as irmãs o carregam.
+        if (empty($attributes['gamivo_id']) && empty($existing->gamivo_id)) {
             $gamivoId = $this->gameService->getIdGamivo($attributes['game_name'], $attributes['region']);
             if ($gamivoId) {
                 $attributes['gamivo_id'] = $gamivoId;
