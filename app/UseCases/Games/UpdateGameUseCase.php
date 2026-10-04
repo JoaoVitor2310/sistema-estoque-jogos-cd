@@ -11,7 +11,9 @@ use App\Services\Games\GameService;
  *
  * Dois campos não são digitados e sim derivados: `normalized_name`, que
  * acompanha o nome, e `gamivo_id`, que é procurado no estoque quando o
- * formulário o deixa vazio.
+ * formulário o deixa vazio **e o jogo ainda não tem um**. Esvaziar o campo de um
+ * jogo que já tem id é um pedido de apagar (id digitado errado) e é respeitado:
+ * procurar de novo devolveria o mesmo id que se quer tirar.
  */
 class UpdateGameUseCase
 {
@@ -24,7 +26,7 @@ class UpdateGameUseCase
      */
     public function execute(Game $game, array $data): Game
     {
-        if (empty($data['gamivo_id'])) {
+        if (empty($data['gamivo_id']) && empty($game->gamivo_id)) {
             $idGamivo = $this->gameService->getIdGamivo(
                 $data['name'] ?? $game->name,
                 $data['region'] ?? $game->region,
