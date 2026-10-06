@@ -22,7 +22,8 @@ interface DeliveryLine {
 }
 
 interface DeliveryTrade {
-  tf2_qty: string | null;
+  amount: string | null;
+  currency: 'tf2' | 'eur' | 'usd';
   supplier_notes: string | null;
   delivered_at: string | null;
   lines: DeliveryLine[];
@@ -133,7 +134,7 @@ type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 const form = reactive({
   lines: (props.trade?.lines ?? []).map((line) => ({ ...line })),
-  tf2_qty: props.trade?.tf2_qty ?? '',
+  amount: props.trade?.amount ?? '',
   supplier_notes: props.trade?.supplier_notes ?? '',
 });
 
@@ -229,7 +230,7 @@ function expiryLooksWrong(line: DeliveryLine): boolean {
   return !locked.value && editingExpiry.value !== line.id && hasBadExpiry(line);
 }
 
-function saveTrade(field: 'tf2_qty' | 'supplier_notes') {
+function saveTrade(field: 'amount' | 'supplier_notes') {
   if (locked.value) return;
 
   debounce(`trade-${field}`, () => {
@@ -245,16 +246,23 @@ const filledCount = computed(
   () => form.lines.filter((line) => (line.key_code ?? '').trim() !== '').length,
 );
 
+// O que a quantidade acertada mede: a trade pode ser paga em TF2, euro ou dólar.
+const agreedLabel = computed(() => ({
+  tf2: 'Total TF2 keys agreed',
+  eur: 'Total amount agreed (EUR)',
+  usd: 'Total amount agreed (USD)',
+}[props.trade?.currency ?? 'tf2']));
+
 /**
- * O total de TF2 acertado é o único campo obrigatório da página.
+ * O total acertado é o único campo obrigatório da página.
  *
  * Zero conta como vazio, mesma régua do servidor: é o número que o rateio de
  * custo do lote usa no import, e tê-lo aqui é o que faz a trade chegar pronta —
  * a equipe sabe quanto foi acertado, mas reler a conversa para recuperá-lo é a
  * transcrição que esta página existe para eliminar.
  */
-const tf2Missing = computed(() => {
-  const value = (form.tf2_qty ?? '').trim();
+const amountMissing = computed(() => {
+  const value = (form.amount ?? '').trim();
 
   return value === '' || !(Number(value) > 0);
 });
@@ -267,7 +275,7 @@ const confirmingSubmit = ref(false);
 const submitError = ref<string | null>(null);
 
 async function submitDelivery() {
-  if (submitting.value || tf2Missing.value || badExpiry.value) return;
+  if (submitting.value || amountMissing.value || badExpiry.value) return;
 
   confirmingSubmit.value = false;
   submitError.value = null;
@@ -288,7 +296,7 @@ async function submitDelivery() {
         }),
       ),
       axiosInstance.patch(`/deliveries/${uuid}`, {
-        tf2_qty: form.tf2_qty ?? '',
+        amount: form.amount ?? '',
         supplier_notes: form.supplier_notes ?? '',
       }),
     ]);
@@ -514,17 +522,17 @@ async function submitDelivery() {
              valor já preenchido, e este é o único campo que ele não pode
              deixar em branco. -->
         <span class="field-label">
-          Total TF2 keys agreed
+          {{ agreedLabel }}
           <span class="field-required">required</span>
         </span>
         <input
-          v-model="form.tf2_qty"
+          v-model="form.amount"
           :readonly="locked"
           type="text"
           inputmode="decimal"
           class="form-control form-control-lg tf2-input"
-          :class="{ 'tf2-input--missing': !locked && tf2Missing }"
-          @input="saveTrade('tf2_qty')"
+          :class="{ 'tf2-input--missing': !locked && amountMissing }"
+          @input="saveTrade('amount')"
         />
 
         <span class="field-label mt-3">Notes, suggestions and feedback</span>
@@ -545,7 +553,7 @@ async function submitDelivery() {
       <button
         type="button"
         class="btn btn-purple btn-lg w-100"
-        :disabled="submitting || tf2Missing || badExpiry"
+        :disabled="submitting || amountMissing || badExpiry"
         @click="confirmingSubmit = true"
       >
         <i class="pi me-2" :class="submitting ? 'pi-spinner pi-spin' : 'pi-send'" />
@@ -555,9 +563,9 @@ async function submitDelivery() {
 
       <!-- Botão desabilitado sem motivo à vista vira "o site não funciona".
            O que falta fica escrito logo abaixo dele. -->
-      <p v-if="tf2Missing" class="submit-blocked small mt-2 mb-0">
+      <p v-if="amountMissing" class="submit-blocked small mt-2 mb-0">
         <i class="pi pi-exclamation-circle me-1" />
-        Fill in the total TF2 keys we agreed on to submit this delivery.
+        Fill in the total we agreed on to submit this delivery.
       </p>
 
       <p v-if="badExpiry" class="submit-blocked small mt-2 mb-0">
@@ -566,7 +574,7 @@ async function submitDelivery() {
         leave it empty.
       </p>
 
-      <p v-if="!tf2Missing && !badExpiry && submitError" class="submit-blocked small mt-2 mb-0">
+      <p v-if="!amountMissing && !badExpiry && submitError" class="submit-blocked small mt-2 mb-0">
         <i class="pi pi-exclamation-circle me-1" />{{ submitError }}
       </p>
     </template>

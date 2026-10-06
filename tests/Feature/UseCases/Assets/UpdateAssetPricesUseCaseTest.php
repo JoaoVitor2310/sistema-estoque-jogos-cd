@@ -13,6 +13,7 @@
 */
 
 use App\Models\Asset;
+use App\Services\Keys\KeyCalculationService;
 use App\UseCases\Assets\UpdateAssetPricesUseCase;
 use Illuminate\Support\Facades\Http;
 
@@ -113,4 +114,21 @@ it('persists the result', function () {
     ]);
 
     expect((float) $asset->fresh()->price_dollar)->toBe(6.0);
+});
+
+it('drops the cached TF2 prices so the new price counts at once', function () {
+    Http::fake();
+    $asset = seedTf2Asset();
+    $service = app(KeyCalculationService::class);
+
+    expect($service->getTf2DollarPrice())->toBe(2.0);
+
+    app(UpdateAssetPricesUseCase::class)->execute($asset, [
+        'name' => 'TF2',
+        'price_brl' => '10.00',
+        'price_dollar' => '2.50',
+        'price_euro' => '1.80',
+    ]);
+
+    expect($service->getTf2DollarPrice())->toBe(2.5);
 });

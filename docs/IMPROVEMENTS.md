@@ -229,7 +229,7 @@ adiado deliberadamente; a conferência humana antes do import é a mitigação a
 O frontend não tem runner nenhum: toda mudança de `.vue` é verificada por `npm run build`, que
 só prova que compila. Isso bastava enquanto o Vue era desenho, mas ele passou a carregar
 **regra**: `Delivery.vue` monta a máscara de `mm/dd/aaaa`, decide o que é validade incompleta e
-desabilita o envio sem `tf2_qty`; `Trades.vue` tem `canImport()`, que espelha
+desabilita o envio sem `amount`; `Trades.vue` tem `canImport()`, que espelha
 `ImportReadinessPolicy`. Nenhuma dessas linhas tem teste, e a falha típica delas é **silenciosa**:
 um campo que o servidor descarta sem erro (foi o caso de `02012026` virar validade nenhuma com a
 página dizendo "Saved") passa em toda a suíte Pest.
@@ -238,7 +238,7 @@ página dizendo "Saved") passa em toda a suíte Pest.
 
 1. **Vitest + `@vue/test-utils` + jsdom** para a lógica. O pré-requisito é extrair as funções puras
    dos SFC para módulos próprios (`resources/js/domain/`), importáveis sem montar componente:
-   máscara e validação de data, `hasBadExpiry`, `tf2Missing`, `canImport`. Testar montando o
+   máscara e validação de data, `hasBadExpiry`, `amountMissing`, `canImport`. Testar montando o
    componente também funciona, mas amarra o teste ao markup — o teste quebra ao mexer numa classe
    CSS. A extração dá de brinde um lugar único para anotar que aquela regra é o par TS de uma
    classe de Domain PHP.
@@ -251,6 +251,40 @@ que não roda no CI vira teste que ninguém roda.
 
 **Origem:** revisão da tela de entrega (2026-08-19) — máscara de validade, larguras de coluna e
 selo de autosave entraram sem teste, verificados só pelo build.
+
+---
+
+## Trade paga em dinheiro — o que a moeda da trade deixou de fora
+
+**Onde:** `resources/js/Pages/Trades.vue`, `resources/js/Pages/Delivery.vue`, `app/Services/Trades/TradeService.php`, `app/Services/Sales/SalesDashboardService.php`.
+
+A moeda da trade (`trades.currency`) entrou no contrato da prospecção, no seletor da aba, na página
+de entrega e no import (que converte `trades.amount` para TF2, 2 casas). Ficaram de fora, de propósito:
+
+| Pendência | Detalhe |
+|---|---|
+| Colunas de oferta da aba | As colunas 100%/80%/60%, a copiada e o total continuam em TF2 mesmo numa trade em euro/dólar. O que se cola no chat da Steam precisaria sair na moeda da trade |
+| Filtro e ordenação "Qtd" | Comparam `amount` cru; trade em dinheiro mistura unidades |
+| KPI "TF2 keys gastas" | Soma `keys.tf2_quantity`, que em trade em dinheiro é o **equivalente** pelo preço do dia do import — aceitável, mas não é o que foi pago |
+| Precisão da conversão | O equivalente em TF2 tem 2 casas (padrão do sistema): o custo pode variar em centavos frente ao valor exato pago |
+
+**Origem:** implementação de `offer_currency` na prospecção (2026-10-04).
+
+---
+
+## Prospecção — a trade nasce antes de o cliente confirmar o comentário
+
+**Onde:** `app/UseCases/Suppliers/ProspectSupplierUseCase.php` (`last_commented_at`), `app/Domain/Trades/CommentPolicy.php`.
+
+A trade e `last_commented_at` são gravados quando `should_comment` é verdadeiro, **antes** de o
+price-cd postar. Se ele não conseguir comentar (rejeita a resposta, SteamTrades fora do ar), a trade
+existe sem comentário e o `CommentPolicy` bloqueia novo comentário nessa lista por 14 dias. Hoje não
+tem efeito prático, mas é um buraco para quando houver falha de cliente frequente.
+
+**Ação:** price-cd confirmar o comentário (ou o Sistema Estoque gravar `last_commented_at` só depois
+da confirmação), ou liberar o bloqueio quando a trade não tiver comentário confirmado.
+
+**Origem:** revisão do contrato `offer_currency` (2026-10-04).
 
 ---
 
@@ -338,7 +372,7 @@ Já concluído: PHPStan (`phpstan/phpstan ^2.1`) e Pint rodam no CI (`.github/wo
 
 **Onde:** `database/migrations/` (nova migration), `app/Models/Key.php`, `app/Models/Trade.php`, `app/Domain/Pricing/ProfitCalculator.php` (`individualCost`), `app/UseCases/Keys/RegisterKeyUseCase.php`, `app/Services/Sales/SalesDashboardService.php` (`getTf2Spent`).
 
-`tf2_quantity` é o total de TF2 keys pago pela **trade**, não por cada key — hoje está duplicado em toda key do lote (mesmo valor repetido) e não deveria ser editável no nível da key. O lugar correto é `trades.tf2_qty` (que já existe). O rateio de `individual_cost` passaria a ler a quantidade da trade, e o `getTf2Spent` deixaria de precisar deduplicar por `(total_paid, acquired_at)`.
+`tf2_quantity` é o total de TF2 keys pago pela **trade**, não por cada key — hoje está duplicado em toda key do lote (mesmo valor repetido) e não deveria ser editável no nível da key. O lugar correto é `trades.amount` (que já existe). O rateio de `individual_cost` passaria a ler a quantidade da trade, e o `getTf2Spent` deixaria de precisar deduplicar por `(total_paid, acquired_at)`.
 
 **Ação:** migrar o valor para `trades`, ajustar o cálculo de rateio para ler da trade, e remover a coluna de `keys` (Expand-Contract). Enquanto não migra, `tf2_quantity` **não** deve ser editável na tela de keys.
 
@@ -491,9 +525,9 @@ Hoje o sistema opera **exclusivamente na Gamivo**. Diretrizes para quando entrar
 
 **Onde:** `app/UseCases/Trades/CreateTradeUseCase.php`.
 
-`execute()` aceita `title`, `supplierUrl`, `date` e `tf2Qty`, mas o único chamador de produção é `TradeController::store`, que passa `[]`. O commit `36b6d87` ("feat: remove area to paste trade", #48) removeu o formulário de criação do `Trades.vue`; desde então a trade nasce em branco e todo campo entra pelo PATCH (`UpdateTradeRequest` → `UpdateTradeUseCase`, que tem a mesma assinatura). Os quatro campos só são exercitados pelos próprios testes — junto com eles, `parseDate()` e o ramo `supplierService->upsertByUrl()`.
+`execute()` aceita `title`, `supplierUrl`, `date` e `amount`, mas o único chamador de produção é `TradeController::store`, que passa `[]`. O commit `36b6d87` ("feat: remove area to paste trade", #48) removeu o formulário de criação do `Trades.vue`; desde então a trade nasce em branco e todo campo entra pelo PATCH (`UpdateTradeRequest` → `UpdateTradeUseCase`, que tem a mesma assinatura). Os quatro campos só são exercitados pelos próprios testes — junto com eles, `parseDate()` e o ramo `supplierService->upsertByUrl()`.
 
-**Ação:** confirmar que nenhum fluxo manda esses campos na criação e reduzir `execute()` a criar a trade em branco (linha vazia + credencial de entrega), removendo `parseDate()` e a dependência de `SupplierService` se ela ficar sem uso. Os testes de `tf2_qty` em `tests/Feature/UseCases/Trades/CreateTradeUseCaseTest.php` saem junto — a cobertura equivalente já existe em `UpdateTradeUseCaseTest`.
+**Ação:** confirmar que nenhum fluxo manda esses campos na criação e reduzir `execute()` a criar a trade em branco (linha vazia + credencial de entrega), removendo `parseDate()` e a dependência de `SupplierService` se ela ficar sem uso. Os testes de `amount` em `tests/Feature/UseCases/Trades/CreateTradeUseCaseTest.php` saem junto — a cobertura equivalente já existe em `UpdateTradeUseCaseTest`.
 
 **Origem:** revisão de `CreateTradeUseCase` vs `StoreListTradeUseCase` (2026-08-18). Na mesma revisão avaliou-se fundir os dois UseCases num só parametrizado e **decidiu-se não fundir**: eles diferem em gatilho (sessão autenticada × `VerifySecret`), em resolução de supplier (`upsertByUrl` × `resolveBySteamId`), em origem das linhas (linha em branco × pesquisa) e em dependências (`BundleService` só num deles) — um parâmetro de modo cobrindo isso seria flag argument, e a poda acima afasta ainda mais os dois.
 

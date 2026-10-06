@@ -1,6 +1,8 @@
 <?php
 
 use App\Domain\Bundles\BundleGameLookup;
+use App\Domain\Enums\TradeCurrency;
+use App\Domain\Pricing\CurrencyPriceUnavailable;
 use App\Domain\Trades\OverstockPolicy;
 use App\Models\Trade;
 use App\UseCases\Suppliers\ProspectSupplierUseCase;
@@ -37,7 +39,7 @@ function supplierSteamId(): string
 
 function profitableGame(): array
 {
-    return ['name' => 'Half-Life', 'price_euro' => 4.50, 'popularity' => 500, 'region' => null];
+    return ['name' => 'Half-Life', 'market_price_euro' => 4.50, 'popularity' => 500, 'region' => null];
 }
 
 describe('ProspectSupplierUseCase', function () {
@@ -72,7 +74,7 @@ describe('ProspectSupplierUseCase', function () {
     it('persists gamivo_id on the created trade line', function () {
         app(ProspectSupplierUseCase::class)->execute(
             supplierSteamId(),
-            [['name' => 'Half-Life', 'price_euro' => 4.50, 'popularity' => 500, 'region' => null, 'gamivo_id' => '144601']],
+            [['name' => 'Half-Life', 'market_price_euro' => 4.50, 'popularity' => 500, 'region' => null, 'gamivo_id' => '144601']],
             'G0eXM',
         );
 
@@ -86,7 +88,7 @@ describe('ProspectSupplierUseCase', function () {
     it('does not create a trade when no games are profitable', function () {
         $result = app(ProspectSupplierUseCase::class)->execute(
             supplierSteamId(),
-            [['name' => 'Junk Game', 'price_euro' => 0.05, 'popularity' => 1, 'region' => null]],
+            [['name' => 'Junk Game', 'market_price_euro' => 0.05, 'popularity' => 1, 'region' => null]],
             'G0eXM',
         );
 
@@ -193,7 +195,7 @@ describe('ProspectSupplierUseCase', function () {
         it('excludes games below profitability threshold', function () {
             $result = app(ProspectSupplierUseCase::class)->execute(
                 supplierSteamId(),
-                [['name' => 'Junk', 'price_euro' => 0.01, 'popularity' => 1, 'region' => null]],
+                [['name' => 'Junk', 'market_price_euro' => 0.01, 'popularity' => 1, 'region' => null]],
             );
 
             expect($result['profitable'])->toBeEmpty();
@@ -205,8 +207,8 @@ describe('ProspectSupplierUseCase', function () {
             $result = app(ProspectSupplierUseCase::class)->execute(
                 supplierSteamId(),
                 [
-                    ['name' => 'Cheap Game', 'price_euro' => 4.50, 'popularity' => 100, 'region' => null],
-                    ['name' => 'Pricey Game', 'price_euro' => 10.00, 'popularity' => 100, 'region' => null],
+                    ['name' => 'Cheap Game', 'market_price_euro' => 4.50, 'popularity' => 100, 'region' => null],
+                    ['name' => 'Pricey Game', 'market_price_euro' => 10.00, 'popularity' => 100, 'region' => null],
                 ],
             );
 
@@ -222,7 +224,7 @@ describe('ProspectSupplierUseCase', function () {
         it('preserves region and popularity in profitable output', function () {
             $result = app(ProspectSupplierUseCase::class)->execute(
                 supplierSteamId(),
-                [['name' => 'Half-Life', 'price_euro' => 4.50, 'popularity' => 999, 'region' => 'EU']],
+                [['name' => 'Half-Life', 'market_price_euro' => 4.50, 'popularity' => 999, 'region' => 'EU']],
             );
 
             expect($result['profitable'][0]['region'])->toBe('EU');
@@ -232,7 +234,7 @@ describe('ProspectSupplierUseCase', function () {
         it('preserves gamivo_id in profitable output when provided', function () {
             $result = app(ProspectSupplierUseCase::class)->execute(
                 supplierSteamId(),
-                [['name' => 'Half-Life', 'price_euro' => 4.50, 'popularity' => 500, 'region' => null, 'gamivo_id' => '144601']],
+                [['name' => 'Half-Life', 'market_price_euro' => 4.50, 'popularity' => 500, 'region' => null, 'gamivo_id' => '144601']],
             );
 
             expect($result['profitable'][0]['gamivo_id'])->toBe('144601');
@@ -265,8 +267,8 @@ describe('ProspectSupplierUseCase', function () {
             $result = app(ProspectSupplierUseCase::class)->execute(
                 supplierSteamId(),
                 [
-                    ['name' => 'Cheap Game', 'price_euro' => 4.50, 'popularity' => 100, 'region' => null],
-                    ['name' => 'Pricey Game', 'price_euro' => 10.00, 'popularity' => 100, 'region' => null],
+                    ['name' => 'Cheap Game', 'market_price_euro' => 4.50, 'popularity' => 100, 'region' => null],
+                    ['name' => 'Pricey Game', 'market_price_euro' => 10.00, 'popularity' => 100, 'region' => null],
                 ],
             );
 
@@ -278,7 +280,7 @@ describe('ProspectSupplierUseCase', function () {
         it('is 0.0 when no games are profitable', function () {
             $result = app(ProspectSupplierUseCase::class)->execute(
                 supplierSteamId(),
-                [['name' => 'Junk', 'price_euro' => 0.01, 'popularity' => 1, 'region' => null]],
+                [['name' => 'Junk', 'market_price_euro' => 0.01, 'popularity' => 1, 'region' => null]],
             );
 
             expect($result['profitable'])->toBeEmpty();
@@ -440,7 +442,7 @@ describe('ProspectSupplierUseCase — overstocked games', function () {
         $result = app(ProspectSupplierUseCase::class)->execute(
             supplierSteamId(),
             [
-                ['name' => 'Curse of the Sea Rats', 'price_euro' => 4.50, 'popularity' => 100, 'region' => null],
+                ['name' => 'Curse of the Sea Rats', 'market_price_euro' => 4.50, 'popularity' => 100, 'region' => null],
                 profitableGame(),
             ],
             'G0eXM',
@@ -456,7 +458,7 @@ describe('ProspectSupplierUseCase — overstocked games', function () {
         $result = app(ProspectSupplierUseCase::class)->execute(
             supplierSteamId(),
             [
-                ['name' => 'Curse of the Sea Rats', 'price_euro' => 4.50, 'popularity' => 100, 'region' => null],
+                ['name' => 'Curse of the Sea Rats', 'market_price_euro' => 4.50, 'popularity' => 100, 'region' => null],
                 profitableGame(),
             ],
             'G0eXM',
@@ -481,7 +483,7 @@ describe('ProspectSupplierUseCase — overstocked games', function () {
         app(ProspectSupplierUseCase::class)->execute(
             supplierSteamId(),
             [
-                ['name' => 'Curse of the Sea Rats', 'price_euro' => 4.50, 'popularity' => 100, 'region' => null],
+                ['name' => 'Curse of the Sea Rats', 'market_price_euro' => 4.50, 'popularity' => 100, 'region' => null],
                 profitableGame(),
             ],
             'G0eXM',
@@ -500,7 +502,7 @@ describe('ProspectSupplierUseCase — overstocked games', function () {
 
         $result = app(ProspectSupplierUseCase::class)->execute(
             supplierSteamId(),
-            [['name' => 'Curse of the Sea Rats', 'price_euro' => 4.50, 'popularity' => 100, 'region' => null]],
+            [['name' => 'Curse of the Sea Rats', 'market_price_euro' => 4.50, 'popularity' => 100, 'region' => null]],
             'G0eXM',
         );
 
@@ -509,4 +511,23 @@ describe('ProspectSupplierUseCase — overstocked games', function () {
             ->and(Trade::where('list_code', 'G0eXM')->exists())->toBeFalse();
     });
 
+    it('stores the offer currency on the trade it creates', function () {
+        DB::table('assets')->where('name', 'TF2')->update(['price_dollar' => 1.10]);
+        Cache::flush();
+
+        $result = app(ProspectSupplierUseCase::class)->execute(supplierSteamId(), [profitableGame()], 'G0eXM', TradeCurrency::Usd);
+
+        expect($result['offer_currency'])->toBe('usd')
+            ->and(Trade::where('list_code', 'G0eXM')->first()->currency)->toBe(TradeCurrency::Usd);
+    });
+
+    it('refuses to convert without a TF2 price and writes nothing', function () {
+        // seedUseCaseDeps deixa price_dollar em 0
+
+        expect(fn () => app(ProspectSupplierUseCase::class)->execute(supplierSteamId(), [profitableGame()], 'G0eXM', TradeCurrency::Usd))
+            ->toThrow(CurrencyPriceUnavailable::class);
+
+        expect(Trade::count())->toBe(0)
+            ->and(DB::table('suppliers')->count())->toBe(0);
+    });
 });

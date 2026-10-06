@@ -4,6 +4,7 @@ namespace App\UseCases\Assets;
 
 use App\Models\Asset;
 use App\Services\External\CurrencyConversionService;
+use App\Services\Keys\KeyCalculationService;
 
 /**
  * Atualiza um ativo de troca, convertendo os preços quando a tela declara uma
@@ -39,6 +40,9 @@ class UpdateAssetPricesUseCase
 
         $asset->fill($data);
         $asset->save();
+
+        // O preço da TF2 fica em cache: o novo tem de valer já, não daqui a uma hora.
+        KeyCalculationService::forgetTf2Prices();
 
         return $asset;
     }

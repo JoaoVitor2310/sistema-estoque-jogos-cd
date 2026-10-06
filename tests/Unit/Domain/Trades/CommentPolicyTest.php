@@ -3,7 +3,7 @@
 use App\Domain\Trades\CommentPolicy;
 use Carbon\Carbon;
 
-$profitable = [['name' => 'Half-Life', 'price_euro' => 4.50, 'tf2_price' => 0.45]];
+$profitable = [['name' => 'Half-Life', 'market_price_euro' => 4.50, 'tf2_price' => 0.45]];
 
 describe('CommentPolicy::shouldComment', function () use ($profitable) {
 

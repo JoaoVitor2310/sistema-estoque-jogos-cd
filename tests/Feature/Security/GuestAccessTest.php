@@ -132,7 +132,7 @@ describe('Guest — the trade delivery is public on purpose', function () {
         $trade = Trade::create(['date' => now()->toDateString()]);
         $trade->forceFill(DeliveryCredential::issue())->save();
 
-        $this->patchJson("/deliveries/{$trade->fresh()->delivery_uuid}", ['tf2_qty' => '10'])
+        $this->patchJson("/deliveries/{$trade->fresh()->delivery_uuid}", ['amount' => '10'])
             ->assertStatus(403);
     });
 

@@ -54,6 +54,23 @@ Nessa troca pode ter diversos jogos, cada jogo é calculado individualmente e no
 
 Significa que foi gasto 5,5 TF2 keys para um trade de 8 jogos. Esses 8 jogos serão enviados de uma única vez, e o valorPagoIndividual vai conseguir calcular o preço de cada jogo.
 
+### Moeda da trade
+
+A quantidade acertada de uma trade (`amount`) está numa **moeda** (`trades.currency`, enum `TradeCurrency`): `tf2` (padrão), `eur` ou `usd`. Quem escolhe a moeda de uma lista na prospecção é o `price_researcher`, lendo o que o fornecedor aceita (`offer_currency`); a equipe corrige no seletor "Moeda" ao lado de "Qtd" na aba. A página de entrega rotula o total pela moeda.
+
+**A moeda vive só na trade.** No import, o valor acertado vira o equivalente em TF2 pelo preço de hoje (`OfferCalculator::toTf2Quantity`, 2 casas) e dali em diante a key é indistinguível de uma paga em TF2: `keys.tf2_quantity`, `total_paid` ("0.45x TF2 Keys / N") e o `individual_cost` em euro seguem os padrões de sempre, na aba de Keys e no resto do sistema.
+
+| Item | Regra |
+|---|---|
+| Oferta em dinheiro | oferta em TF2 **exata** (a de sempre, 70% de lucro) × preço da TF2 na moeda, arredondada a 2 casas **por jogo**; o total soma os já arredondados |
+| Oferta mínima | `OfferCalculator::MIN_CASH_OFFER` (0,01): arredondar a 0,00 publicaria "Jogo --- 0.00€" |
+| Cotação | linha da TF2 em Recursos (`price_euro`, `price_dollar`), lida **uma vez** por prospecção |
+| Sem cotação | com comentário a postar, a prospecção falha (503) antes de gravar; sem comentário, a oferta em dinheiro é só omitida. No import, a falta de cotação recusa o lote (`MissingCurrencyPrice`) |
+| Quais jogos entram | os mesmos em qualquer moeda — a moeda só muda a unidade do preço |
+| Custo no import | valor acertado ÷ preço da TF2 na moeda, 2 casas, e o rateio de `individual_cost` segue como sempre |
+
+A moeda não muda a margem: não há taxa de PayPal para nós, então a oferta em dinheiro tem o mesmo lucro-alvo da oferta em TF2.
+
 ### Copiar oferta com lucro abaixo do `min_api` exige confirmação
 
 Não faz sentido comprar uma key por um preço em que o lucro fica abaixo do que o `min_api` praticaria para ela: a key nasceria encalhada, porque o auto-sell não a lista. Na aba de Trades, a célula de oferta (100%/80%/60%, a coluna personalizada e o override manual de TF2) cujo lucro fique abaixo do mínimo fica **vermelha**, e copiá-la abre um modal de confirmação ("Copiar mesmo assim"). Copiar uma **coluna inteira** pede a mesma confirmação quando ao menos um jogo dela está abaixo do mínimo, listando os jogos.
@@ -106,7 +123,7 @@ O `gamivo_id` de uma linha endereça um produto na Gamivo, e o produto é o par 
 
 ### Entrega pelo supplier
 
-Fechada a negociação, quem digita os `key_code` pode ser o próprio supplier: toda trade já traz na aba o **link** e o **código** da entrega, copiáveis em separado ou juntos, prontos para colar no chat da Steam. Na página, ele preenche a key, a região e a validade de cada jogo, o total de TF2 acertado e um recado livre. Deixar um jogo em branco é resposta válida — significa que ele não tem mais aquele jogo —, mas o total de TF2 é obrigatório: sem ele o lote chega travado para o import, e recuperar o número relendo a conversa é a transcrição que esta página existe para evitar. Validade pela metade também segura o envio — em branco pode, `02` não. A alternativa de sempre continua valendo — a equipe transcrever do chat na aba de Trades.
+Fechada a negociação, quem digita os `key_code` pode ser o próprio supplier: toda trade já traz na aba o **link** e o **código** da entrega, copiáveis em separado ou juntos, prontos para colar no chat da Steam. Na página, ele preenche a key, a região e a validade de cada jogo, o total acertado e um recado livre. Deixar um jogo em branco é resposta válida — significa que ele não tem mais aquele jogo —, mas o total de TF2 é obrigatório: sem ele o lote chega travado para o import, e recuperar o número relendo a conversa é a transcrição que esta página existe para evitar. Validade pela metade também segura o envio — em branco pode, `02` não. A alternativa de sempre continua valendo — a equipe transcrever do chat na aba de Trades.
 
 | Regra | Por quê |
 |---|---|
@@ -489,7 +506,7 @@ Fechada a negociação, o operador preenche os `key_code` recebidos nas linhas d
 `POST /trades/{trade}/import`, **único** caminho de entrada de keys no estoque.
 
 O import leva **exatamente o que está gravado na trade**: a requisição não tem corpo, e o servidor
-lê as linhas, a data, o canal de compra (com o fornecedor ou o bundle) e a quantidade de TF2 do banco. Isso importa porque o
+lê as linhas, a data, o canal de compra (com o fornecedor ou o bundle) e o valor acertado do banco. Isso importa porque o
 `market_price` de cada linha é o peso do rateio de `individual_cost` do lote inteiro (ver
 [`docs/adr/0004`](adr/0004-recalculate-trade-on-key-edit.md)) — enquanto ele vinha do navegador, o
 custo de todas as keys da trade dependia do que o cliente mandasse.
@@ -507,9 +524,10 @@ Uma linha conta como **preenchida** quando tem nome do jogo **ou** preço de mer
 | Linha preenchida sem `key_code` | A falta apareceria só depois de a trade já constar como importada |
 | Linha preenchida sem preço de mercado, ou com preço zerado | É o peso do rateio de `individual_cost` — sem ele o lote inteiro sai errado |
 | Linha preenchida sem nome do jogo | A key não teria como ser casada com o catálogo `games` |
-| Trade sem quantidade de TF2 | O rateio de `individual_cost` rodaria sem custo nenhum |
+| Trade sem valor acertado | O rateio de `individual_cost` rodaria sem custo nenhum |
 | Trade com fornecedor (canal `supplier_trade`) sem fornecedor | É de onde saem `keys.supplier_id` e `supplier_url` |
 | Compra direta (canal `bundle_store`) sem bundle | A compra direta é identificada pelo bundle comprado |
+| Trade paga em dinheiro sem cotação da TF2 na moeda | O custo é convertido para TF2 pelo preço de hoje; sem cotação sairia zerado |
 | Nenhuma linha preenchida | Não há o que importar |
 
 ### Observação importante

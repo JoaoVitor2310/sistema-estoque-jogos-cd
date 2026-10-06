@@ -69,7 +69,7 @@ function tradeReadyToImport(array $lineOverrides = [], array $tradeOverrides = [
         ], $lineOverrides)],
         array_merge([
             'supplier_id' => $supplierId,
-            'tf2_qty' => 2.0,
+            'amount' => 2.0,
             'date' => now()->toDateString(),
         ], $tradeOverrides),
     );
@@ -113,19 +113,19 @@ describe('Import readiness at the HTTP boundary', function () {
     describe('tf2_quantity (6.5)', function () {
 
         it('rejects tf2_quantity = 0', function () {
-            importResponse(tradeReadyToImport([], ['tf2_qty' => 0]))->assertStatus(422);
+            importResponse(tradeReadyToImport([], ['amount' => 0]))->assertStatus(422);
 
             expect(DB::table('keys')->count())->toBe(0);
         });
 
         it('rejects negative tf2_quantity', function () {
-            importResponse(tradeReadyToImport([], ['tf2_qty' => -2.0]))->assertStatus(422);
+            importResponse(tradeReadyToImport([], ['amount' => -2.0]))->assertStatus(422);
 
             expect(DB::table('keys')->count())->toBe(0);
         });
 
         it('accepts tf2_quantity > 0', function () {
-            expect(importResponse(tradeReadyToImport([], ['tf2_qty' => 2.0]))->status())->not->toBe(422);
+            expect(importResponse(tradeReadyToImport([], ['amount' => 2.0]))->status())->not->toBe(422);
         });
     });
 });

@@ -50,25 +50,25 @@ describe('ImportReadinessPolicy::isFilled', function () {
     });
 });
 
-describe('ImportReadinessPolicy::hasTf2Quantity', function () {
+describe('ImportReadinessPolicy::hasAmount', function () {
 
     it('accepts a positive quantity', function () {
-        expect(ImportReadinessPolicy::hasTf2Quantity('12.50'))->toBeTrue();
+        expect(ImportReadinessPolicy::hasAmount('12.50'))->toBeTrue();
     });
 
     it('rejects an absent quantity', function () {
         // Mesma régua que a entrega do supplier cobra antes de aceitar o envio.
-        expect(ImportReadinessPolicy::hasTf2Quantity(null))->toBeFalse()
-            ->and(ImportReadinessPolicy::hasTf2Quantity('  '))->toBeFalse();
+        expect(ImportReadinessPolicy::hasAmount(null))->toBeFalse()
+            ->and(ImportReadinessPolicy::hasAmount('  '))->toBeFalse();
     });
 
     it('rejects zero, because zero would ration no cost at all', function () {
-        expect(ImportReadinessPolicy::hasTf2Quantity('0'))->toBeFalse()
-            ->and(ImportReadinessPolicy::hasTf2Quantity('0.00'))->toBeFalse();
+        expect(ImportReadinessPolicy::hasAmount('0'))->toBeFalse()
+            ->and(ImportReadinessPolicy::hasAmount('0.00'))->toBeFalse();
     });
 
     it('rejects something that is not a number', function () {
-        expect(ImportReadinessPolicy::hasTf2Quantity('dez'))->toBeFalse();
+        expect(ImportReadinessPolicy::hasAmount('dez'))->toBeFalse();
     });
 });
 
@@ -86,12 +86,12 @@ describe('ImportReadinessPolicy::blockers', function () {
 
     it('blocks a trade without a TF2 quantity', function () {
         expect(ImportReadinessPolicy::blockers([line()], null, PurchaseChannel::SupplierTrade, 'https://s.com/id/x', null))
-            ->toBe([TradeImportBlocker::MissingTf2Quantity]);
+            ->toBe([TradeImportBlocker::MissingAmount]);
     });
 
     it('blocks a trade whose TF2 quantity is zero', function () {
         expect(ImportReadinessPolicy::blockers([line()], '0.00', PurchaseChannel::SupplierTrade, 'https://s.com/id/x', null))
-            ->toBe([TradeImportBlocker::MissingTf2Quantity]);
+            ->toBe([TradeImportBlocker::MissingAmount]);
     });
 
     it('blocks a trade without a supplier', function () {
@@ -151,7 +151,7 @@ describe('ImportReadinessPolicy::blockers', function () {
         expect($blockers)->toBe([
             TradeImportBlocker::MissingGameName,
             TradeImportBlocker::MissingKeyCode,
-            TradeImportBlocker::MissingTf2Quantity,
+            TradeImportBlocker::MissingAmount,
             TradeImportBlocker::MissingSupplierUrl,
         ]);
     });
@@ -183,6 +183,13 @@ describe('ImportReadinessPolicy::blockers — purchase channel', function () {
     // rodaria sem custo, venha a key de onde vier.
     it('still requires the TF2 quantity outside supplier trades', function () {
         expect(ImportReadinessPolicy::blockers([line()], null, PurchaseChannel::Gamivo, null, null))
-            ->toBe([TradeImportBlocker::MissingTf2Quantity]);
+            ->toBe([TradeImportBlocker::MissingAmount]);
+    });
+
+    // Trade paga em dinheiro precisa da cotação da TF2 na moeda: sem ela o custo
+    // por key sairia zerado, e o rateio erraria sem avisar.
+    it('refuses a cash trade whose currency has no TF2 price', function () {
+        expect(ImportReadinessPolicy::blockers([line()], '2.00', PurchaseChannel::SupplierTrade, 'https://s.com/id/x', null, currencyPriced: false))
+            ->toBe([TradeImportBlocker::MissingCurrencyPrice]);
     });
 });

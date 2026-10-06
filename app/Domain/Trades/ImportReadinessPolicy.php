@@ -37,18 +37,20 @@ final class ImportReadinessPolicy
      *
      * A contraparte exigida depende do canal de compra: fornecedor para trade
      * com supplier, bundle para compra direta na loja, nenhuma para compra na
-     * Gamivo. A quantidade de TF2 vale para todos — o custo de qualquer canal é
+     * Gamivo. O valor acertado vale para todos — o custo de qualquer canal é
      * convertido para TF2, e é dela que sai o rateio de `individual_cost`.
      *
      * @param  list<array{game_name: ?string, market_price: ?string, key_code: ?string}>  $lines  na ordem de exibição
+     * @param  bool  $currencyPriced  falso quando a trade é paga em dinheiro e a TF2 não tem cotação nessa moeda
      * @return list<TradeImportBlocker>
      */
     public static function blockers(
         array $lines,
-        ?string $tf2Quantity,
+        ?string $amount,
         PurchaseChannel $channel,
         ?string $supplierUrl,
         ?int $bundleId,
+        bool $currencyPriced = true,
     ): array {
         $filled = array_values(array_filter(
             $lines,
@@ -73,8 +75,8 @@ final class ImportReadinessPolicy
             $blockers[] = TradeImportBlocker::MissingKeyCode;
         }
 
-        if (! self::hasTf2Quantity($tf2Quantity)) {
-            $blockers[] = TradeImportBlocker::MissingTf2Quantity;
+        if (! self::hasAmount($amount)) {
+            $blockers[] = TradeImportBlocker::MissingAmount;
         }
 
         if ($channel->requiresSupplier() && trim((string) $supplierUrl) === '') {
@@ -85,20 +87,24 @@ final class ImportReadinessPolicy
             $blockers[] = TradeImportBlocker::MissingBundle;
         }
 
+        if (! $currencyPriced) {
+            $blockers[] = TradeImportBlocker::MissingCurrencyPrice;
+        }
+
         return $blockers;
     }
 
     /**
-     * Se o total de TF2 acertado está declarado.
+     * Se o total acertado está declarado.
      *
      * Público porque a entrega do supplier exige o mesmo campo antes de aceitar
      * o envio, e as duas pontas precisam da **mesma** régua: medir lá por outro
      * critério deixaria passar o `0`, que é justamente o que faria o rateio de
      * `individual_cost` rodar sem custo.
      */
-    public static function hasTf2Quantity(?string $tf2Quantity): bool
+    public static function hasAmount(?string $amount): bool
     {
-        return self::isPositive($tf2Quantity);
+        return self::isPositive($amount);
     }
 
     /**

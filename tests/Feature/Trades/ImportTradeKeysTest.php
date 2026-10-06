@@ -62,7 +62,7 @@ function importLine(array $overrides = []): array
 }
 
 /**
- * Trade importável: com fornecedor, data e quantidade de TF2.
+ * Trade importável: com fornecedor, data e valor acertado.
  *
  * @param  list<array<string, mixed>>|null  $lines
  */
@@ -76,7 +76,7 @@ function importableTrade(?array $lines = null, array $attrs = []): App\Models\Tr
 
     return TradeFactory::withLines($lines ?? [importLine()], array_merge([
         'supplier_id' => $supplierId,
-        'tf2_qty' => 1.5,
+        'amount' => 1.5,
         'date' => now()->toDateString(),
     ], $attrs));
 }
@@ -211,7 +211,7 @@ describe('POST /trades/{trade}/import', function () {
     });
 
     it('refuses the batch when the trade has no TF2 quantity', function () {
-        $trade = importableTrade(null, ['tf2_qty' => null]);
+        $trade = importableTrade(null, ['amount' => null]);
 
         $this->actingAs(makeAuthorizedImportUser())
             ->postJson(route('trades.import', ['trade' => $trade->id]))
@@ -262,5 +262,72 @@ describe('POST /trades/{trade}/import', function () {
             ->assertStatus(403);
 
         expect(DB::table('keys')->count())->toBe(0);
+    });
+});
+
+describe('POST /trades/{trade}/import — trade paid in cash', function () {
+
+    beforeEach(fn () => seedImportFees());
+
+    // TF2 = €2,00 = $2,20 no seed: €3,00 e $3,30 equivalem a 1,5 TF2, o mesmo
+    // lote do caso em TF2 — a key sai igual, e o resto do sistema não vê dinheiro.
+    it('imports an amount paid in euros as the equivalent TF2 lot', function () {
+        $trade = importableTrade(attrs: ['currency' => 'eur', 'amount' => 3.0]);
+
+        $this->actingAs(makeAuthorizedImportUser())
+            ->postJson(route('trades.import', ['trade' => $trade->id]))
+            ->assertStatus(201);
+
+        $key = DB::table('keys')->where('trade_id', $trade->id)->first();
+
+        expect((float) $key->individual_cost)->toEqualWithDelta(3.0, 0.01)
+            ->and((float) $key->tf2_quantity)->toBe(1.5)
+            ->and($key->total_paid)->toBe('1.5x TF2 Keys / 1');
+    });
+
+    it('imports an amount paid in dollars as the equivalent TF2 lot', function () {
+        $trade = importableTrade(attrs: ['currency' => 'usd', 'amount' => 3.3]);
+
+        $this->actingAs(makeAuthorizedImportUser())
+            ->postJson(route('trades.import', ['trade' => $trade->id]))
+            ->assertStatus(201);
+
+        $key = DB::table('keys')->where('trade_id', $trade->id)->first();
+
+        expect((float) $key->individual_cost)->toEqualWithDelta(3.0, 0.01)
+            ->and((float) $key->tf2_quantity)->toBe(1.5);
+    });
+
+    it('stores a rounded TF2 quantity, never a long decimal', function () {
+        // 1 USD / $2,20 = 0,4545… — a key e o rótulo exibem 0,45, como numa trade em TF2
+        $trade = importableTrade(attrs: ['currency' => 'usd', 'amount' => 1.0]);
+
+        $this->actingAs(makeAuthorizedImportUser())
+            ->postJson(route('trades.import', ['trade' => $trade->id]))
+            ->assertStatus(201);
+
+        expect(DB::table('keys')->where('trade_id', $trade->id)->value('total_paid'))->toBe('0.45x TF2 Keys / 1');
+    });
+
+    it('refuses a cash amount too small to be worth a cent of TF2', function () {
+        // $0,01 / $2,20 = 0,0045 TF2 → 0,00: importaria as keys com custo zerado
+        $trade = importableTrade(attrs: ['currency' => 'usd', 'amount' => 0.01]);
+
+        $this->actingAs(makeAuthorizedImportUser())
+            ->postJson(route('trades.import', ['trade' => $trade->id]))
+            ->assertJsonPath('count', 0);
+
+        expect(DB::table('keys')->where('trade_id', $trade->id)->exists())->toBeFalse();
+    });
+
+    it('refuses the batch when TF2 has no price in the trade currency', function () {
+        DB::table('assets')->where('name', 'TF2')->update(['price_dollar' => 0]);
+        $trade = importableTrade(attrs: ['currency' => 'usd', 'amount' => 3.3]);
+
+        $this->actingAs(makeAuthorizedImportUser())
+            ->postJson(route('trades.import', ['trade' => $trade->id]))
+            ->assertJsonPath('count', 0);
+
+        expect(DB::table('keys')->where('trade_id', $trade->id)->exists())->toBeFalse();
     });
 });

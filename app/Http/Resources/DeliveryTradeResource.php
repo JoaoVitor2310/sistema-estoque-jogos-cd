@@ -32,7 +32,8 @@ class DeliveryTradeResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'tf2_qty' => $this->tf2_qty,
+            'amount' => $this->amount,
+            'currency' => $this->currency->value,
             'supplier_notes' => $this->supplier_notes,
             'delivered_at' => $this->delivered_at?->toIso8601String(),
             'lines' => $this->lines->map(fn (TradeLine $line) => [

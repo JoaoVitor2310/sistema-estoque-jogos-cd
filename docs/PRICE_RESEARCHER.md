@@ -189,6 +189,10 @@ Enfileira a busca de novos fornecedores no SteamTrades. Resposta imediata (202);
 
 > **A resposta de `POST /suppliers/prospect` pode trazer menos jogos do que foram pesquisados.** Jogo de que já há estoque encalhado é tirado de `profitable` e do `total_tf2_price` — é o que impede o comentário de oferecer o que já está parado. O que ficou de fora **não volta na resposta**: quem decide o que ofertar é o Sistema-Estoque, e o serviço só precisa do que comentar. Lista em que todo jogo lucrativo está encalhado responde `should_comment: false`. Regra em [`docs/PRODUCT.md`](PRODUCT.md#jogo-encalhado-é-sinalizado-na-trade).
 
+> **Nome do preço de mercado.** Nos jogos do pedido e do callback o campo é `market_price_euro`. O nome antigo, `price_euro`, não é mais aceito: um jogo sem `market_price_euro` responde 422 (`games.N.market_price_euro`), e a resposta de `/suppliers/prospect` não o repete em `profitable[]`.
+>
+> **Moeda de oferta.** `POST /suppliers/prospect` aceita `offer_currency` (`tf2` | `eur` | `usd`; ausente = `tf2`). Em `eur`/`usd` a resposta traz `offer_currency`, `total_offer_price` e `offer_price` em cada item de `profitable`, na moeda pedida — sempre números JSON, arredondados por jogo, com o total somando os já arredondados. `tf2_price`/`total_tf2_price` continuam na resposta. Moeda fora do enum → 422; sem cotação da TF2 na moeda **e** com comentário a postar → 503, sem gravar trade nenhuma. A trade nasce com a moeda pedida. Regra em [`docs/PRODUCT.md`](PRODUCT.md#moeda-da-trade).
+>
 > O Sistema-Estoque propaga o `202` e a mensagem "Busca de novos fornecedores enfileirada." para o frontend — o botão "Procurar novos" (`Suppliers.vue`) não espera nem recarrega a lista após a chamada, pois o resultado chega de forma assíncrona pelo callback de `/suppliers/prospect`.
 
 ---
@@ -232,7 +236,7 @@ Disparado pela opção **"Pesquisar Preços"** do menu de cada bundle em `Bundle
 
 > ⚠️ **Modo demo é falso sucesso.** Sem `internal_secret` (ou com ele errado) o serviço **não recusa**: responde `200` com `{ "success": true, "demo": true, "games": [...] }`, processa só 10 jogos e **nunca chama o callback**. `ResearchBundleGamesUseCase` trata esse `200` como erro de configuração (500 + log) justamente porque o disparo pareceria ter dado certo e nunca viraria trade.
 
-**Preço:** o `price_euro` que volta no callback é o melhor preço do AllKeyShop entre os marketplaces — nunca foi o preço da Gamivo, e com `checkGamivoOffer: false` o jogo pode nem ter oferta lá.
+**Preço:** o `market_price_euro` que volta no callback é o melhor preço do AllKeyShop entre os marketplaces — nunca foi o preço da Gamivo, e com `checkGamivoOffer: false` o jogo pode nem ter oferta lá.
 
 ---
 
@@ -244,7 +248,7 @@ Endpoint **do sistema-estoque**, destino do resultado dos fluxos assíncronos (e
 {
   "title": "Humble Perplexing Puzzles Bundle",
   "games": [
-    { "name": "Taiji", "price_euro": 1.23, "popularity": 542, "region": "global", "id_steam": "70", "gamivo_id": "12345" }
+    { "name": "Taiji", "market_price_euro": 1.23, "popularity": 542, "region": "global", "id_steam": "70", "gamivo_id": "12345" }
   ]
 }
 ```

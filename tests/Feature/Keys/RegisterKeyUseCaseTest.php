@@ -82,7 +82,7 @@ function newTrade(?array $lines = null, array $attrs = []): Trade
 
     return TradeFactory::withLines($lines ?? [makeLine()], array_merge([
         'supplier_id' => $supplierId,
-        'tf2_qty' => 2.0,
+        'amount' => 2.0,
         'date' => now()->toDateString(),
     ], $attrs));
 }
@@ -150,7 +150,7 @@ describe('RegisterKeyUseCase', function () {
     });
 
     it('reads acquired_at and tf2_quantity from the trade itself', function () {
-        $trade = newTrade(null, ['date' => '2026-03-04', 'tf2_qty' => 3.5]);
+        $trade = newTrade(null, ['date' => '2026-03-04', 'amount' => 3.5]);
 
         $key = app(RegisterKeyUseCase::class)->execute($trade)['games'][0];
 
@@ -188,17 +188,17 @@ describe('RegisterKeyUseCase', function () {
     });
 
     it('refuses the batch when the trade has no TF2 quantity', function () {
-        $trade = newTrade(null, ['tf2_qty' => null]);
+        $trade = newTrade(null, ['amount' => null]);
 
         $result = app(RegisterKeyUseCase::class)->execute($trade);
 
         expect($result['games'])->toBeEmpty()
-            ->and($result['message'])->toContain('quantidade de TF2')
+            ->and($result['message'])->toContain('valor acertado')
             ->and(DB::table('keys')->count())->toBe(0);
     });
 
     it('refuses the batch when the trade has no supplier', function () {
-        $trade = TradeFactory::withLines([makeLine()], ['tf2_qty' => 2.0, 'date' => now()->toDateString()]);
+        $trade = TradeFactory::withLines([makeLine()], ['amount' => 2.0, 'date' => now()->toDateString()]);
 
         $result = app(RegisterKeyUseCase::class)->execute($trade);
 
@@ -257,7 +257,7 @@ describe('RegisterKeyUseCase', function () {
         $trade = newTrade([
             makeLine(['key_code' => 'KEY-A-00001']),
             makeLine(['key_code' => 'KEY-B-00002']),
-        ], ['tf2_qty' => 3.5]);
+        ], ['amount' => 3.5]);
 
         $result = app(RegisterKeyUseCase::class)->execute($trade);
 
@@ -363,7 +363,7 @@ describe('RegisterKeyUseCase', function () {
         $trade = TradeFactory::withLines([makeLine()], [
             'purchase_channel' => 'bundle_store',
             'bundle_id' => $bundleId,
-            'tf2_qty' => 2.0,
+            'amount' => 2.0,
             'date' => now()->toDateString(),
         ]);
 
@@ -378,7 +378,7 @@ describe('RegisterKeyUseCase', function () {
         $trade = TradeFactory::withLines([makeLine()], [
             'purchase_channel' => 'bundle_store',
             'bundle_id' => $bundleId,
-            'tf2_qty' => 2.0,
+            'amount' => 2.0,
             'date' => now()->toDateString(),
         ]);
 
@@ -390,7 +390,7 @@ describe('RegisterKeyUseCase', function () {
     it('refuses a direct bundle store purchase without its bundle', function () {
         $trade = TradeFactory::withLines([makeLine()], [
             'purchase_channel' => 'bundle_store',
-            'tf2_qty' => 2.0,
+            'amount' => 2.0,
             'date' => now()->toDateString(),
         ]);
 
@@ -404,7 +404,7 @@ describe('RegisterKeyUseCase', function () {
     it('registers a Gamivo purchase without supplier or bundle, with Gamivo as source', function () {
         $trade = TradeFactory::withLines([makeLine()], [
             'purchase_channel' => 'gamivo',
-            'tf2_qty' => 2.0,
+            'amount' => 2.0,
             'date' => now()->toDateString(),
         ]);
 

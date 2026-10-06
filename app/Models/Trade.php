@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Domain\Enums\PurchaseChannel;
+use App\Domain\Enums\TradeCurrency;
 use App\Domain\Enums\TradeDeliveryState;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Database\Eloquent\Model;
@@ -22,7 +23,7 @@ class Trade extends Model
      * explícita. São o endereço, o segredo e o marco da entrega — nada que
      * chegue de um payload deve alcançá-los por atribuição em massa.
      */
-    protected $fillable = ['supplier_id', 'purchase_channel', 'bundle_id', 'list_code', 'last_commented_at', 'title', 'date', 'message_sent', 'is_imported', 'tf2_qty', 'supplier_notes'];
+    protected $fillable = ['supplier_id', 'purchase_channel', 'bundle_id', 'list_code', 'last_commented_at', 'title', 'date', 'message_sent', 'is_imported', 'amount', 'currency', 'supplier_notes'];
 
     /**
      * O token nunca sai numa serialização automática. Quem o expõe é a projeção
@@ -37,15 +38,17 @@ class Trade extends Model
      */
     protected $attributes = [
         'purchase_channel' => 'supplier_trade',
+        'currency' => TradeCurrency::Tf2->value,
     ];
 
     protected $casts = [
         'purchase_channel' => PurchaseChannel::class,
+        'currency' => TradeCurrency::class,
         'message_sent' => 'boolean',
         'is_imported' => 'boolean',
         'last_commented_at' => 'datetime',
         'date' => 'date',
-        'tf2_qty' => 'decimal:2',
+        'amount' => 'decimal:2',
         'delivered_at' => 'datetime',
         // Encriptado, não em hash: o código fica à vista na aba para a equipe
         // copiar, e isso exige poder lê-lo de volta (ver docs/adr/0008).

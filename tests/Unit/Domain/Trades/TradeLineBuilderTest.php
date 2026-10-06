@@ -9,8 +9,8 @@ describe('TradeLineBuilder::fromResearch', function () {
         // só a copia, como qualquer outro campo pesquisado.
         $lines = TradeLineBuilder::fromResearch(
             [
-                ['name' => 'Half-Life', 'price_euro' => 4.50, 'popularity' => 500, 'region' => null, 'is_overstocked' => true],
-                ['name' => 'Portal', 'price_euro' => 2.00, 'popularity' => 100, 'region' => null],
+                ['name' => 'Half-Life', 'market_price_euro' => 4.50, 'popularity' => 500, 'region' => null, 'is_overstocked' => true],
+                ['name' => 'Portal', 'market_price_euro' => 2.00, 'popularity' => 100, 'region' => null],
             ],
             [],
         );
@@ -20,7 +20,7 @@ describe('TradeLineBuilder::fromResearch', function () {
 
     it('converts a researched game into trade line attributes', function () {
         $lines = TradeLineBuilder::fromResearch(
-            [['name' => 'Half-Life', 'price_euro' => 4.50, 'popularity' => 500, 'region' => 'EU']],
+            [['name' => 'Half-Life', 'market_price_euro' => 4.50, 'popularity' => 500, 'region' => 'EU']],
             [],
         );
 
@@ -41,9 +41,9 @@ describe('TradeLineBuilder::fromResearch', function () {
     it('numbers the positions in payload order', function () {
         $lines = TradeLineBuilder::fromResearch(
             [
-                ['name' => 'Half-Life', 'price_euro' => 4.50, 'popularity' => 500, 'region' => null],
-                ['name' => 'Portal', 'price_euro' => 2.00, 'popularity' => 100, 'region' => null],
-                ['name' => 'Left 4 Dead', 'price_euro' => 3.00, 'popularity' => 200, 'region' => null],
+                ['name' => 'Half-Life', 'market_price_euro' => 4.50, 'popularity' => 500, 'region' => null],
+                ['name' => 'Portal', 'market_price_euro' => 2.00, 'popularity' => 100, 'region' => null],
+                ['name' => 'Left 4 Dead', 'market_price_euro' => 3.00, 'popularity' => 200, 'region' => null],
             ],
             [],
         );
@@ -53,7 +53,7 @@ describe('TradeLineBuilder::fromResearch', function () {
 
     it('formats price with 2 decimal places', function () {
         $lines = TradeLineBuilder::fromResearch(
-            [['name' => 'Portal', 'price_euro' => 10.0, 'popularity' => 100, 'region' => null]],
+            [['name' => 'Portal', 'market_price_euro' => 10.0, 'popularity' => 100, 'region' => null]],
             [],
         );
 
@@ -62,7 +62,7 @@ describe('TradeLineBuilder::fromResearch', function () {
 
     it('keeps null region as null', function () {
         $lines = TradeLineBuilder::fromResearch(
-            [['name' => 'Portal', 'price_euro' => 3.00, 'popularity' => 100, 'region' => null]],
+            [['name' => 'Portal', 'market_price_euro' => 3.00, 'popularity' => 100, 'region' => null]],
             [],
         );
 
@@ -71,7 +71,7 @@ describe('TradeLineBuilder::fromResearch', function () {
 
     it('treats a missing region key as null', function () {
         $lines = TradeLineBuilder::fromResearch(
-            [['name' => 'Portal', 'price_euro' => 3.00, 'popularity' => 100]],
+            [['name' => 'Portal', 'market_price_euro' => 3.00, 'popularity' => 100]],
             [],
         );
 
@@ -80,7 +80,7 @@ describe('TradeLineBuilder::fromResearch', function () {
 
     it('reads popularity as an integer', function () {
         $lines = TradeLineBuilder::fromResearch(
-            [['name' => 'Portal', 'price_euro' => 3.00, 'popularity' => '500', 'region' => null]],
+            [['name' => 'Portal', 'market_price_euro' => 3.00, 'popularity' => '500', 'region' => null]],
             [],
         );
 
@@ -89,7 +89,7 @@ describe('TradeLineBuilder::fromResearch', function () {
 
     it('carries gamivo_id through', function () {
         $lines = TradeLineBuilder::fromResearch(
-            [['name' => 'Half-Life', 'price_euro' => 4.50, 'popularity' => 500, 'region' => null, 'gamivo_id' => '144601']],
+            [['name' => 'Half-Life', 'market_price_euro' => 4.50, 'popularity' => 500, 'region' => null, 'gamivo_id' => '144601']],
             [],
         );
 
@@ -98,7 +98,7 @@ describe('TradeLineBuilder::fromResearch', function () {
 
     it('leaves gamivo_id null when the researcher did not resolve one', function () {
         $lines = TradeLineBuilder::fromResearch(
-            [['name' => 'Half-Life', 'price_euro' => 4.50, 'popularity' => 500, 'region' => null]],
+            [['name' => 'Half-Life', 'market_price_euro' => 4.50, 'popularity' => 500, 'region' => null]],
             [],
         );
 
@@ -108,7 +108,7 @@ describe('TradeLineBuilder::fromResearch', function () {
     it('fills bundle from the map, matching by normalized name', function () {
         // O mapa vem com a chave já normalizada; o nome pesquisado não.
         $lines = TradeLineBuilder::fromResearch(
-            [['name' => 'The Witcher III', 'price_euro' => 4.00, 'popularity' => 800, 'region' => null]],
+            [['name' => 'The Witcher III', 'market_price_euro' => 4.00, 'popularity' => 800, 'region' => null]],
             ['witcher 3' => 'RPG Bundle'],
         );
 
@@ -117,7 +117,7 @@ describe('TradeLineBuilder::fromResearch', function () {
 
     it('leaves bundle null when the map has no entry for the game', function () {
         $lines = TradeLineBuilder::fromResearch(
-            [['name' => 'Unknown Game', 'price_euro' => 4.00, 'popularity' => 800, 'region' => null]],
+            [['name' => 'Unknown Game', 'market_price_euro' => 4.00, 'popularity' => 800, 'region' => null]],
             ['witcher 3' => 'RPG Bundle'],
         );
 
@@ -127,8 +127,8 @@ describe('TradeLineBuilder::fromResearch', function () {
     it('leaves every bundle null when the caller resolves no bundle at all', function () {
         $lines = TradeLineBuilder::fromResearch(
             [
-                ['name' => 'The Witcher III', 'price_euro' => 4.00, 'popularity' => 800, 'region' => null],
-                ['name' => 'Portal', 'price_euro' => 3.00, 'popularity' => 100, 'region' => null],
+                ['name' => 'The Witcher III', 'market_price_euro' => 4.00, 'popularity' => 800, 'region' => null],
+                ['name' => 'Portal', 'market_price_euro' => 3.00, 'popularity' => 100, 'region' => null],
             ],
             [],
         );
@@ -139,8 +139,8 @@ describe('TradeLineBuilder::fromResearch', function () {
     it('resolves bundle independently per game', function () {
         $lines = TradeLineBuilder::fromResearch(
             [
-                ['name' => 'Hollow Knight', 'price_euro' => 4.00, 'popularity' => 800, 'region' => null],
-                ['name' => 'Unknown Game', 'price_euro' => 6.00, 'popularity' => 200, 'region' => null],
+                ['name' => 'Hollow Knight', 'market_price_euro' => 4.00, 'popularity' => 800, 'region' => null],
+                ['name' => 'Unknown Game', 'market_price_euro' => 6.00, 'popularity' => 200, 'region' => null],
             ],
             ['hollow knight' => 'Indie Bundle'],
         );
@@ -151,7 +151,7 @@ describe('TradeLineBuilder::fromResearch', function () {
 
     it('starts every line without key code and without expiry', function () {
         $lines = TradeLineBuilder::fromResearch(
-            [['name' => 'Half-Life', 'price_euro' => 4.50, 'popularity' => 500, 'region' => 'EU']],
+            [['name' => 'Half-Life', 'market_price_euro' => 4.50, 'popularity' => 500, 'region' => 'EU']],
             [],
         );
 

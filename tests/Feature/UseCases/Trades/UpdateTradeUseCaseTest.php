@@ -19,22 +19,22 @@ use Illuminate\Support\Facades\DB;
 
 describe('UpdateTradeUseCase', function () {
 
-    it('persists tf2_qty as provided', function () {
+    it('persists amount as provided', function () {
         $trade = Trade::create(['date' => now()->toDateString()]);
 
         app(UpdateTradeUseCase::class)->execute($trade, [
-            'tf2Qty' => '12.5',
+            'amount' => '12.5',
         ]);
 
-        expect($trade->fresh()->tf2_qty)->toBe('12.50');
+        expect($trade->fresh()->amount)->toBe('12.50');
     });
 
-    it('stores null tf2_qty when not provided', function () {
-        $trade = Trade::create(['date' => now()->toDateString(), 'tf2_qty' => '10.00']);
+    it('stores null amount when not provided', function () {
+        $trade = Trade::create(['date' => now()->toDateString(), 'amount' => '10.00']);
 
         app(UpdateTradeUseCase::class)->execute($trade, []);
 
-        expect($trade->fresh()->tf2_qty)->toBeNull();
+        expect($trade->fresh()->amount)->toBeNull();
     });
 });
 

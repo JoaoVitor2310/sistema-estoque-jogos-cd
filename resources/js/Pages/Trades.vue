@@ -44,6 +44,15 @@ const PURCHASE_CHANNEL_OPTIONS: { value: PurchaseChannel; label: string }[] = [
   { value: 'gamivo', label: 'Gamivo' },
 ];
 
+// Espelho de App\Domain\Enums\TradeCurrency — moeda em que a quantidade da trade está.
+type TradeCurrency = 'tf2' | 'eur' | 'usd';
+
+const TRADE_CURRENCY_OPTIONS: { value: TradeCurrency; label: string }[] = [
+  { value: 'tf2', label: 'TF2' },
+  { value: 'eur', label: 'EUR' },
+  { value: 'usd', label: 'USD' },
+];
+
 interface Trade {
   id: number;
   title: string | null;
@@ -51,7 +60,8 @@ interface Trade {
   // `trades.lines.index` quando o card é aberto.
   lines_count: number;
   date: string | null;
-  tf2_qty: string | null;
+  amount: string | null;
+  currency: TradeCurrency;
   purchase_channel: PurchaseChannel;
   supplier: { url: string } | null;
   // Só a compra direta tem bundle, resolvido pelo título; nos outros canais é nulo.
@@ -81,12 +91,12 @@ interface Filters {
   view: 'open' | 'imported' | 'all' | 'awaiting_review';
   date_from: string | null;
   date_to: string | null;
-  tf2_min: string | null;
-  tf2_max: string | null;
+  amount_min: string | null;
+  amount_max: string | null;
   title_search: string | null;
   supplier_search: string | null;
   game_search: string | null;
-  sort: 'date' | 'tf2_qty';
+  sort: 'date' | 'amount';
   dir: 'asc' | 'desc';
 }
 
@@ -159,7 +169,8 @@ interface TradeEntry {
   supplierUrl: string;
   // Somente leitura: o servidor casa o título com um bundle a cada gravação.
   bundleId: number | null;
-  tf2Qty: string;
+  amount: string;
+  currency: TradeCurrency;
   rows: Row[];
   // Quantas linhas o servidor diz que existem. É o que a tela mostra enquanto
   // as linhas não foram buscadas; depois disso quem manda é `rows` (que muda
@@ -302,8 +313,8 @@ function resetFilters() {
     view: 'open',
     date_from: null,
     date_to: null,
-    tf2_min: null,
-    tf2_max: null,
+    amount_min: null,
+    amount_max: null,
     title_search: null,
     supplier_search: null,
     game_search: null,
@@ -360,7 +371,8 @@ function toTradeEntry(t: Trade): TradeEntry {
     purchaseChannel: t.purchase_channel ?? 'supplier_trade',
     supplierUrl: t.supplier?.url ?? '',
     bundleId: t.bundle_id ?? null,
-    tf2Qty: t.tf2_qty ?? '',
+    amount: t.amount ?? '',
+    currency: t.currency ?? 'tf2',
     rows: [],
     linesCount: t.lines_count ?? 0,
     linesLoaded: false,
@@ -396,7 +408,8 @@ function tradePayload(trade: TradeEntry) {
     purchaseChannel: trade.purchaseChannel,
     supplierUrl: trade.supplierUrl,
     date: trade.date,
-    tf2Qty: trade.tf2Qty.replace(',', '.'),
+    amount: trade.amount.replace(',', '.'),
+    currency: trade.currency,
     message_sent: trade.messageSent,
   };
 }
@@ -908,8 +921,8 @@ const hasMissingMarketPrices = (trade: TradeEntry) =>
   trade.rows.some(r => isRowMeaningful(r) && hasMissingMarketPrice(r));
 const hasMissingNames = (trade: TradeEntry) =>
   trade.rows.some(r => isRowMeaningful(r) && hasMissingName(r));
-const hasMissingTf2 = (trade: TradeEntry) =>
-  !(parseFloat((trade.tf2Qty ?? '').replace(',', '.')) > 0);
+const hasMissingAmount = (trade: TradeEntry) =>
+  !(parseFloat((trade.amount ?? '').replace(',', '.')) > 0);
 // Espelho de PurchaseChannel::requiresSupplier()/requiresBundle() no PHP.
 const hasMissingSupplierUrl = (trade: TradeEntry) =>
   trade.purchaseChannel === 'supplier_trade' && !(trade.supplierUrl ?? '').trim();
@@ -920,7 +933,7 @@ const canImport = (trade: TradeEntry) =>
   && !hasMissingKeyCodes(trade)
   && !hasMissingMarketPrices(trade)
   && !hasMissingNames(trade)
-  && !hasMissingTf2(trade)
+  && !hasMissingAmount(trade)
   && !hasMissingSupplierUrl(trade)
   && !hasMissingBundle(trade);
 
@@ -1424,9 +1437,9 @@ function formatDeliveredAt(iso: string): string {
 
         <!-- Range de TF2 -->
         <div class="d-flex align-items-center gap-1">
-          <span class="text-muted small">TF2:</span>
+          <span class="text-muted small">Qtd:</span>
           <input
-            v-model="localFilters.tf2_min"
+            v-model="localFilters.amount_min"
             type="number"
             step="0.01"
             min="0"
@@ -1436,7 +1449,7 @@ function formatDeliveredAt(iso: string): string {
           />
           <span class="text-muted small">–</span>
           <input
-            v-model="localFilters.tf2_max"
+            v-model="localFilters.amount_max"
             type="number"
             step="0.01"
             min="0"
@@ -1462,10 +1475,10 @@ function formatDeliveredAt(iso: string): string {
           <button
             type="button"
             class="btn btn-sm"
-            :class="localFilters.sort === 'tf2_qty' ? 'btn-secondary' : 'btn-outline-secondary'"
-            @click="setSort('tf2_qty')"
+            :class="localFilters.sort === 'amount' ? 'btn-secondary' : 'btn-outline-secondary'"
+            @click="setSort('amount')"
           >
-            Qtd TF2 <i :class="headerSortIcon('tf2_qty')" class="ms-1 sort-icon" />
+            Qtd <i :class="headerSortIcon('amount')" class="ms-1 sort-icon" />
           </button>
         </div>
 
@@ -1567,11 +1580,24 @@ function formatDeliveredAt(iso: string): string {
                 />
               </div>
               <div class="trade-meta-field">
-                <span class="trade-meta-label">Qtd TF2</span>
+                <span class="trade-meta-label">Moeda</span>
+                <select
+                  v-model="trade.currency"
+                  class="cell-input trade-meta-input trade-meta-input--currency"
+                  title="Moeda em que a quantidade foi acertada com o fornecedor"
+                  @change="scheduleAutosave(trade)"
+                >
+                  <option v-for="currency in TRADE_CURRENCY_OPTIONS" :key="currency.value" :value="currency.value">
+                    {{ currency.label }}
+                  </option>
+                </select>
+              </div>
+              <div class="trade-meta-field">
+                <span class="trade-meta-label">Qtd</span>
                 <input
-                  v-model="trade.tf2Qty"
+                  v-model="trade.amount"
                   class="cell-input trade-meta-input trade-meta-input--tf2"
-                  :class="{ 'is-missing': hasMissingTf2(trade) }"
+                  :class="{ 'is-missing': hasMissingAmount(trade) }"
                   placeholder="0,00"
                   @input="scheduleAutosave(trade)"
                 />
@@ -2067,6 +2093,10 @@ function formatDeliveredAt(iso: string): string {
   min-width: 170px;
   font-size: 0.75rem;
   color: #6c757d;
+}
+
+.trade-meta-input--currency {
+  width: 56px;
 }
 
 .trade-meta-input--tf2 {

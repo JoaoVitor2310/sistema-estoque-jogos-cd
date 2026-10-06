@@ -17,13 +17,13 @@ use Tests\Support\TradeFactory;
 describe('SubmitTradeDeliveryUseCase — partial patch', function () {
 
     it('changes only the columns the payload carried', function () {
-        $trade = TradeFactory::withLines(['Portal'], ['tf2_qty' => '5.00', 'supplier_notes' => 'kept']);
+        $trade = TradeFactory::withLines(['Portal'], ['amount' => '5.00', 'supplier_notes' => 'kept']);
 
-        app(SubmitTradeDeliveryUseCase::class)->execute($trade, DeliveryFactory::dto(['tf2_qty' => '9']));
+        app(SubmitTradeDeliveryUseCase::class)->execute($trade, DeliveryFactory::dto(['amount' => '9']));
 
         $trade->refresh();
 
-        expect($trade->tf2_qty)->toBe('9.00')
+        expect($trade->amount)->toBe('9.00')
             ->and($trade->supplier_notes)->toBe('kept');
     });
 
@@ -36,11 +36,11 @@ describe('SubmitTradeDeliveryUseCase — partial patch', function () {
     });
 
     it('leaves the trade untouched when the payload carries nothing', function () {
-        $trade = TradeFactory::withLines(['Portal'], ['tf2_qty' => '5.00']);
+        $trade = TradeFactory::withLines(['Portal'], ['amount' => '5.00']);
 
         app(SubmitTradeDeliveryUseCase::class)->execute($trade, DeliveryFactory::dto());
 
-        expect($trade->fresh()->tf2_qty)->toBe('5.00');
+        expect($trade->fresh()->amount)->toBe('5.00');
     });
 
     it('cannot reach any other column of the trade', function () {
@@ -49,7 +49,7 @@ describe('SubmitTradeDeliveryUseCase — partial patch', function () {
         $trade = TradeFactory::withLines(['Portal'], ['title' => 'internal note', 'is_imported' => false]);
 
         app(SubmitTradeDeliveryUseCase::class)->execute($trade, DeliveryFactory::dto([
-            'tf2_qty' => '9',
+            'amount' => '9',
             'title' => 'hijacked',
             'is_imported' => true,
         ]));

@@ -7,7 +7,7 @@
 |
 | O que a rota não cobre e vive aqui: o marco é do primeiro clique e nunca
 | anda para frente — reenviar não reabre a contagem para quem revisa —, a
-| entrega sem o total de TF2 acertado é recusada, e a entrega avisa a equipe
+| entrega sem o total acertado é recusada, e a entrega avisa a equipe
 | por e-mail sem que uma falha de envio custe a entrega.
 |
 */
@@ -20,7 +20,7 @@ use Tests\Support\TradeFactory;
 describe('MarkTradeDeliveredUseCase', function () {
 
     it('records the moment of the first click', function () {
-        $trade = TradeFactory::withLines(['Portal'], ['tf2_qty' => '10']);
+        $trade = TradeFactory::withLines(['Portal'], ['amount' => '10']);
 
         app(MarkTradeDeliveredUseCase::class)->execute($trade);
 
@@ -28,7 +28,7 @@ describe('MarkTradeDeliveredUseCase', function () {
     });
 
     it('never moves the mark forward', function () {
-        $trade = TradeFactory::withLines(['Portal'], ['tf2_qty' => '10']);
+        $trade = TradeFactory::withLines(['Portal'], ['amount' => '10']);
 
         app(MarkTradeDeliveredUseCase::class)->execute($trade);
         $first = $trade->fresh()->delivered_at;
@@ -39,7 +39,7 @@ describe('MarkTradeDeliveredUseCase', function () {
         expect($trade->fresh()->delivered_at->toIso8601String())->toBe($first->toIso8601String());
     });
 
-    it('refuses a delivery that does not say how many TF2 keys were agreed', function () {
+    it('refuses a delivery that does not say what total was agreed', function () {
         // O número só existe do lado dele. Sem ele a trade chegaria à fila já
         // bloqueada para o import, e a equipe teria de perguntar no chat a quem
         // já considerou o assunto encerrado.
@@ -57,10 +57,20 @@ describe('MarkTradeDeliveredUseCase', function () {
     });
 
     it('refuses a zeroed total, the same way the import does', function () {
-        $trade = TradeFactory::withLines(['Portal'], ['tf2_qty' => '0']);
+        $trade = TradeFactory::withLines(['Portal'], ['amount' => '0']);
 
         expect(app(MarkTradeDeliveredUseCase::class)->execute($trade))->toBeFalse()
             ->and($trade->fresh()->delivered_at)->toBeNull();
+    });
+
+    it('tells the team the agreed amount with its currency', function () {
+        Mail::fake();
+
+        $trade = TradeFactory::withLines([['game_name' => 'Portal', 'key_code' => 'AAA-BBB']], ['amount' => '12.50', 'currency' => 'usd']);
+
+        app(MarkTradeDeliveredUseCase::class)->execute($trade);
+
+        Mail::assertSent(TradeDeliveredMail::class, fn (TradeDeliveredMail $mail) => str_contains($mail->render(), '12.50 USD'));
     });
 
     it('alerts the team that the delivery arrived', function () {
@@ -69,7 +79,7 @@ describe('MarkTradeDeliveredUseCase', function () {
         $trade = TradeFactory::withLines([
             ['game_name' => 'Portal', 'key_code' => 'AAA-BBB'],
             ['game_name' => 'Half-Life'],
-        ], ['tf2_qty' => '10']);
+        ], ['amount' => '10']);
 
         app(MarkTradeDeliveredUseCase::class)->execute($trade);
 
@@ -100,7 +110,7 @@ describe('MarkTradeDeliveredUseCase', function () {
     it('spells the call-to-action colour out inline', function () {
         // Cliente de e-mail impõe a própria cor de link: sem a cor no atributo
         // `style` da âncora, o texto sai azul sobre o roxo do botão.
-        $trade = TradeFactory::withLines(['Portal'], ['tf2_qty' => '10'])->load('supplier');
+        $trade = TradeFactory::withLines(['Portal'], ['amount' => '10'])->load('supplier');
         $trade->delivered_at = now();
 
         $body = (new TradeDeliveredMail($trade, 1, 1))->render();
@@ -111,7 +121,7 @@ describe('MarkTradeDeliveredUseCase', function () {
     it('does not alert twice when the button is clicked again', function () {
         Mail::fake();
 
-        $trade = TradeFactory::withLines(['Portal'], ['tf2_qty' => '10']);
+        $trade = TradeFactory::withLines(['Portal'], ['amount' => '10']);
 
         app(MarkTradeDeliveredUseCase::class)->execute($trade);
         app(MarkTradeDeliveredUseCase::class)->execute($trade->fresh());
@@ -124,7 +134,7 @@ describe('MarkTradeDeliveredUseCase', function () {
         // erro de SMTP, e o dado dele já está salvo.
         Mail::shouldReceive('to')->andThrow(new RuntimeException('smtp down'));
 
-        $trade = TradeFactory::withLines(['Portal'], ['tf2_qty' => '10']);
+        $trade = TradeFactory::withLines(['Portal'], ['amount' => '10']);
 
         app(MarkTradeDeliveredUseCase::class)->execute($trade);
 
