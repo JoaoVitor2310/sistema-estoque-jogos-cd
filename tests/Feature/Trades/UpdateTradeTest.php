@@ -7,10 +7,10 @@
 |
 | Casos testados:
 |
-|   Validação de tf2Qty:
-|     1. tf2Qty com vírgula (formato pt-BR)  → 422
-|     2. tf2Qty com ponto                    → 200, persiste corretamente
-|     3. tf2Qty ausente                      → 200, persiste null
+|   Validação de amount:
+|     1. amount com vírgula (formato pt-BR)  → 422
+|     2. amount com ponto                    → 200, persiste corretamente
+|     3. amount ausente                      → 200, persiste null
 |
 |   Canal de compra (contrato HTTP — as regras de gravação vivem em
 |   tests/Feature/UseCases/Trades/UpdateTradeUseCaseTest.php):
@@ -21,6 +21,7 @@
 */
 
 use App\Domain\Enums\PurchaseChannel;
+use App\Domain\Enums\TradeCurrency;
 use App\Models\AuthorizedUsers;
 use App\Models\Bundle;
 use App\Models\Trade;
@@ -34,35 +35,75 @@ function authorizedUser(): User
     return $user;
 }
 
-describe('PUT /trades/{trade} — tf2Qty validation', function () {
+describe('PUT /trades/{trade} — amount validation', function () {
 
-    it('rejects tf2Qty with comma as decimal separator', function () {
+    it('rejects amount with comma as decimal separator', function () {
         $trade = Trade::create(['date' => now()->toDateString()]);
 
         $this->actingAs(authorizedUser())
-            ->putJson("/trades/{$trade->id}", ['tf2Qty' => '12,5'])
+            ->putJson("/trades/{$trade->id}", ['amount' => '12,5'])
             ->assertStatus(422)
-            ->assertJsonValidationErrors('tf2Qty');
+            ->assertJsonValidationErrors('amount');
     });
 
-    it('accepts tf2Qty with period as decimal separator', function () {
+    it('accepts amount with period as decimal separator', function () {
         $trade = Trade::create(['date' => now()->toDateString()]);
 
         $this->actingAs(authorizedUser())
-            ->putJson("/trades/{$trade->id}", ['tf2Qty' => '12.5'])
+            ->putJson("/trades/{$trade->id}", ['amount' => '12.5'])
             ->assertStatus(200);
 
-        expect($trade->fresh()->tf2_qty)->toBe('12.50');
+        expect($trade->fresh()->amount)->toBe('12.50');
     });
 
-    it('persists null tf2_qty when not provided', function () {
-        $trade = Trade::create(['date' => now()->toDateString(), 'tf2_qty' => '10.00']);
+    it('persists null amount when not provided', function () {
+        $trade = Trade::create(['date' => now()->toDateString(), 'amount' => '10.00']);
 
         $this->actingAs(authorizedUser())
             ->putJson("/trades/{$trade->id}", [])
             ->assertStatus(200);
 
-        expect($trade->fresh()->tf2_qty)->toBeNull();
+        expect($trade->fresh()->amount)->toBeNull();
+    });
+});
+
+describe('PUT /trades/{trade} — currency', function () {
+
+    it('defaults a new trade to TF2', function () {
+        $trade = Trade::create(['date' => now()->toDateString()]);
+
+        expect($trade->currency)->toBe(TradeCurrency::Tf2)
+            ->and($trade->fresh()->currency)->toBe(TradeCurrency::Tf2);
+    });
+
+    it('persists the currency the quantity was agreed in', function () {
+        $trade = Trade::create(['date' => now()->toDateString()]);
+
+        $this->actingAs(authorizedUser())
+            ->putJson("/trades/{$trade->id}", ['currency' => 'usd', 'amount' => '25.00'])
+            ->assertStatus(200);
+
+        expect($trade->fresh()->currency)->toBe(TradeCurrency::Usd);
+    });
+
+    it('keeps the stored currency when the payload does not mention it', function () {
+        // Aba antiga ou cliente que só edita o título não pode reclassificar o valor acertado.
+        $trade = Trade::create(['date' => now()->toDateString(), 'currency' => 'eur', 'amount' => '30.00']);
+
+        $this->actingAs(authorizedUser())
+            ->putJson("/trades/{$trade->id}", ['title' => 'Renamed', 'amount' => '30.00'])
+            ->assertStatus(200);
+
+        expect($trade->fresh()->currency)->toBe(TradeCurrency::Eur);
+    });
+
+    it('rejects a currency outside the enum', function () {
+        $trade = Trade::create(['date' => now()->toDateString()]);
+
+        $this->actingAs(authorizedUser())
+            ->putJson("/trades/{$trade->id}", ['currency' => 'gbp'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('currency');
     });
 });
 

@@ -15,7 +15,7 @@ class TradeService
      * Colunas permitidas para ordenação (whitelist).
      * `orderBy` genérico com input do usuário é vetor de SQL injection.
      */
-    public const SORTABLE_FIELDS = ['date', 'tf2_qty'];
+    public const SORTABLE_FIELDS = ['date', 'amount'];
 
     /**
      * Views suportadas — controla o filtro sobre `is_imported`.
@@ -44,8 +44,8 @@ class TradeService
      *   view?: string,
      *   date_from?: ?string,
      *   date_to?: ?string,
-     *   tf2_min?: ?string,
-     *   tf2_max?: ?string,
+     *   amount_min?: ?string,
+     *   amount_max?: ?string,
      *   title_search?: ?string,
      *   supplier_search?: ?string,
      *   game_search?: ?string,
@@ -74,7 +74,7 @@ class TradeService
 
         $this->applyViewFilter($query, $view);
         $this->applyDateRange($query, $filters['date_from'] ?? null, $filters['date_to'] ?? null);
-        $this->applyTf2Range($query, $filters['tf2_min'] ?? null, $filters['tf2_max'] ?? null);
+        $this->applyTf2Range($query, $filters['amount_min'] ?? null, $filters['amount_max'] ?? null);
         $this->applyTitleSearch($query, $filters['title_search'] ?? null);
         $this->applySupplierSearch($query, $filters['supplier_search'] ?? null);
         $this->applyGameSearch($query, $filters['game_search'] ?? null);
@@ -162,10 +162,10 @@ class TradeService
     private function applyTf2Range(Builder $query, ?string $min, ?string $max): void
     {
         if ($min !== null && $min !== '') {
-            $query->where('tf2_qty', '>=', $min);
+            $query->where('amount', '>=', $min);
         }
         if ($max !== null && $max !== '') {
-            $query->where('tf2_qty', '<=', $max);
+            $query->where('amount', '<=', $max);
         }
     }
 
@@ -228,7 +228,8 @@ class TradeService
             // Só a contagem: as linhas vêm por [[self::linesFor]] ao abrir.
             'lines_count' => (int) $trade->lines_count,
             'date' => $trade->date?->format('d/m/Y'),
-            'tf2_qty' => $trade->tf2_qty,
+            'amount' => $trade->amount,
+            'currency' => $trade->currency->value,
             'purchase_channel' => $trade->purchase_channel->value,
             'supplier' => $trade->supplier ? ['url' => $trade->supplier->url] : null,
             'bundle_id' => $trade->bundle_id,

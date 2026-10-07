@@ -3,6 +3,7 @@
 namespace App\UseCases\Trades;
 
 use App\Domain\Enums\PurchaseChannel;
+use App\Domain\Enums\TradeCurrency;
 use App\Models\Trade;
 use App\Services\Bundles\BundleService;
 use App\Services\Suppliers\SupplierService;
@@ -29,7 +30,7 @@ class UpdateTradeUseCase
      * bundle nenhum deixa `bundle_id` nulo, e o import recusa a trade por isso —
      * a falha aparece, não passa calada.
      *
-     * @param  array{title?: string|null, purchaseChannel?: string|null, supplierUrl?: string|null, date?: string|null, tf2Qty?: string|null, message_sent?: bool}  $data
+     * @param  array{title?: string|null, purchaseChannel?: string|null, supplierUrl?: string|null, date?: string|null, amount?: string|null, currency?: string|null, message_sent?: bool}  $data
      */
     public function execute(Trade $trade, array $data): void
     {
@@ -45,7 +46,10 @@ class UpdateTradeUseCase
                 ? $this->bundleService->findIdByName($data['title'] ?? null)
                 : null,
             'date' => $this->parseDate($data['date'] ?? null),
-            'tf2_qty' => ($data['tf2Qty'] ?? null) ?: null,
+            'amount' => ($data['amount'] ?? null) ?: null,
+            // Campo ausente preserva a moeda: gravação que não a menciona (aba antiga,
+            // cliente que só edita título) não pode reclassificar o valor acertado.
+            'currency' => TradeCurrency::tryFrom($data['currency'] ?? '') ?? $trade->currency,
             'message_sent' => (bool) ($data['message_sent'] ?? false),
         ]);
     }

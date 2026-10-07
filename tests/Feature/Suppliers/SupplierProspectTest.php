@@ -77,7 +77,7 @@ function validPayload(array $overrides = []): array
     return array_merge([
         'supplier_steam_id' => SUPPLIER_STEAM_ID,
         'games' => [
-            ['name' => 'Half-Life', 'price_euro' => 4.50, 'popularity' => 500, 'region' => null],
+            ['name' => 'Half-Life', 'market_price_euro' => 4.50, 'popularity' => 500, 'region' => null],
         ],
     ], $overrides);
 }
@@ -196,7 +196,7 @@ describe('POST /suppliers/prospect — trade creation', function () {
 
     it('does not create a trade when no games are profitable', function () {
         $payload = validPayload(['games' => [
-            ['name' => 'Junk Game', 'price_euro' => 0.05, 'popularity' => 1, 'region' => null],
+            ['name' => 'Junk Game', 'market_price_euro' => 0.05, 'popularity' => 1, 'region' => null],
         ]]);
 
         $this->withToken(PROSPECT_SECRET)
@@ -234,7 +234,7 @@ describe('POST /suppliers/prospect — gamivo_id', function () {
 
     it('propagates gamivo_id to profitable and to the created trade line', function () {
         $payload = validPayload(['games' => [
-            ['name' => 'Half-Life', 'price_euro' => 4.50, 'popularity' => 500, 'region' => null, 'gamivo_id' => '144601'],
+            ['name' => 'Half-Life', 'market_price_euro' => 4.50, 'popularity' => 500, 'region' => null, 'gamivo_id' => '144601'],
         ]]);
 
         $response = $this->withToken(PROSPECT_SECRET)
@@ -309,7 +309,7 @@ describe('POST /suppliers/prospect — profitability', function () {
 
     it('returns empty profitable when no games are profitable', function () {
         $payload = validPayload(['games' => [
-            ['name' => 'Junk Game', 'price_euro' => 0.05, 'popularity' => 1, 'region' => null],
+            ['name' => 'Junk Game', 'market_price_euro' => 0.05, 'popularity' => 1, 'region' => null],
         ]]);
 
         $response = $this->withToken(PROSPECT_SECRET)
@@ -323,8 +323,8 @@ describe('POST /suppliers/prospect — profitability', function () {
     it('returns total_tf2_price as the sum of the profitable games tf2_price', function () {
         // €4.50 → 2.46 ; €10.00 → 5.45 ; soma = 7.91
         $payload = validPayload(['games' => [
-            ['name' => 'Cheap Game', 'price_euro' => 4.50, 'popularity' => 100, 'region' => null],
-            ['name' => 'Pricey Game', 'price_euro' => 10.00, 'popularity' => 100, 'region' => null],
+            ['name' => 'Cheap Game', 'market_price_euro' => 4.50, 'popularity' => 100, 'region' => null],
+            ['name' => 'Pricey Game', 'market_price_euro' => 10.00, 'popularity' => 100, 'region' => null],
         ]]);
 
         $response = $this->withToken(PROSPECT_SECRET)
@@ -368,5 +368,162 @@ describe('POST /suppliers/prospect — list_code', function () {
 
         expect($response->json('last_commented_at'))->toBeNull()
             ->and($response->json('games_changed'))->toBeFalse();
+    });
+});
+
+// ── offer_currency ────────────────────────────────────────────────────────────
+
+describe('POST /suppliers/prospect — offer_currency', function () {
+
+    beforeEach(function () {
+        Config::set('services.external_secret', PROSPECT_SECRET);
+        seedProspectDeps();
+        DB::table('assets')->where('name', 'TF2')->update(['price_dollar' => 1.10]);
+    });
+
+    function cashPayload(string $currency): array
+    {
+        return validPayload([
+            'offer_currency' => $currency,
+            'games' => [
+                ['name' => 'Cheap Game', 'market_price_euro' => 4.50, 'popularity' => 100, 'region' => null],
+                ['name' => 'Pricey Game', 'market_price_euro' => 10.00, 'popularity' => 100, 'region' => null],
+            ],
+        ]);
+    }
+
+    it('keeps the TF2 response untouched when the currency is absent or tf2', function () {
+        foreach ([validPayload(), validPayload(['offer_currency' => 'tf2'])] as $payload) {
+            $response = $this->withToken(PROSPECT_SECRET)->postJson('/suppliers/prospect', $payload)->assertStatus(200);
+
+            expect($response->json())->not->toHaveKeys(['offer_currency', 'total_offer_price'])
+                ->and($response->json('profitable.0'))->not->toHaveKey('offer_price');
+        }
+    });
+
+    it('offers in euros: the TF2 offer times the euro price of the TF2', function () {
+        $response = $this->withToken(PROSPECT_SECRET)->postJson('/suppliers/prospect', cashPayload('eur'))->assertStatus(200);
+
+        $profitable = $response->json('profitable');
+
+        expect($response->json('offer_currency'))->toBe('eur')
+            ->and($profitable)->toHaveCount(2);
+
+        foreach ($profitable as $game) {
+            expect($game['offer_price'])->toBeFloat()
+                ->and($game['offer_price'])->toEqualWithDelta($game['tf2_price'] * 0.95, 0.01);
+        }
+
+        expect($response->json('total_offer_price'))->toBe(round(array_sum(array_column($profitable, 'offer_price')), 2));
+    });
+
+    it('converts the exact TF2 offer, not the already rounded tf2_price', function () {
+        // €15,00: renda 15 × 0,92 − 0,40 = 13,40 ; 13,40 / 1,7 = 7,882 → €7,88.
+        // Via tf2_price arredondado (8,30 × 0,95) daria €7,89.
+        $payload = validPayload([
+            'offer_currency' => 'eur',
+            'games' => [['name' => 'Big Game', 'market_price_euro' => 15.00, 'popularity' => 100, 'region' => null]],
+        ]);
+
+        $response = $this->withToken(PROSPECT_SECRET)->postJson('/suppliers/prospect', $payload)->assertStatus(200);
+
+        expect($response->json('profitable.0.offer_price'))->toBe(7.88)
+            ->and($response->json('profitable.0'))->not->toHaveKey('tf2_offer');
+    });
+
+    it('offers in dollars: the TF2 offer times the dollar price of the TF2', function () {
+        $response = $this->withToken(PROSPECT_SECRET)->postJson('/suppliers/prospect', cashPayload('usd'))->assertStatus(200);
+
+        $profitable = $response->json('profitable');
+
+        expect($response->json('offer_currency'))->toBe('usd');
+
+        foreach ($profitable as $game) {
+            expect($game['offer_price'])->toEqualWithDelta($game['tf2_price'] * 1.10, 0.01);
+        }
+    });
+
+    it('does not change which games are profitable', function () {
+        $tf2 = $this->withToken(PROSPECT_SECRET)->postJson('/suppliers/prospect', cashPayload('tf2'))->json('profitable.*.name');
+        $eur = $this->withToken(PROSPECT_SECRET)->postJson('/suppliers/prospect', cashPayload('eur'))->json('profitable.*.name');
+
+        expect($eur)->toBe($tf2);
+    });
+
+    it('records the currency on the created trade', function () {
+        $this->withToken(PROSPECT_SECRET)->postJson('/suppliers/prospect', cashPayload('usd'))->assertStatus(200);
+
+        expect(Trade::latest('id')->first()->currency->value)->toBe('usd');
+    });
+
+    it('rejects an unknown currency instead of answering in TF2', function () {
+        $this->withToken(PROSPECT_SECRET)
+            ->postJson('/suppliers/prospect', cashPayload('gbp'))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('offer_currency');
+    });
+
+    it('answers 503 and persists nothing when TF2 has no price in the currency', function () {
+        DB::table('assets')->where('name', 'TF2')->update(['price_dollar' => 0]);
+        Cache::flush();
+
+        $this->withToken(PROSPECT_SECRET)->postJson('/suppliers/prospect', cashPayload('usd'))->assertStatus(503);
+
+        // Nada gravado: nem a trade, nem o supplier.
+        expect(Trade::count())->toBe(0)
+            ->and(DB::table('suppliers')->where('steam_id', SUPPLIER_STEAM_ID)->exists())->toBeFalse();
+    });
+
+    it('does not fail for a missing price when there is no comment to post', function () {
+        DB::table('assets')->where('name', 'TF2')->update(['price_dollar' => 0]);
+        Cache::flush();
+
+        $response = $this->withToken(PROSPECT_SECRET)
+            ->postJson('/suppliers/prospect', validPayload([
+                'offer_currency' => 'usd',
+                'games' => [['name' => 'Junk Game', 'market_price_euro' => 0.05, 'popularity' => 1, 'region' => null]],
+            ]))
+            ->assertStatus(200);
+
+        expect($response->json('should_comment'))->toBeFalse()
+            ->and($response->json())->not->toHaveKey('offer_currency');
+    });
+});
+
+// ── nome do preço de mercado ──────────────────────────────────────────────────
+
+describe('POST /suppliers/prospect — market_price_euro', function () {
+
+    beforeEach(function () {
+        Config::set('services.external_secret', PROSPECT_SECRET);
+        seedProspectDeps();
+    });
+
+    it('rejects the removed price_euro name with 422', function () {
+        $payload = validPayload(['games' => [
+            ['name' => 'Half-Life', 'price_euro' => 4.50, 'popularity' => 500, 'region' => null],
+        ]]);
+
+        $this->withToken(PROSPECT_SECRET)
+            ->postJson('/suppliers/prospect', $payload)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['games.0.market_price_euro']);
+    });
+
+    it('ignores a stray price_euro sent next to market_price_euro', function () {
+        $payload = validPayload(['games' => [
+            ['name' => 'Half-Life', 'market_price_euro' => 4.50, 'price_euro' => 99.0, 'popularity' => 500, 'region' => null],
+        ]]);
+
+        $response = $this->withToken(PROSPECT_SECRET)->postJson('/suppliers/prospect', $payload)->assertStatus(200);
+
+        expect($response->json('profitable.0.market_price_euro'))->toBe(4.5);
+    });
+
+    it('no longer repeats price_euro in the response', function () {
+        $response = $this->withToken(PROSPECT_SECRET)->postJson('/suppliers/prospect', validPayload())->assertStatus(200);
+
+        expect($response->json('profitable.0'))->toHaveKey('market_price_euro')
+            ->and($response->json('profitable.0'))->not->toHaveKey('price_euro');
     });
 });

@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Suppliers;
 
+use App\Domain\Enums\TradeCurrency;
+use App\Domain\Pricing\CurrencyPriceUnavailable;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ProspectSupplierRequest;
 use App\Http\Requests\SaveSupplierRequest;
@@ -84,11 +86,17 @@ class SupplierController extends Controller
     {
         $data = $request->validated();
 
-        $result = $this->prospectSupplierUseCase->execute(
-            $data['supplier_steam_id'],
-            $data['games'],
-            $data['list_code'] ?? null,
-        );
+        try {
+            $result = $this->prospectSupplierUseCase->execute(
+                $data['supplier_steam_id'],
+                $data['games'],
+                $data['list_code'] ?? null,
+                $request->enum('offer_currency', TradeCurrency::class) ?? TradeCurrency::Tf2,
+            );
+        } catch (CurrencyPriceUnavailable $e) {
+            // Nada foi gravado: o cliente não comenta, e a lista segue elegível.
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 503);
+        }
 
         return response()->json($result);
     }

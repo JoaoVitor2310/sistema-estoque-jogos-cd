@@ -117,7 +117,7 @@ class DeliveryController extends Controller
     }
 
     /**
-     * Os campos da própria trade — `tf2_qty` e a observação livre.
+     * Os campos da própria trade — `amount` e a observação livre.
      */
     public function updateTrade(DeliveryTradeRequest $request, Trade $trade): JsonResponse
     {
@@ -147,7 +147,7 @@ class DeliveryController extends Controller
      * Só o primeiro clique chega aqui: a partir dele o middleware recusa toda
      * gravação desta entrega, inclusive um segundo `deliver`.
      *
-     * O 422 é a entrega incompleta: sem o total de TF2 acertado o domínio não
+     * O 422 é a entrega incompleta: sem o total acertado o domínio não
      * aceita o envio, e a página fica aberta para ele preencher. Mensagem em
      * inglês e sem jargão nosso — quem lê é o supplier.
      */
@@ -155,7 +155,7 @@ class DeliveryController extends Controller
     {
         if (! $this->markDelivered->execute($trade)) {
             return response()->json([
-                'message' => 'Tell us the total TF2 keys we agreed on before submitting.',
+                'message' => 'Tell us the total we agreed on before submitting.',
             ], 422);
         }
 

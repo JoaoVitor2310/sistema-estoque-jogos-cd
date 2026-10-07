@@ -8,8 +8,8 @@
 | Cobre o contrato HTTP:
 |   - default: só abertas, ordenação date DESC
 |   - view=imported / view=all
-|   - filtros date_from / date_to / tf2_min / tf2_max
-|   - sort=tf2_qty & dir=asc
+|   - filtros date_from / date_to / amount_min / amount_max
+|   - sort=amount & dir=asc
 |   - sort/dir/view fora da whitelist → 422
 |   - paginação: per_page default 40, page=2 traz os próximos
 |   - canal de compra e bundle da trade
@@ -252,13 +252,13 @@ describe('GET /trades — date range', function () {
 
 describe('GET /trades — tf2 range', function () {
 
-    it('filters by tf2_min and tf2_max', function () {
-        seedIndexTrade(['date' => '2025-06-01', 'tf2_qty' => 1.0]);
-        seedIndexTrade(['date' => '2025-06-02', 'tf2_qty' => 5.0]);
-        seedIndexTrade(['date' => '2025-06-03', 'tf2_qty' => 20.0]);
+    it('filters by amount_min and amount_max', function () {
+        seedIndexTrade(['date' => '2025-06-01', 'amount' => 1.0]);
+        seedIndexTrade(['date' => '2025-06-02', 'amount' => 5.0]);
+        seedIndexTrade(['date' => '2025-06-03', 'amount' => 20.0]);
 
         $this->actingAs(makeAuthorizedIndexUser())
-            ->get('/trades?tf2_min=3&tf2_max=10')
+            ->get('/trades?amount_min=3&amount_max=10')
             ->assertInertia(fn ($page) => $page
                 ->where('trades.total', 1)
             );
@@ -313,17 +313,17 @@ describe('GET /trades — text search', function () {
 
 describe('GET /trades — sort', function () {
 
-    it('sorts by tf2_qty asc when requested', function () {
-        seedIndexTrade(['date' => '2025-06-01', 'tf2_qty' => 10.0]);
-        seedIndexTrade(['date' => '2025-06-01', 'tf2_qty' => 2.0]);
-        seedIndexTrade(['date' => '2025-06-01', 'tf2_qty' => 5.0]);
+    it('sorts by amount asc when requested', function () {
+        seedIndexTrade(['date' => '2025-06-01', 'amount' => 10.0]);
+        seedIndexTrade(['date' => '2025-06-01', 'amount' => 2.0]);
+        seedIndexTrade(['date' => '2025-06-01', 'amount' => 5.0]);
 
         $this->actingAs(makeAuthorizedIndexUser())
-            ->get('/trades?sort=tf2_qty&dir=asc')
+            ->get('/trades?sort=amount&dir=asc')
             ->assertInertia(fn ($page) => $page
-                ->where('trades.data.0.tf2_qty', '2.00')
-                ->where('trades.data.1.tf2_qty', '5.00')
-                ->where('trades.data.2.tf2_qty', '10.00')
+                ->where('trades.data.0.amount', '2.00')
+                ->where('trades.data.1.amount', '5.00')
+                ->where('trades.data.2.amount', '10.00')
             );
     });
 });

@@ -16,7 +16,7 @@
 |     4. games ausente        → 422
 |     5. games vazio          → 422
 |     6. game sem name        → 422
-|     7. game sem price_euro  → 422
+|     7. game sem market_price_euro  → 422
 |     8. game sem popularity  → 422
 |
 |   Criação:
@@ -37,7 +37,7 @@ function validListPayload(array $overrides = []): array
 {
     return array_merge([
         'games' => [
-            ['name' => 'Half-Life', 'price_euro' => 4.50, 'popularity' => 500, 'region' => 'EU'],
+            ['name' => 'Half-Life', 'market_price_euro' => 4.50, 'popularity' => 500, 'region' => 'EU'],
         ],
     ], $overrides);
 }
@@ -90,25 +90,36 @@ describe('POST /trades/from-price-researcher — validation', function () {
     it('returns 422 when a game is missing name', function () {
         $this->withToken(LIST_TRADE_SECRET)
             ->postJson('/trades/from-price-researcher', validListPayload([
-                'games' => [['price_euro' => 4.50, 'popularity' => 500]],
+                'games' => [['market_price_euro' => 4.50, 'popularity' => 500]],
             ]))
             ->assertStatus(422)
             ->assertJsonValidationErrors(['games.0.name']);
     });
 
-    it('returns 422 when a game is missing price_euro', function () {
+    it('rejects the removed price_euro name with 422 and creates nothing', function () {
+        $this->withToken(LIST_TRADE_SECRET)
+            ->postJson('/trades/from-price-researcher', validListPayload([
+                'games' => [['name' => 'Half-Life', 'price_euro' => 4.50, 'popularity' => 500]],
+            ]))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['games.0.market_price_euro']);
+
+        expect(DB::table('trade_lines')->where('game_name', 'Half-Life')->exists())->toBeFalse();
+    });
+
+    it('returns 422 when a game is missing market_price_euro', function () {
         $this->withToken(LIST_TRADE_SECRET)
             ->postJson('/trades/from-price-researcher', validListPayload([
                 'games' => [['name' => 'Half-Life', 'popularity' => 500]],
             ]))
             ->assertStatus(422)
-            ->assertJsonValidationErrors(['games.0.price_euro']);
+            ->assertJsonValidationErrors(['games.0.market_price_euro']);
     });
 
     it('returns 422 when a game is missing popularity', function () {
         $this->withToken(LIST_TRADE_SECRET)
             ->postJson('/trades/from-price-researcher', validListPayload([
-                'games' => [['name' => 'Half-Life', 'price_euro' => 4.50]],
+                'games' => [['name' => 'Half-Life', 'market_price_euro' => 4.50]],
             ]))
             ->assertStatus(422)
             ->assertJsonValidationErrors(['games.0.popularity']);

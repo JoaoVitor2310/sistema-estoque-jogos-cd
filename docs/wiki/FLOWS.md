@@ -14,7 +14,7 @@ Da identificação de um fornecedor até a key entrar no estoque.
 | 4 | Decidir se comenta | Se vale (re)comentar na lista do supplier | `CommentPolicy` |
 | 5 | Registrar a trade | Persiste a lista pesquisada e a data do comentário; o jogo encalhado vira linha marcada, mesmo sem ter sido ofertado | `Trade` + `OverstockPolicy` |
 | 6 | Negociar | Acerto final de preço com o supplier | manual, na Steam |
-| 7 | Receber as keys | O supplier preenche `key_code`, região e validade por linha, mais o total de TF2 (obrigatório para enviar), no link com código que a trade já traz; ou a equipe transcreve do chat | `/deliveries/{uuid}` |
+| 7 | Receber as keys | O supplier preenche `key_code`, região e validade por linha, mais o total acertado (obrigatório para enviar), no link com código que a trade já traz; ou a equipe transcreve do chat | `/deliveries/{uuid}` |
 | 8 | Conferir | A entrega sobe ao topo de Abertas; a equipe revisa antes de importar | aba de Trades |
 | 9 | Importar as keys da trade | Entrada no estoque, com `individual_cost` rateado pelo lote — **único** caminho de entrada de keys | `POST /trades/{trade}/import` → `RegisterKeyUseCase` |
 

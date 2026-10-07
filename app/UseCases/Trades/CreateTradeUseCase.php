@@ -15,7 +15,7 @@ class CreateTradeUseCase
     ) {}
 
     /**
-     * @param  array{title?: string|null, supplierUrl?: string|null, date?: string|null, tf2Qty?: string|null}  $data
+     * @param  array{title?: string|null, supplierUrl?: string|null, date?: string|null, amount?: string|null}  $data
      */
     public function execute(array $data): Trade
     {
@@ -28,7 +28,7 @@ class CreateTradeUseCase
                 'supplier_id' => $supplier?->id,
                 'title' => ($data['title'] ?? null) ?: ($supplier?->name ?: null),
                 'date' => $this->parseDate($data['date'] ?? null) ?? now()->format('Y-m-d'),
-                'tf2_qty' => ($data['tf2Qty'] ?? null) ?: null,
+                'amount' => ($data['amount'] ?? null) ?: null,
             ]);
 
             // Trade nasce com uma linha em branco para o usuário editar direto;

@@ -10,8 +10,8 @@
 |     - view=imported retorna só importadas
 |     - view=all retorna as duas
 |     - date_from / date_to filtram sobre trades.date
-|     - tf2_min / tf2_max filtram sobre trades.tf2_qty
-|     - sort=tf2_qty asc ordena corretamente
+|     - amount_min / amount_max filtram sobre trades.amount
+|     - sort=amount asc ordena corretamente
 |     - is_imported vem no shape retornado
 |     - canal de compra e bundle vêm no shape retornado
 |
@@ -88,6 +88,15 @@ describe('TradeService::paginate — purchase channel', function () {
             ->and($row['bundle_id'])->toBe($bundleId);
     });
 
+    it('exposes the currency the amount was agreed in, TF2 by default', function () {
+        makeTrade(['date' => '2025-06-01']);
+        makeTrade(['date' => '2025-06-02', 'currency' => 'usd']);
+
+        $currencies = collect(app(TradeService::class)->paginate()->items())->pluck('currency', 'date')->all();
+
+        expect($currencies)->toBe(['02/06/2025' => 'usd', '01/06/2025' => 'tf2']);
+    });
+
     it('exposes a trade without channel as a supplier trade with no bundle', function () {
         makeTrade(['date' => '2025-06-01']);
 
@@ -156,31 +165,31 @@ describe('TradeService::paginate — date range', function () {
 
 describe('TradeService::paginate — tf2 range', function () {
 
-    it('filters by tf2_min', function () {
-        makeTrade(['date' => '2025-06-01', 'tf2_qty' => 3.0]);
-        makeTrade(['date' => '2025-06-02', 'tf2_qty' => 12.5]);
+    it('filters by amount_min', function () {
+        makeTrade(['date' => '2025-06-01', 'amount' => 3.0]);
+        makeTrade(['date' => '2025-06-02', 'amount' => 12.5]);
 
-        $page = app(TradeService::class)->paginate(['tf2_min' => '10']);
+        $page = app(TradeService::class)->paginate(['amount_min' => '10']);
 
         expect($page->total())->toBe(1);
     });
 
-    it('filters by tf2_max', function () {
-        makeTrade(['date' => '2025-06-01', 'tf2_qty' => 3.0]);
-        makeTrade(['date' => '2025-06-02', 'tf2_qty' => 12.5]);
+    it('filters by amount_max', function () {
+        makeTrade(['date' => '2025-06-01', 'amount' => 3.0]);
+        makeTrade(['date' => '2025-06-02', 'amount' => 12.5]);
 
-        $page = app(TradeService::class)->paginate(['tf2_max' => '10']);
+        $page = app(TradeService::class)->paginate(['amount_max' => '10']);
 
         expect($page->total())->toBe(1);
     });
 
     it('accepts decimal values', function () {
-        makeTrade(['date' => '2025-06-01', 'tf2_qty' => 0.5]);
-        makeTrade(['date' => '2025-06-02', 'tf2_qty' => 1.25]);
+        makeTrade(['date' => '2025-06-01', 'amount' => 0.5]);
+        makeTrade(['date' => '2025-06-02', 'amount' => 1.25]);
 
         $page = app(TradeService::class)->paginate([
-            'tf2_min' => '1.0',
-            'tf2_max' => '1.5',
+            'amount_min' => '1.0',
+            'amount_max' => '1.5',
         ]);
 
         expect($page->total())->toBe(1);
@@ -342,13 +351,13 @@ describe('TradeService::linesFor', function () {
 
 describe('TradeService::paginate — sort', function () {
 
-    it('sorts by tf2_qty ascending', function () {
-        makeTrade(['date' => '2025-06-01', 'tf2_qty' => 10.0]);
-        makeTrade(['date' => '2025-06-01', 'tf2_qty' => 2.0]);
-        makeTrade(['date' => '2025-06-01', 'tf2_qty' => 5.0]);
+    it('sorts by amount ascending', function () {
+        makeTrade(['date' => '2025-06-01', 'amount' => 10.0]);
+        makeTrade(['date' => '2025-06-01', 'amount' => 2.0]);
+        makeTrade(['date' => '2025-06-01', 'amount' => 5.0]);
 
-        $items = app(TradeService::class)->paginate([], 'tf2_qty', 'asc')->items();
-        $qtys = array_map(fn ($t) => (float) $t['tf2_qty'], $items);
+        $items = app(TradeService::class)->paginate([], 'amount', 'asc')->items();
+        $qtys = array_map(fn ($t) => (float) $t['amount'], $items);
 
         expect($qtys)->toBe([2.0, 5.0, 10.0]);
     });

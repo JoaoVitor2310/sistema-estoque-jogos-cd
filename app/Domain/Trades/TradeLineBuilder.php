@@ -17,7 +17,7 @@ use App\Domain\Games\GameNameNormalizer;
 final class TradeLineBuilder
 {
     /**
-     * @param  array<int, array{name: string, price_euro: float|string, popularity: int|string, region?: string|null, gamivo_id?: string|null, is_overstocked?: bool}>  $games
+     * @param  array<int, array{name: string, market_price_euro: float|string, popularity: int|string, region?: string|null, gamivo_id?: string|null, is_overstocked?: bool}>  $games
      * @param  array<string, string>  $bundleMap  nome normalizado do jogo → nome do bundle; vazio quando nenhum jogo casou com bundle recente
      * @return array<int, array<string, mixed>> atributos de `trade_lines`, sem o vínculo com a trade
      */
@@ -33,7 +33,7 @@ final class TradeLineBuilder
                 'game_name' => TradeLineValue::text($game['name']),
                 // O preço chega numérico do pesquisador; fixar 2 casas aqui
                 // mantém a linha nova idêntica à convertida do JSON.
-                'market_price' => TradeLineValue::decimal(number_format((float) $game['price_euro'], 2, '.', '')),
+                'market_price' => TradeLineValue::decimal(number_format((float) $game['market_price_euro'], 2, '.', '')),
                 'popularity' => TradeLineValue::integer($game['popularity']),
                 'region' => TradeLineValue::text($game['region'] ?? null),
                 'bundle' => $bundleMap[GameNameNormalizer::normalize($game['name'])] ?? null,

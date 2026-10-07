@@ -3,6 +3,7 @@
 namespace App\Services\Keys;
 
 use App\Domain\Enums\PurchaseChannel;
+use App\Domain\Enums\TradeCurrency;
 use App\Domain\Pricing\IncomeCalculator;
 use App\Domain\Pricing\MinMaxPriceCalculator;
 use App\Domain\Pricing\ProfitCalculator;
@@ -29,6 +30,8 @@ class KeyCalculationService
 
     private const TF2_CACHE_KEY = 'tf2_euro_price';
 
+    private const TF2_DOLLAR_CACHE_KEY = 'tf2_dollar_price';
+
     private const CACHE_TTL = 3600; // 1 hora
 
     /**
@@ -50,13 +53,65 @@ class KeyCalculationService
     }
 
     /**
+     * Descarta os preços da TF2 em cache. Chamado quando Recursos muda: sem isto, o
+     * preço novo só valeria depois da hora do cache.
+     */
+    public static function forgetTf2Prices(): void
+    {
+        Cache::forget(self::TF2_CACHE_KEY);
+        Cache::forget(self::TF2_DOLLAR_CACHE_KEY);
+    }
+
+    /**
      * Retorna o preço em euros de uma key TF2, com cache de 1 hora.
      */
     public function getTf2EuroPrice(): float
     {
-        return Cache::remember(self::TF2_CACHE_KEY, self::CACHE_TTL, function () {
-            return (float) Asset::where('name', 'TF2')->value('price_euro');
-        });
+        return $this->cachedTf2Price(self::TF2_CACHE_KEY, 'price_euro');
+    }
+
+    /**
+     * Retorna o preço em dólares de uma key TF2, com cache de 1 hora.
+     */
+    public function getTf2DollarPrice(): float
+    {
+        return $this->cachedTf2Price(self::TF2_DOLLAR_CACHE_KEY, 'price_dollar');
+    }
+
+    /**
+     * Preço da TF2 numa coluna de Recursos, cacheado por uma hora **só quando
+     * positivo**. Preço zerado é "ainda não cadastrado": cacheá-lo manteria
+     * prospecções em dólar em 503 e o import bloqueado por até uma hora depois
+     * de a equipe cadastrar a cotação.
+     */
+    private function cachedTf2Price(string $cacheKey, string $column): float
+    {
+        $cached = Cache::get($cacheKey);
+
+        if ($cached !== null) {
+            return (float) $cached;
+        }
+
+        $price = (float) Asset::where('name', 'TF2')->value($column);
+
+        if ($price > 0) {
+            Cache::put($cacheKey, $price, self::CACHE_TTL);
+        }
+
+        return $price;
+    }
+
+    /**
+     * Preço de 1 TF2 key na moeda dada. Em TF2 é 1 por definição; em euro e
+     * dólar vem da linha da TF2 em Recursos — 0 quando ainda não foi cadastrado.
+     */
+    public function getTf2Price(TradeCurrency $currency): float
+    {
+        return match ($currency) {
+            TradeCurrency::Tf2 => TradeCurrency::TF2_UNIT_PRICE,
+            TradeCurrency::Eur => $this->getTf2EuroPrice(),
+            TradeCurrency::Usd => $this->getTf2DollarPrice(),
+        };
     }
 
     /**

@@ -5,6 +5,7 @@ namespace App\UseCases\Keys;
 use App\Domain\Enums\TradeImportBlocker;
 use App\Domain\Keys\KeyDefaults;
 use App\Domain\Platform\PlatformIdentifier;
+use App\Domain\Pricing\OfferCalculator;
 use App\Domain\Pricing\SalePriceCalculator;
 use App\Domain\Trades\ImportReadinessPolicy;
 use App\Models\Key;
@@ -30,7 +31,7 @@ use Illuminate\Support\Facades\Log;
  * causa das keys anteriores a esse vínculo.
  *
  * **O lote sai inteiro da trade gravada**, não de um payload: as linhas, a data,
- * o supplier e a quantidade de TF2 são lidos aqui. Enquanto o `market_price`
+ * o supplier e o valor acertado são lidos aqui. Enquanto o `market_price`
  * vinha no corpo do request, quem chamasse a rota ditava o rateio de
  * `individual_cost` do lote inteiro (ver docs/adr/0004).
  *
@@ -64,16 +65,22 @@ class RegisterKeyUseCase
     {
         $trade->loadMissing(['lines', 'supplier', 'bundle']);
 
+        // O preço da TF2 é lido uma vez: todas as keys do lote convertem pelo mesmo
+        // valor, mesmo que o cache expire ou o preço mude durante o import.
+        $tf2Price = $this->calculationService->getTf2Price($trade->currency);
+        $tf2Amount = $this->tf2Amount($trade, $tf2Price);
+
         $blockers = ImportReadinessPolicy::blockers(
             $trade->lines->map(fn (TradeLine $line) => [
                 'game_name' => $line->game_name,
                 'market_price' => $line->market_price,
                 'key_code' => $line->key_code,
             ])->all(),
-            $trade->tf2_qty,
+            $tf2Amount,
             $trade->purchase_channel,
             $trade->supplier?->url,
             $trade->bundle_id,
+            $trade->currency->hasTf2Price($tf2Price),
         );
 
         if ($blockers !== []) {
@@ -91,7 +98,7 @@ class RegisterKeyUseCase
         // carrega (formato, tipo de reclamação, plataforma de venda) recebem o
         // valor canônico.
         $games = array_map(
-            fn (TradeLine $line) => array_merge(KeyDefaults::toArray(), $this->toKeyInput($line, $trade)),
+            fn (TradeLine $line) => array_merge(KeyDefaults::toArray(), $this->toKeyInput($line, $trade, $tf2Amount)),
             $this->linesToImport($trade),
         );
 
@@ -170,15 +177,35 @@ class RegisterKeyUseCase
     }
 
     /**
+     * O valor acertado da trade, na unidade em que o rateio de `individual_cost` opera: TF2.
+     *
+     * Trade em TF2 usa o valor como está. Em euro ou dólar, converte pelo preço da
+     * TF2 na moeda, com 2 casas — daqui para frente a trade é indistinguível de uma
+     * paga em TF2. É sobre este valor, já convertido, que a prontidão confere se há
+     * quantia: um valor minúsculo que arredonda a zero TF2 zeraria o custo das keys.
+     * Sem cotação não há conversão: devolve o valor cru, e é `MissingCurrencyPrice`
+     * quem recusa o lote.
+     */
+    private function tf2Amount(Trade $trade, float $tf2Price): ?string
+    {
+        if (! $trade->currency->isCash() || ! $trade->currency->hasTf2Price($tf2Price)) {
+            return $trade->amount;
+        }
+
+        return (string) OfferCalculator::toTf2Quantity((float) $trade->amount, $tf2Price);
+    }
+
+    /**
      * Traduz uma linha da trade nos campos da key que ela origina.
      *
-     * Data, supplier e quantidade de TF2 são da trade, não da linha — o lote
-     * inteiro compartilha os três, e é da quantidade de TF2 que sai o rateio de
+     * Data, supplier e valor acertado são da trade, não da linha — o lote
+     * inteiro compartilha os três, e é dele (em TF2) que sai o rateio de
      * `individual_cost`.
      *
+     * @param  string|null  $tf2Amount  valor acertado já em TF2 (ver tf2Amount)
      * @return array<string, mixed>
      */
-    private function toKeyInput(TradeLine $line, Trade $trade): array
+    private function toKeyInput(TradeLine $line, Trade $trade, ?string $tf2Amount): array
     {
         return [
             'game_name' => $line->game_name,
@@ -188,8 +215,10 @@ class RegisterKeyUseCase
             'gamivo_id' => $line->gamivo_id,
             'expires_at' => $line->expires_at?->format('Y-m-d'),
             'acquired_at' => $trade->date?->format('Y-m-d'),
-            // Garantido pela ImportReadinessPolicy, que já recusou o lote sem ele.
-            'tf2_quantity' => $trade->tf2_qty,
+            // Garantido pela ImportReadinessPolicy, que já recusou o lote sem ele. Trade
+            // paga em dinheiro entra pelo equivalente em TF2 de hoje: é a unidade do rateio
+            // e a que a aba de Keys e o resto do sistema exibem.
+            'tf2_quantity' => $tf2Amount,
             // A origem legível da key em qualquer canal: URL do supplier, nome do
             // bundle ou "Gamivo". O supplier_id só existe na trade com fornecedor.
             'supplier_url' => $trade->purchase_channel->keySource($trade->supplier?->url, $trade->bundle?->name),
@@ -285,9 +314,10 @@ class RegisterKeyUseCase
             TradeImportBlocker::MissingGameName => 'linha preenchida sem nome do jogo',
             TradeImportBlocker::MissingMarketPrice => 'linha preenchida sem preço de mercado',
             TradeImportBlocker::MissingKeyCode => 'linha preenchida sem key code',
-            TradeImportBlocker::MissingTf2Quantity => 'trade sem quantidade de TF2',
+            TradeImportBlocker::MissingAmount => 'trade sem valor acertado',
             TradeImportBlocker::MissingSupplierUrl => 'trade sem fornecedor',
             TradeImportBlocker::MissingBundle => 'compra direta sem bundle',
+            TradeImportBlocker::MissingCurrencyPrice => 'sem cotação da TF2 na moeda da trade (cadastre em Recursos)',
         }, $blockers);
 
         return 'Nenhuma key foi cadastrada — '.implode('; ', $reasons);

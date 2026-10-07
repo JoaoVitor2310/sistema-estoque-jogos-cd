@@ -24,7 +24,7 @@ class MarkTradeDeliveredUseCase
      * de domínio e não pode depender de por onde a chamada entrou. Não existe
      * "des-entregar" nem "reabrir": sair da fila é o import, e mais nada.
      *
-     * Sem o total de TF2 acertado a entrega não é enviada. É o mesmo critério
+     * Sem o total acertado a entrega não é enviada. É o mesmo critério
      * que [[ImportReadinessPolicy]] aplica no import, cobrado antes: a equipe
      * sabe quanto foi acertado, mas recuperar o número relendo a conversa é a
      * transcrição que a entrega existe para eliminar — pedir ao supplier é o
@@ -39,7 +39,7 @@ class MarkTradeDeliveredUseCase
             return true;
         }
 
-        if (! ImportReadinessPolicy::hasTf2Quantity($trade->tf2_qty)) {
+        if (! ImportReadinessPolicy::hasAmount($trade->amount)) {
             return false;
         }
 

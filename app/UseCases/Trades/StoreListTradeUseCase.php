@@ -19,7 +19,7 @@ class StoreListTradeUseCase
     ) {}
 
     /**
-     * @param  array{supplier_steam_id?: string|null, title?: string|null, list_code?: string|null, games: array<int, array{name: string, price_euro: float, popularity: int, region: string|null, gamivo_id?: string|null}>}  $data
+     * @param  array{supplier_steam_id?: string|null, title?: string|null, list_code?: string|null, games: array<int, array{name: string, market_price_euro: float, popularity: int, region: string|null, gamivo_id?: string|null}>}  $data
      */
     public function execute(array $data): Trade
     {

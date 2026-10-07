@@ -19,7 +19,7 @@ class StoreListTradeRequest extends FormRequest
             'list_code' => ['nullable', 'string'],
             'games' => ['required', 'array', 'min:1'],
             'games.*.name' => ['required', 'string'],
-            'games.*.price_euro' => ['required', 'numeric'],
+            'games.*.market_price_euro' => ['required', 'numeric'],
             'games.*.popularity' => ['required', 'integer'],
             'games.*.region' => ['nullable', 'string'],
             'games.*.gamivo_id' => ['nullable', 'string'],

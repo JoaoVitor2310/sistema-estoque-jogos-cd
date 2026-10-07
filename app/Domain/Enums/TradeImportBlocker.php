@@ -20,12 +20,15 @@ enum TradeImportBlocker: string
 
     case MissingKeyCode = 'missing_key_code';
 
-    /** Sem quantidade de TF2 o rateio de `individual_cost` rodaria sem custo. */
-    case MissingTf2Quantity = 'missing_tf2_quantity';
+    /** Sem o valor acertado o rateio de `individual_cost` rodaria sem custo. */
+    case MissingAmount = 'missing_amount';
 
     /** Trade com fornecedor (ver [[PurchaseChannel::SupplierTrade]]) sem fornecedor vinculado. */
     case MissingSupplierUrl = 'missing_supplier_url';
 
     /** Compra direta (ver [[PurchaseChannel::BundleStore]]) sem o bundle da compra. */
     case MissingBundle = 'missing_bundle';
+
+    /** Trade paga em dinheiro sem cotação da TF2 na moeda — o custo por key sairia zerado. */
+    case MissingCurrencyPrice = 'missing_currency_price';
 }

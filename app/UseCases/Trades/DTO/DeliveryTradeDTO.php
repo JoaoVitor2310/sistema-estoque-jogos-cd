@@ -5,12 +5,12 @@ namespace App\UseCases\Trades\DTO;
 use App\Domain\Trades\TradeLineValue;
 
 /**
- * O que o supplier escreve na própria trade: o total de TF2 acertado e a
+ * O que o supplier escreve na própria trade: o total acertado e a
  * observação livre.
  *
  * **Ausente e nulo não são a mesma coisa**, pela mesma razão de
  * [[TradeLineDTO]]: a página salva conforme ele digita e manda um campo por vez,
- * então mandar `tf2_qty` sozinho não pode apagar o recado que ele já tinha
+ * então mandar `amount` sozinho não pode apagar o recado que ele já tinha
  * escrito. Daí o `$provided`.
  *
  * O escopo do supplier sobre a trade é **a própria forma desta classe** — ela
@@ -21,13 +21,13 @@ use App\Domain\Trades\TradeLineValue;
 final class DeliveryTradeDTO
 {
     /** As únicas colunas da trade que a entrega alcança. */
-    private const COLUMNS = ['tf2_qty', 'supplier_notes'];
+    private const COLUMNS = ['amount', 'supplier_notes'];
 
     /**
      * @param  list<string>  $provided  colunas presentes no payload
      */
     private function __construct(
-        public readonly ?string $tf2Quantity,
+        public readonly ?string $amount,
         public readonly ?string $supplierNotes,
         public readonly array $provided,
     ) {}
@@ -38,7 +38,7 @@ final class DeliveryTradeDTO
     public static function fromValidated(array $validated): self
     {
         return new self(
-            tf2Quantity: TradeLineValue::decimal($validated['tf2_qty'] ?? null),
+            amount: TradeLineValue::decimal($validated['amount'] ?? null),
             supplierNotes: TradeLineValue::text($validated['supplier_notes'] ?? null),
             provided: array_values(array_filter(
                 self::COLUMNS,
@@ -55,7 +55,7 @@ final class DeliveryTradeDTO
     public function toAttributes(): array
     {
         $all = [
-            'tf2_qty' => $this->tf2Quantity,
+            'amount' => $this->amount,
             'supplier_notes' => $this->supplierNotes,
         ];
 

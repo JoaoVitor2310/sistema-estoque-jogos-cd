@@ -19,7 +19,7 @@ class EvaluateSuppliersRequest extends FormRequest
         return [
             'games' => ['required', 'array', 'min:1'],
             'games.*.name' => ['required', 'string', 'max:255'],
-            'games.*.price_euro' => ['required', 'numeric', 'min:0'],
+            'games.*.market_price_euro' => ['required', 'numeric', 'min:0'],
             'games.*.popularity' => ['required', 'integer', 'min:0'],
             'games.*.region' => ['nullable', 'string'],
         ];

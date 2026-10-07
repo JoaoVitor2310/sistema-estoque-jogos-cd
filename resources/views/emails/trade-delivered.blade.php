@@ -93,8 +93,8 @@
             <td>{{ $filledLines }} de {{ $totalLines }}</td>
         </tr>
         <tr>
-            <th>TF2 acertadas</th>
-            <td>{{ $trade->tf2_qty ?? '—' }}</td>
+            <th>Valor acertado</th>
+            <td>{{ $trade->amount ? $trade->amount.' '.strtoupper($trade->currency->value) : '—' }}</td>
         </tr>
         <tr>
             <th>Entregue em</th>
