@@ -96,7 +96,8 @@ app/
 │   ├── Games/
 │   │   └── GameNameNormalizer.php       # espelha o clearString do price-researcher
 │   ├── Assets/
-│   │   └── AssetAlert.php               # limiar de alerta de variação de câmbio
+│   │   ├── AssetAlert.php               # limiar de alerta de variação de câmbio
+│   │   └── ExchangeRatePolicy.php       # idade máxima da cotação de reserva
 │   ├── Trades/
 │   │   ├── CommentPolicy.php            # decide se recomenta um supplier (14 dias / jogos mudaram)
 │   │   ├── DeliveryCredential.php       # link + código da entrega: formato, emissão, limites e prazo

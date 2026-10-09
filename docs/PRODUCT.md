@@ -450,6 +450,16 @@ O objetivo da regra é evitar vendas precipitadas e aumentar a chance de venda c
 
 ---
 
+## Conversão de moeda
+
+| Situação | Cotação usada |
+|---|---|
+| Padrão | Cotação do cache, de no máximo 5 minutos |
+| API de câmbio fora do ar | **Cotação de reserva**: a última boa, de no máximo 6 horas (`ExchangeRatePolicy::MAX_STALE_AGE_SECONDS`) |
+| Sem cotação válida | A conversão falha: o bundle é pulado, o alerta do dólar não dispara e a aba Recursos grava só o preço digitado |
+
+A tolerância de 6 horas é decisão de negócio: preço de bundle e de ativo aceitam essa defasagem, e o sync de bundles tenta de novo na rodada seguinte.
+
 ## Fluxo de Compra
 
 ### Objetivo

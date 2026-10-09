@@ -118,3 +118,5 @@ Não é regra de capturar sempre: em `GamivoApiService` a `ConnectionException` 
 ## Serviço externo que falha não pode devolver número plausível
 
 `CurrencyConversionService::convertCurrency` responde com o valor de *entrada* quando a API cai. Quem agrega esse retorno tem que **omitir** o que não converteu (ver `convertAll`), nunca repassar: um `price_dollar` que na verdade é o montante em real passa por cotação real e vira alerta falso ou preço gravado errado. Regra geral: falha de integração vira ausência explícita, não valor default.
+
+*Exceção deliberada:* com a API fora, o service reaproveita a **última cotação boa** (até 6h, `ExchangeRatePolicy::MAX_STALE_AGE_SECONDS`) em vez de falhar. É uma taxa real e recente, não um valor default; passado o limite, volta a falhar. Sem reserva, a falha é lembrada por 60s para um lote não pagar um timeout por item. *(Já aconteceu: timeouts de 30s por bundle derrubaram o sync de bundles em 2026-10-08.)*

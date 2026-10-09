@@ -22,6 +22,8 @@ API_KEY_GAMIVO=
 # deploy roda `config:cache` e a partir daí env() devolve null. Em branco, a
 # chamada cai no tier público, limitado por IP, e o servidor leva 429 — a tela
 # grava o preço digitado sem converter os outros dois.
+# A cotação fica em cache (5 min; cópia de reserva por 6h se a API falhar), no
+# CACHE_STORE — ver CurrencyConversionService.
 API_KEY_AWESOME_API=
 
 # Google OAuth
