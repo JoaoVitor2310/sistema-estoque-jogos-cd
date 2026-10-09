@@ -100,8 +100,8 @@ Apenas o **tier de maior preço** (`max($api_bundle['tiers'])`) é processado. O
 | Situação do tier | O que acontece |
 |---|---|
 | Já vem em EUR | Usa o valor direto, sem chamada à AwesomeAPI |
-| Vem em outra moeda | Converte para EUR via `CurrencyConversionService` (AwesomeAPI) |
-| Conversão falha | Bundle é pulado (sem preço e sem jogos) e um e-mail de alerta é disparado; a próxima rodada tenta de novo |
+| Vem em outra moeda | Converte para EUR via `CurrencyConversionService` (AwesomeAPI); a cotação vem do cache, então o sync inteiro faz no máximo uma chamada à API |
+| Conversão falha (API fora e sem cotação de reserva) | Bundle é pulado (sem preço e sem jogos) e um e-mail de alerta é disparado; a próxima rodada tenta de novo |
 
 O `minimum_price_tf2` é a razão entre o preço do bundle e o de **uma** TF2 key — quantas keys o bundle custa. As duas pontas são lidas em euro (`bundles.price_euro` ÷ `assets.price_euro` da linha `TF2`) justamente para a razão não depender de duas cotações diferentes. Sem preço da TF2 na base o campo fica nulo e o preço do bundle é gravado de qualquer forma.
 

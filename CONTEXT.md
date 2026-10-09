@@ -109,6 +109,10 @@ _Avoid_: jogo sem steam_id, jogo não encontrado.
 O afastamento entre o preço em dólar guardado para o TF2 e o que a conversão atual do preço em real devolve. Ultrapassado o limiar, o sistema alerta para que os preços do ativo sejam reavaliados manualmente — quem corrige é uma pessoa, porque trocar o preço do ativo muda o custo calculado de toda trade nova.
 _Avoid_: câmbio, desvio, cotação.
 
+**Cotação de reserva**:
+A última cotação de câmbio bem-sucedida, reaproveitada quando a API de câmbio está fora do ar. Vale por até 6 horas (`ExchangeRatePolicy`); passado isso a conversão falha em vez de usar um número velho demais. Vale para tudo que converte moeda: preço de bundle, preços do ativo e alerta de variação do dólar.
+_Avoid_: cache de câmbio, fallback.
+
 ### Suppliers e Trades
 
 **Supplier**:
