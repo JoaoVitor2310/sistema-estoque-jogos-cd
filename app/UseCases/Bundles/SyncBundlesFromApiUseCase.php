@@ -3,14 +3,17 @@
 namespace App\UseCases\Bundles;
 
 use App\Domain\Bundles\BundleTypeResolver;
+use App\Domain\Bundles\LaunchPriceResearch;
 use App\Domain\Games\GameNameNormalizer;
 use App\Mail\BundlePriceConversionFailedMail;
 use App\Mail\NewChoiceBundleMail;
 use App\Models\Asset;
 use App\Models\Bundle;
 use App\Models\Game;
+use App\Services\External\BundleResearchRequest;
 use App\Services\External\CurrencyConversionService;
 use App\Services\External\GgDealsApiService;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -29,6 +32,13 @@ use Illuminate\Support\Facades\Mail;
  */
 class SyncBundlesFromApiUseCase
 {
+    /**
+     * Teto de espera do preço de lançamento: o price_researcher pesquisa o
+     * bundle inteiro dentro da requisição, um jogo por vez, na mesma fila das
+     * outras pesquisas — um bundle grande atrás de um job longo leva minutos.
+     */
+    public const LAUNCH_PRICES_TIMEOUT_SECONDS = 3200;
+
     public function __construct(
         private readonly GgDealsApiService $ggDealsApi,
         private readonly CurrencyConversionService $currencyService,
@@ -101,8 +111,12 @@ class SyncBundlesFromApiUseCase
                 collect($games)->pluck('id')->toArray()
             );
 
-            // Busca preços de lançamento apenas para bundles recém-criados
-            if ($bundle->wasRecentlyCreated) {
+            // Não só no bundle recém-criado: uma pesquisa que falhou é refeita
+            // nas rodadas seguintes, enquanto ainda estiver perto do lançamento.
+            $hasLaunchPrice = $bundle->games()->wherePivotNotNull('bundle_launch_price')->exists();
+            $releaseDate = Carbon::parse($bundle->release_date ?? $bundle->created_at);
+
+            if (LaunchPriceResearch::isDue($hasLaunchPrice, $releaseDate, now())) {
                 $this->fetchLaunchPrices($games, $bundle);
             }
         }
@@ -157,39 +171,61 @@ class SyncBundlesFromApiUseCase
     }
 
     /**
-     * Busca no price-researcher o preço de cada jogo no lançamento do bundle
+     * Busca no price_researcher o preço de cada jogo no lançamento do bundle
      * e persiste em bundle_games.bundle_launch_price.
      *
      * Falhas de rede ou de resposta são logadas sem interromper o fluxo principal.
+     *
+     * @param  array<int, Game>  $games
      */
     private function fetchLaunchPrices(array $games, Bundle $bundle): void
     {
+        $internalSecret = config('services.price_researcher.internal_secret');
+
+        // Sem segredo o price_researcher responde em modo demo, com só os
+        // primeiros jogos: gravaria o preço de um bundle cortado pela metade.
+        if (! $internalSecret) {
+            Log::error('Price Researcher launch prices: INTERNAL_SECRET não configurado.');
+
+            return;
+        }
+
         $gameNames = collect($games)->pluck('name')->all();
 
         try {
-            $response = Http::timeout(3200)->post(
-                config('services.price_researcher.base_url').'/api/games/search',
-                [
-                    'minPopularity' => 0,
-                    'gameNames' => $gameNames,
-                    'checkGamivoOffer' => false,
-                ]
+            $response = Http::timeout(self::LAUNCH_PRICES_TIMEOUT_SECONDS)->post(
+                rtrim((string) config('services.price_researcher.base_url'), '/').'/api/games/research',
+                BundleResearchRequest::launchPricesPayload($gameNames, $internalSecret)
             );
 
-            $responseData = $response->json();
+            $responseData = $response->json() ?? [];
 
-            if (! ($responseData['success'] ?? false) || ! isset($responseData['data']['games'])) {
+            if ($responseData['demo'] ?? false) {
+                Log::error('Price Researcher launch prices recusou o INTERNAL_SECRET (modo demo).');
+
                 return;
             }
 
-            foreach ($responseData['data']['games'] as $apiGame) {
-                $matchedGame = collect($games)->first(fn ($game) => $game->name === $apiGame['name']);
+            if (! $response->successful() || ! ($responseData['success'] ?? false) || ! is_array($responseData['games'] ?? null)) {
+                Log::error('Price Researcher launch prices falhou: HTTP '.$response->status());
 
-                if ($matchedGame && isset($apiGame['GamivoPrice'])) {
-                    // Converte formato europeu (0,09) para decimal (0.09)
-                    $price = str_replace(',', '.', $apiGame['GamivoPrice']);
+                return;
+            }
+
+            foreach ($responseData['games'] as $apiGame) {
+                $matchedGame = $this->matchGame($games, (string) ($apiGame['name'] ?? ''));
+
+                // Sem casamento o preço se perderia em silêncio: o log é a única
+                // pista de que o price_researcher devolveu o nome em outra forma.
+                if (! $matchedGame) {
+                    Log::warning('Price Researcher launch prices: game not matched in bundle '.$bundle->id.': '.($apiGame['name'] ?? ''));
+
+                    continue;
+                }
+
+                if (isset($apiGame['market_price_euro'])) {
                     $bundle->games()->updateExistingPivot($matchedGame->id, [
-                        'bundle_launch_price' => $price,
+                        'bundle_launch_price' => (float) $apiGame['market_price_euro'],
                     ]);
                 }
             }
@@ -200,5 +236,21 @@ class SyncBundlesFromApiUseCase
                 .' | Linha: '.$e->getLine()
             );
         }
+    }
+
+    /**
+     * Acha o jogo do bundle a que um resultado do price_researcher se refere.
+     *
+     * Nome idêntico primeiro; senão, pelo nome normalizado — o mesmo pipeline
+     * do price_researcher, então diferença só de pontuação ou caixa ainda casa.
+     *
+     * @param  array<int, Game>  $games
+     */
+    private function matchGame(array $games, string $name): ?Game
+    {
+        $normalized = GameNameNormalizer::normalize($name);
+
+        return collect($games)->first(fn (Game $game) => $game->name === $name)
+            ?? collect($games)->first(fn (Game $game) => GameNameNormalizer::normalize((string) $game->name) === $normalized);
     }
 }

@@ -2,8 +2,8 @@
 
 namespace App\UseCases\Bundles;
 
-use App\Domain\Bundles\BundleResearchRequest;
 use App\Models\Bundle;
+use App\Services\External\BundleResearchRequest;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;

@@ -79,9 +79,9 @@ SyncBundlesFromApiUseCase::syncBundles()
   │   │
   │   ├── Associa jogos ao bundle via pivot bundle_games (syncWithoutDetaching)
   │   │
-  │   └── Se bundle recém-criado → fetchLaunchPrices()
-  │         └── Chama Price Researcher API com os nomes dos jogos
-  │               → recebe preço Gamivo no momento do lançamento
+  │   └── Se ainda sem preço de lançamento e dentro da janela → fetchLaunchPrices()
+  │         └── POST /api/games/research, preset bundle-sync, entrega síncrona
+  │               → recebe o preço de mercado (AllKeyShop) no momento do lançamento
   │               → salva em bundle_games.bundle_launch_price
 ```
 
@@ -106,9 +106,17 @@ Apenas o **tier de maior preço** (`max($api_bundle['tiers'])`) é processado. O
 O `minimum_price_tf2` é a razão entre o preço do bundle e o de **uma** TF2 key — quantas keys o bundle custa. As duas pontas são lidas em euro (`bundles.price_euro` ÷ `assets.price_euro` da linha `TF2`) justamente para a razão não depender de duas cotações diferentes. Sem preço da TF2 na base o campo fica nulo e o preço do bundle é gravado de qualquer forma.
 
 ### Preço de lançamento dos jogos (`bundle_launch_price`)
-Apenas para bundles **recém-criados** (primeira vez que aparecem na API). Chama o Price Researcher com os nomes dos jogos para obter o preço Gamivo no momento do lançamento. Esse preço é salvo na tabela pivot `bundle_games.bundle_launch_price` e é usado para calcular o lucro estimado da compra do bundle.
+Chama o Price Researcher (preset `bundle-sync`, entrega síncrona — contrato em [`PRICE_RESEARCHER.md`](PRICE_RESEARCHER.md)) com os nomes dos jogos para obter o preço de mercado no momento do lançamento. O preço é salvo na tabela pivot `bundle_games.bundle_launch_price` e é usado para calcular o lucro estimado da compra do bundle.
 
-O preço vem no formato europeu (`0,09`) e é convertido para decimal (`0.09`) antes de salvar.
+| Situação do bundle na rodada da sync | O que acontece |
+|---|---|
+| Sem preço de lançamento, dentro da janela | Pesquisa. É o caso do bundle recém-criado, e também o de uma pesquisa anterior que falhou |
+| Já tem preço de lançamento em algum jogo | Não pesquisa de novo — sobrescreveria o preço de lançamento com o de hoje |
+| Passou da janela sem preço | Não pesquisa mais: o preço de hoje já não é o de lançamento |
+
+A janela é de `LaunchPriceResearch::WINDOW_DAYS` (3) dias depois do lançamento do bundle (`release_date`, o `dateFrom` da GG.deals). Pesquisa que falha — serviço fora, timeout, sem `INTERNAL_SECRET`, resposta em modo demo — não grava nada, só loga, e o bundle segue sincronizado; a rodada seguinte tenta de novo enquanto a janela durar.
+
+O jogo da resposta é casado com o do bundle pelo nome idêntico, e senão pelo nome normalizado (`GameNameNormalizer`, o mesmo pipeline do price_researcher). Jogo que não casa é logado como `warning` e fica sem preço.
 
 ### Alerta de Choice novo
 Quando um bundle do tipo `choice` é detectado pela primeira vez, um e-mail é disparado para `carcadeals@gmail.com` com o nome e URL do bundle.

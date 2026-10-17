@@ -375,6 +375,18 @@ Cada bundle pode conter, entre outros, os seguintes dados:
 - data de expiração;
 - identificadores externos, quando disponíveis.
 
+### Preço de lançamento dos jogos
+
+A sync de bundles grava quanto cada jogo valia quando o bundle saiu — é a referência do lucro estimado da compra do bundle.
+
+| Situação | O que acontece |
+|---|---|
+| Bundle sem preço de lançamento, até 3 dias depois do lançamento | O preço é pesquisado; se a pesquisa falhar, a próxima rodada (de hora em hora) tenta de novo |
+| Bundle que já tem preço de lançamento | Não pesquisa de novo — o preço de hoje sobrescreveria o de lançamento |
+| Mais de 3 dias depois do lançamento sem preço | Desiste: o preço de hoje já não é o de lançamento |
+
+A janela é `LaunchPriceResearch::WINDOW_DAYS`. Detalhe técnico em [`GG_DEALS.md`](GG_DEALS.md).
+
 ### Fonte das informações
 
 As informações dos bundles são obtidas por integrações externas, principalmente:
@@ -391,13 +403,13 @@ A opção **"Pesquisar Preços"** no menu de cada bundle pede ao `price_research
 
 | Etapa | O que acontece |
 |---|---|
-| 1. Disparo | Manda os nomes dos jogos do bundle ao `price_researcher`, com os critérios de corte do fluxo (em `BundleResearchRequest`) — frouxos de propósito: a decisão é sobre o pacote inteiro |
+| 1. Disparo | Manda os nomes dos jogos do bundle ao `price_researcher` com o preset `bundle-research`. Os critérios de corte moram no preset, do lado do `price_researcher` — frouxos de propósito: a decisão é sobre o pacote inteiro |
 | 2. Resposta imediata | O serviço apenas enfileira e responde na hora — a tela avisa "Pesquisa enfileirada", nada aparece ainda |
 | 3. Resultado (minutos depois) | Chega pelo callback e vira uma **trade** com o nome do bundle, uma linha por jogo qualificado, já com preço, popularidade e o vínculo com o bundle preenchidos |
 
 Ao contrário da pesquisa de listas de fornecedor, esta **não exige oferta na Gamivo**: na compra de bundle interessa o retrato do pacote todo, inclusive do que ainda não é vendável lá. O jogo sem oferta volta sem `gamivo_id`, e a linha da trade nasce sem ele — o id é resolvido depois, na importação das keys.
 
-Também **não corta jogo barato**: o piso de preço vai zerado, porque o bundle é precificado completo e o jogo de centavos também soma no pacote. (O serviço tem um piso default de €0,50 que descartaria justamente esses jogos — por isso o zero é mandado explicitamente.)
+Também **não corta jogo barato**: o piso de preço do preset é zero, porque o bundle é precificado completo e o jogo de centavos também soma no pacote. O mesmo vale para o preço de lançamento gravado pela sync de bundles (preset `bundle-sync`).
 
 O que ainda descarta, sem comunicar de volta: jogo abaixo do piso de popularidade, jogo sem preço encontrado e jogo a exatamente €0,00. Se **nenhum** jogo do bundle qualificar, não chega callback nenhum — a trade nunca é criada, e não há como distinguir isso de uma pesquisa ainda em andamento.
 
