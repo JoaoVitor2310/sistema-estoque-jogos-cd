@@ -53,9 +53,7 @@ it('sends the bundle games and title to the price_researcher', function () {
     Http::assertSent(function ($request) {
         return $request['title'] === 'Humble Perplexing Puzzles Bundle'
             && $request['gameNames'] === ['Taiji', 'Viewfinder']
-            && $request['minPopularity'] === 1
-            && $request['checkGamivoOffer'] === false
-            && $request['minPrice'] === 0
+            && $request['preset'] === 'bundle-research'
             && $request['internal_secret'] === 'segredo-de-teste';
     });
 });

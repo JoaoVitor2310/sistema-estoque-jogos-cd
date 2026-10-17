@@ -92,7 +92,8 @@ app/
 │   │   └── PlatformIdentifier.php      # regex Steam, EA, EGS, GOG, Xbox, PSN
 │   ├── Bundles/
 │   │   ├── BundleTypeResolver.php
-│   │   └── BundleGameLookup.php
+│   │   ├── BundleGameLookup.php
+│   │   └── LaunchPriceResearch.php      # janela em que ainda vale pesquisar o preço de lançamento
 │   ├── Games/
 │   │   └── GameNameNormalizer.php       # espelha o clearString do price-researcher
 │   ├── Assets/
@@ -205,6 +206,7 @@ app/
 │       ├── GamivoApiService.php
 │       ├── GgDealsApiService.php        # cliente da API GG.deals (bundles ativos)
 │       ├── CurrencyConversionService.php
+│       ├── BundleResearchRequest.php    # corpo das pesquisas de bundle no price_researcher (só o preset)
 │       └── SteamChartsService.php
 │
 ├── Http/

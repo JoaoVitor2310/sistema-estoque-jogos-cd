@@ -586,6 +586,18 @@ Na prática o operador só descobre disparando de novo, e cada redisparo é minu
 
 ---
 
+## Sync de bundles segura a transação durante a pesquisa do preço de lançamento
+
+**Onde:** `app/UseCases/Bundles/SyncBundlesFromApiUseCase.php`.
+
+`fetchLaunchPrices` roda dentro da transação de `execute()`, e a pesquisa no `price_researcher` é síncrona e pode levar minutos. A transação fica aberta o tempo todo, segurando os locks das linhas de `bundles`, `games` e `bundle_games` já gravadas na rodada.
+
+**Ação:** tirar a busca de preço de lançamento da transação — gravar bundles e jogos, fazer commit, e só então pesquisar.
+
+**Origem:** migração da sync para `POST /api/games/research` com entrega síncrona (2026-10-16).
+
+---
+
 ## `ResolveSteamIdsUseCase` — "não encontrado" e "sem dados" viram o mesmo carimbo
 
 **Onde:** `app/UseCases/Games/ResolveSteamIdsUseCase.php` (marcação de `games.steamcharts_searched_at`).

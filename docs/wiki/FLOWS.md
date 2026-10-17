@@ -24,7 +24,7 @@ O fluxo acima parte de um **supplier**. A opção "Pesquisar Preços" no menu de
 
 | # | Etapa | O que acontece | Onde vive |
 |---|---|---|---|
-| 1 | Disparar a pesquisa | Manda os jogos do bundle ao serviço externo, com os critérios de corte do fluxo — frouxos: **sem** exigir oferta na Gamivo e **sem** piso de preço | `ResearchBundleGamesUseCase` + `BundleResearchRequest` |
+| 1 | Disparar a pesquisa | Manda os jogos do bundle ao serviço externo com o preset `bundle-research`, cujos critérios moram lá — frouxos: **sem** exigir oferta na Gamivo e **sem** piso de preço | `ResearchBundleGamesUseCase` + `BundleResearchRequest` |
 | 2 | Enfileirar | O serviço responde na hora; a tela só confirma que entrou na fila | `price_researcher` (assíncrono) |
 | 3 | Receber o resultado | Minutos depois, vira uma trade com o nome do bundle e uma linha por jogo qualificado | callback → `StoreListTradeUseCase` |
 
