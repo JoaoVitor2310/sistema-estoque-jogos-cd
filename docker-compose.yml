@@ -16,6 +16,9 @@ services:
     # junto — precisa continuar valendo depois de um restart do daemon. Até
     # 2026-08-24 este era o único serviço sem política nenhuma, e um reboot
     # deixava o site em 502 até alguém subir o container à mão.
+    # Nunca mande sinal com `docker kill` para este container (nem USR2): conta
+    # como parada manual e anula o `unless-stopped` no próximo boot. Ver
+    # docs/agents/deploy.md.
     restart: unless-stopped
     build:
       context: .

@@ -35,6 +35,12 @@ class Game extends Model
             ->withTimestamps();
     }
 
+    public function giveaways(): BelongsToMany
+    {
+        return $this->belongsToMany(Giveaway::class, 'giveaway_games', 'game_id', 'giveaway_id')
+            ->withTimestamps();
+    }
+
     /**
      * Último bundle do jogo (pelo release_date mais recente).
      *

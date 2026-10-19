@@ -18,6 +18,7 @@ Porta de entrada do sistema: domínio, fluxos de negócio e automações, organi
 - [`docs/PRODUCT.md`](../PRODUCT.md) — regras de negócio detalhadas
 - [`docs/GAMIVO.md`](../GAMIVO.md) — integração completa com a Gamivo (algoritmos, API, agendamentos)
 - [`docs/GG_DEALS.md`](../GG_DEALS.md) — integração com bundles
+- [`docs/GAMERPOWER.md`](../GAMERPOWER.md) — integração com giveaways
 - [`docs/PRICE_RESEARCHER.md`](../PRICE_RESEARCHER.md) — integração com o buscador de preços
 - [`docs/adr/`](../adr/) — decisões arquiteturais registradas
 - [`docs/IMPROVEMENTS.md`](../IMPROVEMENTS.md) — tudo que ainda falta fazer

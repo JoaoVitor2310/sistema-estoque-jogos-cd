@@ -30,6 +30,7 @@ php artisan test --no-coverage    # suíte Pest completa
 - [`docs/PRICE_RESEARCHER.md`](docs/PRICE_RESEARCHER.md) — integração com buscador de preços próprio
 - [`docs/GAMIVO.md`](docs/GAMIVO.md) — **referência completa** da integração com a Gamivo: algoritmos de precificação, fluxos, contratos de API e notas de implementação
 - [`docs/GG_DEALS.md`](docs/GG_DEALS.md) — integração com API de dados de bundles
+- [`docs/GAMERPOWER.md`](docs/GAMERPOWER.md) — integração com a API de giveaways (jogos Steam de graça)
 - [`docs/GAMIVO_Merchant-pricing.pdf`](docs/GAMIVO_Merchant-pricing.pdf) — **tabela oficial de taxas Gamivo** (retail, wholesale, payouts); fonte de verdade para todas as fórmulas de precificação
 
 **Convenções de engenharia** (como trabalhar neste repo)

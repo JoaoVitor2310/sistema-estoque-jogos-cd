@@ -118,7 +118,7 @@ tests/Unit/Domain/
 | Cache | Redis 7 |
 | Testing | Pest 3 |
 | Infrastructure | Docker · Docker Compose · Nginx · PHP-FPM |
-| External integrations | Gamivo API · GG.deals API · AwesomeAPI (FX rates) |
+| External integrations | Gamivo API · GG.deals API · GamerPower API (giveaways) · AwesomeAPI (FX rates) |
 
 ---
 

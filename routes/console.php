@@ -3,6 +3,7 @@
 use App\UseCases\Assets\AlertDollarVariationUseCase;
 use App\UseCases\Bundles\SyncBundlesFromApiUseCase;
 use App\UseCases\Games\ResolveSteamIdsUseCase;
+use App\UseCases\Games\SyncGiveawaysUseCase;
 use App\UseCases\Keys\AlertExpiringKeysUseCase;
 use App\UseCases\Marketplaces\Gamivo\AutoSellUseCase;
 use App\UseCases\Marketplaces\Gamivo\RegulateMinApiUseCase;
@@ -28,6 +29,13 @@ Schedule::call(fn () => app(AlertDollarVariationUseCase::class)->execute())
 
 Schedule::call(fn () => app(SyncBundlesFromApiUseCase::class)->execute())
     ->cron('5 * * * *')->timezone('UTC')->environments('production');
+
+// Registra os giveaways de jogo Steam do GamerPower. O preço começa a cair
+// horas depois de o jogo sair de graça, e a API só mostra o que está ativo:
+// o fim do giveaway é a primeira passada em que ele some do feed, então o
+// intervalo é também a precisão com que o fim é registrado.
+Schedule::call(fn () => app(SyncGiveawaysUseCase::class)->execute())
+    ->cron('*/30 * * * *')->timezone('UTC')->environments('production');
 
 // Descobre o steam_id dos jogos que ainda não têm um, via price_researcher.
 // Pré-requisito da atualização de popularidade, que roda uma hora depois.

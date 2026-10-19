@@ -111,8 +111,14 @@ jobs:
             docker exec app-cd php artisan route:cache
             docker exec app-cd php artisan view:cache
 
-            # Recarrega o PHP-FPM para limpar o OpCache sem derrubar o container
-            docker kill --signal=USR2 app-cd
+            # Recarrega o PHP-FPM para limpar o OpCache sem derrubar o container.
+            # O sinal sai de dentro do container (o php-fpm é o PID 1, via `exec`
+            # no entrypoint), e não por `docker kill --signal=USR2`: qualquer
+            # `docker kill` marca o container como parado manualmente, mesmo com
+            # um sinal que não o encerra, e o `unless-stopped` deixa de religá-lo
+            # no boot. Foi assim que o app-cd ficou fora do ar após o desligamento
+            # da VM pela Hostinger em 2026-10-16, com banco e nginx já de pé.
+            docker exec app-cd sh -c 'kill -USR2 1'
 
       - name: Copy build to VPS
         uses: appleboy/scp-action@v0.1.7

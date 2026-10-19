@@ -214,6 +214,7 @@ Definidos em `routes/console.php`, fuso `America/Sao_Paulo`:
 | `30 7 * * *` | America/Sao_Paulo | `RegulateMinApiUseCase` | Recalcula `min_api` de todas as keys não vendidas (via `MinimumMarginPolicy`) — roda antes do auto-sell |
 | `0 6 * * *` | America/Sao_Paulo | `ResolveSteamIdsUseCase` | Busca Steam IDs pendentes |
 | `5 * * * *` | UTC | `SyncBundlesFromApiUseCase` | Sincroniza bundles da API GG.deals |
+| `*/30 * * * *` | UTC | `SyncGiveawaysUseCase` | Registra giveaways de jogo Steam do GamerPower e os vincula aos jogos ([`docs/GAMERPOWER.md`](GAMERPOWER.md)) |
 | **Manual** | — | `gamivo:auto-sell` (artisan) | `AutoSellUseCase` — **não roda em cron**, precisa ser disparado manualmente |
 
 > `UpdateOffersUseCase` roda como um único `Schedule::call()` a cada minuto, sem `mode` — processa subida e descida de preço na mesma passada, com `->name()->withoutOverlapping()` (se uma execução ultrapassar 1 min, o(s) tick(s) seguinte(s) são pulados até o mutex liberar, sem empilhar processos concorrentes). O filtro `OffersUpdateMode` (`WeAreLowest`/`WeAreNotLowest`) continua existindo na assinatura de `execute()` para uso manual/pontual, mas o cron não passa mais `mode` — eliminou de vez a possibilidade de dois processos do scheduler concorrendo pela mesma API.
