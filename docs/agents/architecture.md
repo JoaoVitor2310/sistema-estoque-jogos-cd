@@ -95,7 +95,10 @@ app/
 │   │   ├── BundleGameLookup.php
 │   │   └── LaunchPriceResearch.php      # janela em que ainda vale pesquisar o preço de lançamento
 │   ├── Games/
-│   │   └── GameNameNormalizer.php       # espelha o clearString do price-researcher
+│   │   ├── GameNameNormalizer.php       # espelha o clearString do price-researcher
+│   │   ├── GiveawayTitle.php            # extrai jogo e origem do título do GamerPower
+│   │   ├── GiveawayPeriod.php           # VO: status + publicação + última vez visto
+│   │   └── GiveawayPolicy.php           # por quanto tempo o jogo continua em giveaway (faixas por duração)
 │   ├── Assets/
 │   │   ├── AssetAlert.php               # limiar de alerta de variação de câmbio
 │   │   └── ExchangeRatePolicy.php       # idade máxima da cotação de reserva
@@ -130,6 +133,7 @@ app/
 │       ├── OffersUpdateMode.php         # WeAreLowest / WeAreNotLowest
 │       ├── PresenceFilter.php           # filled / empty — filtro por coluna preenchida
 │       ├── SupplierCategory.php         # vip / blocked
+│       ├── GiveawayStatus.php           # active / ended — derivado do feed do GamerPower
 │       ├── PurchaseChannel.php          # de quem a trade foi comprada: supplier / loja do bundle / Gamivo
 │       ├── TradeImportBlocker.php       # o que impede uma trade de virar keys
 │       └── OrderPayoutAttribution.php   # quanto do casamento linha↔key fechou numa baixa de venda
@@ -145,6 +149,7 @@ app/
 │   ├── Games/
 │   │   ├── ResolveSteamIdsUseCase.php    # descobre steam_id via price_researcher
 │   │   ├── RegisterGamesUseCase.php      # lote transacional; duplicata é pulada, não aborta
+│   │   ├── SyncGiveawaysUseCase.php      # feed do GamerPower → giveaways + vínculo com games (30 min)
 │   │   └── UpdateGameUseCase.php         # deriva normalized_name e busca gamivo_id no estoque
 │   ├── Marketplaces/                     # orquestrações específicas por marketplace
 │   │   └── Gamivo/                       # quando vier outro: Eneba/, G2A/, etc.
@@ -205,6 +210,7 @@ app/
 │   └── External/
 │       ├── GamivoApiService.php
 │       ├── GgDealsApiService.php        # cliente da API GG.deals (bundles ativos)
+│       ├── GamerPowerApiService.php     # cliente da API GamerPower (giveaways de jogo Steam ativos)
 │       ├── CurrencyConversionService.php
 │       ├── BundleResearchRequest.php    # corpo das pesquisas de bundle no price_researcher (só o preset)
 │       └── SteamChartsService.php
@@ -227,6 +233,7 @@ app/
     ├── Key.php         → keys
     ├── Game.php        → games
     ├── Bundle.php      → bundles
+    ├── Giveaway.php    → giveaways (+ pivot giveaway_games)
     ├── Supplier.php    → suppliers
     ├── Trade.php       → trades
     ├── Asset.php       → assets

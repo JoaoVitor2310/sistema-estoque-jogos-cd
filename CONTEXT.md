@@ -81,6 +81,10 @@ _Avoid_: cooldown, período de graça.
 Tipo de bundle (Humble Choice) identificado pelo título — tratado separadamente do bundle comum.
 _Avoid_: bundle tipo 2.
 
+**Jogo em giveaway**:
+Jogo cuja key Steam está ou esteve de graça há pouco tempo, segundo o GamerPower. O preço despenca em horas e não volta quando o giveaway acaba: o jogo continua em giveaway enquanto ele está ativo e por uma janela depois do fim, que cresce com a duração — faixas em [`docs/PRODUCT.md`](docs/PRODUCT.md#giveaway). O giveaway acaba quando sai do feed, não na data que o site anuncia. Vale para o jogo em todas as regiões.
+_Avoid_: jogo grátis, jogo free (sugere jogo free-to-play, que é outra coisa), promoção.
+
 ### Precificação competitiva
 
 **Price dumper**:

@@ -44,6 +44,15 @@ Agrupamento de jogos (`bundle` ou `choice`). Many-to-many com `Game` via `bundle
 
 **Pesquisa de preço dos jogos do bundle.** `ResearchBundleGamesUseCase` dispara `POST /api/games/research` no `price_researcher` com o preset `bundle-research`; a sync (`SyncBundlesFromApiUseCase`) usa o mesmo endpoint com o preset `bundle-sync` e entrega síncrona para gravar `bundle_games.bundle_launch_price` — enquanto o bundle não tiver preço de lançamento e estiver dentro da janela de `App\Domain\Bundles\LaunchPriceResearch` (regra em [`docs/GG_DEALS.md`](../GG_DEALS.md)). Os dois corpos saem de `App\Services\External\BundleResearchRequest`, que manda **só o nome do preset**: os critérios (popularidade, preço mínimo, oferta na Gamivo) moram no `price_researcher`. A pesquisa é assíncrona: o retorno confirma só o enfileiramento, e o resultado volta minutos depois pelo callback `POST /trades/from-price-researcher`, virando uma trade com o nome do bundle. Contrato completo em [`docs/PRICE_RESEARCHER.md`](../PRICE_RESEARCHER.md).
 
+### Giveaways (`Giveaway` → tabelas `giveaways` / `giveaway_games`)
+
+Giveaways de jogo Steam registrados a partir do GamerPower (`SyncGiveawaysUseCase`, a cada 30 min). Integração e fluxo em [`docs/GAMERPOWER.md`](../GAMERPOWER.md); regra da janela em [`docs/PRODUCT.md`](../PRODUCT.md#giveaway); decisão em [`docs/adr/0014`](../adr/0014-record-steam-giveaways-from-gamerpower.md).
+
+- `Giveaway` — campos: `gamerpower_id` (unique, chave do upsert), `title` (original), `game_name` e `normalized_game_name` (index; extraídos do título por `App\Domain\Games\GiveawayTitle` e normalizados pelo `GameNameNormalizer`, nulos para título fora do padrão), `store` (parêntese do título), `worth` (decimal, USD), `gamerpower_url`, `published_date`, `end_date` (fim **anunciado**, só informativo), `status` (enum `App\Domain\Enums\GiveawayStatus`: `active` | `ended`), `last_seen_at` (última passada em que veio no feed — num `ended`, o fim real). Sem soft delete: a sincronização nunca apaga
+- `giveaway_games` — pivot `Giveaway belongsToMany Game` (`Giveaway::games()` / `Game::giveaways()`), unique (`giveaway_id`, `game_id`), FKs com `cascadeOnDelete`. Um giveaway liga **todas** as linhas de `games` com `normalized_name` igual ao `normalized_game_name` — uma por região. Revinculado (`sync()`) a cada passada enquanto `GiveawayPolicy::isFlagged`; fora da janela, congela
+- **Jogo que nunca tivemos não ganha linha em `games`** — o giveaway fica sem vínculo até o jogo ser cadastrado
+- `App\Domain\Games\GiveawayPolicy` — constantes `SHORT_MAX_DAYS`/`SHORT_WINDOW_DAYS`, `MEDIUM_MAX_DAYS`/`MEDIUM_WINDOW_DAYS`, `LONG_WINDOW_DAYS` (valores em [`docs/PRODUCT.md`](../PRODUCT.md#giveaway)); `durationDays()` (publicação → `last_seen_at`, dias de calendário), `flaggedUntil()` (null = ativo), `isFlagged()`. Recebe um `App\Domain\Games\GiveawayPeriod` (status, `published_date`, `last_seen_at`), montado por `Giveaway::period()`; `GiveawayPeriod::startDate()` decide o início quando a API não manda a data (a gravada, senão a primeira vez que o vimos)
+
 ## 4. Assets (`Asset` → tabela `assets`)
 
 Representa ativos de troca (ex: TF2 key). Campos: `price_euro`, `price_dollar`, `price_brl`. Usado por `KeyCalculationService` para converter o custo da trade em euros (`price_euro`) e para as ofertas e o custo de trades pagas em dólar (`price_dollar`). Os dois preços da TF2 ficam em cache por 1 hora (`tf2_euro_price`, `tf2_dollar_price`), **só quando positivos** — cotação zerada não é cacheada.
@@ -132,6 +141,6 @@ Regras de negócio completas (roteiro dos 8 passos, exclusão, carry-forward): [
 
 Rede de proteção contra apagamento acidental. `deleted_at` + trait `SoftDeletes` em **7 tabelas**: `keys`, `trades`, `suppliers`, `games`, `bundles`, `financial_months`, `financial_movements`.
 
-**Fora, de propósito:** `trade_lines` (a exclusão de linha reindexa a `position` das irmãs — uma linha soft-deletada guardaria a posição antiga e o `restore()` duplicaria posição), `bundle_games` (pivot), `fees`/`assets`/`authorized_users` (lookup) e `users` (o provider de auth usa `newModelQuery()`, que não aplica o global scope).
+**Fora, de propósito:** `trade_lines` (a exclusão de linha reindexa a `position` das irmãs — uma linha soft-deletada guardaria a posição antiga e o `restore()` duplicaria posição), `bundle_games` e `giveaway_games` (pivots), `giveaways` (fato externo — a sincronização nunca apaga), `fees`/`assets`/`authorized_users` (lookup) e `users` (o provider de auth usa `newModelQuery()`, que não aplica o global scope).
 
 Sem UI de lixeira — `restore()` é manual. Detalhes, índice `unique` parcial e armadilhas em [`docs/adr/0011`](../adr/0011-soft-delete-on-curated-tables.md).

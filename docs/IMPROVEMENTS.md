@@ -486,7 +486,7 @@ Hoje não existe processo para identificar ou decidir o que fazer com esse grupo
 - [ ] Job/relatório recorrente que roda a mesma comparação (mercado vs. `individual_cost`) e persiste o resultado, em vez de exigir rodar os comandos manualmente toda vez — os dois comandos atuais chamam a API Gamivo (read-only) e não têm agendamento
 - [ ] Definir um limiar de tempo "underwater" (ex: mercado abaixo do custo por ≥ N meses) que dispara alerta por e-mail, no mesmo padrão do `AlertExpiringKeysUseCase`
 - [ ] Decidir a política de liquidação: vender abaixo do custo pra liberar capital (após X tempo) vs. segurar indefinidamente — provavelmente uma decisão de negócio, não só técnica
-- [ ] Avaliar se o processo de compra deveria checar tendência de preço recente antes de fechar a trade (a API `gamerpower.com/api-read` de giveaways foi identificada em `docs/PRODUCT.md`, mas **ainda não está integrada** — nenhuma checagem de giveaway roda hoje; queda de preço seria o mesmo tipo de checagem preventiva)
+- [ ] Avaliar se o processo de compra deveria checar tendência de preço recente antes de fechar a trade — o mesmo tipo de checagem preventiva da sinalização de giveaway (ver "Giveaways — o que falta depois do registro")
 
 **Origem:** sessão de diagnóstico de `min_api` (2026-08-09) — a investigação original era sobre `MinimumMarginPolicy::DEFAULT_MARGIN` (ajustado de 60% para 50%, ver `MinimumMarginPolicyTest.php`), mas separar os casos "mercado abaixo do custo" dos casos "margem alta demais" revelou que boa parte do volume travado é estoque morto, não ajuste de tier.
 
@@ -502,9 +502,22 @@ A regra que sinaliza jogo encalhado nas trades ([`docs/adr/0013`](adr/0013-flag-
 - [ ] **Teto de cópias do mesmo jogo por trade.** O outro padrão de encalhe é o lote grande de uma vez (30 keys de King's Bounty num lote, 16 de Curse of the Sea Rats de um fornecedor só). A regra atual só age 120 dias depois. A diferença de venda por tamanho de lote é moderada (61% em lotes de 10+ contra 80% em compra unitária), então o limite precisa ser decidido pelo negócio
 - [ ] **Conferir os limites com as trades marcadas.** O jogo encalhado já sai da oferta na prospecção; o que falta é, depois de algumas semanas, olhar as linhas marcadas e decidir se `MIN_STOCK`, `MIN_AGE_DAYS` e `MAX_COVERAGE_DAYS` estão nos valores certos — e se a lista comentada (`StoreListTradeUseCase`), que hoje só marca, também deveria deixar de ofertar
 - [ ] **A agregação de estoque varre a tabela inteira.** `KeyRepository::stockByGameIdentity` faz `Seq Scan` em `keys` (5.292 linhas hoje, ~1,5 ms). Roda uma vez por trade criada e a cada gravação de linha que troca nome ou região — o autosave da aba faz isso a cada pausa de digitação no nome. Não dói nesse tamanho, mas cresce com a tabela; a saída é um índice que sirva ao filtro ou um cache curto da agregação
-- [ ] **Detecção de giveaway.** É a causa dos lotes que encalham: o preço despenca quando o jogo sai de graça. Dois caminhos possíveis — integrar `gamerpower.com/api-read` (identificada em `docs/PRODUCT.md`, nunca integrada) ou comparar o preço pesquisado agora com o `market_price` das keys do mesmo jogo compradas nos últimos dias (no dump, Ballionaire foi comprado a €4,60 e dez dias depois a pesquisa trazia €0,57). O segundo não depende de serviço externo e pega também os giveaways que o GamerPower não cobre
+- [ ] **Detecção de giveaway por queda de preço.** Os giveaways do GamerPower já são registrados (ver "Giveaways — o que falta depois do registro"); o complemento é comparar o preço pesquisado agora com o `market_price` das keys do mesmo jogo compradas nos últimos dias (no dump, Ballionaire foi comprado a €4,60 e dez dias depois a pesquisa trazia €0,57). Não depende de serviço externo e pega também os giveaways que o GamerPower não cobre
 
 **Origem:** sessão de análise de estoque parado (2026-09-13), sobre o dump de produção. As três frentes foram levantadas e adiadas pelo negócio na mesma sessão, para a primeira versão da regra usar só o que já temos no banco.
+
+---
+
+## Giveaways — o que falta depois do registro
+
+**Onde:** `app/Domain/Games/GiveawayPolicy.php`, `app/UseCases/Games/SyncGiveawaysUseCase.php`, `app/UseCases/Trades/` (`StoreListTradeUseCase`, `CreateTradeLineUseCase`, `UpdateTradeLineUseCase`).
+
+Os giveaways de jogo Steam já são registrados e vinculados aos jogos ([`docs/adr/0014`](adr/0014-record-steam-giveaways-from-gamerpower.md)), mas ainda **ninguém consulta** esses dados: a negociação não vê o aviso.
+
+- [ ] **Sinalizar o jogo em giveaway na trade.** Coluna `trade_lines.is_giveaway` (boolean, default `false`, sem backfill; nome em `GiveawayPolicy::FLAG_COLUMN`, como `OverstockPolicy::FLAG_COLUMN`), gravada quando a linha nasce ou troca de jogo (`LineGamePair::changedBy`), como `is_overstocked`. O casamento é o nome normalizado da linha × `giveaways.normalized_game_name` filtrado por `GiveawayPolicy::isFlagged` — **direto, sem passar pela pivot**, senão o jogo que nunca tivemos (sem linha em `games`) nunca seria marcado. Jogo com mais de um giveaway: vale a janela que termina por último (basta um deles estar na janela para marcar). Decidido pelo negócio: na prospecção o jogo **sai da oferta** (sai de `profitable` e do `total_tf2_price`; o `CommentPolicy::shouldComment` recebe o subconjunto sem encalhados e sem giveaways), mas **continua como linha da trade** com o aviso. A marca sai na projeção da equipe e **não** na entrega (`DeliveryReadModel::LINE_COLUMNS`), e aparece como selo "Giveaway" em `Trades.vue` ao lado de "Encalhado"
+- [ ] **Aba Giveaways**, no molde de Bundles: `GET /giveaways` com `RequireTeam`, só leitura, `Giveaways.vue`. Colunas: jogo, origem, valor, publicado, fim anunciado, status, "em giveaway até", jogos vinculados com a região, link para o GamerPower. Por padrão só os que estão em giveaway hoje, com opção de ver o histórico. **Atribuição obrigatória** pelos termos de uso: link ativo para GamerPower.com na tela
+
+**Origem:** planejamento da integração GamerPower (2026-10-16 a 2026-10-18). Entregue em fatias para o histórico começar a acumular antes da tela.
 
 ---
 

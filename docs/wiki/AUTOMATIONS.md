@@ -11,6 +11,7 @@ Ordenado do mais frequente ao mais raro. Fuso `America/Sao_Paulo`, exceto onde i
 | Cadência | Cron | Job | O que faz |
 |---|---|---|---|
 | a cada minuto | `* * * * *` | `UpdateOffersUseCase` | Passada única: por produto, sobe o preço se já somos os mais baratos, desce se não somos. `withoutOverlapping` pula o tick se a execução anterior ainda roda. Detalhe em [`docs/GAMIVO.md`](../GAMIVO.md) |
+| a cada 30 min | `*/30 * * * *` (UTC) | `SyncGiveawaysUseCase` | Registra giveaways de jogo Steam do GamerPower e os vincula aos jogos. Detalhe em [`docs/GAMERPOWER.md`](../GAMERPOWER.md) |
 | de hora em hora | `5 * * * *` (UTC) | `SyncBundlesFromApiUseCase` | Sincroniza bundles novos da API GG.deals |
 | 2×/dia | `0 6,18 * * *` | `UpdateSoldOffersUseCase` | Dá baixa nas keys vendidas (janela de 30 dias) |
 | diário 06:00 | `0 6 * * *` | `ResolveSteamIdsUseCase` | Busca Steam IDs ainda não descobertos |

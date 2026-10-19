@@ -155,8 +155,23 @@ Atualmente os preços ofertados aos fornecedores são calculados em planilhas de
 Como cada key tem um longo processo a ser feito, o ideal é não comprar jogos abaixo de 1 euro(preco cliente), por não compensar o trabalho e tempo dedicado à aquela key. Isso não é uma regra imutável, mas precisamos definir melhor quando vale a pena ou não comprar.
 
 ## Giveaway
-Jogos que são oferecidos de maneira gratuita por sites. O preço desses jogos despenca no mercado, mas isso demora umas horas ou dias para acontecer. Se comprarmos um jogo no meio tempo dele sair no giveaway e não sabermos, é quase certo que iremos ter prejuízo.
-### https://www.gamerpower.com/api-read - Já descobrimos essa API para saber os jogos lançados em Giveaway.
+Jogos que são oferecidos de graça por sites. O preço desses jogos despenca no mercado, mas isso demora umas horas ou dias para acontecer. Se comprarmos um jogo no meio tempo dele sair no giveaway e não soubermos, é quase certo que teremos prejuízo.
+
+O sistema registra os giveaways de **jogo Steam** do GamerPower a cada 30 minutos e os liga aos jogos cadastrados, em todas as regiões. DLC, itens, playtests e as outras lojas (Epic, itch.io, DRM-free) ficam de fora. Integração, campos e sincronização: [`docs/GAMERPOWER.md`](GAMERPOWER.md).
+
+**O preço não volta quando o giveaway acaba.** O jogo continua **em giveaway** enquanto o giveaway está ativo e por uma janela depois do fim, que cresce com a duração: quanto mais tempo ficou de graça, mais cópias circulam e mais o preço demora a subir (`GiveawayPolicy`).
+
+| Duração do giveaway | Continua em giveaway até |
+|---|---|
+| até 15 dias | 90 dias após encerrar |
+| 16 a 30 dias | 120 dias após encerrar |
+| mais de 30 dias | 180 dias após encerrar |
+
+> O código avalia primeiro se o giveaway ainda está ativo. Giveaway ativo não tem prazo, e só depois de encerrado entra numa faixa.
+
+- **A duração** vai da publicação até a última vez que o giveaway foi visto ativo, em dias de calendário. O fim anunciado pelo site muitas vezes vem "N/A", e o que encerra o giveaway para nós é ele **sair do feed**. Exemplo: Dwarven Realms, publicado em 16/07/2026 e ainda ativo em 18/10, já passou de 30 dias; quando encerrar, fica em giveaway por mais 180.
+- **Só conta o que a sincronização viu.** Giveaway que acabou antes da integração (2026-10-18) não é considerado, e não há cadastro manual.
+- **Jogo que nunca tivemos** não é cadastrado em Games: o giveaway fica registrado e se liga ao jogo quando ele aparecer.
 
 ## Como saber quanto vale o jogo agora
 Atualmente só vendemos keys na Gamivo e é lá que o preço atual é verificado. O preço é definido com base no que os concorrentes estão vendendo — sempre abaixo do menor deles (passo de €0,014, `ComparisonAlgorithm::PRICE_STEP`) para ficar mais visível e atraente. Essa lógica hoje é do próprio sistema (`UpdateOffersUseCase` + `ComparisonAlgorithm`), com proteção contra price dumpers e concorrentes com bot.

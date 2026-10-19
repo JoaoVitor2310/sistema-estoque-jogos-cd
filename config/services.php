@@ -45,6 +45,11 @@ return [
         'api_key' => env('API_KEY_GG_DEALS'),
     ],
 
+    // API pública e sem chave; ver docs/GAMERPOWER.md.
+    'gamerpower' => [
+        'base_url' => 'https://www.gamerpower.com/api',
+    ],
+
     'sistema-estoque' => [
         'base_url' => env('THIS_URL'),
         'dev_base_url' => env('DEV_THIS_URL'),
