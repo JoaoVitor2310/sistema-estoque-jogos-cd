@@ -200,7 +200,8 @@ app/
 │   ├── Games/
 │   │   ├── GameService.php              # lookup/preenchimento de gamivo_id e steam_id
 │   │   ├── GameRepository.php           # paginate() com whitelist de filtros (IndexGamesRequest)
-│   │   └── GiveawayService.php          # jogos em giveaway agora: marca das linhas de trade
+│   │   ├── GiveawayService.php          # jogos em giveaway agora: marca das linhas de trade
+│   │   └── GiveawayRepository.php       # leitura dos giveaways para a aba Giveaways
 │   ├── Suppliers/SupplierService.php
 │   ├── Trades/
 │   │   ├── TradeService.php             # paginate() com filtros/sort/paginação; is_stocked scoped-to-page
@@ -227,6 +228,7 @@ app/
 │   │   ├── Financial/FinancialMonthController.php  # /financial-months — livro-caixa em R$
 │   │   ├── GameController.php
 │   │   ├── BundleController.php
+│   │   ├── GiveawayController.php      # /giveaways — só leitura
 │   │   ├── AssetController.php
 │   │   ├── FeeController.php
 │   │   └── TradeController.php

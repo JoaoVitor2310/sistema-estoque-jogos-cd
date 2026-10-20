@@ -59,6 +59,9 @@ const handleLogout = async () => {
                 <Link class="nav-link" :href="route('games')">Jogos</Link>
               </li>
               <li>
+                <Link class="nav-link" :href="route('giveaways')">Giveaways</Link>
+              </li>
+              <li>
                 <Link class="nav-link" :href="route('suppliers.index')">Fornecedores</Link>
               </li>
               <li class="nav-item dropdown">
