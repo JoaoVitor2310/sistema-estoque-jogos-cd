@@ -47,11 +47,11 @@ describe('GiveawayPolicy::flaggedUntil()', function () {
         expect(GiveawayPolicy::flaggedUntil(giveawayPeriodLasting(200, GiveawayStatus::Active)))->toBeNull();
     });
 
-    it('counts the window from the last time the giveaway was seen', function () {
+    it('counts the window from the last time the giveaway was seen, to the end of the last day', function () {
         $period = giveawayPeriodLasting(7);
 
         expect(GiveawayPolicy::flaggedUntil($period)->toDateTimeString())
-            ->toBe($period->lastSeenAt->copy()->addDays(GiveawayPolicy::SHORT_WINDOW_DAYS)->toDateTimeString());
+            ->toBe($period->lastSeenAt->copy()->addDays(GiveawayPolicy::SHORT_WINDOW_DAYS)->endOfDay()->toDateTimeString());
     });
 });
 
@@ -65,7 +65,7 @@ describe('GiveawayPolicy::isFlagged()', function () {
 
     it('flags an ended giveaway up to the last instant of its window', function (int $duration, int $window) {
         $period = giveawayPeriodLasting($duration);
-        $until = $period->lastSeenAt->copy()->addDays($window);
+        $until = $period->lastSeenAt->copy()->addDays($window)->endOfDay();
 
         expect(GiveawayPolicy::isFlagged($period, $until))->toBeTrue()
             ->and(GiveawayPolicy::isFlagged($period, $until->copy()->addSecond()))->toBeFalse();
@@ -74,6 +74,19 @@ describe('GiveawayPolicy::isFlagged()', function () {
         'medium' => [20, GiveawayPolicy::MEDIUM_WINDOW_DAYS],
         'long' => [45, GiveawayPolicy::LONG_WINDOW_DAYS],
     ]);
+});
+
+describe('GiveawayPolicy — the last day of the window', function () {
+
+    it('still flags the game late on the last day, past the hour it was last seen', function () {
+        // Visto pela última vez às 12h: às 23h do último dia o prazo ainda diz
+        // "até hoje", e o jogo tem de continuar contando.
+        $period = giveawayPeriodLasting(7);
+        $lateOnLastDay = $period->lastSeenAt->copy()->addDays(GiveawayPolicy::SHORT_WINDOW_DAYS)->setTime(23, 0);
+
+        expect(GiveawayPolicy::isFlagged($period, $lateOnLastDay))->toBeTrue()
+            ->and(GiveawayPolicy::isFlagged($period, $lateOnLastDay->copy()->addDay()->startOfDay()))->toBeFalse();
+    });
 });
 
 describe('GiveawayPolicy::isGameFlagged()', function () {
@@ -89,6 +102,19 @@ describe('GiveawayPolicy::isGameFlagged()', function () {
 
     it('does not flag a game without giveaways', function () {
         expect(GiveawayPolicy::isGameFlagged([], Carbon::parse('2026-01-01')))->toBeFalse();
+    });
+});
+
+describe('GiveawayPolicy::windowRule()', function () {
+
+    it('exposes the window bands from the constants', function () {
+        expect(GiveawayPolicy::windowRule())->toBe([
+            'short_max_days' => GiveawayPolicy::SHORT_MAX_DAYS,
+            'short_window_days' => GiveawayPolicy::SHORT_WINDOW_DAYS,
+            'medium_max_days' => GiveawayPolicy::MEDIUM_MAX_DAYS,
+            'medium_window_days' => GiveawayPolicy::MEDIUM_WINDOW_DAYS,
+            'long_window_days' => GiveawayPolicy::LONG_WINDOW_DAYS,
+        ]);
     });
 });
 

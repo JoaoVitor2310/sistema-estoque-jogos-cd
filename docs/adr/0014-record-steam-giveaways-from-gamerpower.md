@@ -1,6 +1,6 @@
 # Giveaways de jogo Steam viram tabela própria, ligada aos jogos pelo nome normalizado
 
-**Status:** accepted — registro e vínculo implementados em 2026-10-18; sinalização na trade em 2026-10-19. A aba Giveaways está em [`docs/IMPROVEMENTS.md`](../IMPROVEMENTS.md).
+**Status:** accepted — registro e vínculo implementados em 2026-10-18; sinalização na trade e aba Giveaways em 2026-10-19.
 
 Quando um jogo sai de graça, o preço da key despenca em horas e leva meses para voltar. Comprar nesse intervalo sem saber quase sempre dá prejuízo, e é a causa de parte dos lotes que encalham ([`docs/adr/0013`](0013-flag-overstocked-games-in-trades.md)). O GamerPower tem uma API pública de giveaways, mas ela só mostra os **ativos agora**. O histórico precisa ser nosso.
 

@@ -486,7 +486,7 @@ Hoje não existe processo para identificar ou decidir o que fazer com esse grupo
 - [ ] Job/relatório recorrente que roda a mesma comparação (mercado vs. `individual_cost`) e persiste o resultado, em vez de exigir rodar os comandos manualmente toda vez — os dois comandos atuais chamam a API Gamivo (read-only) e não têm agendamento
 - [ ] Definir um limiar de tempo "underwater" (ex: mercado abaixo do custo por ≥ N meses) que dispara alerta por e-mail, no mesmo padrão do `AlertExpiringKeysUseCase`
 - [ ] Decidir a política de liquidação: vender abaixo do custo pra liberar capital (após X tempo) vs. segurar indefinidamente — provavelmente uma decisão de negócio, não só técnica
-- [ ] Avaliar se o processo de compra deveria checar tendência de preço recente antes de fechar a trade — o mesmo tipo de checagem preventiva da sinalização de giveaway (ver "Giveaways — o que falta depois do registro")
+- [ ] Avaliar se o processo de compra deveria checar tendência de preço recente antes de fechar a trade — o mesmo tipo de checagem preventiva da sinalização de giveaway ([`docs/GAMERPOWER.md`](GAMERPOWER.md))
 
 **Origem:** sessão de diagnóstico de `min_api` (2026-08-09) — a investigação original era sobre `MinimumMarginPolicy::DEFAULT_MARGIN` (ajustado de 60% para 50%, ver `MinimumMarginPolicyTest.php`), mas separar os casos "mercado abaixo do custo" dos casos "margem alta demais" revelou que boa parte do volume travado é estoque morto, não ajuste de tier.
 
@@ -502,21 +502,9 @@ A regra que sinaliza jogo encalhado nas trades ([`docs/adr/0013`](adr/0013-flag-
 - [ ] **Teto de cópias do mesmo jogo por trade.** O outro padrão de encalhe é o lote grande de uma vez (30 keys de King's Bounty num lote, 16 de Curse of the Sea Rats de um fornecedor só). A regra atual só age 120 dias depois. A diferença de venda por tamanho de lote é moderada (61% em lotes de 10+ contra 80% em compra unitária), então o limite precisa ser decidido pelo negócio
 - [ ] **Conferir os limites com as trades marcadas.** O jogo encalhado já sai da oferta na prospecção; o que falta é, depois de algumas semanas, olhar as linhas marcadas e decidir se `MIN_STOCK`, `MIN_AGE_DAYS` e `MAX_COVERAGE_DAYS` estão nos valores certos — e se a lista comentada (`StoreListTradeUseCase`), que hoje só marca, também deveria deixar de ofertar
 - [ ] **A agregação de estoque varre a tabela inteira.** `KeyRepository::stockByGameIdentity` faz `Seq Scan` em `keys` (5.292 linhas hoje, ~1,5 ms). Roda uma vez por trade criada e a cada gravação de linha que troca nome ou região — o autosave da aba faz isso a cada pausa de digitação no nome. Não dói nesse tamanho, mas cresce com a tabela; a saída é um índice que sirva ao filtro ou um cache curto da agregação
-- [ ] **Detecção de giveaway por queda de preço.** Os giveaways do GamerPower já são registrados (ver "Giveaways — o que falta depois do registro"); o complemento é comparar o preço pesquisado agora com o `market_price` das keys do mesmo jogo compradas nos últimos dias (no dump, Ballionaire foi comprado a €4,60 e dez dias depois a pesquisa trazia €0,57). Não depende de serviço externo e pega também os giveaways que o GamerPower não cobre
+- [ ] **Detecção de giveaway por queda de preço.** Os giveaways do GamerPower já são registrados e sinalizados na trade ([`docs/GAMERPOWER.md`](GAMERPOWER.md)); o complemento é comparar o preço pesquisado agora com o `market_price` das keys do mesmo jogo compradas nos últimos dias (no dump, Ballionaire foi comprado a €4,60 e dez dias depois a pesquisa trazia €0,57). Não depende de serviço externo e pega também os giveaways que o GamerPower não cobre
 
 **Origem:** sessão de análise de estoque parado (2026-09-13), sobre o dump de produção. As três frentes foram levantadas e adiadas pelo negócio na mesma sessão, para a primeira versão da regra usar só o que já temos no banco.
-
----
-
-## Giveaways — o que falta depois do registro
-
-**Onde:** `app/Models/Giveaway.php`, `app/Domain/Games/GiveawayPolicy.php`, `resources/js/Pages/`.
-
-Os giveaways de jogo Steam já são registrados, vinculados aos jogos e sinalizados na trade ([`docs/adr/0014`](adr/0014-record-steam-giveaways-from-gamerpower.md)). Falta a tela para consultar os dados.
-
-- [ ] **Aba Giveaways**, no molde de Bundles: `GET /giveaways` com `RequireTeam`, só leitura, `Giveaways.vue`. Colunas: jogo, origem, valor, publicado, fim anunciado, status, "em giveaway até", jogos vinculados com a região, link para o GamerPower. Por padrão só os que estão em giveaway hoje, com opção de ver o histórico. **Atribuição obrigatória** pelos termos de uso: link ativo para GamerPower.com na tela
-
-**Origem:** planejamento da integração GamerPower (2026-10-16 a 2026-10-18). Entregue em fatias para o histórico começar a acumular antes da tela.
 
 ---
 

@@ -8,6 +8,7 @@ use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\FeeController;
 use App\Http\Controllers\Financial\FinancialMonthController;
 use App\Http\Controllers\GameController;
+use App\Http\Controllers\GiveawayController;
 use App\Http\Controllers\Keys\KeyController;
 use App\Http\Controllers\Keys\KeySaleController;
 use App\Http\Controllers\SalesDashboardController;
@@ -34,6 +35,8 @@ Route::get('/fees', [FeeController::class, 'showMarketPlaceFees'])->name('fees')
 Route::get('/assets', [AssetController::class, 'show'])->name('assets')->middleware(RequireTeam::class);
 
 Route::get('/bundles', [BundleController::class, 'index'])->name('bundles')->middleware(RequireTeam::class);
+
+Route::get('/giveaways', [GiveawayController::class, 'index'])->name('giveaways')->middleware(RequireTeam::class);
 
 // Dashboard analítico de vendas em €. Não confundir com /financial-months, que é
 // o livro-caixa dos sócios em R$ — domínios distintos.

@@ -58,7 +58,12 @@ final class GiveawayPolicy
     }
 
     /**
-     * Até quando o jogo é considerado em giveaway.
+     * Até quando o jogo é considerado em giveaway — o último instante do
+     * último dia da janela.
+     *
+     * Vale o dia inteiro: o prazo é um dia, não uma hora. Contado a partir da
+     * hora em que o giveaway foi visto pela última vez, o jogo deixaria de
+     * contar no meio do último dia, enquanto o prazo ainda diz "até hoje".
      *
      * `null` para giveaway ativo: não há prazo enquanto ele estiver no feed.
      */
@@ -68,7 +73,7 @@ final class GiveawayPolicy
             return null;
         }
 
-        return $period->lastSeenAt->copy()->addDays(self::windowDays(self::durationDays($period)));
+        return $period->lastSeenAt->copy()->addDays(self::windowDays(self::durationDays($period)))->endOfDay();
     }
 
     /** O jogo deste giveaway ainda é considerado em giveaway em `$now`? O último instante da janela ainda conta. */
@@ -97,6 +102,22 @@ final class GiveawayPolicy
         }
 
         return false;
+    }
+
+    /**
+     * As faixas da janela, para quem precisa explicá-las sem copiar os números.
+     *
+     * @return array{short_max_days: int, short_window_days: int, medium_max_days: int, medium_window_days: int, long_window_days: int}
+     */
+    public static function windowRule(): array
+    {
+        return [
+            'short_max_days' => self::SHORT_MAX_DAYS,
+            'short_window_days' => self::SHORT_WINDOW_DAYS,
+            'medium_max_days' => self::MEDIUM_MAX_DAYS,
+            'medium_window_days' => self::MEDIUM_WINDOW_DAYS,
+            'long_window_days' => self::LONG_WINDOW_DAYS,
+        ];
     }
 
     /**

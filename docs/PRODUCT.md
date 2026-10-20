@@ -124,7 +124,7 @@ Jogo **em giveaway** (ativo ou saído há pouco — faixas em "Giveaway", abaixo
 - **Lista sem nada a ofertar não gera comentário:** se todos os jogos lucrativos estiverem encalhados ou em giveaway, não há comentário nem trade.
 - **Jogo com mais de um giveaway:** basta um ainda estar na janela.
 - **Quando a marca é decidida:** igual ao encalhe — quando a linha nasce e quando o nome ou a região mudam (na aba ou na entrega); qualquer outra edição mantém a marca gravada. Vale para qualquer canal de compra, e o supplier nunca a vê.
-- O selo "Giveaway" tem o mesmo visual do "Encalhado", com ícone de presente; a dica dele credita o GamerPower.com. O link de atribuição exigido pelos termos da API fica na aba Giveaways.
+- O selo "Giveaway" tem o mesmo visual do "Encalhado", com ícone de presente; a dica dele credita o GamerPower.com. O link de atribuição exigido pelos termos da API fica na aba **Giveaways**.
 
 ### ID Gamivo de uma linha
 
@@ -185,10 +185,12 @@ O sistema registra os giveaways de **jogo Steam** do GamerPower a cada 30 minuto
 
 > O código avalia primeiro se o giveaway ainda está ativo. Giveaway ativo não tem prazo, e só depois de encerrado entra numa faixa.
 
+- **A janela vale até o fim do dia:** "em giveaway até 18/04" é o dia 18 inteiro, não até a hora em que o giveaway foi visto pela última vez.
 - **A duração** vai da publicação até a última vez que o giveaway foi visto ativo, em dias de calendário. O fim anunciado pelo site muitas vezes vem "N/A", e o que encerra o giveaway para nós é ele **sair do feed**. Exemplo: Dwarven Realms, publicado em 16/07/2026 e ainda ativo em 18/10, já passou de 30 dias; quando encerrar, fica em giveaway por mais 180.
 - **Só conta o que a sincronização viu.** Giveaway que acabou antes da integração (2026-10-18) não é considerado, e não há cadastro manual.
 - **Jogo que nunca tivemos** não é cadastrado em Games: o giveaway fica registrado e se liga ao jogo quando ele aparecer — e a trade já o sinaliza mesmo assim.
 - **Na trade**, o jogo em giveaway sai da oferta e vira linha marcada: ver "Jogo em giveaway é sinalizado na trade".
+- **A aba Giveaways** (só equipe, só leitura) lista os giveaways registrados: por padrão só os que ainda contam hoje, com a opção de ver o histórico. Mostra a origem, o valor anunciado, quando foi publicado, o fim anunciado, se está ativo ou encerrado (e quanto durou), **até quando o jogo conta como em giveaway** e se o jogo está cadastrado em Jogos (com as regiões restritas, quando houver — a global não se escreve). As faixas da janela que a tela explica vêm do servidor.
 
 ## Como saber quanto vale o jogo agora
 Atualmente só vendemos keys na Gamivo e é lá que o preço atual é verificado. O preço é definido com base no que os concorrentes estão vendendo — sempre abaixo do menor deles (passo de €0,014, `ComparisonAlgorithm::PRICE_STEP`) para ficar mais visível e atraente. Essa lógica hoje é do próprio sistema (`UpdateOffersUseCase` + `ComparisonAlgorithm`), com proteção contra price dumpers e concorrentes com bot.

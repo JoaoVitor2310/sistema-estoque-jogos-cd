@@ -22,26 +22,27 @@ final class GiveawayFactory
     private static int $nextId = 1;
 
     /** Giveaway ainda no feed: o jogo está em giveaway, sem prazo. */
-    public static function active(string $gameName): void
+    public static function active(string $gameName): int
     {
-        self::insert($gameName, GiveawayStatus::Active, now()->subDays(3), now());
+        return self::insert($gameName, GiveawayStatus::Active, now()->subDays(3), now());
     }
 
     /**
      * Giveaway que durou `$durationDays` dias e saiu do feed há `$endedDaysAgo` dias.
      */
-    public static function ended(string $gameName, int $durationDays, int $endedDaysAgo): void
+    public static function ended(string $gameName, int $durationDays, int $endedDaysAgo): int
     {
         $lastSeen = now()->subDays($endedDaysAgo);
 
-        self::insert($gameName, GiveawayStatus::Ended, $lastSeen->copy()->subDays($durationDays), $lastSeen);
+        return self::insert($gameName, GiveawayStatus::Ended, $lastSeen->copy()->subDays($durationDays), $lastSeen);
     }
 
-    private static function insert(string $gameName, GiveawayStatus $status, Carbon $publishedDate, Carbon $lastSeenAt): void
+    /** @return int o `id` do giveaway gravado */
+    private static function insert(string $gameName, GiveawayStatus $status, Carbon $publishedDate, Carbon $lastSeenAt): int
     {
         $id = self::$nextId++;
 
-        DB::table('giveaways')->insert([
+        return DB::table('giveaways')->insertGetId([
             'gamerpower_id' => $id,
             'title' => $gameName.' (Steam) Key Giveaway',
             'game_name' => $gameName,

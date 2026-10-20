@@ -157,6 +157,10 @@ describe('Guest — the catalogue is closed too', function () {
         $this->get('/bundles')->assertRedirect('/login');
     });
 
+    it('blocks GET /giveaways', function () {
+        $this->get('/giveaways')->assertRedirect('/login');
+    });
+
     it('blocks GET /keys/paginated', function () {
         $this->getJson('/keys/paginated')->assertStatus(403);
     });

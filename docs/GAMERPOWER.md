@@ -78,4 +78,6 @@ Como o fim é detectado na primeira passada em que o giveaway some, o intervalo 
 
 ## Onde os dados são usados
 
-Na trade: o jogo em giveaway sai da oferta ao fornecedor e vira linha marcada (`trade_lines.is_giveaway`), consultado por `GiveawayService` direto pelo nome normalizado, sem passar pela pivot. O link de atribuição exigido pelos termos fica na aba Giveaways (pendente em [`docs/IMPROVEMENTS.md`](IMPROVEMENTS.md)); o selo da trade só credita o GamerPower na dica. Regra em [`docs/PRODUCT.md`](PRODUCT.md#jogo-em-giveaway-é-sinalizado-na-trade).
+Na trade: o jogo em giveaway sai da oferta ao fornecedor e vira linha marcada (`trade_lines.is_giveaway`), consultado por `GiveawayService` direto pelo nome normalizado, sem passar pela pivot. O selo da trade só credita o GamerPower na dica. Regra em [`docs/PRODUCT.md`](PRODUCT.md#jogo-em-giveaway-é-sinalizado-na-trade).
+
+Na aba Giveaways (`GET /giveaways` → `GiveawayController::index` → `Giveaways.vue`): a lista dos giveaways registrados, lida por `GiveawayRepository::forListing()`. O rodapé da aba é o **link de atribuição** exigido pelos termos, e cada giveaway leva ao seu `gamerpower_url`.

@@ -103,7 +103,7 @@ describe('an account created from outside', function () {
         // que falta logar, quando o que falta é ser da equipe.
         $user = outsider();
 
-        foreach (['/assets', '/sales', '/financial-months', '/games', '/fees', '/acesso'] as $page) {
+        foreach (['/assets', '/sales', '/financial-months', '/games', '/fees', '/acesso', '/bundles', '/giveaways'] as $page) {
             $this->actingAs($user)->get($page)->assertStatus(403);
         }
     });
