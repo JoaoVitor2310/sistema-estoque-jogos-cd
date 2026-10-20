@@ -20,6 +20,7 @@
 use App\Models\AuthorizedUsers;
 use App\Models\TradeLine;
 use App\Models\User;
+use Tests\Support\GiveawayFactory;
 use Tests\Support\TradeFactory;
 
 function lineRouteUser(): User
@@ -85,6 +86,16 @@ describe('POST /trades/{trade}/lines', function () {
         $line = TradeLine::findOrFail($response->json('id'));
         expect($line->trade_id)->toBe($trade->id)
             ->and($line->game_name)->toBeNull();
+    });
+
+    it('answers with the giveaway mark of a line born with a game', function () {
+        GiveawayFactory::active('Dwarven Realms');
+        $trade = TradeFactory::withLines([]);
+
+        $this->actingAs(lineRouteUser())
+            ->postJson("/trades/{$trade->id}/lines", ['game_name' => 'Dwarven Realms'])
+            ->assertStatus(201)
+            ->assertJson(['is_giveaway' => true]);
     });
 
     it('creates the first line of an empty trade at position zero', function () {
@@ -198,7 +209,7 @@ describe('PATCH /trades/{trade}/lines/{line}', function () {
                 'gamivo_id' => '77',
             ])
             ->assertStatus(200)
-            ->assertExactJson(['gamivo_id' => null, 'is_overstocked' => false]);
+            ->assertExactJson(['gamivo_id' => null, 'is_overstocked' => false, 'is_giveaway' => false]);
 
         expect($line->refresh()->gamivo_id)->toBeNull();
     });

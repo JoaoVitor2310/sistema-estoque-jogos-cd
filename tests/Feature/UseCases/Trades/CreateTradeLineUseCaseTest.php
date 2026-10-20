@@ -14,6 +14,7 @@
 use App\Domain\Trades\OverstockPolicy;
 use App\UseCases\Trades\CreateTradeLineUseCase;
 use Illuminate\Support\Facades\DB;
+use Tests\Support\GiveawayFactory;
 use Tests\Support\TradeFactory;
 use Tests\Support\TradeLineFactory;
 
@@ -180,5 +181,26 @@ describe('CreateTradeLineUseCase — overstock flag', function () {
         $line = app(CreateTradeLineUseCase::class)->execute($trade, TradeLineFactory::dto([]));
 
         expect($line->refresh()->is_overstocked)->toBeFalse();
+    });
+});
+
+describe('CreateTradeLineUseCase — giveaway flag', function () {
+
+    it('flags a line born with a game in giveaway, like a duplicate', function () {
+        GiveawayFactory::active('Dwarven Realms');
+        $trade = TradeFactory::withLines(['Dwarven Realms']);
+
+        $line = app(CreateTradeLineUseCase::class)->execute($trade, TradeLineFactory::dto(['game_name' => 'Dwarven Realms']));
+
+        expect($line->is_giveaway)->toBeTrue();
+    });
+
+    it('does not flag a blank line', function () {
+        GiveawayFactory::active('Dwarven Realms');
+        $trade = TradeFactory::withLines([]);
+
+        $line = app(CreateTradeLineUseCase::class)->execute($trade, TradeLineFactory::dto([]));
+
+        expect($line->refresh()->is_giveaway)->toBeFalse();
     });
 });

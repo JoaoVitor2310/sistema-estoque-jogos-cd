@@ -9,6 +9,7 @@ use App\UseCases\Suppliers\ProspectSupplierUseCase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\BundleFactory;
+use Tests\Support\GiveawayFactory;
 use Tests\Support\TradeFactory;
 
 function seedUseCaseDeps(float $tf2Price = 0.95): void
@@ -469,9 +470,8 @@ describe('ProspectSupplierUseCase — overstocked games', function () {
 
     it('does not leak the mark into the offer payload', function () {
         // Quem recebe lê `profitable` como "o que ofertar" e nada mais: o que
-        // ficou de fora é assunto nosso, e está na trade.
-        seedProspectOverstock('Curse of the Sea Rats');
-
+        // ficou de fora é assunto nosso, e está na trade. O jogo marcado nunca
+        // chega aqui — o que vazaria é a marca `false` do jogo ofertado.
         $result = app(ProspectSupplierUseCase::class)->execute(supplierSteamId(), [profitableGame()], 'G0eXM');
 
         expect($result['profitable'][0])->not->toHaveKey('is_overstocked');
@@ -529,5 +529,84 @@ describe('ProspectSupplierUseCase — overstocked games', function () {
 
         expect(Trade::count())->toBe(0)
             ->and(DB::table('suppliers')->count())->toBe(0);
+    });
+});
+
+describe('ProspectSupplierUseCase — games in giveaway', function () {
+
+    beforeEach(fn () => seedUseCaseDeps());
+
+    it('leaves the game in giveaway out of the offer sent to the supplier', function () {
+        // O preço de mercado de quem acabou de sair de graça está no chão:
+        // ofertar pelo preço pesquisado seria pagar o preço normal.
+        GiveawayFactory::active('Dwarven Realms');
+
+        $result = app(ProspectSupplierUseCase::class)->execute(
+            supplierSteamId(),
+            [
+                ['name' => 'Dwarven Realms', 'market_price_euro' => 4.50, 'popularity' => 100, 'region' => null],
+                profitableGame(),
+            ],
+            'G0eXM',
+        );
+
+        expect(array_column($result['profitable'], 'name'))->toBe(['Half-Life'])
+            ->and($result['total_tf2_price'])->toBe($result['profitable'][0]['tf2_price'])
+            ->and($result['should_comment'])->toBeTrue();
+    });
+
+    it('does not leak the mark into the offer payload', function () {
+        $result = app(ProspectSupplierUseCase::class)->execute(supplierSteamId(), [profitableGame()], 'G0eXM');
+
+        expect($result['profitable'][0])->not->toHaveKey('is_giveaway');
+    });
+
+    it('keeps the game in giveaway as a flagged line of the trade', function () {
+        GiveawayFactory::active('Dwarven Realms');
+
+        app(ProspectSupplierUseCase::class)->execute(
+            supplierSteamId(),
+            [
+                ['name' => 'Dwarven Realms', 'market_price_euro' => 4.50, 'popularity' => 100, 'region' => null],
+                profitableGame(),
+            ],
+            'G0eXM',
+        );
+
+        $lines = Trade::where('list_code', 'G0eXM')->sole()->lines;
+
+        expect($lines->pluck('game_name')->all())->toBe(['Dwarven Realms', 'Half-Life'])
+            ->and($lines->pluck('is_giveaway')->all())->toBe([true, false])
+            ->and($lines->pluck('is_overstocked')->all())->toBe([false, false]);
+    });
+
+    it('does not comment when every profitable game is overstocked or in giveaway', function () {
+        GiveawayFactory::active('Dwarven Realms');
+        seedProspectOverstock('Curse of the Sea Rats');
+
+        $result = app(ProspectSupplierUseCase::class)->execute(
+            supplierSteamId(),
+            [
+                ['name' => 'Dwarven Realms', 'market_price_euro' => 4.50, 'popularity' => 100, 'region' => null],
+                ['name' => 'Curse of the Sea Rats', 'market_price_euro' => 4.50, 'popularity' => 100, 'region' => null],
+            ],
+            'G0eXM',
+        );
+
+        expect($result['should_comment'])->toBeFalse()
+            ->and($result['profitable'])->toBe([])
+            ->and(Trade::where('list_code', 'G0eXM')->exists())->toBeFalse();
+    });
+
+    it('offers the game again once its giveaway window is over', function () {
+        GiveawayFactory::ended('Dwarven Realms', durationDays: 7, endedDaysAgo: 365);
+
+        $result = app(ProspectSupplierUseCase::class)->execute(
+            supplierSteamId(),
+            [['name' => 'Dwarven Realms', 'market_price_euro' => 4.50, 'popularity' => 100, 'region' => null]],
+            'G0eXM',
+        );
+
+        expect(array_column($result['profitable'], 'name'))->toBe(['Dwarven Realms']);
     });
 });

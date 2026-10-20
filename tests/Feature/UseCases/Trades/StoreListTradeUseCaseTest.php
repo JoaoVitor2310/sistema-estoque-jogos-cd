@@ -5,6 +5,7 @@ use App\Domain\Trades\OverstockPolicy;
 use App\UseCases\Trades\StoreListTradeUseCase;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\BundleFactory;
+use Tests\Support\GiveawayFactory;
 
 function listTradeGames(array $overrides = []): array
 {
@@ -369,5 +370,34 @@ describe('StoreListTradeUseCase — overstocked games', function () {
         ]);
 
         expect($trade->lines->first()->is_overstocked)->toBeTrue();
+    });
+});
+
+describe('StoreListTradeUseCase — games in giveaway', function () {
+
+    it('flags the line of a game in giveaway and still creates it', function () {
+        GiveawayFactory::active('Dwarven Realms');
+
+        $trade = app(StoreListTradeUseCase::class)->execute([
+            'supplier_steam_id' => '76561198000000001',
+            'games' => [
+                ['name' => 'Dwarven Realms', 'market_price_euro' => 0.50, 'popularity' => 100, 'region' => null],
+                ['name' => 'Half-Life', 'market_price_euro' => 4.50, 'popularity' => 500, 'region' => null],
+            ],
+        ]);
+
+        expect($trade->lines->pluck('game_name')->all())->toBe(['Dwarven Realms', 'Half-Life'])
+            ->and($trade->lines->pluck('is_giveaway')->all())->toBe([true, false]);
+    });
+
+    it('flags a game in giveaway when the research came from a bundle', function () {
+        GiveawayFactory::active('Dwarven Realms');
+
+        $trade = app(StoreListTradeUseCase::class)->execute([
+            'title' => 'Fanatical Bundle',
+            'games' => [['name' => 'Dwarven Realms', 'market_price_euro' => 0.50, 'popularity' => 100, 'region' => 'EU']],
+        ]);
+
+        expect($trade->lines->first()->is_giveaway)->toBeTrue();
     });
 });

@@ -75,3 +75,7 @@ Depois disso, todo giveaway **ainda na janela** (`GiveawayPolicy::isFlagged`) é
 Jogo que nunca tivemos **não** ganha linha em `games`: o giveaway fica sem vínculo até o jogo aparecer. Decisão em [`docs/adr/0014`](adr/0014-record-steam-giveaways-from-gamerpower.md).
 
 Como o fim é detectado na primeira passada em que o giveaway some, o intervalo de 30 minutos também é a precisão com que o fim fica registrado.
+
+## Onde os dados são usados
+
+Na trade: o jogo em giveaway sai da oferta ao fornecedor e vira linha marcada (`trade_lines.is_giveaway`), consultado por `GiveawayService` direto pelo nome normalizado, sem passar pela pivot. O link de atribuição exigido pelos termos fica na aba Giveaways (pendente em [`docs/IMPROVEMENTS.md`](IMPROVEMENTS.md)); o selo da trade só credita o GamerPower na dica. Regra em [`docs/PRODUCT.md`](PRODUCT.md#jogo-em-giveaway-é-sinalizado-na-trade).

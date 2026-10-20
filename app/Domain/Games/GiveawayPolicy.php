@@ -80,6 +80,26 @@ final class GiveawayPolicy
     }
 
     /**
+     * O jogo está em giveaway em `$now`, dados todos os giveaways dele?
+     *
+     * Basta um na janela: com mais de um giveaway do mesmo jogo, vale a janela
+     * que termina por último, e um giveaway ainda na janela já a cobre. A
+     * região não entra — o giveaway derruba o preço do jogo em todas.
+     *
+     * @param  iterable<GiveawayPeriod>  $periods
+     */
+    public static function isGameFlagged(iterable $periods, Carbon $now): bool
+    {
+        foreach ($periods as $period) {
+            if (self::isFlagged($period, $now)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Desde quando um giveaway encerrado ainda pode estar na janela.
      *
      * É a maior janela possível, para a consulta pré-filtrar no banco sem

@@ -7,7 +7,7 @@ use App\Domain\Trades\TradeLineBuilder;
 use App\Models\Trade;
 use App\Services\Bundles\BundleService;
 use App\Services\Suppliers\SupplierService;
-use App\Services\Trades\OverstockService;
+use App\Services\Trades\TradeLineFlagsService;
 use Illuminate\Support\Facades\DB;
 
 class StoreListTradeUseCase
@@ -15,7 +15,7 @@ class StoreListTradeUseCase
     public function __construct(
         private readonly SupplierService $supplierService,
         private readonly BundleService $bundleService,
-        private readonly OverstockService $overstockService,
+        private readonly TradeLineFlagsService $flagsService,
     ) {}
 
     /**
@@ -40,10 +40,11 @@ class StoreListTradeUseCase
             $bundleMap = $this->bundleService->recentBundleByGameNames($names);
         }
 
-        // O jogo encalhado continua virando linha: aqui não há oferta a montar,
-        // só o registro da lista pesquisada (docs/adr/0013).
+        // O jogo encalhado ou em giveaway continua virando linha: aqui não há
+        // oferta a montar, só o registro da lista pesquisada (docs/adr/0013 e
+        // docs/adr/0014).
         $lines = TradeLineBuilder::fromResearch(
-            $this->overstockService->markResearched($data['games']),
+            $this->flagsService->markResearched($data['games']),
             $bundleMap,
         );
 

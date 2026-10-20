@@ -1,12 +1,12 @@
 # Giveaways de jogo Steam viram tabela própria, ligada aos jogos pelo nome normalizado
 
-**Status:** accepted — registro e vínculo implementados em 2026-10-18. A sinalização na trade e a aba Giveaways estão em [`docs/IMPROVEMENTS.md`](../IMPROVEMENTS.md).
+**Status:** accepted — registro e vínculo implementados em 2026-10-18; sinalização na trade em 2026-10-19. A aba Giveaways está em [`docs/IMPROVEMENTS.md`](../IMPROVEMENTS.md).
 
 Quando um jogo sai de graça, o preço da key despenca em horas e leva meses para voltar. Comprar nesse intervalo sem saber quase sempre dá prejuízo, e é a causa de parte dos lotes que encalham ([`docs/adr/0013`](0013-flag-overstocked-games-in-trades.md)). O GamerPower tem uma API pública de giveaways, mas ela só mostra os **ativos agora**. O histórico precisa ser nosso.
 
 A decisão: a tabela `giveaways` guarda um registro por giveaway, alimentado pela consulta `GET /giveaways?platform=steam&type=game` a cada 30 minutos (`SyncGiveawaysUseCase`). Cada giveaway é ligado em `giveaway_games` a **todas** as linhas de `games` com o mesmo nome normalizado. Um jogo é considerado em giveaway enquanto o giveaway está ativo e por uma janela depois do fim que cresce com a duração, em três faixas (`App\Domain\Games\GiveawayPolicy`; valores em [`docs/PRODUCT.md`](../PRODUCT.md#giveaway), a fonte da tabela).
 
-Na negociação, o jogo em giveaway **sai da oferta ao fornecedor, mas continua como linha da trade** com o aviso — o mesmo desenho do jogo encalhado, e pelos mesmos motivos ([`docs/adr/0013`](0013-flag-overstocked-games-in-trades.md)): não compramos pelo preço normal o que acabou de sair de graça, e a equipe ainda vê o que apareceu na lista. Essa metade está decidida e ainda não implementada ([`docs/IMPROVEMENTS.md`](../IMPROVEMENTS.md)).
+Na negociação, o jogo em giveaway **sai da oferta ao fornecedor, mas continua como linha da trade** com o aviso — o mesmo desenho do jogo encalhado, e pelos mesmos motivos ([`docs/adr/0013`](0013-flag-overstocked-games-in-trades.md)): não compramos pelo preço normal o que acabou de sair de graça, e a equipe ainda vê o que apareceu na lista. A marca é `trade_lines.is_giveaway`, e casa pelo nome normalizado direto contra `giveaways` — não pela pivot, senão o jogo que nunca tivemos, justamente o que o fornecedor costuma oferecer, nunca seria marcado.
 
 Os valores das faixas são a estimativa do negócio: o preço não volta quando o giveaway acaba, e quanto mais tempo o jogo ficou de graça (mais cópias distribuídas), mais demora. São constantes, e ainda não há histórico para calibrá-las.
 

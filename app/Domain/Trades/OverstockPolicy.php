@@ -10,8 +10,8 @@ use Carbon\Carbon;
  *
  * **O jogo encalhado não é ofertado, mas é registrado.** Na prospecção ele sai
  * do comentário postado na lista do supplier; na trade ele continua como linha,
- * marcada em `trade_lines.is_overstocked`, para a equipe ver o que ficou de
- * fora da oferta. Ver docs/adr/0013.
+ * marcada em `trade_lines.is_overstocked` ([[TradeLineFlags::OVERSTOCKED]]),
+ * para a equipe ver o que ficou de fora da oferta. Ver docs/adr/0013.
  *
  * As três condições valem **juntas**, e cada uma existe para corrigir um erro
  * que as outras duas cometeriam sozinhas:
@@ -31,9 +31,6 @@ use Carbon\Carbon;
  */
 final class OverstockPolicy
 {
-    /** A coluna de `trade_lines` onde a marca de encalhe é gravada. */
-    public const FLAG_COLUMN = 'is_overstocked';
-
     /** Keys paradas a partir das quais o jogo entra em avaliação. */
     public const MIN_STOCK = 3;
 

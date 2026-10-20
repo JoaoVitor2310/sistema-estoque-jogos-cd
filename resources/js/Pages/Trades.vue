@@ -33,6 +33,9 @@ interface TradeLine {
   // O jogo estava encalhado no estoque quando a linha nasceu ou trocou de jogo
   // (App\Domain\Trades\OverstockPolicy). Só sinaliza: a linha segue normal.
   is_overstocked: boolean;
+  // O jogo estava em giveaway quando a linha nasceu ou trocou de jogo
+  // (App\Domain\Games\GiveawayPolicy) — o preço de mercado está no chão.
+  is_giveaway: boolean;
 }
 
 // Espelho de App\Domain\Enums\PurchaseChannel — de quem as keys foram compradas.
@@ -138,7 +141,30 @@ type RowStatus = 'pending' | 'error';
  * `id` é o endereço da linha nas rotas de escrita; `position` é o que permite
  * inserir uma cópia logo abaixo desta.
  */
-interface Row {
+/**
+ * Marcas que o servidor grava na linha sobre o jogo dela (espelho de
+ * App\Domain\Trades\TradeLineFlags). Só leitura: a escrita não as aceita, e
+ * toda resposta de linha traz o valor atual.
+ */
+interface ServerFlags {
+  isOverstocked: boolean;
+  isGiveaway: boolean;
+}
+
+/** Lê as marcas de uma linha ou de uma resposta de gravação. */
+function serverFlags(data: { is_overstocked?: unknown; is_giveaway?: unknown } | null | undefined): ServerFlags {
+  return {
+    isOverstocked: Boolean(data?.is_overstocked),
+    isGiveaway: Boolean(data?.is_giveaway),
+  };
+}
+
+/** Alguma marca vale? A linha marcada é destacada, seja qual for o motivo. */
+function hasServerFlag(flags: ServerFlags): boolean {
+  return flags.isOverstocked || flags.isGiveaway;
+}
+
+interface Row extends ServerFlags {
   id: number;
   position: number;
   game_name: string;
@@ -149,15 +175,14 @@ interface Row {
   region: string;
   key_code: string;
   gamivo_id: string;
-  isOverstocked: boolean;
   status: RowStatus;
   errorMsg: string;
   customTf2Override: string;
 }
 
 /** Só os campos que a linha grava — o resto é estado de tela. */
-// `isOverstocked` fica fora: a marca é do servidor, e a escrita não a aceita.
-type RowPayload = Omit<Row, 'id' | 'position' | 'status' | 'errorMsg' | 'customTf2Override' | 'isOverstocked'>;
+// As marcas ficam fora: são do servidor, e a escrita não as aceita.
+type RowPayload = Omit<Row, 'id' | 'position' | 'status' | 'errorMsg' | 'customTf2Override' | keyof ServerFlags>;
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -355,7 +380,7 @@ function toRow(l: TradeLine): Row {
     region: l.region ?? '',
     key_code: l.key_code ?? '',
     gamivo_id: l.gamivo_id ?? '',
-    isOverstocked: l.is_overstocked,
+    ...serverFlags(l),
     status: 'pending',
     errorMsg: '',
     customTf2Override: '',
@@ -394,7 +419,7 @@ function toTradeEntry(t: Trade): TradeEntry {
 }
 
 function rowPayload(row: Row): RowPayload {
-  const { id, position, status, errorMsg, customTf2Override, isOverstocked, ...payload } = row;
+  const { id, position, status, errorMsg, customTf2Override, isOverstocked, isGiveaway, ...payload } = row;
   return payload;
 }
 
@@ -721,9 +746,10 @@ function scheduleLineSave(trade: TradeEntry, row: Row) {
       row.gamivo_id = saved;
     }
 
-    // A marca de encalhe é refeita pelo servidor quando o jogo ou a região
-    // mudam; ela não vai no payload, então não há digitação para preservar.
-    row.isOverstocked = Boolean(data?.is_overstocked);
+    // As marcas de encalhe e de giveaway são refeitas pelo servidor quando o
+    // jogo ou a região mudam; elas não vão no payload, então não há digitação
+    // para preservar.
+    Object.assign(row, serverFlags(data));
   });
 }
 
@@ -785,6 +811,7 @@ async function addRow(trade: TradeEntry) {
       key_code: null,
       gamivo_id: null,
       is_overstocked: Boolean(data.is_overstocked),
+      is_giveaway: Boolean(data.is_giveaway),
     }));
     // Sem shift: a linha nova entra no fim, então nada foi empurrado.
     trade.saveStatus = 'saved';
@@ -854,7 +881,7 @@ async function duplicateRow(trade: TradeEntry, rowIdx: number) {
       id: data.id,
       position: data.position,
       key_code: '',
-      isOverstocked: Boolean(data.is_overstocked),
+      ...serverFlags(data),
       status: 'pending',
       errorMsg: '',
     });
@@ -1099,13 +1126,13 @@ function tierBadgeClass(tier: number): string {
 }
 
 function rowClass(row: Row): string {
-  // Erro de gravação vence o encalhe: um é problema a resolver agora, o outro é
-  // informação sobre o estoque.
+  // Erro de gravação vence as marcas: um é problema a resolver agora, as outras
+  // são informação sobre o jogo.
   if (row.status === 'error') return 'table-danger';
   // `table-warning` é a variante do próprio Bootstrap: ela mexe nas variáveis
   // da tabela, então continua valendo com o hover e não briga por especificidade
   // com o fundo que o `.table` põe em cada célula.
-  if (row.isOverstocked) return 'table-warning';
+  if (hasServerFlag(row)) return 'table-warning';
   return '';
 }
 
@@ -1888,6 +1915,13 @@ function formatDeliveredAt(iso: string): string {
                         title="Jogo encalhado no estoque nesta região quando a linha foi gravada. Veja em &quot;Jogos encalhados&quot;."
                       >
                         <i class="pi pi-exclamation-triangle me-1" />Encalhado
+                      </span>
+                      <span
+                        v-if="row.isGiveaway"
+                        class="badge text-bg-warning flex-shrink-0"
+                        title="Jogo em giveaway (ou saído há pouco) quando a linha foi gravada: o preço de mercado está baixo. Não pague o preço normal. Dados de giveaways por GamerPower.com."
+                      >
+                        <i class="pi pi-gift me-1" />Giveaway
                       </span>
                     </div>
                   </td>

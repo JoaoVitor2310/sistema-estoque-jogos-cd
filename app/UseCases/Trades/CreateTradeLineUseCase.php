@@ -2,17 +2,16 @@
 
 namespace App\UseCases\Trades;
 
-use App\Domain\Trades\OverstockPolicy;
 use App\Models\Trade;
 use App\Models\TradeLine;
-use App\Services\Trades\OverstockService;
+use App\Services\Trades\TradeLineFlagsService;
 use App\UseCases\Trades\DTO\TradeLineDTO;
 use Illuminate\Support\Facades\DB;
 
 class CreateTradeLineUseCase
 {
     public function __construct(
-        private readonly OverstockService $overstockService,
+        private readonly TradeLineFlagsService $flagsService,
     ) {}
 
     /**
@@ -24,15 +23,16 @@ class CreateTradeLineUseCase
     {
         $attributes = $data->toAttributes();
 
-        // Linha que já nasce com jogo — a duplicata de outra — recebe a marca de
-        // encalhe como qualquer linha nova. A linha em branco não tem o que
-        // procurar, e é marcada quando o nome chegar pela edição. Calculada
-        // antes da transação: a agregação varre `keys`, e dentro dela seguraria
-        // o lock das posições da trade durante a varredura.
-        $attributes[OverstockPolicy::FLAG_COLUMN] = $this->overstockService->isOverstocked(
+        // Linha que já nasce com jogo — a duplicata de outra — recebe as marcas
+        // ([[App\Domain\Trades\TradeLineFlags]]) como qualquer linha nova. A
+        // linha em branco não tem o que procurar, e é marcada quando o nome
+        // chegar pela edição. Calculadas antes da transação: a agregação de
+        // estoque varre `keys`, e dentro dela seguraria o lock das posições da
+        // trade durante a varredura.
+        $attributes = array_merge($attributes, $this->flagsService->flagsFor(
             $attributes['game_name'] ?? null,
             $attributes['region'] ?? null,
-        );
+        ));
 
         return DB::transaction(function () use ($trade, $data, $attributes) {
             $end = $this->nextPosition($trade);

@@ -110,6 +110,7 @@ app/
 │   │   ├── TradeGameComparison.php
 │   │   ├── GameStock.php                # estoque de um jogo numa região (keys paradas, idade, vendas na janela)
 │   │   ├── OverstockPolicy.php          # quando um jogo está encalhado (sinaliza a linha, não corta)
+│   │   ├── TradeLineFlags.php           # colunas das marcas de linha e o que fica fora da oferta
 │   │   ├── TradeLineBuilder.php         # monta a linha a partir da saída do price_researcher
 │   │   ├── TradeLineValue.php           # normalização por campo — compartilhada backfill/aba
 │   │   ├── LegacyTradeLine.php          # converte uma entrada do JSON legado em linha (backfill)
@@ -165,12 +166,12 @@ app/
 │   │   ├── CreateBundleUseCase.php       # cria + vincula os jogos na mesma transação
 │   │   └── AddGamesToBundleUseCase.php   # recusa o lote quando nenhum jogo é novo
 │   ├── Suppliers/
-│   │   ├── ProspectSupplierUseCase.php       # avalia lucratividade + decide comentar (CommentPolicy); marca encalhados
+│   │   ├── ProspectSupplierUseCase.php       # avalia lucratividade + decide comentar (CommentPolicy); marca encalhados e giveaways
 │   │   ├── ExecuteSupplierListUseCase.php    # POST price_researcher /api/lists/run
 │   │   └── FindNewSuppliersUseCase.php       # POST price_researcher /api/suppliers/find-new
 │   ├── Trades/
 │   │   ├── CreateTradeUseCase.php
-│   │   ├── StoreListTradeUseCase.php         # callback do price_researcher; marca encalhados
+│   │   ├── StoreListTradeUseCase.php         # callback do price_researcher; marca encalhados e giveaways
 │   │   └── UpdateTradeUseCase.php
 │   └── Financial/
 │       ├── DTO/                              # input tipado, montado pelos FormRequests
@@ -198,11 +199,13 @@ app/
 │   │   └── KeyRepository.php           # queries complexas + paginate() com whitelist de filtros
 │   ├── Games/
 │   │   ├── GameService.php              # lookup/preenchimento de gamivo_id e steam_id
-│   │   └── GameRepository.php           # paginate() com whitelist de filtros (IndexGamesRequest)
+│   │   ├── GameRepository.php           # paginate() com whitelist de filtros (IndexGamesRequest)
+│   │   └── GiveawayService.php          # jogos em giveaway agora: marca das linhas de trade
 │   ├── Suppliers/SupplierService.php
 │   ├── Trades/
 │   │   ├── TradeService.php             # paginate() com filtros/sort/paginação; is_stocked scoped-to-page
-│   │   └── OverstockService.php         # estoque encalhado: marca das linhas + lista da aba
+│   │   ├── OverstockService.php         # estoque encalhado: marca das linhas + lista da aba
+│   │   └── TradeLineFlagsService.php    # ponto único das marcas de linha (encalhe + giveaway)
 │   ├── Financial/
 │   │   ├── FinancialMonthService.php   # leitura (CQRS): saldos derivados, draft corrente, prefill de TF2
 │   │   └── MovementRecorder.php        # escrita: grava as pernas com um group_id só, em transação

@@ -510,11 +510,10 @@ A regra que sinaliza jogo encalhado nas trades ([`docs/adr/0013`](adr/0013-flag-
 
 ## Giveaways — o que falta depois do registro
 
-**Onde:** `app/Domain/Games/GiveawayPolicy.php`, `app/UseCases/Games/SyncGiveawaysUseCase.php`, `app/UseCases/Trades/` (`StoreListTradeUseCase`, `CreateTradeLineUseCase`, `UpdateTradeLineUseCase`).
+**Onde:** `app/Models/Giveaway.php`, `app/Domain/Games/GiveawayPolicy.php`, `resources/js/Pages/`.
 
-Os giveaways de jogo Steam já são registrados e vinculados aos jogos ([`docs/adr/0014`](adr/0014-record-steam-giveaways-from-gamerpower.md)), mas ainda **ninguém consulta** esses dados: a negociação não vê o aviso.
+Os giveaways de jogo Steam já são registrados, vinculados aos jogos e sinalizados na trade ([`docs/adr/0014`](adr/0014-record-steam-giveaways-from-gamerpower.md)). Falta a tela para consultar os dados.
 
-- [ ] **Sinalizar o jogo em giveaway na trade.** Coluna `trade_lines.is_giveaway` (boolean, default `false`, sem backfill; nome em `GiveawayPolicy::FLAG_COLUMN`, como `OverstockPolicy::FLAG_COLUMN`), gravada quando a linha nasce ou troca de jogo (`LineGamePair::changedBy`), como `is_overstocked`. O casamento é o nome normalizado da linha × `giveaways.normalized_game_name` filtrado por `GiveawayPolicy::isFlagged` — **direto, sem passar pela pivot**, senão o jogo que nunca tivemos (sem linha em `games`) nunca seria marcado. Jogo com mais de um giveaway: vale a janela que termina por último (basta um deles estar na janela para marcar). Decidido pelo negócio: na prospecção o jogo **sai da oferta** (sai de `profitable` e do `total_tf2_price`; o `CommentPolicy::shouldComment` recebe o subconjunto sem encalhados e sem giveaways), mas **continua como linha da trade** com o aviso. A marca sai na projeção da equipe e **não** na entrega (`DeliveryReadModel::LINE_COLUMNS`), e aparece como selo "Giveaway" em `Trades.vue` ao lado de "Encalhado"
 - [ ] **Aba Giveaways**, no molde de Bundles: `GET /giveaways` com `RequireTeam`, só leitura, `Giveaways.vue`. Colunas: jogo, origem, valor, publicado, fim anunciado, status, "em giveaway até", jogos vinculados com a região, link para o GamerPower. Por padrão só os que estão em giveaway hoje, com opção de ver o histórico. **Atribuição obrigatória** pelos termos de uso: link ativo para GamerPower.com na tela
 
 **Origem:** planejamento da integração GamerPower (2026-10-16 a 2026-10-18). Entregue em fatias para o histórico começar a acumular antes da tela.

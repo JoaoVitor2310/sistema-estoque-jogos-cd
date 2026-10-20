@@ -337,7 +337,7 @@ describe('TradeService::linesFor', function () {
         // acrescentar aqui de propósito.
         expect(array_keys($line))->toBe([
             'id', 'position', 'game_name', 'market_price', 'popularity',
-            'region', 'bundle', 'expires_at', 'key_code', 'gamivo_id', 'is_overstocked',
+            'region', 'bundle', 'expires_at', 'key_code', 'gamivo_id', 'is_overstocked', 'is_giveaway',
         ]);
     });
 
