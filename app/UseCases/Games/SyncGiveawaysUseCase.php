@@ -100,9 +100,7 @@ class SyncGiveawaysUseCase
     private function relinkFlagged(Carbon $now): void
     {
         $flagged = Giveaway::whereNotNull('normalized_game_name')
-            ->where(fn ($query) => $query
-                ->where('status', GiveawayStatus::Active)
-                ->orWhere('last_seen_at', '>=', GiveawayPolicy::oldestFlaggableLastSeen($now)))
+            ->flaggableAt($now)
             ->get()
             ->filter(fn (Giveaway $giveaway) => GiveawayPolicy::isFlagged($giveaway->period(), $now));
 

@@ -10,9 +10,9 @@ Da identificação de um fornecedor até a key entrar no estoque.
 |---|---|---|---|
 | 1 | Identificar o supplier | Perfil na SteamTrades; captura dos jogos da seção *"I have"* | manual |
 | 2 | Pesquisar preços | Busca preço e popularidade de cada jogo da lista | `price_researcher` (serviço externo) |
-| 3 | Avaliar lucratividade | Calcula o income líquido após taxas Gamivo e quantas TF2 Keys oferecer; jogo **encalhado** sai da oferta | `ProspectSupplierUseCase` + `OfferCalculator` + `OverstockPolicy` |
+| 3 | Avaliar lucratividade | Calcula o income líquido após taxas Gamivo e quantas TF2 Keys oferecer; jogo **encalhado** ou **em giveaway** sai da oferta | `ProspectSupplierUseCase` + `OfferCalculator` + `OverstockPolicy` + `GiveawayPolicy` |
 | 4 | Decidir se comenta | Se vale (re)comentar na lista do supplier | `CommentPolicy` |
-| 5 | Registrar a trade | Persiste a lista pesquisada e a data do comentário; o jogo encalhado vira linha marcada, mesmo sem ter sido ofertado | `Trade` + `OverstockPolicy` |
+| 5 | Registrar a trade | Persiste a lista pesquisada e a data do comentário; o jogo encalhado ou em giveaway vira linha marcada, mesmo sem ter sido ofertado | `Trade` + `OverstockPolicy` + `GiveawayPolicy` |
 | 6 | Negociar | Acerto final de preço com o supplier | manual, na Steam |
 | 7 | Receber as keys | O supplier preenche `key_code`, região e validade por linha, mais o total acertado (obrigatório para enviar), no link com código que a trade já traz; ou a equipe transcreve do chat | `/deliveries/{uuid}` |
 | 8 | Conferir | A entrega sobe ao topo de Abertas; a equipe revisa antes de importar | aba de Trades |
@@ -35,7 +35,7 @@ Daí em diante é o fluxo normal, a partir da etapa 5. A pesquisa não decide o 
 | Situação | O que acontece |
 |---|---|
 | Nenhum jogo da lista é lucrativo | Descarta — não comenta |
-| Todo jogo lucrativo da lista está **encalhado** | Descarta — não comenta e não cria trade; a lista aparece só em "Jogos encalhados" |
+| Todo jogo lucrativo da lista está **encalhado** ou **em giveaway** | Descarta — não comenta e não cria trade |
 | Jogos não mudaram **e** faz < 14 dias do último comentário | Não recomenta (`CommentPolicy::INTERVAL_DAYS`) |
 
 ### Margens de compra
@@ -55,6 +55,7 @@ Daí em diante é o fluxo normal, a partir da etapa 5. A pesquisa não decide o 
 - O import **lê as linhas gravadas**, não o que está na tela: a requisição não leva corpo. A aba grava o que estiver no debounce do autosave antes de disparar, para não importar sem a correção recém-digitada. As condições que fazem o lote inteiro ser recusado estão em [`docs/PRODUCT.md`](../PRODUCT.md) (seção "Prontidão para importar").
 - **Trocar o nome ou a região de uma linha apaga o `gamivo_id` dela**, dos dois lados (aba e página do supplier): o id endereça o par jogo+região, e mudar um dos dois no meio da negociação quase sempre é trocar o jogo tradado. Um id **diferente** na mesma gravação é respeitado; retoque de caixa/espaço não conta. Regra e motivo em [`docs/PRODUCT.md`](../PRODUCT.md) ("ID Gamivo de uma linha").
 - **Jogo encalhado fica fora do comentário ao fornecedor, mas vira linha marcada** com o aviso "Encalhado" na aba (`trade_lines.is_overstocked`). O total em TF2 do comentário soma só o que foi ofertado. A marca é gravada quando a linha nasce e refeita quando o nome ou a região mudam, pela aba ou pela entrega; o supplier nunca a vê. Vale para qualquer canal de compra. Regra em [`docs/PRODUCT.md`](../PRODUCT.md#jogo-encalhado-é-sinalizado-na-trade).
+- **Jogo em giveaway segue o mesmo desenho:** fora do comentário, linha marcada com o aviso "Giveaway" (`trade_lines.is_giveaway`), sem depender da região nem de o jogo estar cadastrado em Games. Regra em [`docs/PRODUCT.md`](../PRODUCT.md#jogo-em-giveaway-é-sinalizado-na-trade).
 - O passo 7 pelo link é **opcional**: a trade cujo link nunca foi mandado segue sendo preenchida pela equipe na aba, como sempre foi. O que o link muda é quem digita, não o que o import lê.
 
 ### Entrega pelo supplier (passos 7–8)

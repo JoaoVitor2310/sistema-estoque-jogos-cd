@@ -18,6 +18,7 @@ use App\Domain\Trades\OverstockPolicy;
 use App\Models\Trade;
 use App\UseCases\Trades\UpdateTradeLineUseCase;
 use Illuminate\Support\Facades\DB;
+use Tests\Support\GiveawayFactory;
 use Tests\Support\TradeFactory;
 use Tests\Support\TradeLineFactory;
 
@@ -289,5 +290,47 @@ describe('UpdateTradeLineUseCase — overstock flag', function () {
         app(UpdateTradeLineUseCase::class)->execute($line, TradeLineFactory::dto(['region' => 'ROW']), TradeLineAuthority::Team);
 
         expect($line->refresh()->is_overstocked)->toBeTrue();
+    });
+});
+
+describe('UpdateTradeLineUseCase — giveaway flag', function () {
+
+    it('flags the line when the name changes to a game in giveaway', function () {
+        GiveawayFactory::active('Dwarven Realms');
+        $line = supplierTradeWithLine(['game_name' => 'Portal'])->lines->first();
+
+        app(UpdateTradeLineUseCase::class)->execute($line, TradeLineFactory::dto(['game_name' => 'Dwarven Realms']), TradeLineAuthority::Team);
+
+        expect($line->refresh()->is_giveaway)->toBeTrue();
+    });
+
+    it('clears the flag when the name changes to a game out of giveaway', function () {
+        GiveawayFactory::active('Dwarven Realms');
+        $line = supplierTradeWithLine(['game_name' => 'Dwarven Realms', 'is_giveaway' => true])->lines->first();
+
+        app(UpdateTradeLineUseCase::class)->execute($line, TradeLineFactory::dto(['game_name' => 'Portal']), TradeLineAuthority::Team);
+
+        expect($line->refresh()->is_giveaway)->toBeFalse();
+    });
+
+    it('keeps the flag recorded when the write does not change the game', function () {
+        // A marca registra o que a regra viu quando a linha nasceu: o giveaway
+        // ter saído da janela depois não reescreve a linha a cada edição da key.
+        $line = supplierTradeWithLine(['game_name' => 'Dwarven Realms', 'is_giveaway' => true])->lines->first();
+
+        app(UpdateTradeLineUseCase::class)->execute($line, TradeLineFactory::dto(['key_code' => 'AAA-BBB']), TradeLineAuthority::Team);
+
+        expect($line->refresh()->is_giveaway)->toBeTrue();
+    });
+
+    it('re-evaluates when the supplier corrects the region on delivery', function () {
+        // Só o nome decide o giveaway, mas a troca de região refaz as duas marcas
+        // pelo mesmo gatilho — e a avaliação continua correta.
+        GiveawayFactory::active('Dwarven Realms');
+        $line = supplierTradeWithLine(['game_name' => 'Dwarven Realms', 'region' => 'EU'])->lines->first();
+
+        app(UpdateTradeLineUseCase::class)->execute($line, TradeLineFactory::dto(['region' => 'ROW']), TradeLineAuthority::Supplier);
+
+        expect($line->refresh()->is_giveaway)->toBeTrue();
     });
 });

@@ -8,14 +8,14 @@ use App\Domain\Pricing\IncomeCalculator;
 use App\Domain\Pricing\OfferCalculator;
 use App\Domain\Trades\CommentPolicy;
 use App\Domain\Trades\DeliveryCredential;
-use App\Domain\Trades\OverstockPolicy;
 use App\Domain\Trades\TradeGameComparison;
 use App\Domain\Trades\TradeLineBuilder;
+use App\Domain\Trades\TradeLineFlags;
 use App\Models\Trade;
 use App\Services\Bundles\BundleService;
 use App\Services\Keys\KeyCalculationService;
 use App\Services\Suppliers\SupplierService;
-use App\Services\Trades\OverstockService;
+use App\Services\Trades\TradeLineFlagsService;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 
@@ -25,7 +25,7 @@ class ProspectSupplierUseCase
         private readonly SupplierService $supplierService,
         private readonly KeyCalculationService $calculationService,
         private readonly BundleService $bundleService,
-        private readonly OverstockService $overstockService,
+        private readonly TradeLineFlagsService $flagsService,
     ) {}
 
     /**
@@ -40,11 +40,13 @@ class ProspectSupplierUseCase
     {
         // `profitable` é o comentário que o price_researcher posta na lista do
         // supplier — cada item vira uma linha "Jogo --- X TF2". Por isso o jogo
-        // encalhado é tirado **daqui**: não ofertamos o que já temos parado.
-        // Ele continua virando linha da trade, marcada (docs/adr/0013).
-        $evaluated = $this->overstockService->markResearched($this->evaluateProfitability($games));
+        // encalhado e o jogo em giveaway são tirados **daqui**: não ofertamos o
+        // que já temos parado nem pagamos preço normal pelo que acabou de sair
+        // de graça. Os dois continuam virando linha da trade, marcados
+        // (docs/adr/0013 e docs/adr/0014).
+        $evaluated = $this->flagsService->markResearched($this->evaluateProfitability($games));
 
-        $offered = array_values(array_filter($evaluated, fn (array $game) => ! $game[OverstockPolicy::FLAG_COLUMN]));
+        $offered = array_values(array_filter($evaluated, TradeLineFlags::isOfferable(...)));
 
         $previousTrade = $listCode
             ? Trade::with('lines')
@@ -61,8 +63,8 @@ class ProspectSupplierUseCase
             && TradeGameComparison::hasChanged(array_column($games, 'name'), $previousNames);
 
         // Sobre o que seria ofertado, não sobre a lista inteira: lista em que
-        // tudo está encalhado não tem comentário a postar, e sem comentário não
-        // há trade — a lista fica só no modal "Jogos encalhados".
+        // tudo está encalhado ou em giveaway não tem comentário a postar, e sem
+        // comentário não há trade.
         $shouldComment = CommentPolicy::shouldComment($offered, $gamesChanged, $lastCommentedAt);
 
         // A cotação é resolvida uma vez por prospecção, não por jogo, e **antes** de
@@ -89,8 +91,8 @@ class ProspectSupplierUseCase
             $bundleMap = $this->bundleService->recentBundleByGameNames(array_column($evaluated, 'name'));
 
             // A trade registra a lista pesquisada inteira, ofertada ou não: o
-            // jogo encalhado vira linha marcada, para a equipe ver o que foi
-            // deixado de fora da oferta.
+            // jogo encalhado ou em giveaway vira linha marcada, para a equipe
+            // ver o que foi deixado de fora da oferta.
             $lines = TradeLineBuilder::fromResearch($evaluated, $bundleMap);
 
             DB::transaction(function () use ($record, $listCode, $lines, $currency) {
@@ -113,7 +115,7 @@ class ProspectSupplierUseCase
         $isCashOffer = $currency->isCash() && $currency->hasTf2Price($currencyPrice);
 
         $profitable = array_map(function (array $game) use ($isCashOffer, $currencyPrice) {
-            $item = Arr::except($game, [OverstockPolicy::FLAG_COLUMN, 'tf2_offer']);
+            $item = Arr::except($game, [...TradeLineFlags::COLUMNS, 'tf2_offer']);
 
             if ($isCashOffer) {
                 $item['offer_price'] = OfferCalculator::inCurrency($game['tf2_offer'], $currencyPrice);
@@ -132,7 +134,7 @@ class ProspectSupplierUseCase
         }
 
         return [
-            // Sem a marca: para quem recebe, `profitable` é só a lista a ofertar.
+            // Sem as marcas: para quem recebe, `profitable` é só a lista a ofertar.
             // O que ficou de fora é assunto nosso, e está na trade.
             'profitable' => $profitable,
             // Soma só do que é ofertado: é o "Total" do rodapé do comentário, e

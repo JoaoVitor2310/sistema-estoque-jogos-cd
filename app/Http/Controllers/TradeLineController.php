@@ -50,20 +50,23 @@ class TradeLineController extends Controller
         $line = $this->createTradeLine->execute($trade, $request->toDTO());
 
         // A tela precisa do id para poder alterar e remover a linha em seguida,
-        // e da posição porque uma inserção no meio empurrou as demais. A marca
-        // de encalhe vai junto porque a duplicata nasce com jogo e já é avaliada.
+        // e da posição porque uma inserção no meio empurrou as demais. As marcas
+        // de encalhe e de giveaway vão junto porque a duplicata nasce com jogo e
+        // já é avaliada.
         return response()->json([
             'id' => $line->id,
             'position' => $line->position,
             'is_overstocked' => $line->is_overstocked,
+            'is_giveaway' => $line->is_giveaway,
         ], 201);
     }
 
     /**
-     * Devolve o `gamivo_id` e a marca de encalhe porque são as colunas que o
-     * servidor muda por conta própria: trocar o nome ou a região da linha apaga
-     * o id derivado daquele par (ver [[App\Domain\Trades\GamivoIdentity]]) e
-     * refaz a marca contra o estoque atual. Sem isso a tela
+     * Devolve o `gamivo_id` e as marcas de encalhe e de giveaway porque são as
+     * colunas que o servidor muda por conta própria: trocar o nome ou a região
+     * da linha apaga o id derivado daquele par (ver
+     * [[App\Domain\Trades\GamivoIdentity]]) e refaz as marcas contra o estoque
+     * e os giveaways de agora. Sem isso a tela
      * seguiria exibindo o id apagado — e o reenviaria na gravação seguinte, que
      * manda a linha inteira, ressuscitando exatamente o valor que a regra
      * existe para tirar de circulação.
@@ -75,6 +78,7 @@ class TradeLineController extends Controller
         return response()->json([
             'gamivo_id' => $line->gamivo_id,
             'is_overstocked' => $line->is_overstocked,
+            'is_giveaway' => $line->is_giveaway,
         ], 200);
     }
 

@@ -280,6 +280,8 @@ class TradeService
             // App\Domain\Trades\OverstockPolicy. Só a equipe lê: a projeção da
             // entrega seleciona as colunas à mão e não a inclui.
             'is_overstocked' => $line->is_overstocked,
+            // Idem, para giveaway — ver App\Domain\Games\GiveawayPolicy.
+            'is_giveaway' => $line->is_giveaway,
         ];
     }
 }

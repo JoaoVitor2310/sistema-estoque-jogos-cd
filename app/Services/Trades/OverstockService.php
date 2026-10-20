@@ -4,6 +4,7 @@ namespace App\Services\Trades;
 
 use App\Domain\Trades\GameStock;
 use App\Domain\Trades\OverstockPolicy;
+use App\Domain\Trades\TradeLineFlags;
 use App\Services\Keys\KeyRepository;
 use Carbon\Carbon;
 
@@ -40,14 +41,14 @@ class OverstockService
         $named = array_filter($games, fn (array $game) => filled($game['name'] ?? null));
 
         if ($named === []) {
-            return array_map(fn (array $game) => $game + [OverstockPolicy::FLAG_COLUMN => false], $games);
+            return array_map(fn (array $game) => $game + [TradeLineFlags::OVERSTOCKED => false], $games);
         }
 
         $now ??= Carbon::now();
         $stock = $this->keyRepository->stockByGameIdentity($now);
 
         return array_map(fn (array $game) => $game + [
-            OverstockPolicy::FLAG_COLUMN => $this->isInOverstockedGroup($game['name'] ?? null, $game['region'] ?? null, $stock, $now),
+            TradeLineFlags::OVERSTOCKED => $this->isInOverstockedGroup($game['name'] ?? null, $game['region'] ?? null, $stock, $now),
         ], $games);
     }
 

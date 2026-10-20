@@ -5,9 +5,8 @@ namespace App\UseCases\Trades;
 use App\Domain\Enums\TradeLineAuthority;
 use App\Domain\Trades\GamivoIdentity;
 use App\Domain\Trades\LineGamePair;
-use App\Domain\Trades\OverstockPolicy;
 use App\Models\TradeLine;
-use App\Services\Trades\OverstockService;
+use App\Services\Trades\TradeLineFlagsService;
 use App\UseCases\Trades\DTO\TradeLineDTO;
 
 class UpdateTradeLineUseCase
@@ -16,7 +15,7 @@ class UpdateTradeLineUseCase
     private const IDENTITY_COLUMNS = [...LineGamePair::COLUMNS, GamivoIdentity::DERIVED_COLUMN];
 
     public function __construct(
-        private readonly OverstockService $overstockService,
+        private readonly TradeLineFlagsService $flagsService,
     ) {}
 
     /**
@@ -58,18 +57,18 @@ class UpdateTradeLineUseCase
             $attributes[GamivoIdentity::DERIVED_COLUMN] = null;
         }
 
-        // A marca de encalhe também é do par: trocou o jogo ou a região, a linha
-        // é outro jogo, e a marca é refeita contra o estoque de agora. Pelo mesmo
+        // As marcas ([[App\Domain\Trades\TradeLineFlags]]) também são do par:
+        // trocou o jogo ou a região, a linha é outro jogo, e as marcas são
+        // refeitas contra o estoque e os giveaways de agora. Pelo mesmo
         // raciocínio do id, vale para as duas autoridades — o supplier que
-        // corrige a região muda de fato o grupo de estoque da key.
+        // corrige a região muda de fato o grupo de estoque da key. A marca de
+        // giveaway só depende do nome; refazê-la na troca de região é
+        // inofensivo e mantém um gatilho só.
         if (LineGamePair::changedBy($stored, $attributes)) {
             // O patch é parcial: o que ele não traz continua como está gravado.
             $game = $attributes + $stored;
 
-            $attributes[OverstockPolicy::FLAG_COLUMN] = $this->overstockService->isOverstocked(
-                $game['game_name'],
-                $game['region'],
-            );
+            $attributes = array_merge($attributes, $this->flagsService->flagsFor($game['game_name'], $game['region']));
         }
 
         $line->update($attributes);

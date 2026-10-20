@@ -18,6 +18,18 @@ describe('TradeLineBuilder::fromResearch', function () {
         expect(array_column($lines, 'is_overstocked'))->toBe([true, false]);
     });
 
+    it('copies the giveaway mark the game carries', function () {
+        $lines = TradeLineBuilder::fromResearch(
+            [
+                ['name' => 'Dwarven Realms', 'market_price_euro' => 0.50, 'popularity' => 50, 'region' => null, 'is_giveaway' => true],
+                ['name' => 'Portal', 'market_price_euro' => 2.00, 'popularity' => 100, 'region' => null],
+            ],
+            [],
+        );
+
+        expect(array_column($lines, 'is_giveaway'))->toBe([true, false]);
+    });
+
     it('converts a researched game into trade line attributes', function () {
         $lines = TradeLineBuilder::fromResearch(
             [['name' => 'Half-Life', 'market_price_euro' => 4.50, 'popularity' => 500, 'region' => 'EU']],
@@ -35,6 +47,7 @@ describe('TradeLineBuilder::fromResearch', function () {
             'key_code' => null,
             'gamivo_id' => null,
             'is_overstocked' => false,
+            'is_giveaway' => false,
         ]);
     });
 

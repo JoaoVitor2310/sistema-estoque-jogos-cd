@@ -109,7 +109,7 @@ Os critérios de pesquisa de preço vêm do preset `suppliers`: popularidade mí
 { "error": "STEAMTRADES_SESSION is not defined in .env" }
 ```
 
-> **A resposta de `POST /suppliers/prospect` pode trazer menos jogos do que foram pesquisados.** Jogo de que já há estoque encalhado é tirado de `profitable` e do `total_tf2_price` — é o que impede o comentário de oferecer o que já está parado. O que ficou de fora **não volta na resposta**: quem decide o que ofertar é o Sistema-Estoque, e o serviço só precisa do que comentar. Lista em que todo jogo lucrativo está encalhado responde `should_comment: false`. Regra em [`docs/PRODUCT.md`](PRODUCT.md#jogo-encalhado-é-sinalizado-na-trade).
+> **A resposta de `POST /suppliers/prospect` pode trazer menos jogos do que foram pesquisados.** Jogo de que já há estoque encalhado, ou que está em giveaway, é tirado de `profitable` e do `total_tf2_price` — é o que impede o comentário de oferecer o que já está parado ou o que acabou de sair de graça. O que ficou de fora **não volta na resposta**: quem decide o que ofertar é o Sistema-Estoque, e o serviço só precisa do que comentar. Lista em que todo jogo lucrativo está encalhado ou em giveaway responde `should_comment: false`. Regras em [`docs/PRODUCT.md`](PRODUCT.md#jogo-encalhado-é-sinalizado-na-trade) e [`docs/PRODUCT.md`](PRODUCT.md#jogo-em-giveaway-é-sinalizado-na-trade).
 
 > **Nome do preço de mercado.** Nos jogos do pedido e do callback o campo é `market_price_euro`. O nome antigo, `price_euro`, não é mais aceito: um jogo sem `market_price_euro` responde 422 (`games.N.market_price_euro`), e a resposta de `/suppliers/prospect` não o repete em `profitable[]`.
 >

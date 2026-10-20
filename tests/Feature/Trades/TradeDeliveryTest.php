@@ -259,6 +259,21 @@ describe('GET /deliveries/{uuid}', function () {
             ->and(json_encode($props))->not->toContain('overstock');
     });
 
+    it('never tells the supplier that a game is in giveaway', function () {
+        // Pelo mesmo motivo do encalhe: é leitura só da equipe.
+        [$trade, $token] = tradeWithDelivery([
+            ['game_name' => 'Dwarven Realms', 'is_giveaway' => true],
+        ]);
+
+        $this->postJson("/deliveries/{$trade->delivery_uuid}/token", ['token' => $token]);
+
+        $props = $this->get("/deliveries/{$trade->delivery_uuid}")
+            ->viewData('page')['props'];
+
+        expect($props['trade']['lines'][0])->not->toHaveKey('is_giveaway')
+            ->and(json_encode($props))->not->toContain('giveaway');
+    });
+
     it('tells the page which currency the agreed total is in', function () {
         [$trade, $token] = tradeWithDelivery([['game_name' => 'Portal']]);
         $trade->update(['currency' => 'eur']);

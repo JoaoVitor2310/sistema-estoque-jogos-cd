@@ -76,6 +76,22 @@ describe('GiveawayPolicy::isFlagged()', function () {
     ]);
 });
 
+describe('GiveawayPolicy::isGameFlagged()', function () {
+
+    it('flags the game when any of its giveaways is in the window', function () {
+        $now = Carbon::parse('2026-01-01 12:00:00');
+        $old = new GiveawayPeriod(GiveawayStatus::Ended, $now->copy()->subDays(400), $now->copy()->subDays(393));
+        $recent = new GiveawayPeriod(GiveawayStatus::Ended, $now->copy()->subDays(17), $now->copy()->subDays(10));
+
+        expect(GiveawayPolicy::isGameFlagged([$old, $recent], $now))->toBeTrue()
+            ->and(GiveawayPolicy::isGameFlagged([$old], $now))->toBeFalse();
+    });
+
+    it('does not flag a game without giveaways', function () {
+        expect(GiveawayPolicy::isGameFlagged([], Carbon::parse('2026-01-01')))->toBeFalse();
+    });
+});
+
 describe('GiveawayPolicy::oldestFlaggableLastSeen()', function () {
 
     it('reaches back as far as the longest window', function () {
