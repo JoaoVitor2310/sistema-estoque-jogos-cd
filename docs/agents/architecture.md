@@ -105,7 +105,7 @@ app/
 │   ├── Trades/
 │   │   ├── CommentPolicy.php            # decide se recomenta um supplier (14 dias / jogos mudaram)
 │   │   ├── DeliveryCredential.php       # link + código da entrega: formato, emissão, limites e prazo
-│   │   ├── GamivoIdentity.php           # quando trocar jogo/região invalida o gamivo_id da linha
+│   │   ├── GamivoIdentity.php           # quando trocar jogo/região invalida o gamivo_id da linha (e da key, em UpdateKeyUseCase)
 │   │   ├── LineGamePair.php             # quando uma escrita troca o jogo (nome/região) da linha
 │   │   ├── TradeGameComparison.php
 │   │   ├── GameStock.php                # estoque de um jogo numa região (keys paradas, idade, vendas na janela)

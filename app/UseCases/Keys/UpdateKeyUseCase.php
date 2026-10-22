@@ -3,6 +3,7 @@
 namespace App\UseCases\Keys;
 
 use App\Domain\Platform\PlatformIdentifier;
+use App\Domain\Trades\GamivoIdentity;
 use App\Models\Key;
 use App\Services\Games\GameService;
 use App\Services\Keys\KeyCalculationService;
@@ -60,15 +61,31 @@ class UpdateKeyUseCase
         $attributes['supplier_id'] = $this->resolveSupplierId($existing, $attributes['supplier_url']);
         $attributes['is_duplicate'] = $this->keyRepository->findByKeyCode($attributes['key_code'], $existing->id) !== null;
 
-        // Sincroniza gamivo_id. A busca só preenche key que ainda não tem um: esvaziar
-        // o campo de uma key que já tem id é um pedido de apagar (id digitado errado), e
-        // procurar de novo devolveria o mesmo id — a própria key e as irmãs o carregam.
-        if (empty($attributes['gamivo_id']) && empty($existing->gamivo_id)) {
-            $gamivoId = $this->gameService->getIdGamivo($attributes['game_name'], $attributes['region']);
-            if ($gamivoId) {
+        // Sincroniza gamivo_id. O id é derivado do par (game_name, region) — ver
+        // GamivoIdentity. Trocado o par, o id guardado aponta para outro produto, e o
+        // formulário o reenvia a cada gravação: a key é a ponta final, sem import
+        // depois dela, então o id é refeito aqui pelo par novo (null se ninguém o conhece).
+        // Com o par intacto, a busca só preenche key que ainda não tem id: esvaziar o campo
+        // de uma key que já tem id é um pedido de apagar (id digitado errado), e procurar
+        // de novo devolveria o mesmo id — a própria key e as irmãs o carregam.
+        $storedGamivoId = $existing->gamivo_id;
+        $stored = $existing->only(GamivoIdentity::IDENTITY_COLUMNS);
+        $idIsStale = GamivoIdentity::staleAfter($stored, $attributes);
+
+        if ($idIsStale || (empty($attributes['gamivo_id']) && empty($storedGamivoId))) {
+            $gamivoId = $this->gameService->getIdGamivo($attributes['game_name'], $attributes['region']) ?: null;
+
+            if ($idIsStale || $gamivoId) {
                 $attributes['gamivo_id'] = $gamivoId;
             }
         }
+
+        $needsReview = GamivoIdentity::changeNeedsReview(
+            $stored,
+            $attributes,
+            $attributes['gamivo_id'] ?? null,
+            $existing->listed_at !== null || $existing->sold_at !== null,
+        );
 
         if (! empty($attributes['gamivo_id'])) {
             $this->gameService->fillIdGamivo($attributes['game_name'], $attributes['region'], $attributes['gamivo_id']);
@@ -90,7 +107,7 @@ class UpdateKeyUseCase
 
             return [
                 'keys' => new Collection([$existing->fresh()->load('supplier')]),
-                'message' => $this->buildMessage($existing),
+                'message' => $this->buildMessage($existing, $needsReview),
             ];
         }
 
@@ -129,16 +146,23 @@ class UpdateKeyUseCase
         // já está no lote), com relacionamentos, em ordem de id.
         return [
             'keys' => $batch->map(fn (Key $key) => $key->fresh()->load('supplier'))->values(),
-            'message' => $this->buildMessage($existing),
+            'message' => $this->buildMessage($existing, $needsReview),
         ];
     }
 
     /**
-     * Mensagem de retorno, sinalizando quando a plataforma da key não foi identificada.
+     * Mensagem de retorno, sinalizando a plataforma não identificada e o id Gamivo que mudou numa key já listada/vendida.
      */
-    private function buildMessage(Key $key): string
+    private function buildMessage(Key $key, bool $gamivoIdNeedsReview): string
     {
-        return $key->identified_platform === 'DESCONHECIDO'
+        $unknownPlatform = $key->identified_platform === 'DESCONHECIDO';
+
+        if ($gamivoIdNeedsReview) {
+            return GamivoIdentity::REVIEW_MESSAGE
+                .($unknownPlatform ? ' A plataforma também não foi identificada.' : '');
+        }
+
+        return $unknownPlatform
             ? 'Jogo atualizado, mas a plataforma não foi identificada.'
             : 'Jogo atualizado com sucesso';
     }

@@ -128,7 +128,7 @@ Jogo **em giveaway** (ativo ou saído há pouco — faixas em "Giveaway", abaixo
 
 ### ID Gamivo de uma linha
 
-O `gamivo_id` de uma linha endereça um produto na Gamivo, e o produto é o par **jogo + região** — o mesmo jogo é um item diferente em cada região. Por isso, alterar o nome do jogo ou a região de uma linha **apaga o `gamivo_id` dela**, venha a alteração da aba ou da página do supplier.
+O `gamivo_id` de uma linha endereça um produto na Gamivo, e o produto é o par **jogo + região** — o mesmo jogo é um item diferente em cada região. Por isso, alterar o nome do jogo ou a região de uma linha **apaga o `gamivo_id` dela**, venha a alteração da aba ou da página do supplier. Na **key** não há import depois, então a edição refaz o id pelo par novo (e deixa vazio se ninguém o conhece); se a key já foi listada ou vendida e o id mudou, a edição passa, mas a tela avisa para conferir onde ela está à venda, porque ela pode continuar na oferta do id antigo.
 
 | Regra | Por quê |
 |---|---|
