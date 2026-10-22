@@ -63,4 +63,44 @@ describe('GamivoIdentity', function () use ($line) {
     it('keeps the id when the same value comes back unchanged', function () use ($line) {
         expect(GamivoIdentity::invalidatedBy($line, ['game_name' => 'Portal', 'region' => 'EU']))->toBeFalse();
     });
+
+    // ── staleAfter: quem refaz o id em vez de apagá-lo (a key) ────────────────
+
+    it('treats a blank id sent with a new game as stale', function () use ($line) {
+        // invalidatedBy leria o null como "id redefinido de propósito"; aqui é o
+        // formulário reenviando o campo em branco.
+        expect(GamivoIdentity::staleAfter($line, ['game_name' => 'Portal 2', 'gamivo_id' => null]))->toBeTrue()
+            ->and(GamivoIdentity::staleAfter($line, ['game_name' => 'Portal 2', 'gamivo_id' => '']))->toBeTrue();
+    });
+
+    it('treats the stored id sent with a new game as stale', function () use ($line) {
+        expect(GamivoIdentity::staleAfter($line, ['game_name' => 'Portal 2', 'gamivo_id' => '77']))->toBeTrue();
+    });
+
+    it('does not treat a different id sent with a new game as stale', function () use ($line) {
+        expect(GamivoIdentity::staleAfter($line, ['game_name' => 'Portal 2', 'gamivo_id' => '99']))->toBeFalse();
+    });
+
+    it('does not treat an untouched pair as stale', function () use ($line) {
+        expect(GamivoIdentity::staleAfter($line, ['game_name' => ' portal ', 'gamivo_id' => null]))->toBeFalse();
+    });
+
+    // ── changeNeedsReview: key que já chegou ao marketplace ───────────────────
+
+    it('needs review when a listed or sold key changes pair and id', function () use ($line) {
+        expect(GamivoIdentity::changeNeedsReview($line, ['game_name' => 'Portal 2'], '99', true))->toBeTrue()
+            ->and(GamivoIdentity::changeNeedsReview($line, ['region' => 'BR'], null, true))->toBeTrue();
+    });
+
+    it('needs no review when the key never reached the marketplace', function () use ($line) {
+        expect(GamivoIdentity::changeNeedsReview($line, ['game_name' => 'Portal 2'], '99', false))->toBeFalse();
+    });
+
+    it('needs no review when the resulting id is the same', function () use ($line) {
+        expect(GamivoIdentity::changeNeedsReview($line, ['game_name' => 'Portal 2'], '77', true))->toBeFalse();
+    });
+
+    it('needs no review when the pair did not change', function () use ($line) {
+        expect(GamivoIdentity::changeNeedsReview($line, ['game_name' => 'PORTAL'], null, true))->toBeFalse();
+    });
 });

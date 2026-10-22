@@ -393,6 +393,124 @@ describe('UpdateKeyUseCase — supplier by purchase channel', function () {
         expect(DB::table('keys')->where('id', $id)->value('gamivo_id'))->toBe('999');
     });
 
+    it('refreshes the gamivo_id from the new game when the name changes', function () {
+        insertKeyForUpdate(['key_code' => 'SIB-KEY-00001', 'game_name' => 'New Game', 'gamivo_id' => '222']);
+        $id = insertKeyForUpdate(['gamivo_id' => '111']);
+
+        // O formulário reenvia o id antigo junto com o nome novo
+        app(UpdateKeyUseCase::class)->execute(Key::findOrFail($id), makeUpdateInput(['game_name' => 'New Game', 'gamivo_id' => '111']));
+
+        expect(DB::table('keys')->where('id', $id)->value('gamivo_id'))->toBe('222');
+    });
+
+    it('refreshes the gamivo_id from the new region when the region changes', function () {
+        insertKeyForUpdate(['key_code' => 'SIB-KEY-00001', 'region' => 'EU', 'gamivo_id' => '333']);
+        $id = insertKeyForUpdate(['region' => 'Global', 'gamivo_id' => '111']);
+
+        app(UpdateKeyUseCase::class)->execute(Key::findOrFail($id), makeUpdateInput(['game_name' => 'Original Game', 'region' => 'EU', 'gamivo_id' => '111']));
+
+        expect(DB::table('keys')->where('id', $id)->value('gamivo_id'))->toBe('333');
+    });
+
+    it('clears the gamivo_id when nobody knows the new game', function () {
+        $id = insertKeyForUpdate(['gamivo_id' => '111']);
+
+        app(UpdateKeyUseCase::class)->execute(Key::findOrFail($id), makeUpdateInput(['game_name' => 'Unknown Game', 'gamivo_id' => '111']));
+
+        expect(DB::table('keys')->where('id', $id)->value('gamivo_id'))->toBeNull();
+    });
+
+    it('keeps a different gamivo_id typed together with the new game', function () {
+        insertKeyForUpdate(['key_code' => 'SIB-KEY-00001', 'game_name' => 'New Game', 'gamivo_id' => '222']);
+        $id = insertKeyForUpdate(['gamivo_id' => '111']);
+
+        app(UpdateKeyUseCase::class)->execute(Key::findOrFail($id), makeUpdateInput(['game_name' => 'New Game', 'gamivo_id' => '777']));
+
+        expect(DB::table('keys')->where('id', $id)->value('gamivo_id'))->toBe('777');
+    });
+
+    it('does not refresh the gamivo_id on a case-only rename', function () {
+        $id = insertKeyForUpdate(['gamivo_id' => '111']);
+
+        app(UpdateKeyUseCase::class)->execute(Key::findOrFail($id), makeUpdateInput(['game_name' => 'ORIGINAL GAME', 'gamivo_id' => '111']));
+
+        expect(DB::table('keys')->where('id', $id)->value('gamivo_id'))->toBe('111');
+    });
+
+    it('does not propagate the stale gamivo_id to the new game in the games table', function () {
+        // O jogo novo já existe, sem id, e uma irmã dele carrega o id certo
+        DB::table('games')->insert(['name' => 'New Game', 'region' => null, 'gamivo_id' => null, 'created_at' => now(), 'updated_at' => now()]);
+        insertKeyForUpdate(['key_code' => 'SIB-KEY-00001', 'game_name' => 'New Game', 'gamivo_id' => '222']);
+        $id = insertKeyForUpdate(['gamivo_id' => '111']);
+
+        app(UpdateKeyUseCase::class)->execute(Key::findOrFail($id), makeUpdateInput(['game_name' => 'New Game', 'gamivo_id' => '111']));
+
+        // Propaga o id novo (222), nunca o antigo (111)
+        expect(DB::table('games')->where('name', 'New Game')->value('gamivo_id'))->toBe('222');
+    });
+
+    it('warns to check where a listed key is selling when its gamivo_id changes', function () {
+        $id = insertKeyForUpdate(['gamivo_id' => '111', 'listed_at' => now()->toDateString()]);
+
+        $result = app(UpdateKeyUseCase::class)->execute(Key::findOrFail($id), makeUpdateInput(['game_name' => 'Unknown Game', 'gamivo_id' => '111']));
+
+        expect($result['message'])->toStartWith('Jogo atualizado, mas o ID Gamivo mudou')
+            ->and(DB::table('keys')->where('id', $id)->value('gamivo_id'))->toBeNull();
+    });
+
+    it('warns to check where a sold key is selling when its gamivo_id changes', function () {
+        $id = insertKeyForUpdate(['gamivo_id' => '111', 'sold_at' => now()]);
+
+        $result = app(UpdateKeyUseCase::class)->execute(Key::findOrFail($id), makeUpdateInput(['game_name' => 'Unknown Game', 'gamivo_id' => '111']));
+
+        expect($result['message'])->toStartWith('Jogo atualizado, mas o ID Gamivo mudou');
+    });
+
+    it('refreshes the gamivo_id when the form sends the id blank together with the new game', function () {
+        insertKeyForUpdate(['key_code' => 'SIB-KEY-00001', 'game_name' => 'New Game', 'gamivo_id' => '222']);
+        $id = insertKeyForUpdate(['gamivo_id' => '111']);
+
+        app(UpdateKeyUseCase::class)->execute(Key::findOrFail($id), makeUpdateInput(['game_name' => 'New Game', 'gamivo_id' => null]));
+
+        expect(DB::table('keys')->where('id', $id)->value('gamivo_id'))->toBe('222');
+    });
+
+    it('refreshes the gamivo_id and warns when the market_price changes together with the game', function () {
+        insertKeyForUpdate(['key_code' => 'SIB-KEY-00001', 'game_name' => 'New Game', 'gamivo_id' => '222']);
+        $id = insertKeyForUpdate(['gamivo_id' => '111', 'listed_at' => now()->toDateString()]);
+
+        $result = app(UpdateKeyUseCase::class)->execute(Key::findOrFail($id), makeUpdateInput(['game_name' => 'New Game', 'gamivo_id' => '111', 'market_price' => 9.99]));
+
+        expect(DB::table('keys')->where('id', $id)->value('gamivo_id'))->toBe('222')
+            ->and($result['message'])->toStartWith('Jogo atualizado, mas o ID Gamivo mudou');
+    });
+
+    it('keeps both warnings when the review is needed and the platform is unknown', function () {
+        $id = insertKeyForUpdate(['gamivo_id' => '111', 'listed_at' => now()->toDateString()]);
+
+        $result = app(UpdateKeyUseCase::class)->execute(Key::findOrFail($id), makeUpdateInput(['game_name' => 'Unknown Game', 'gamivo_id' => '111', 'key_code' => 'not-a-known-platform-pattern']));
+
+        expect($result['message'])->toContain('ID Gamivo mudou')
+            ->and($result['message'])->toContain('plataforma também não foi identificada');
+    });
+
+    it('does not warn when the key was never listed or sold', function () {
+        $id = insertKeyForUpdate(['gamivo_id' => '111']);
+
+        $result = app(UpdateKeyUseCase::class)->execute(Key::findOrFail($id), makeUpdateInput(['game_name' => 'Unknown Game', 'gamivo_id' => '111']));
+
+        expect($result['message'])->not->toContain('ID Gamivo');
+    });
+
+    it('does not warn when a listed key is renamed but keeps the same gamivo_id', function () {
+        insertKeyForUpdate(['key_code' => 'SIB-KEY-00001', 'game_name' => 'New Game', 'gamivo_id' => '111']);
+        $id = insertKeyForUpdate(['gamivo_id' => '111', 'listed_at' => now()->toDateString()]);
+
+        $result = app(UpdateKeyUseCase::class)->execute(Key::findOrFail($id), makeUpdateInput(['game_name' => 'New Game', 'gamivo_id' => '111']));
+
+        expect($result['message'])->not->toContain('ID Gamivo');
+    });
+
     it('does not turn Gamivo into a supplier', function () {
         $tradeId = DB::table('trades')->insertGetId(['purchase_channel' => 'gamivo', 'created_at' => now(), 'updated_at' => now()]);
         $id = insertKeyForUpdate(['trade_id' => $tradeId, 'supplier_url' => 'Gamivo', 'supplier_id' => null]);

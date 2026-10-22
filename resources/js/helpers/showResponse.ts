@@ -7,7 +7,7 @@ export const showResponse = (res: AxiosResponse, toastAdd: Function): void => {
         return;
     }
     if (res.status === 200 || res.status === 201) {
-        if(res.data.message === "Jogos cadastrados com sucesso, mas tem pelo menos um com a plataforma não identificada." || res.data.message === "Jogo atualizado, mas a plataforma não foi identificada."){
+        if(res.data.message === "Jogos cadastrados com sucesso, mas tem pelo menos um com a plataforma não identificada." || String(res.data.message).startsWith("Jogo atualizado, mas a plataforma") || String(res.data.message).startsWith("Jogo atualizado, mas o ID Gamivo")){
             toastAdd({ severity: 'warn', summary: 'Atenção', detail: res.data.message, life: 7000 });
             return;
         }
