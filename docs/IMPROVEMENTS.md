@@ -204,6 +204,27 @@ que `systemctl is-enabled docker` responde `enabled`.
 **Origem:** incidente de 2026-08-24.
 
 
+## CVE-2026-115560 — confirmar e, depois, reavaliar a mitigação do PHP
+
+Aviso do provedor da VPS (2026-10-23): vulnerabilidade do PHP ainda sem correção, contornada
+desligando `session.upload_progress.enabled`. A mitigação existe no repo
+(`docker/php/zz-security.ini`, ver [`agents/security-and-guardrails.md`](agents/security-and-guardrails.md#php-endurecido-na-imagem-não-no-host)),
+mas **só vale depois de rebuild manual da imagem**: o deploy automático não reconstrói imagem
+([`agents/deploy.md`](agents/deploy.md)), então o merge fica verde com a VPS ainda exposta.
+
+**Onde:** VPS (rebuild) e `docker/php/zz-security.ini` (revisão).
+
+**Ação:**
+1. Depois do merge: `docker compose up -d --build app-cd` e conferir com
+   `docker exec app-cd php -r 'var_dump(ini_get("session.upload_progress.enabled"));'` — esperado `string(0) ""`.
+2. Quando o PHP publicar a correção e a imagem for reconstruída com ela, decidir se o ini ainda é
+   necessário; se não, remover o arquivo, a linha do `Dockerfile`, o teste em
+   `tests/Feature/EnvironmentTest.php` e a seção em `security-and-guardrails.md`.
+
+**Origem:** aviso do provedor da VPS de 2026-10-23.
+
+---
+
 ## Trilha de eventos da entrega de trade
 
 **Onde:** domínio da entrega (`/deliveries/{uuid}`), ver [`docs/adr/0008`](adr/0008-supplier-fills-trade-through-tokenised-link.md).
