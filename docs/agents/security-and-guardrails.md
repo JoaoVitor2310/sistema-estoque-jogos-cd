@@ -105,6 +105,10 @@ Antes de escrever um default, pergunte de que lado erra melhor: para *entrega*, 
 
 O deploy roda `php artisan config:cache` (`.github/workflows/deploy.yml`), e a partir daí **`env()` devolve null**: o `.env` deixa de ser lido e vale só o array compilado de `config/`. Toda variável se lê por `config()`; `env()` aparece exclusivamente dentro de `config/`. A diferença não aparece em desenvolvimento — local, sem cache de config, o `env()` funciona —, então o modo de falha é sempre "só quebra em produção". Guarda de regressão em `tests/Feature/EnvironmentTest.php` ("never reads env() at runtime outside config/"), que varre `app/` pelos tokens do PHP. *(Já aconteceu: `CurrencyConversionService` lia a chave da AwesomeAPI com `env()`; em produção a chamada ia sem chave, caía no tier público limitado por IP e voltava 429 — a aba Recursos gravava o preço digitado e não convertia os outros dois.)*
 
+## PHP endurecido na imagem, não no host
+
+`docker/php/zz-security.ini` é copiado para o `conf.d` do PHP pelo `Dockerfile` e hoje desliga `session.upload_progress.enabled` (mitigação da CVE-2026-115560, aviso do provedor da VPS em 2026-10-23, enquanto o PHP não publica correção; o Laravel não usa essa barra de progresso). Vive na imagem de propósito: um bind mount do diretório esconderia os ini das extensões (`redis`, `pdo_pgsql`), e um de arquivo único fica preso ao inode antigo depois de um `git pull`. Consequência: só vale depois de `docker compose up -d --build app-cd` na VPS, e uma subida só com `up -d` mantém a imagem velha. Conferir com `docker exec app-cd php -r 'var_dump(ini_get("session.upload_progress.enabled"));'` (esperado: `string(0) ""`). Guarda em `tests/Feature/EnvironmentTest.php`. Pendências desta mitigação (rebuild e reavaliação) em [`docs/IMPROVEMENTS.md`](../IMPROVEMENTS.md).
+
 ## `.env.example` é ambiente de verdade
 
 O CI faz `cp .env.example .env` e todo clone novo nasce dele: variável obrigatória deixada em branco ali significa suíte rodando com config vazia e sistema novo nascendo quebrado. Ao remover um fallback, preencha o `.env.example` no mesmo passo.

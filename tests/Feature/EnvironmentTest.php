@@ -169,3 +169,21 @@ it('never reads env() at runtime outside config/', function () {
 
     expect($offenders)->toBe([]);
 });
+
+/*
+|--------------------------------------------------------------------------
+| PHP endurecido na imagem — CVE-2026-115560
+|--------------------------------------------------------------------------
+|
+| O ini só vale se estiver na imagem: o Dockerfile precisa copiá-lo para o
+| conf.d do PHP. Apagar um dos dois reabre a exposição sem nada quebrar.
+|
+*/
+
+it('ships the php ini that disables session upload progress', function () {
+    $ini = file_get_contents(base_path('docker/php/zz-security.ini'));
+
+    expect($ini)->toMatch('/^session\.upload_progress\.enabled\s*=\s*Off\s*$/m')
+        ->and(file_get_contents(base_path('Dockerfile')))
+        ->toContain('COPY docker/php/zz-security.ini /usr/local/etc/php/conf.d/zz-security.ini');
+});

@@ -60,6 +60,12 @@ COPY . .
 
 # COPY . /var/www/html
 
+# Configuração de PHP endurecida (session.upload_progress.enabled=Off). Vai para
+# o conf.d da imagem: um bind mount do diretório esconderia os ini das extensões
+# (redis, pdo_pgsql), e de um arquivo só ficaria preso ao inode antigo depois de
+# um `git pull`.
+COPY docker/php/zz-security.ini /usr/local/etc/php/conf.d/zz-security.ini
+
 # Copia o script de entrypoint para o container
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
