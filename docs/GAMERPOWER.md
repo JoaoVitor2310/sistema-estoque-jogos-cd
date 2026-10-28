@@ -55,10 +55,11 @@ O GamerPower não manda o nome do jogo num campo próprio. `App\Domain\Games\Giv
 | Dwarven Realms (Steam) Key Giveaway | Dwarven Realms | Steam |
 | Leaper (IndieGala) Giveaway | Leaper | IndieGala |
 | Game (2013) (Steam) Giveaway | Game (2013) | Steam |
+| HELLCARD Steam Key Giveaway | HELLCARD | Steam |
 | Dwarven Realms Key Giveaway | Dwarven Realms | — |
 | Mystery Free Weekend (fora do padrão) | — | — |
 
-Só o final do título é recortado: o sufixo `Giveaway`, o `Key` antes dele e o último parêntese. O recorte vem **antes** do `GameNameNormalizer`, que tira o caractere `(` mas mantém o conteúdo. Título fora do padrão é gravado com `game_name` nulo, sem vínculo, e com um log de warning. O parser é ampliado quando surgir um formato novo.
+Só o final do título é recortado: o sufixo `Giveaway`, o `Key` antes dele e o último parêntese — ou, sem parêntese, a palavra `Steam` solta (`GiveawayTitle::BARE_STORE`). Só `Steam` é reconhecida assim, porque o feed é filtrado por Steam; outra palavra solta continua no nome (`Leaper IndieGala Giveaway` → `Leaper IndieGala`). O custo conhecido é um jogo cujo nome termine em "Steam" perder essa palavra. O recorte vem **antes** do `GameNameNormalizer`, que tira o caractere `(` mas mantém o conteúdo. Título fora do padrão é gravado com `game_name` nulo, sem vínculo, e com um log de warning. O parser é ampliado quando surgir um formato novo.
 
 ## Fluxo de sincronização (`SyncGiveawaysUseCase::execute`)
 
