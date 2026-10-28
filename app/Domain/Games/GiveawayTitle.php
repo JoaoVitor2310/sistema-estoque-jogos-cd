@@ -15,10 +15,19 @@ namespace App\Domain\Games;
  * antes do [[GameNameNormalizer]], que tira o caractere `(` mas mantém o
  * conteúdo — sem ele "Leaper (IndieGala) Giveaway" viraria "leaper indiegala
  * giveaway" e nunca casaria com o jogo.
+ *
+ * A origem também aparece **sem parêntese**, mas só como "Steam":
+ * "HELLCARD Steam Key Giveaway" → "HELLCARD". Só [[BARE_STORE]] é reconhecida
+ * assim, porque o feed é filtrado por Steam; aceitar qualquer palavra solta
+ * cortaria o fim de nomes legítimos. O custo conhecido é um jogo cujo nome
+ * termine em "Steam" perder essa palavra.
  */
 final class GiveawayTitle
 {
-    private const PATTERN = '/^(?<name>[^(\s].*?)(?:\s*\((?<store>[^()]*)\))?\s*(?:Key\s+)?Giveaway$/i';
+    /** Única origem que o GamerPower escreve sem parêntese no título. */
+    public const BARE_STORE = 'Steam';
+
+    private const PATTERN = '/^(?<name>[^(\s].*?)(?:\s*\((?<store>[^()]*)\)|\s+(?<bare_store>'.self::BARE_STORE.'))?\s*(?:Key\s+)?Giveaway$/i';
 
     /** `null` quando o título não segue o padrão — o giveaway fica sem jogo. */
     public static function gameName(string $title): ?string
@@ -28,10 +37,16 @@ final class GiveawayTitle
         return $name === '' ? null : $name;
     }
 
-    /** O que estava no parêntese final ("Steam", "IndieGala"); `null` se não houver. */
+    /** O que estava no parêntese final ("Steam", "IndieGala"), ou "Steam" solto; `null` se não houver. */
     public static function store(string $title): ?string
     {
-        $store = trim(self::match($title)['store'] ?? '');
+        $match = self::match($title);
+
+        if (($match['bare_store'] ?? '') !== '') {
+            return self::BARE_STORE;
+        }
+
+        $store = trim($match['store'] ?? '');
 
         return $store === '' ? null : $store;
     }

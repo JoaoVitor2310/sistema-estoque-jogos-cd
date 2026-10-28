@@ -13,7 +13,19 @@ describe('GiveawayTitle::gameName()', function () {
         'colon in the name' => ['Agent A: A puzzle in disguise (Epic Games) Giveaway', 'Agent A: A puzzle in disguise'],
         'no store' => ['Dwarven Realms Key Giveaway', 'Dwarven Realms'],
         'lowercase suffix' => ['Leaper (IndieGala) giveaway', 'Leaper'],
+        'bare steam, key' => ['HELLCARD Steam Key Giveaway', 'HELLCARD'],
+        'bare steam, no key' => ['HELLCARD Steam Giveaway', 'HELLCARD'],
+        'bare steam after a multi-word name' => ['Everwind AW-51 Pack Steam Key Giveaway', 'Everwind AW-51 Pack'],
     ]);
+
+    it('keeps steam inside the name when it is not the last word before the suffix', function () {
+        expect(GiveawayTitle::gameName('Steam Marines Key Giveaway'))->toBe('Steam Marines');
+    });
+
+    it('does not cut a bare word other than steam', function () {
+        // Só "Steam" é origem sem parêntese: outra palavra solta é parte do nome
+        expect(GiveawayTitle::gameName('Leaper IndieGala Giveaway'))->toBe('Leaper IndieGala');
+    });
 
     it('keeps a parenthesis that belongs to the name and cuts only the last one', function () {
         expect(GiveawayTitle::gameName('Game (2013) (Steam) Giveaway'))->toBe('Game (2013)');
@@ -33,6 +45,11 @@ describe('GiveawayTitle::store()', function () {
     it('returns what was in the last parenthesis', function () {
         expect(GiveawayTitle::store('Dwarven Realms (Steam) Key Giveaway'))->toBe('Steam')
             ->and(GiveawayTitle::store('Game (2013) (IndieGala) Giveaway'))->toBe('IndieGala');
+    });
+
+    it('returns steam when it comes without a parenthesis', function () {
+        expect(GiveawayTitle::store('HELLCARD Steam Key Giveaway'))->toBe('Steam')
+            ->and(GiveawayTitle::store('HELLCARD steam Giveaway'))->toBe('Steam');
     });
 
     it('returns null when the title has no store', function () {

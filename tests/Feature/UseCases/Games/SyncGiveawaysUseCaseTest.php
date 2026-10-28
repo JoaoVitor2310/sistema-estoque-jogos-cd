@@ -186,6 +186,16 @@ describe('SyncGiveawaysUseCase', function () {
         expect(linkedGameIds(1))->toBe([$game]);
     });
 
+    it('links the game when the title has steam without a parenthesis', function () {
+        $game = insertGameForGiveawaySync('HELLCARD');
+        fakeGamerPowerFeeds([gamerPowerItem(1, 'HELLCARD Steam Key Giveaway')]);
+
+        syncGiveawaysAt('2026-10-18 12:00:00');
+
+        expect(Giveaway::sole()->game_name)->toBe('HELLCARD')
+            ->and(linkedGameIds(1))->toBe([$game]);
+    });
+
     it('does not create a game for a giveaway of a game we never had', function () {
         fakeGamerPowerFeeds([gamerPowerItem(1, 'Dwarven Realms (Steam) Key Giveaway')]);
 
