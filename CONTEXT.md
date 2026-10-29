@@ -123,6 +123,10 @@ _Avoid_: cache de câmbio, fallback.
 Um perfil Steam de onde keys são obtidas via troca — rastreado independentemente de já ter havido troca (`has_traded`) ou de ter sido curado manualmente (`is_added`).
 _Avoid_: fornecedor (termo antigo do banco), vendor.
 
+**Categoria do supplier** (`SupplierCategory`):
+A marcação que a equipe dá a um supplier — **VIP**, **Varejo** ou **Bloqueado** — ou a falta dela, o **Normal**, que é como nasce todo supplier novo. Cada categoria define um lucro inicial de oferta (o Bloqueado não tem); os valores estão em [`docs/agents/domain-map.md`](docs/agents/domain-map.md).
+_Avoid_: tier do supplier, nível, "% lucro inicial" (era uma coluna por supplier, removida: o percentual é da categoria).
+
 **Trade**:
 Um lote de jogos comprado (ou em negociação) de uma só vez. O caso comum é a lista comentada/ofertada a um supplier em um momento específico; mas o **canal de compra** diz de quem o lote veio — a trade também registra uma compra direta na loja de um bundle ou uma compra na Gamivo.
 _Avoid_: vip list, lista (isoladamente).
