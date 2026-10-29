@@ -22,7 +22,7 @@ describe('CreateTradeUseCase', function () {
         // Sem ela a trade chega na aba sem link e sem código para copiar.
         $trade = app(CreateTradeUseCase::class)->execute([]);
 
-        expect($trade->delivery_uuid)->not->toBeNull()
+        expect($trade->uuid)->not->toBeNull()
             ->and($trade->delivery_token)->not->toBeNull();
     });
 

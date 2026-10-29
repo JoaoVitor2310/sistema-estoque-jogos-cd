@@ -68,7 +68,7 @@ describe('ProspectSupplierUseCase', function () {
 
         $trade = Trade::where('list_code', 'G0eXM')->sole();
 
-        expect($trade->delivery_uuid)->not->toBeNull()
+        expect($trade->uuid)->not->toBeNull()
             ->and($trade->delivery_token)->not->toBeNull();
     });
 

@@ -122,7 +122,7 @@ describe('Guest — the trade delivery is public on purpose', function () {
         $trade = Trade::create(['date' => now()->toDateString()]);
         $trade->forceFill(DeliveryCredential::issue())->save();
 
-        $response = $this->get("/deliveries/{$trade->fresh()->delivery_uuid}");
+        $response = $this->get("/deliveries/{$trade->fresh()->uuid}");
 
         $response->assertStatus(200);
         expect($response->viewData('page')['props']['state'])->toBe('locked');
@@ -132,7 +132,7 @@ describe('Guest — the trade delivery is public on purpose', function () {
         $trade = Trade::create(['date' => now()->toDateString()]);
         $trade->forceFill(DeliveryCredential::issue())->save();
 
-        $this->patchJson("/deliveries/{$trade->fresh()->delivery_uuid}", ['amount' => '10'])
+        $this->patchJson("/deliveries/{$trade->fresh()->uuid}", ['amount' => '10'])
             ->assertStatus(403);
     });
 

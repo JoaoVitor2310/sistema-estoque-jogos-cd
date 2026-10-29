@@ -101,15 +101,15 @@ Route::prefix('trades/{trade}/lines')
 // é a equipe. Quem autoriza é o token da entrega, conferido em `authenticate` e
 // exigido pelo EnsureDeliverySession nas escritas.
 //
-// A trade é resolvida pelo `delivery_uuid` (UUIDv4), nunca pelo id sequencial:
+// A trade é resolvida pelo `uuid` (UUIDv4), nunca pelo id sequencial:
 // id entregaria o volume de trades da operação e tornaria a página enumerável.
 // scopeBindings pelo mesmo motivo das rotas de linha da equipe — sem ele,
 // `{line}` resolveria por id global e a linha de uma trade seria alcançável pela
 // URL de outra.
 // `whereUuid` recusa no roteador o que não tem forma de UUID: sem ele, a string
-// malformada chega ao Postgres como `where delivery_uuid = '...'` e vira 500 com
+// malformada chega ao Postgres como `where uuid = '...'` e vira 500 com
 // stack trace numa rota pública, em vez de 404.
-Route::prefix('deliveries/{trade:delivery_uuid}')
+Route::prefix('deliveries/{trade:uuid}')
     ->controller(DeliveryController::class)
     ->scopeBindings()
     ->whereUuid('trade')

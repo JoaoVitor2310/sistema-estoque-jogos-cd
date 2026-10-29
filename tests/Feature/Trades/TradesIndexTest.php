@@ -142,7 +142,7 @@ describe('GET /trades — the review queue', function () {
         // — é o que dispensa a fila ser a view padrão. Ver docs/adr/0008.
         $newer = seedIndexTrade(['date' => '2025-06-10']);
         $delivered = seedIndexTrade(['date' => '2025-01-01']);
-        $delivered->forceFill(['delivery_uuid' => (string) Str::uuid(), 'delivered_at' => now()])->save();
+        $delivered->forceFill(['uuid' => (string) Str::uuid(), 'delivered_at' => now()])->save();
 
         $this->actingAs(makeAuthorizedIndexUser())
             ->get('/trades')
@@ -157,7 +157,7 @@ describe('GET /trades — the review queue', function () {
         // subiria para o topo de Importadas e de Todas.
         $newer = seedIndexTrade(['date' => '2025-06-10', 'is_imported' => true]);
         $older = seedIndexTrade(['date' => '2025-01-01', 'is_imported' => true]);
-        $older->forceFill(['delivery_uuid' => (string) Str::uuid(), 'delivered_at' => now()])->save();
+        $older->forceFill(['uuid' => (string) Str::uuid(), 'delivered_at' => now()])->save();
 
         $this->actingAs(makeAuthorizedIndexUser())
             ->get('/trades?view=imported')
@@ -167,7 +167,7 @@ describe('GET /trades — the review queue', function () {
     it('lists only the queue when view=awaiting_review', function () {
         seedIndexTrade(['date' => '2025-06-01']);
         $delivered = seedIndexTrade(['date' => '2025-06-02']);
-        $delivered->forceFill(['delivery_uuid' => (string) Str::uuid(), 'delivered_at' => now()])->save();
+        $delivered->forceFill(['uuid' => (string) Str::uuid(), 'delivered_at' => now()])->save();
 
         $this->actingAs(makeAuthorizedIndexUser())
             ->get('/trades?view=awaiting_review')
@@ -179,7 +179,7 @@ describe('GET /trades — the review queue', function () {
 
     it('reports how many trades are waiting, regardless of the current view', function () {
         $delivered = seedIndexTrade(['date' => '2025-06-02']);
-        $delivered->forceFill(['delivery_uuid' => (string) Str::uuid(), 'delivered_at' => now()])->save();
+        $delivered->forceFill(['uuid' => (string) Str::uuid(), 'delivered_at' => now()])->save();
         seedIndexTrade(['date' => '2025-06-03', 'is_imported' => true]);
 
         $this->actingAs(makeAuthorizedIndexUser())
@@ -208,7 +208,7 @@ describe('GET /trades — the review queue', function () {
             ->get('/trades')
             ->assertInertia(fn ($page) => $page
                 ->where('trades.data.0.delivery_token', $credential['delivery_token'])
-                ->where('trades.data.0.delivery_url', route('deliveries.show', ['trade' => $trade->fresh()->delivery_uuid]))
+                ->where('trades.data.0.delivery_url', route('deliveries.show', ['trade' => $trade->fresh()->uuid]))
             );
     });
 
@@ -230,7 +230,7 @@ describe('GET /trades — the review queue', function () {
             ->assertStatus(200)
             ->assertInertia(fn ($page) => $page
                 ->where('trades.data.0.delivery_token', null)
-                ->where('trades.data.0.delivery_url', route('deliveries.show', ['trade' => $trade->fresh()->delivery_uuid]))
+                ->where('trades.data.0.delivery_url', route('deliveries.show', ['trade' => $trade->fresh()->uuid]))
             );
     });
 });

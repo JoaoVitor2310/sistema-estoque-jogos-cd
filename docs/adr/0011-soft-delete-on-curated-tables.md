@@ -31,7 +31,7 @@ Não há UI de lixeira. Recuperação é manual (`Model::withTrashed()->find(...
 
 Migration: `2026_08_29_000002_partial_unique_indexes_for_soft_deleted_tables.php`. A sintaxe `CREATE UNIQUE INDEX ... WHERE` funciona nos dois bancos; MySQL não suportaria, mas o projeto não usa MySQL.
 
-**`trades.delivery_uuid` fica com o `unique` normal, de propósito.** É UUIDv4 emitido por `DeliveryCredential::issue()` a cada trade nova e nunca reaproveitado, então uma trade soft-deletada jamais bloqueia a criação de outra — o índice parcial só adicionaria custo. E o binding da rota pública (`{trade:delivery_uuid}`) é Eloquent: trade soft-deletada devolve 404 na página de entrega, que é o comportamento desejado.
+**`trades.uuid` fica com o `unique` normal, de propósito.** É UUIDv4 emitido por `DeliveryCredential::issue()` a cada trade nova e nunca reaproveitado, então uma trade soft-deletada jamais bloqueia a criação de outra — o índice parcial só adicionaria custo. E o binding da rota pública (`{trade:uuid}`) é Eloquent: trade soft-deletada devolve 404 na página de entrega, que é o comportamento desejado.
 
 ## Os `ON DELETE` do banco não disparam em soft-delete
 

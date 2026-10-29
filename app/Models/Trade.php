@@ -18,10 +18,11 @@ class Trade extends Model
     protected $table = 'trades';
 
     /**
-     * `delivery_uuid`, `delivery_token` e `delivered_at` ficam **fora** de
+     * `uuid`, `delivery_token` e `delivered_at` ficam **fora** de
      * propósito: quem os grava são os UseCases da entrega, por atribuição
-     * explícita. São o endereço, o segredo e o marco da entrega — nada que
-     * chegue de um payload deve alcançá-los por atribuição em massa.
+     * explícita. São a identidade da trade (que também endereça a entrega), o
+     * segredo e o marco da entrega — nada que chegue de um payload deve
+     * alcançá-los por atribuição em massa.
      */
     protected $fillable = ['supplier_id', 'purchase_channel', 'bundle_id', 'list_code', 'last_commented_at', 'title', 'date', 'message_sent', 'is_imported', 'amount', 'currency', 'supplier_notes'];
 

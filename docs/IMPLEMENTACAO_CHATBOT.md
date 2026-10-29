@@ -222,8 +222,8 @@ Essa decisão entra como **ADR 0015** ("o chatbot lê a credencial de entrega pe
 
 | # | PR | Depende de | Estado |
 |---|---|---|---|
-| 0 | Categoria **Varejo** (`retail`) no `SupplierCategory`, no seletor da aba de Suppliers e no `CONTEXT.md`; percentual inicial por categoria (D9) no Domain; remoção do `initial_offer_pct` (D14) | nada | em revisão |
-| 1 | Renomear `delivery_uuid` para `uuid` (D1): coluna, rota da entrega, model, `DeliveryCredential`, testes e docs, incluindo os ADRs 0008 e 0011 | nada | a fazer |
+| 0 | Categoria **Varejo** (`retail`) no `SupplierCategory`, no seletor da aba de Suppliers e no `CONTEXT.md`; percentual inicial por categoria (D9) no Domain; remoção do `initial_offer_pct` (D14) | nada | feito (#117) |
+| 1 | Renomear `delivery_uuid` para `uuid` (D1): coluna, rota da entrega, model, `DeliveryCredential`, testes e docs, incluindo os ADRs 0008 e 0011 | nada | em revisão |
 | 2 | Oferta no backend (D6, D7, D10): tabelas `trade_offers` e `trade_offer_lines`, teto público em `MinimumMarginPolicy`, cálculo da primeira oferta no Domain, peça compartilhada com a prospecção, ADR 0016 | 0 | a fazer |
 | 3 | `POST /api/trades` com filtro, moeda com fallback, primeira oferta e resposta `created: false` (D2, D3, D4, D11, D13); `routes/api.php`; `VerifySecret` por consumidor | 1, 2 | a fazer |
 | 4 | Leituras (rotas 2 e 3) com o código da entrega + ADR 0015 (D5) | 3 | a fazer |

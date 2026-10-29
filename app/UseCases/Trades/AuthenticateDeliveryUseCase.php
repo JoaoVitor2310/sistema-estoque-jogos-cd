@@ -82,7 +82,7 @@ class AuthenticateDeliveryUseCase
     private function limits(Trade $trade, ?string $ip): array
     {
         return [
-            'delivery-token:'.$trade->delivery_uuid => DeliveryCredential::MAX_ATTEMPTS_PER_DELIVERY,
+            'delivery-token:'.$trade->uuid => DeliveryCredential::MAX_ATTEMPTS_PER_DELIVERY,
             'delivery-ip:'.($ip ?? 'unknown') => DeliveryCredential::MAX_ATTEMPTS_PER_IP,
         ];
     }
