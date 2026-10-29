@@ -89,7 +89,7 @@ describe('The credential a trade is born with', function () {
 
         $raw = DB::table('trades')->where('id', $trade->id)->value('delivery_token');
 
-        expect($trade->delivery_uuid)->not->toBeNull()
+        expect($trade->uuid)->not->toBeNull()
             ->and($trade->delivery_token)->toBe($token)
             ->and($raw)->not->toContain($token);
     });
@@ -105,7 +105,7 @@ describe('The credential a trade is born with', function () {
             'delivery_token' => $foreign->encryptString($token),
         ]);
 
-        $this->postJson("/deliveries/{$trade->delivery_uuid}/token", ['token' => $token])
+        $this->postJson("/deliveries/{$trade->uuid}/token", ['token' => $token])
             ->assertStatus(422);
     });
 
@@ -124,17 +124,17 @@ describe('POST /deliveries/{uuid}/token', function () {
     it('opens the session for the right token', function () {
         [$trade, $token] = tradeWithDelivery(['Portal']);
 
-        $this->postJson("/deliveries/{$trade->delivery_uuid}/token", ['token' => $token])
+        $this->postJson("/deliveries/{$trade->uuid}/token", ['token' => $token])
             ->assertStatus(200);
 
-        $this->getJson("/deliveries/{$trade->delivery_uuid}")
+        $this->getJson("/deliveries/{$trade->uuid}")
             ->assertStatus(200);
     });
 
     it('rejects the wrong token', function () {
         [$trade] = tradeWithDelivery(['Portal']);
 
-        $this->postJson("/deliveries/{$trade->delivery_uuid}/token", [
+        $this->postJson("/deliveries/{$trade->uuid}/token", [
             'token' => DeliveryCredential::generate(),
         ])->assertStatus(422);
     });
@@ -142,7 +142,7 @@ describe('POST /deliveries/{uuid}/token', function () {
     it('accepts the token in lowercase and without the display dashes', function () {
         [$trade, $token] = tradeWithDelivery(['Portal']);
 
-        $this->postJson("/deliveries/{$trade->delivery_uuid}/token", [
+        $this->postJson("/deliveries/{$trade->uuid}/token", [
             'token' => strtolower(str_replace('-', '', $token)),
         ])->assertStatus(200);
     });
@@ -151,11 +151,11 @@ describe('POST /deliveries/{uuid}/token', function () {
         [$first, $token] = tradeWithDelivery(['Portal']);
         [$second] = tradeWithDelivery(['Half-Life']);
 
-        $this->postJson("/deliveries/{$first->delivery_uuid}/token", ['token' => $token])
+        $this->postJson("/deliveries/{$first->uuid}/token", ['token' => $token])
             ->assertStatus(200);
 
         // Sessão aberta na primeira entrega, escrevendo na segunda.
-        $this->patchJson("/deliveries/{$second->delivery_uuid}", ['amount' => '10'])
+        $this->patchJson("/deliveries/{$second->uuid}", ['amount' => '10'])
             ->assertStatus(403);
     });
 
@@ -168,14 +168,14 @@ describe('POST /deliveries/{uuid}/token', function () {
             [$trade] = tradeWithDelivery(['Portal']);
             $trades[] = $trade;
 
-            $this->postJson("/deliveries/{$trade->delivery_uuid}/token", [
+            $this->postJson("/deliveries/{$trade->uuid}/token", [
                 'token' => DeliveryCredential::generate(),
             ])->assertStatus(422);
         }
 
         [$fresh] = tradeWithDelivery(['Portal']);
 
-        $this->postJson("/deliveries/{$fresh->delivery_uuid}/token", [
+        $this->postJson("/deliveries/{$fresh->uuid}/token", [
             'token' => DeliveryCredential::generate(),
         ])->assertStatus(429);
     });
@@ -184,12 +184,12 @@ describe('POST /deliveries/{uuid}/token', function () {
         [$trade] = tradeWithDelivery(['Portal']);
 
         for ($i = 0; $i < DeliveryCredential::MAX_ATTEMPTS_PER_DELIVERY; $i++) {
-            $this->postJson("/deliveries/{$trade->delivery_uuid}/token", [
+            $this->postJson("/deliveries/{$trade->uuid}/token", [
                 'token' => DeliveryCredential::generate(),
             ])->assertStatus(422);
         }
 
-        $this->postJson("/deliveries/{$trade->delivery_uuid}/token", [
+        $this->postJson("/deliveries/{$trade->uuid}/token", [
             'token' => DeliveryCredential::generate(),
         ])->assertStatus(429);
     });
@@ -214,12 +214,12 @@ describe('POST /deliveries/{uuid}/token', function () {
         [$trade] = tradeWithDelivery(['Portal']);
 
         for ($i = 0; $i < DeliveryCredential::MAX_ATTEMPTS_PER_DELIVERY; $i++) {
-            $this->postJson("/deliveries/{$trade->delivery_uuid}/token", [
+            $this->postJson("/deliveries/{$trade->uuid}/token", [
                 'token' => DeliveryCredential::generate(),
             ]);
         }
 
-        $response = $this->postJson("/deliveries/{$trade->delivery_uuid}/token", [
+        $response = $this->postJson("/deliveries/{$trade->uuid}/token", [
             'token' => DeliveryCredential::generate(),
         ])->assertStatus(429);
 
@@ -237,7 +237,7 @@ describe('GET /deliveries/{uuid}', function () {
     it('hands out nothing at all without a session', function () {
         [$trade] = tradeWithDelivery([['game_name' => 'Portal', 'market_price' => '3.00']]);
 
-        $response = $this->get("/deliveries/{$trade->delivery_uuid}");
+        $response = $this->get("/deliveries/{$trade->uuid}");
 
         $response->assertStatus(200);
         expect($response->content())->not->toContain('Portal');
@@ -250,9 +250,9 @@ describe('GET /deliveries/{uuid}', function () {
             ['game_name' => 'Portal', 'is_overstocked' => true],
         ]);
 
-        $this->postJson("/deliveries/{$trade->delivery_uuid}/token", ['token' => $token]);
+        $this->postJson("/deliveries/{$trade->uuid}/token", ['token' => $token]);
 
-        $props = $this->get("/deliveries/{$trade->delivery_uuid}")
+        $props = $this->get("/deliveries/{$trade->uuid}")
             ->viewData('page')['props'];
 
         expect($props['trade']['lines'][0])->not->toHaveKey('is_overstocked')
@@ -265,9 +265,9 @@ describe('GET /deliveries/{uuid}', function () {
             ['game_name' => 'Dwarven Realms', 'is_giveaway' => true],
         ]);
 
-        $this->postJson("/deliveries/{$trade->delivery_uuid}/token", ['token' => $token]);
+        $this->postJson("/deliveries/{$trade->uuid}/token", ['token' => $token]);
 
-        $props = $this->get("/deliveries/{$trade->delivery_uuid}")
+        $props = $this->get("/deliveries/{$trade->uuid}")
             ->viewData('page')['props'];
 
         expect($props['trade']['lines'][0])->not->toHaveKey('is_giveaway')
@@ -278,9 +278,9 @@ describe('GET /deliveries/{uuid}', function () {
         [$trade, $token] = tradeWithDelivery([['game_name' => 'Portal']]);
         $trade->update(['currency' => 'eur']);
 
-        $this->postJson("/deliveries/{$trade->delivery_uuid}/token", ['token' => $token]);
+        $this->postJson("/deliveries/{$trade->uuid}/token", ['token' => $token]);
 
-        $props = $this->get("/deliveries/{$trade->delivery_uuid}")->viewData('page')['props'];
+        $props = $this->get("/deliveries/{$trade->uuid}")->viewData('page')['props'];
 
         expect($props['trade']['currency'])->toBe('eur');
     });
@@ -290,9 +290,9 @@ describe('GET /deliveries/{uuid}', function () {
             ['game_name' => 'Portal', 'market_price' => '3.00', 'popularity' => 987654, 'bundle' => 'Humble', 'gamivo_id' => 'GAMIVO-987'],
         ]);
 
-        $this->postJson("/deliveries/{$trade->delivery_uuid}/token", ['token' => $token]);
+        $this->postJson("/deliveries/{$trade->uuid}/token", ['token' => $token]);
 
-        $props = $this->get("/deliveries/{$trade->delivery_uuid}")
+        $props = $this->get("/deliveries/{$trade->uuid}")
             ->viewData('page')['props'];
 
         $line = $props['trade']['lines'][0];
@@ -318,11 +318,11 @@ describe('GET /deliveries/{uuid}', function () {
         $trade = openDelivery([['game_name' => 'Portal', 'bundle' => 'Humble Choice']]);
         $line = $trade->lines->first();
 
-        $props = $this->get("/deliveries/{$trade->delivery_uuid}")->viewData('page')['props'];
+        $props = $this->get("/deliveries/{$trade->uuid}")->viewData('page')['props'];
 
         expect($props['trade']['lines'][0]['bundle'])->toBe('Humble Choice');
 
-        $this->patchJson("/deliveries/{$trade->delivery_uuid}/lines/{$line->id}", [
+        $this->patchJson("/deliveries/{$trade->uuid}/lines/{$line->id}", [
             'bundle' => 'Fanatical Build your own',
         ])->assertStatus(200);
 
@@ -332,7 +332,7 @@ describe('GET /deliveries/{uuid}', function () {
     it('does not hand the supplier the route map of the internal system', function () {
         [$trade] = tradeWithDelivery(['Portal']);
 
-        $html = $this->get("/deliveries/{$trade->delivery_uuid}")->content();
+        $html = $this->get("/deliveries/{$trade->uuid}")->content();
 
         expect($html)->toContain('deliveries.show')
             ->and($html)->not->toContain('financial-months')
@@ -343,7 +343,7 @@ describe('GET /deliveries/{uuid}', function () {
     it('answers the completed state once the trade was imported', function () {
         [$trade, $token] = tradeWithDelivery(['Portal'], ['is_imported' => true]);
 
-        $props = $this->get("/deliveries/{$trade->delivery_uuid}")->viewData('page')['props'];
+        $props = $this->get("/deliveries/{$trade->uuid}")->viewData('page')['props'];
 
         expect($props['state'])->toBe('completed')
             ->and($props)->not->toHaveKey('trade');
@@ -359,7 +359,7 @@ describe('writes made by the supplier', function () {
     {
         [$trade, $token] = tradeWithDelivery($lines, $attrs);
 
-        test()->postJson("/deliveries/{$trade->delivery_uuid}/token", ['token' => $token])
+        test()->postJson("/deliveries/{$trade->uuid}/token", ['token' => $token])
             ->assertStatus(200);
 
         return $trade;
@@ -371,7 +371,7 @@ describe('writes made by the supplier', function () {
 
         // A validade é lida em `mm/dd/aaaa`: a página dele é em inglês, e a
         // mesma string lida como a equipe a escreve daria 6 de fevereiro.
-        $this->patchJson("/deliveries/{$trade->delivery_uuid}/lines/{$line->id}", [
+        $this->patchJson("/deliveries/{$trade->uuid}/lines/{$line->id}", [
             'key_code' => 'AAA-BBB-CCC',
             'region' => 'EU',
             'expires_at' => '06/02/2027',
@@ -392,7 +392,7 @@ describe('writes made by the supplier', function () {
         $trade = openDelivery([['game_name' => 'Portal', 'region' => 'EU', 'gamivo_id' => '77']]);
         $line = $trade->lines->first();
 
-        $this->patchJson("/deliveries/{$trade->delivery_uuid}/lines/{$line->id}", ['region' => 'BR'])
+        $this->patchJson("/deliveries/{$trade->uuid}/lines/{$line->id}", ['region' => 'BR'])
             ->assertStatus(200)
             ->assertExactJson([]);
 
@@ -409,11 +409,11 @@ describe('writes made by the supplier', function () {
         $trade = openDelivery([['game_name' => 'Portal']]);
         $line = $trade->lines->first();
 
-        $this->patchJson("/deliveries/{$trade->delivery_uuid}/lines/{$line->id}", [
+        $this->patchJson("/deliveries/{$trade->uuid}/lines/{$line->id}", [
             'expires_at' => '06/02/2027',
         ])->assertStatus(200);
 
-        $props = $this->get("/deliveries/{$trade->delivery_uuid}")->viewData('page')['props'];
+        $props = $this->get("/deliveries/{$trade->uuid}")->viewData('page')['props'];
 
         expect($props['trade']['lines'][0]['expires_at'])->toBe('06/02/2027');
     });
@@ -422,7 +422,7 @@ describe('writes made by the supplier', function () {
         $trade = openDelivery([['game_name' => 'Portal', 'market_price' => '3.00']]);
         $line = $trade->lines->first();
 
-        $this->patchJson("/deliveries/{$trade->delivery_uuid}/lines/{$line->id}", [
+        $this->patchJson("/deliveries/{$trade->uuid}/lines/{$line->id}", [
             'game_name' => 'Outro jogo',
             'market_price' => '99.00',
             'key_code' => 'AAA',
@@ -440,11 +440,11 @@ describe('writes made by the supplier', function () {
         $trade = openDelivery([['game_name' => 'Portal']]);
 
         $this->travel(DeliveryCredential::SESSION_TTL_MINUTES - 1)->minutes();
-        $this->patchJson("/deliveries/{$trade->delivery_uuid}", ['amount' => '10'])
+        $this->patchJson("/deliveries/{$trade->uuid}", ['amount' => '10'])
             ->assertStatus(200);
 
         $this->travel(2)->minutes();
-        $this->patchJson("/deliveries/{$trade->delivery_uuid}", ['amount' => '11'])
+        $this->patchJson("/deliveries/{$trade->uuid}", ['amount' => '11'])
             ->assertStatus(403);
 
         expect($trade->fresh()->amount)->toBe('10.00');
@@ -455,12 +455,12 @@ describe('writes made by the supplier', function () {
         // nunca sobrevive ao token que a abriu.
         $trade = openDelivery([['game_name' => 'Portal']]);
 
-        $this->patchJson("/deliveries/{$trade->delivery_uuid}", ['amount' => '10'])
+        $this->patchJson("/deliveries/{$trade->uuid}", ['amount' => '10'])
             ->assertStatus(200);
 
         $trade->fresh()->forceFill(['delivery_token' => DeliveryCredential::generate()])->save();
 
-        $this->patchJson("/deliveries/{$trade->delivery_uuid}", ['amount' => '11'])
+        $this->patchJson("/deliveries/{$trade->uuid}", ['amount' => '11'])
             ->assertStatus(403);
 
         expect($trade->fresh()->amount)->toBe('10.00');
@@ -470,7 +470,7 @@ describe('writes made by the supplier', function () {
         [$trade] = tradeWithDelivery([['game_name' => 'Portal']]);
         $line = $trade->lines->first();
 
-        $this->patchJson("/deliveries/{$trade->delivery_uuid}/lines/{$line->id}", ['key_code' => 'AAA'])
+        $this->patchJson("/deliveries/{$trade->uuid}/lines/{$line->id}", ['key_code' => 'AAA'])
             ->assertStatus(403);
 
         expect($line->refresh()->key_code)->toBeNull();
@@ -483,7 +483,7 @@ describe('writes made by the supplier', function () {
 
         $trade->update(['is_imported' => true]);
 
-        $this->patchJson("/deliveries/{$trade->delivery_uuid}/lines/{$line->id}", ['key_code' => 'AAA'])
+        $this->patchJson("/deliveries/{$trade->uuid}/lines/{$line->id}", ['key_code' => 'AAA'])
             ->assertStatus(404);
 
         expect($line->refresh()->key_code)->toBeNull();
@@ -494,7 +494,7 @@ describe('writes made by the supplier', function () {
         $other = TradeFactory::withLines(['Half-Life']);
         $foreignLine = $other->lines->first();
 
-        $this->patchJson("/deliveries/{$trade->delivery_uuid}/lines/{$foreignLine->id}", ['key_code' => 'AAA'])
+        $this->patchJson("/deliveries/{$trade->uuid}/lines/{$foreignLine->id}", ['key_code' => 'AAA'])
             ->assertStatus(404);
 
         expect($foreignLine->refresh()->key_code)->toBeNull();
@@ -503,7 +503,7 @@ describe('writes made by the supplier', function () {
     it('writes amount and the free-text note on the trade', function () {
         $trade = openDelivery([['game_name' => 'Portal']]);
 
-        $this->patchJson("/deliveries/{$trade->delivery_uuid}", [
+        $this->patchJson("/deliveries/{$trade->uuid}", [
             'amount' => '12.5',
             'supplier_notes' => 'Threw in Half-Life as a bonus.',
         ])->assertStatus(200);
@@ -517,7 +517,7 @@ describe('writes made by the supplier', function () {
     it('records the first click on the deliver button and nothing after it', function () {
         $trade = openDelivery([['game_name' => 'Portal']], ['amount' => '10']);
 
-        $this->postJson("/deliveries/{$trade->delivery_uuid}/deliver")->assertStatus(200);
+        $this->postJson("/deliveries/{$trade->uuid}/deliver")->assertStatus(200);
 
         $first = $trade->fresh()->delivered_at;
         expect($first)->not->toBeNull();
@@ -525,7 +525,7 @@ describe('writes made by the supplier', function () {
         // O segundo clique não é aceito: entregar fechou a entrega, e a data
         // continua sendo a do primeiro.
         $this->travel(1)->hours();
-        $this->postJson("/deliveries/{$trade->delivery_uuid}/deliver")->assertStatus(409);
+        $this->postJson("/deliveries/{$trade->uuid}/deliver")->assertStatus(409);
 
         expect($trade->fresh()->delivered_at->toIso8601String())->toBe($first->toIso8601String());
     });
@@ -536,17 +536,17 @@ describe('writes made by the supplier', function () {
         // transcrever da conversa — o trabalho que esta página elimina.
         $trade = openDelivery([['game_name' => 'Portal']]);
 
-        $this->postJson("/deliveries/{$trade->delivery_uuid}/deliver")
+        $this->postJson("/deliveries/{$trade->uuid}/deliver")
             ->assertStatus(422)
             ->assertJsonPath('message', 'Tell us the total we agreed on before submitting.');
 
         expect($trade->fresh()->delivered_at)->toBeNull();
 
         // Preenchido, o mesmo clique passa — e a página continua aberta até lá.
-        $this->patchJson("/deliveries/{$trade->delivery_uuid}", ['amount' => '12.5'])
+        $this->patchJson("/deliveries/{$trade->uuid}", ['amount' => '12.5'])
             ->assertStatus(200);
 
-        $this->postJson("/deliveries/{$trade->delivery_uuid}/deliver")->assertStatus(200);
+        $this->postJson("/deliveries/{$trade->uuid}/deliver")->assertStatus(200);
 
         expect($trade->fresh()->delivered_at)->not->toBeNull();
     });
@@ -559,17 +559,17 @@ describe('writes made by the supplier', function () {
         $trade = openDelivery([['game_name' => 'Portal']], ['amount' => '10']);
         $line = $trade->lines->first();
 
-        $this->patchJson("/deliveries/{$trade->delivery_uuid}/lines/{$line->id}", ['key_code' => 'AAA'])
+        $this->patchJson("/deliveries/{$trade->uuid}/lines/{$line->id}", ['key_code' => 'AAA'])
             ->assertStatus(200);
 
-        $this->postJson("/deliveries/{$trade->delivery_uuid}/deliver")->assertStatus(200);
+        $this->postJson("/deliveries/{$trade->uuid}/deliver")->assertStatus(200);
 
         // 409 e não 403: a sessão dele continua válida, o que acabou foi a
         // janela de escrita.
-        $this->patchJson("/deliveries/{$trade->delivery_uuid}/lines/{$line->id}", ['key_code' => ''])
+        $this->patchJson("/deliveries/{$trade->uuid}/lines/{$line->id}", ['key_code' => ''])
             ->assertStatus(409);
 
-        $this->patchJson("/deliveries/{$trade->delivery_uuid}", ['amount' => '99'])
+        $this->patchJson("/deliveries/{$trade->uuid}", ['amount' => '99'])
             ->assertStatus(409);
 
         $trade->refresh();
@@ -583,9 +583,9 @@ describe('writes made by the supplier', function () {
         // conferir o que mandou, e um 404 aqui só produziria "o link quebrou".
         $trade = openDelivery([['game_name' => 'Portal']], ['amount' => '10']);
 
-        $this->postJson("/deliveries/{$trade->delivery_uuid}/deliver")->assertStatus(200);
+        $this->postJson("/deliveries/{$trade->uuid}/deliver")->assertStatus(200);
 
-        $props = $this->get("/deliveries/{$trade->delivery_uuid}")->viewData('page')['props'];
+        $props = $this->get("/deliveries/{$trade->uuid}")->viewData('page')['props'];
 
         expect($props['state'])->toBe('open')
             ->and($props['editable'])->toBeFalse()

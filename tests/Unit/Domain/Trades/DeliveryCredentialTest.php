@@ -70,13 +70,13 @@ describe('DeliveryCredential::issue', function () {
 
     it('returns exactly the two credential columns', function () {
         expect(array_keys(DeliveryCredential::issue()))
-            ->toBe(['delivery_uuid', 'delivery_token']);
+            ->toBe(['uuid', 'delivery_token']);
     });
 
     it('addresses the delivery with a version 4 uuid', function () {
         // v4 e não sequencial: o endereço é público e não pode deixar adivinhar
         // a entrega vizinha.
-        expect(DeliveryCredential::issue()['delivery_uuid'])
+        expect(DeliveryCredential::issue()['uuid'])
             ->toMatch('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/');
     });
 
@@ -85,7 +85,7 @@ describe('DeliveryCredential::issue', function () {
         $first = DeliveryCredential::issue();
         $second = DeliveryCredential::issue();
 
-        expect($first['delivery_uuid'])->not->toBe($second['delivery_uuid'])
+        expect($first['uuid'])->not->toBe($second['uuid'])
             ->and($first['delivery_token'])->not->toBe($second['delivery_token']);
     });
 });

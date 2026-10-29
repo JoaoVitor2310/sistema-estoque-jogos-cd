@@ -73,12 +73,12 @@ final class DeliveryCredential
      * nessas colunas, e é essa unicidade de escritor que garante um código por
      * trade, sem precisar de guarda em tempo de execução.
      *
-     * @return array{delivery_uuid: string, delivery_token: string}
+     * @return array{uuid: string, delivery_token: string}
      */
     public static function issue(): array
     {
         return [
-            'delivery_uuid' => self::uuid(),
+            'uuid' => self::uuid(),
             'delivery_token' => self::generate(),
         ];
     }

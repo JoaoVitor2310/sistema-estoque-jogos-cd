@@ -26,7 +26,7 @@ final class DeliverySession
 
     public static function open(Session $session, Trade $trade): void
     {
-        $session->put(self::PREFIX.$trade->delivery_uuid, [
+        $session->put(self::PREFIX.$trade->uuid, [
             'at' => now()->getTimestamp(),
             'token' => DeliveryCredential::fingerprint((string) $trade->readableDeliveryToken()),
         ]);
@@ -34,7 +34,7 @@ final class DeliverySession
 
     public static function isOpen(Session $session, Trade $trade): bool
     {
-        $entry = $session->get(self::PREFIX.$trade->delivery_uuid);
+        $entry = $session->get(self::PREFIX.$trade->uuid);
 
         if (! is_array($entry) || ! isset($entry['at'], $entry['token'])) {
             return false;

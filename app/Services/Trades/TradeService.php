@@ -242,8 +242,8 @@ class TradeService
             // O par que a equipe copia para o chat. Vai montado daqui porque
             // quem sabe a rota é o servidor; a aba só copia o que recebe. Sai
             // **só** nesta projeção — a da entrega não devolve token nenhum.
-            'delivery_url' => $trade->delivery_uuid
-                ? route('deliveries.show', ['trade' => $trade->delivery_uuid])
+            'delivery_url' => $trade->uuid
+                ? route('deliveries.show', ['trade' => $trade->uuid])
                 : null,
             'delivery_token' => $trade->readableDeliveryToken(),
             'delivered_at' => $trade->delivered_at?->toIso8601String(),

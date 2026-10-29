@@ -11,7 +11,7 @@ use DateTimeInterface;
  * significam alguma coisa sozinhas (ver docs/adr/0008). Uma coluna a mais seria
  * um terceiro lugar para ficar dessincronizado dos outros dois.
  *
- * A existência do `delivery_uuid` **não** entra aqui: toda trade nasce com
+ * A existência do `uuid` **não** entra aqui: toda trade nasce com
  * credencial, então ter link não distingue trade nenhuma — e ter link não quer
  * dizer que ele foi mandado. Quem registra o envio é o `message_sent` da trade,
  * marcado por quem mandou.
