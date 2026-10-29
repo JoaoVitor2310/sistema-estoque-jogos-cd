@@ -225,6 +225,14 @@ mas **só vale depois de rebuild manual da imagem**: o deploy automático não r
 
 ---
 
+## Integração com o chatbot — em andamento
+
+O plano, as decisões e o estado de cada PR moram em [`IMPLEMENTACAO_CHATBOT.md`](IMPLEMENTACAO_CHATBOT.md) enquanto a integração é implementada. Quando o último PR entrar, este item e aquele arquivo saem juntos.
+
+**Origem:** pedido do `chatbot-steam` de 2026-10-28.
+
+---
+
 ## Trilha de eventos da entrega de trade
 
 **Onde:** domínio da entrega (`/deliveries/{uuid}`), ver [`docs/adr/0008`](adr/0008-supplier-fills-trade-through-tokenised-link.md).

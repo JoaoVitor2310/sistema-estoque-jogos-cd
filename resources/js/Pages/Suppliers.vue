@@ -6,7 +6,6 @@ import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import { FilterMatchMode } from '@primevue/core/api';
 import InputText from 'primevue/inputtext';
-import InputNumber from 'primevue/inputnumber';
 import 'primeicons/primeicons.css';
 import InputGroup from 'primevue/inputgroup';
 import InputGroupAddon from 'primevue/inputgroupaddon';
@@ -30,8 +29,7 @@ interface Supplier {
     steam_id: string | null;
     url: string | null;
     region: string | null;
-    initial_offer_pct: number | null;
-    category: 'vip' | 'blocked' | null;
+    category: 'vip' | 'retail' | 'blocked' | null;
     is_added: boolean;
     has_traded: boolean;
 }
@@ -51,6 +49,7 @@ const filters = ref({
 const categoryFilterOptions = [
     { label: 'Normal', value: null },
     { label: 'VIP', value: 'vip' },
+    { label: 'Varejo', value: 'retail' },
     { label: 'Bloqueado', value: 'blocked' },
 ];
 
@@ -61,6 +60,7 @@ const selectedSuppliers = ref<Supplier[]>([]);
 const categoryOptions = [
     { label: 'Normal', value: null },
     { label: 'VIP', value: 'vip' },
+    { label: 'Varejo', value: 'retail' },
     { label: 'Bloqueado', value: 'blocked' },
 ];
 
@@ -75,7 +75,6 @@ const emptySupplier: Supplier = {
     steam_id: '',
     url: '',
     region: null,
-    initial_offer_pct: null,
     category: null,
     is_added: false,
     has_traded: false,
@@ -101,7 +100,6 @@ const onSave = async () => {
         steam_id: selected.steam_id,
         url: selected.url,
         region: selected.region,
-        initial_offer_pct: selected.initial_offer_pct,
         category: selected.category,
         is_added: selected.is_added,
     };
@@ -134,12 +132,14 @@ const onSave = async () => {
 
 const categoryLabel = (category: Supplier['category']) => {
     if (category === 'vip') return 'VIP';
+    if (category === 'retail') return 'Varejo';
     if (category === 'blocked') return 'Bloqueado';
     return null;
 };
 
-const categorySeverity = (category: Supplier['category']): 'contrast' | 'danger' | undefined => {
+const categorySeverity = (category: Supplier['category']): 'contrast' | 'info' | 'danger' | undefined => {
     if (category === 'vip') return 'contrast';
+    if (category === 'retail') return 'info';
     if (category === 'blocked') return 'danger';
     return undefined;
 };
@@ -265,10 +265,6 @@ const handleDelete = (event: any, item: Supplier) => {
             <div class="d-flex flex-column gap-1">
                 <label class="fw-bold">ID Steam</label>
                 <InputText v-model="selected.steam_id" />
-            </div>
-            <div class="d-flex flex-column gap-1">
-                <label class="fw-bold">% Lucro inicial</label>
-                <InputNumber v-model="selected.initial_offer_pct" :min="1" :max="1000" placeholder="100" />
             </div>
             <div class="d-flex flex-column gap-1">
                 <label class="fw-bold">Categoria</label>

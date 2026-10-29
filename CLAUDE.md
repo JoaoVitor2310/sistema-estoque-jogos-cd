@@ -25,6 +25,7 @@ php artisan test --no-coverage    # suíte Pest completa
 - [`docs/PRODUCT.md`](docs/PRODUCT.md) — regras de negócio e fluxos
 - [`docs/adr/`](docs/adr/) — decisões arquiteturais registradas
 - [`docs/IMPROVEMENTS.md`](docs/IMPROVEMENTS.md) — **fonte única de pendências** (roadmap, features, dívida técnica)
+- [`docs/IMPLEMENTACAO_CHATBOT.md`](docs/IMPLEMENTACAO_CHATBOT.md) — **temporário**: plano e contrato da integração com o chatbot enquanto ela é implementada; apagado quando o último PR entrar
 
 **Integrações externas**
 - [`docs/PRICE_RESEARCHER.md`](docs/PRICE_RESEARCHER.md) — integração com buscador de preços próprio

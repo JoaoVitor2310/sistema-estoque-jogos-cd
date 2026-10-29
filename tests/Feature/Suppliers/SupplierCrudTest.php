@@ -12,6 +12,8 @@
 |     2. category inválida              → 422
 |     3. category 'vip' persiste no banco
 |     4. category null persiste como null
+|     4b. category 'retail' persiste
+|     4c. initial_offer_pct enviado é ignorado (a coluna não existe mais)
 |
 |   PUT /suppliers/{id} (update):
 |     5. Atualiza name e category       → 200 com campos atualizados
@@ -102,6 +104,28 @@ describe('POST /suppliers — store', function () {
             ->assertStatus(201);
 
         $this->assertDatabaseHas('suppliers', ['name' => 'VIP Supplier', 'category' => 'vip']);
+    });
+
+    it('persists category retail correctly', function () {
+        $user = makeSupplierTestUser();
+
+        $this->actingAs($user)
+            ->postJson('/suppliers', ['name' => 'Retail Supplier', 'category' => 'retail'])
+            ->assertStatus(201);
+
+        $this->assertDatabaseHas('suppliers', ['name' => 'Retail Supplier', 'category' => 'retail']);
+    });
+
+    it('ignores initial_offer_pct, which the category replaced', function () {
+        $user = makeSupplierTestUser();
+
+        // Cliente antigo ainda mandando o campo: o cadastro passa e o campo some
+        $response = $this->actingAs($user)
+            ->postJson('/suppliers', ['name' => 'Old Client', 'initial_offer_pct' => 80])
+            ->assertStatus(201);
+
+        expect($response->json())->not->toHaveKey('initial_offer_pct');
+        $this->assertDatabaseHas('suppliers', ['name' => 'Old Client']);
     });
 
     it('persists null category correctly', function () {
