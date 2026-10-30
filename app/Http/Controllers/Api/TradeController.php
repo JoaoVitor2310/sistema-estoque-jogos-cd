@@ -1,0 +1,43 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Domain\Pricing\CurrencyPriceUnavailable;
+use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreTradeWithOfferRequest;
+use App\UseCases\Trades\CreateTradeWithOfferUseCase;
+use Illuminate\Http\JsonResponse;
+
+/**
+ * Trades pela API, para os sistemas que integram com o Estoque.
+ */
+class TradeController extends Controller
+{
+    public function __construct(
+        private readonly CreateTradeWithOfferUseCase $createTradeWithOffer,
+    ) {}
+
+    /**
+     * 201 com o uuid da trade; 200 `created: false` quando não há o que ofertar
+     * — não é erro, é a resposta "nenhum jogo nos interessa".
+     */
+    public function store(StoreTradeWithOfferRequest $request): JsonResponse
+    {
+        try {
+            $trade = $this->createTradeWithOffer->execute($request->toDTO());
+        } catch (CurrencyPriceUnavailable $e) {
+            return response()->json(['message' => $e->getMessage()], 503);
+        }
+
+        if ($trade === null) {
+            return response()->json(['created' => false], 200);
+        }
+
+        return response()->json([
+            'uuid' => $trade->uuid,
+            'created_at' => $trade->created_at,
+            // A efetiva: TF2 quando não havia cotação na moeda pedida.
+            'currency' => $trade->currency->value,
+        ], 201);
+    }
+}

@@ -7,9 +7,10 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Verifica se o request de servico externo carrega o Bearer token correto.
- * O servico envia: Authorization: Bearer <VIP_WEBHOOK_SECRET>
- * hash_equals() previne timing attacks.
+ * Verifica se o request de serviço externo carrega o Bearer token correto.
+ *
+ * Um segredo só (`EXTERNAL_SECRET`) para todos os serviços que chamam o
+ * Estoque — price_researcher e chatbot. hash_equals() previne timing attacks.
  */
 class VerifySecret
 {

@@ -105,6 +105,8 @@ app/
 │   ├── Assets/
 │   │   ├── AssetAlert.php               # limiar de alerta de variação de câmbio
 │   │   └── ExchangeRatePolicy.php       # idade máxima da cotação de reserva
+│   ├── Suppliers/
+│   │   └── SteamId.php                  # formato do SteamID64 de conta individual (17 dígitos, 7656119…)
 │   ├── Trades/
 │   │   ├── CommentPolicy.php            # decide se recomenta um supplier (14 dias / jogos mudaram)
 │   │   ├── DeliveryCredential.php       # link + código da entrega: formato, emissão, limites e prazo
@@ -173,7 +175,9 @@ app/
 │   │   ├── ExecuteSupplierListUseCase.php    # POST price_researcher /api/lists/run
 │   │   └── FindNewSuppliersUseCase.php       # POST price_researcher /api/suppliers/find-new
 │   ├── Trades/
+│   │   ├── DTO/TradeWithOfferDTO.php         # lista precificada + moeda escolhida pelo supplier
 │   │   ├── CreateTradeUseCase.php
+│   │   ├── CreateTradeWithOfferUseCase.php   # POST /api/trades: trade + primeira oferta numa transação; sem oferta, desfaz
 │   │   ├── StoreListTradeUseCase.php         # callback do price_researcher; marca encalhados e giveaways
 │   │   └── UpdateTradeUseCase.php
 │   └── Financial/
@@ -235,7 +239,9 @@ app/
 │   │   ├── GiveawayController.php      # /giveaways — só leitura
 │   │   ├── AssetController.php
 │   │   ├── FeeController.php
-│   │   └── TradeController.php
+│   │   ├── TradeController.php
+│   │   └── Api/TradeController.php     # routes/api.php — POST /api/trades (price_researcher), sem sessão
+│   ├── Middleware/VerifySecret.php     # Bearer de serviço externo: um segredo só (EXTERNAL_SECRET) para todos
 │   └── Requests/
 │
 └── Models/                             # Eloquent puro — sem lógica de negócio

@@ -40,4 +40,17 @@ enum TradeCurrency: string
     {
         return ! $this->isCash() || $tf2PriceInCurrency > 0;
     }
+
+    /**
+     * Esta moeda, ou TF2 quando não há cotação da TF2 nela.
+     *
+     * Para o supplier que já negocia conosco pela Steam: sabemos que ele aceita
+     * pelo menos uma moeda, normalmente TF2, então a falta de cotação não
+     * impede a trade — ela nasce em TF2. A prospecção, ao contrário, falha
+     * nesse caso: o comentário público em outra moeda seria pior que nenhum.
+     */
+    public function orTf2WithoutPrice(float $tf2PriceInCurrency): self
+    {
+        return $this->hasTf2Price($tf2PriceInCurrency) ? $this : self::Tf2;
+    }
 }

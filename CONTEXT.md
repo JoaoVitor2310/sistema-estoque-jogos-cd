@@ -124,7 +124,7 @@ Um perfil Steam de onde keys são obtidas via troca — rastreado independenteme
 _Avoid_: fornecedor (termo antigo do banco), vendor.
 
 **Categoria do supplier** (`SupplierCategory`):
-A marcação que a equipe dá a um supplier — **VIP**, **Varejo** ou **Bloqueado** — ou a falta dela, o **Normal**, que é como nasce todo supplier novo. Cada categoria define um lucro inicial de oferta (o Bloqueado não tem); os valores estão em [`docs/agents/domain-map.md`](docs/agents/domain-map.md).
+A marcação que a equipe dá a um supplier — **VIP**, **Varejo** ou **Bloqueado** — ou a falta dela, o **Normal**, que é como nasce todo supplier novo. Cada categoria define um lucro inicial de oferta (o Bloqueado não tem); os valores estão em [`docs/PRODUCT.md`](docs/PRODUCT.md#oferta-ao-supplier).
 _Avoid_: tier do supplier, nível, "% lucro inicial" (era uma coluna por supplier, removida: o percentual é da categoria).
 
 **Oferta ao supplier** (`TradeOffer`):

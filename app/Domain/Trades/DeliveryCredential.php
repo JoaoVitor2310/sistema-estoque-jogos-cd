@@ -69,7 +69,7 @@ final class DeliveryCredential
      *
      * Endereço e segredo nascem juntos porque um sem o outro não é credencial —
      * e é aqui, num lugar só, que "toda trade nasce com um par" fica dito. Os
-     * três UseCases que criam trade gravam o retorno; ninguém mais escreve
+     * UseCases que criam trade gravam o retorno; ninguém mais escreve
      * nessas colunas, e é essa unicidade de escritor que garante um código por
      * trade, sem precisar de guarda em tempo de execução.
      *

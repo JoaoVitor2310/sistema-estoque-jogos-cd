@@ -38,7 +38,7 @@ GOOGLE_REDIRECT_URI=
 # Em branco: ninguém é admin e nenhum alerta é entregue (o envio lança e cai no
 # log). Obrigatória em todo ambiente, inclusive no .env.example que o CI copia.
 ADMIN_EMAIL=carcadeals@gmail.com
-EXTERNAL_SECRET=            # Bearer token exigido de serviços externos que chamam o Sistema Estoque (sentido inverso do INTERNAL_SECRET)
+EXTERNAL_SECRET=            # Bearer exigido de todo serviço que chama o Sistema Estoque (price_researcher, chatbot) e enviado ao price_researcher em /api/suppliers/find-new — sentido inverso do INTERNAL_SECRET
 ```
 
 Ver também [`security-and-guardrails.md`](security-and-guardrails.md) para o raciocínio por trás da separação `admin_email`/`admin_gate_email` e da ausência de fallback.

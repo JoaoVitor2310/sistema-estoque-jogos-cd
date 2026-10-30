@@ -65,6 +65,12 @@ O token fica **encriptado** (cast `encrypted` em `Trade`), não em hash, porque 
 
 **Ler o token nunca pode derrubar a página.** Toda leitura passa por `Trade::readableDeliveryToken()`, que devolve `null` quando o valor guardado não abre com a `APP_KEY` corrente — chave rotacionada, ou um dump de produção aberto em outro ambiente. Sem isso, o cast lança `DecryptException` e, como a projeção lê o token de toda trade da página, **uma** linha ilegível derruba a aba inteira com 500 *(já aconteceu)*. Degradar assim não afrouxa nada: um token que não abre não confere com nada, e a entrega correspondente fica fechada.
 
+## Serviço que chama o Estoque usa um segredo só
+
+Rota de máquina é autenticada por Bearer conferido pelo `VerifySecret`: **um segredo só** (`EXTERNAL_SECRET` → `services.external_secret`) para todo serviço que chama o Estoque — o price_researcher e, com a integração, o chatbot —, e o mesmo que mandamos ao price_researcher. Decisão consciente: os três sistemas rodam na mesma VPS, sob o mesmo dono. O custo é que um vazamento em qualquer um abre as rotas de todos, e revogar exige trocar o segredo nos três ao mesmo tempo. Segredo não configurado recusa tudo (`401`). As rotas novas de máquina ficam em `routes/api.php`, sem sessão nem cookie. Guarda em `tests/Feature/Api/TradesApiTest.php`.
+
+Hoje essas rotas respondem pela internet, como o resto do site: o que as protege é o segredo. Restringir `/api/*` à rede Docker no nginx é decisão do plano da integração com o chatbot ([`docs/IMPLEMENTACAO_CHATBOT.md`](../IMPLEMENTACAO_CHATBOT.md)), porque depende da URL pela qual o price-researcher chama o Estoque.
+
 ## Lote é `whereIn`, não loop
 
 Exclusão/atualização em massa não itera chamando `find()` + `delete()` por item: se um id falha no meio, os anteriores já foram gravados e a resposta de erro descreve um estado que mudou pela metade. Valide a existência **na fronteira** (`exists:tabela,id` no FormRequest, ver `DeleteManyRequest`) e execute num statement só — assim o lote é atômico por construção, sem precisar de transação, e ainda deixa de ser N+1. *(Já aconteceu: 4 dos 5 `destroyArray` apagavam parcialmente e respondiam erro.)*
