@@ -24,6 +24,9 @@ final class OfferCalculator
     /** Menor oferta em dinheiro que se publica: o fornecedor nunca lê "0.00" ao lado de um jogo. */
     public const MIN_CASH_OFFER = 0.01;
 
+    /** Menor oferta em TF2 gravada numa oferta ao supplier, pelo mesmo motivo. */
+    public const MIN_TF2_OFFER = 0.01;
+
     /** Casas decimais de um valor em dinheiro e de `trades.amount`. */
     public const MONEY_DECIMALS = 2;
 

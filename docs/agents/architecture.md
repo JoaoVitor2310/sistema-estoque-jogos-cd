@@ -83,8 +83,11 @@ app/
 │   │   ├── ComparisonAlgorithm.php      # reprecificação vs. concorrentes (dumpers, bots, wholesale)
 │   │   ├── ComparisonResult.php / OfferData.php
 │   │   ├── MinMaxPriceCalculator.php
-│   │   ├── MinimumMarginPolicy.php     # fonte única do piso de preço (min_api)
-│   │   └── ValueObjects/MarketplaceFee.php
+│   │   ├── MinimumMarginPolicy.php     # fonte única do piso de preço (min_api) e da oferta máxima a supplier
+│   │   ├── SupplierOffer.php            # oferta a supplier por jogo: lucro pedido, limitado à oferta máxima
+│   │   └── ValueObjects/
+│   │       ├── MarketplaceFee.php
+│   │       └── SupplierOfferLine.php    # oferta exata de um jogo + valor lido em cada moeda
 │   ├── Keys/
 │   │   ├── KeyEligibility.php          # regra dos 21 dias
 │   │   └── KeyDefaults.php             # estado inicial canônico de uma key nova
@@ -206,7 +209,8 @@ app/
 │   ├── Trades/
 │   │   ├── TradeService.php             # paginate() com filtros/sort/paginação; is_stocked scoped-to-page
 │   │   ├── OverstockService.php         # estoque encalhado: marca das linhas + lista da aba
-│   │   └── TradeLineFlagsService.php    # ponto único das marcas de linha (encalhe + giveaway)
+│   │   ├── TradeLineFlagsService.php    # ponto único das marcas de linha (encalhe + giveaway)
+│   │   └── TradeOfferService.php        # grava a oferta ao supplier (registro imutável, ADR 0016)
 │   ├── Financial/
 │   │   ├── FinancialMonthService.php   # leitura (CQRS): saldos derivados, draft corrente, prefill de TF2
 │   │   └── MovementRecorder.php        # escrita: grava as pernas com um group_id só, em transação

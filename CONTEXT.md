@@ -127,6 +127,18 @@ _Avoid_: fornecedor (termo antigo do banco), vendor.
 A marcação que a equipe dá a um supplier — **VIP**, **Varejo** ou **Bloqueado** — ou a falta dela, o **Normal**, que é como nasce todo supplier novo. Cada categoria define um lucro inicial de oferta (o Bloqueado não tem); os valores estão em [`docs/agents/domain-map.md`](docs/agents/domain-map.md).
 _Avoid_: tier do supplier, nível, "% lucro inicial" (era uma coluna por supplier, removida: o percentual é da categoria).
 
+**Oferta ao supplier** (`TradeOffer`):
+Quanto propomos pagar ao supplier pelos jogos de uma trade, numa rodada da negociação. É um registro: a rodada seguinte cria outra oferta, e a vigente é a de rodada mais alta. Não é o valor fechado — esse é o `amount` da trade.
+_Avoid_: oferta (isoladamente — na Gamivo, "offer" é o anúncio de venda de uma key), proposta, cotação.
+
+**Oferta máxima**:
+O máximo que se oferta por um jogo: o maior custo em que a key comprada ainda nasce dentro da margem inicial do min_api. Nenhuma oferta ao supplier passa dela. É limite de segurança, não fim de negociação.
+_Avoid_: teto (é o termo do `max_api`), limite.
+
+**Oferta final**:
+A última rodada de uma negociação com o supplier — a 3ª oferta (a inicial e duas contrapropostas). É final pela rodada, não pelo valor: não ser a oferta máxima é o que impede o supplier de aprender onde ela fica.
+_Avoid_: oferta máxima (é outra coisa: o limite de cada jogo), última oferta.
+
 **Trade**:
 Um lote de jogos comprado (ou em negociação) de uma só vez. O caso comum é a lista comentada/ofertada a um supplier em um momento específico; mas o **canal de compra** diz de quem o lote veio — a trade também registra uma compra direta na loja de um bundle ou uma compra na Gamivo.
 _Avoid_: vip list, lista (isoladamente).

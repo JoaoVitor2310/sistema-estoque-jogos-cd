@@ -211,6 +211,43 @@ final class MinimumMarginPolicy
         ];
     }
 
+    /**
+     * Maior custo de compra (€) em que o lucro ainda cobre a margem inicial.
+     *
+     * É o quanto, no máximo, se paga por uma key que vai render `$netIncome`
+     * na Gamivo: acima disso ela nasceria abaixo do min_api. A margem depende
+     * do próprio custo (as faixas de [[self::costTierMargin]]), então não há
+     * conta direta: cada margem possível dá um custo candidato
+     * (`income / (1 + margem)`), que só vale se cair na faixa daquela margem, e
+     * vence o maior candidato válido. Sempre existe um quando o income é
+     * positivo — as margens caem conforme o custo sobe, então a faixa
+     * seguinte sempre acolhe o candidato que escapou da anterior.
+     *
+     * Usa a margem **inicial**, sem decaimento: a key ainda vai ser comprada.
+     */
+    public static function maxInitialCost(float $netIncome, PurchaseChannel $channel): float
+    {
+        if ($netIncome <= 0) {
+            return 0.0;
+        }
+
+        $margins = $channel === PurchaseChannel::BundleStore
+            ? [self::BUNDLE_STORE_MARGIN]
+            : [self::LOW_COST_MARGIN, self::DEFAULT_MARGIN, self::HIGH_COST_MARGIN, self::VERY_HIGH_COST_MARGIN];
+
+        $best = 0.0;
+
+        foreach ($margins as $margin) {
+            $cost = $netIncome / (1 + $margin);
+
+            if (self::initialMargin($cost, $channel) === $margin) {
+                $best = max($best, $cost);
+            }
+        }
+
+        return $best;
+    }
+
     /** Margem da key antes de qualquer decaimento por tempo. */
     private static function initialMargin(float $cost, PurchaseChannel $channel): float
     {

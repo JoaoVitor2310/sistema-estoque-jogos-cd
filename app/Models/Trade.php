@@ -9,6 +9,7 @@ use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Trade extends Model
@@ -19,10 +20,11 @@ class Trade extends Model
 
     /**
      * `uuid`, `delivery_token` e `delivered_at` ficam **fora** de
-     * propósito: quem os grava são os UseCases da entrega, por atribuição
-     * explícita. São a identidade da trade (que também endereça a entrega), o
-     * segredo e o marco da entrega — nada que chegue de um payload deve
-     * alcançá-los por atribuição em massa.
+     * propósito: quem os grava são UseCases, por atribuição explícita — os que
+     * criam a trade gravam o `uuid` e o `delivery_token`, e o envio da entrega
+     * grava o `delivered_at`. São a identidade da trade (que também endereça a
+     * entrega), o segredo e o marco da entrega — nada que chegue de um payload
+     * deve alcançá-los por atribuição em massa.
      */
     protected $fillable = ['supplier_id', 'purchase_channel', 'bundle_id', 'list_code', 'last_commented_at', 'title', 'date', 'message_sent', 'is_imported', 'amount', 'currency', 'supplier_notes'];
 
@@ -103,5 +105,17 @@ class Trade extends Model
     public function lines(): HasMany
     {
         return $this->hasMany(TradeLine::class)->orderBy('position');
+    }
+
+    /** Toda oferta feita nesta trade, da primeira rodada à vigente. */
+    public function offers(): HasMany
+    {
+        return $this->hasMany(TradeOffer::class)->orderBy('round');
+    }
+
+    /** A oferta vigente: a de rodada mais alta. Ver docs/adr/0016. */
+    public function currentOffer(): HasOne
+    {
+        return $this->hasOne(TradeOffer::class)->latestOfMany('round');
     }
 }
