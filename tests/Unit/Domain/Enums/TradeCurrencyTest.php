@@ -16,4 +16,11 @@ describe('TradeCurrency', function () {
             ->and(TradeCurrency::Eur->hasTf2Price(0.0))->toBeFalse()
             ->and(TradeCurrency::Usd->hasTf2Price(0.0))->toBeFalse();
     });
+
+    it('falls back to TF2 when there is no TF2 price in the currency', function () {
+        expect(TradeCurrency::Eur->orTf2WithoutPrice(0.95))->toBe(TradeCurrency::Eur)
+            ->and(TradeCurrency::Eur->orTf2WithoutPrice(0.0))->toBe(TradeCurrency::Tf2)
+            ->and(TradeCurrency::Usd->orTf2WithoutPrice(0.0))->toBe(TradeCurrency::Tf2)
+            ->and(TradeCurrency::Tf2->orTf2WithoutPrice(0.0))->toBe(TradeCurrency::Tf2);
+    });
 });

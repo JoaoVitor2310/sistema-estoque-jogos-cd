@@ -84,6 +84,30 @@ Não faz sentido comprar uma key por um preço em que o lucro fica abaixo do que
 
 As margens chegam à tela pela prop `marginRules` (`MinimumMarginPolicy::initialMarginRules()`); a tela só projeta a escolha da faixa, como já faz com a renda líquida.
 
+### Oferta ao supplier
+
+Quando o price_researcher precifica uma lista para um supplier que já negocia conosco pela Steam (integração com o chatbot), a trade nasce **já com a primeira oferta**, decidida pelo Estoque (`POST /api/trades` → `CreateTradeWithOfferUseCase`). A oferta é **por jogo** e fica gravada como registro: cada rodada da negociação é uma oferta nova, e a anterior não muda ([ADR 0016](adr/0016-supplier-offers-recorded-as-immutable-records.md)).
+
+O lucro da primeira oferta vem da **categoria do supplier** (`SupplierCategory::initialProfitPercent`):
+
+| Categoria | Lucro da primeira oferta |
+|---|---|
+| Normal (sem categoria — todo supplier novo) | 70% |
+| VIP | 80% |
+| Varejo | 60% |
+| Bloqueado | sem oferta: não cria trade |
+
+Lucro maior é oferta menor: a oferta de um jogo é `renda líquida / (1 + lucro) / preço do TF2`, a mesma conta das colunas da aba Trades.
+
+| Regra | Como funciona |
+|---|---|
+| Fora da oferta | Jogo encalhado ou em giveaway (viram linha marcada, como abaixo), jogo que não paga as taxas da Gamivo e linha sem jogo ou sem preço |
+| Oferta máxima | Nenhum jogo é ofertado acima do maior custo em que a key nasce dentro da margem **inicial** do `min_api` (`MinimumMarginPolicy::maxInitialCost`, a mesma régua da célula vermelha acima). Nos lucros de categoria ela não é atingida — a maior margem inicial é 55% |
+| Valor lido | Arredondado a 2 casas, nunca abaixo de 0,01 (em TF2 ou em dinheiro). O jogo cuja oferta máxima não comporta nem 0,01 fica fora |
+| Moeda | A que o supplier escolheu (`tf2`, `eur`, `usd`; sem escolha, `tf2`). **Sem cotação da TF2 nessa moeda, a trade nasce em TF2** (`TradeCurrency::orTf2WithoutPrice`) — ao contrário da prospecção, que falha: aqui o supplier já está na Steam e aceita ao menos uma moeda. Sem a cotação da TF2 **em euro**, de onde toda oferta parte, não há trade (503) |
+| Nada a ofertar | Supplier bloqueado, ou nenhum jogo ofertável: **nada é gravado** — nem trade, nem linhas, nem o supplier novo — e a resposta é `created: false` |
+| Rodadas | No máximo 3 ofertas por trade (a inicial e duas contrapropostas, `SupplierOffer::MAX_ROUNDS`); a 3ª é a **final**, pelo número da rodada e não pelo valor. A primeira oferta é a rodada 1 |
+
 ### Jogo encalhado é sinalizado na trade
 
 Jogo de que já temos estoque parado na mesma região **não é ofertado ao fornecedor**, mas continua registrado: ele vira linha da trade com o aviso **"Encalhado"** na aba, para a equipe ver o que ficou de fora. Um jogo está encalhado quando as três condições valem **juntas** — uma sozinha condenaria jogo saudável:

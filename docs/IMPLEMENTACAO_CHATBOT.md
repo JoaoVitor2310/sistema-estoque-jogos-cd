@@ -51,6 +51,7 @@ Do mais comum para o mais raro:
 | D13 | Supplier bloqueado | Não cria Trade e responde como no caso 2 (`200 { "created": false }`), **sem dizer o motivo** | O chatbot responderia "none of these games fit" do mesmo jeito, e dizer ao Supplier que ele está bloqueado não é decisão do chatbot. A equipe vê o bloqueado na aba de Suppliers |
 | D14 | `initial_offer_pct` | **Removido** (PR 0). O percentual vem só da categoria | Nenhum código o lia, e mantê-lo deixaria duas fontes para o mesmo número |
 | D15 | O que a oferta grava | **Só o que não se recalcula:** por jogo, o valor lido (`price`); na oferta, a rodada, a moeda, o lucro, a cotação da TF2 (`tf2_rate`) e o pedido do Supplier. Final e total são calculados | A oferta é por jogo; o total é soma e o "final" é a rodada. Guardar o que se calcula só abre espaço para os dois divergirem |
+| D16 | Autenticação dos serviços | **Um segredo só** (`EXTERNAL_SECRET`) para o price-cd e o chatbot, conferido pelo `VerifySecret` | Os três sistemas rodam na mesma VPS, sob o mesmo dono. Custo aceito: um vazamento em qualquer um abre as rotas de todos, e revogar exige trocar o segredo nos três — o que pesa mais a partir do PR 4, quando a API devolver o código da entrega |
 
 ### Categorias de Supplier e percentual inicial (D9)
 
@@ -73,7 +74,7 @@ Notas:
 
 O `POST /trades/from-price-researcher` **também é o callback das listas do SteamTrades e da pesquisa de bundle** (`docs/PRICE_RESEARCHER.md`). A pesquisa de bundle é frouxa de propósito (o bundle é precificado inteiro, sem cortar encalhado nem jogo barato). Colocar nele o filtro de D2 e a resposta `created: false` de D3 mudaria esses dois fluxos.
 
-Por isso a Trade que nasce com oferta tem endpoint próprio, `POST /api/trades`, chamado pelo price-cd quando a precificação veio do chatbot. **Muda o que o price-cd chama, então precisa ser combinado com quem cuida dele.** O cálculo de oferta e o filtro saem de uma peça compartilhada com o `ProspectSupplierUseCase`, para as duas não divergirem.
+Por isso a Trade que nasce com oferta tem endpoint próprio, `POST /api/trades`, chamado pelo price-cd quando a precificação veio do chatbot (**implementado no PR 3**: `CreateTradeWithOfferUseCase`; contrato vivo em [`PRICE_RESEARCHER.md`](PRICE_RESEARCHER.md#trade-com-oferta--post-apitrades)). **Muda o que o price-cd chama, então precisa ser combinado com quem cuida dele.** O cálculo de oferta e o filtro saem de uma peça compartilhada com o `ProspectSupplierUseCase`, para as duas não divergirem.
 
 ## Oferta máxima de cada linha (D10)
 
@@ -206,7 +207,11 @@ Marca o `message_sent` que a aba já tem. O ADR 0008 diz que ele é "marcado por
 
 ### Autenticação
 
-Cada consumidor tem o seu token, para poder ser revogado sozinho: o price-cd segue com o atual (`services.external_secret`), e o chatbot ganha um próprio (`CHATBOT_API_TOKEN`, lido por `config()`). O `VerifySecret` passa a receber o nome do consumidor como parâmetro (`VerifySecret:chatbot`) em vez de conhecer um segredo só. As rotas ficam em `routes/api.php`, sem sessão nem cookie, acessíveis pela rede Docker `sistema-estoque-cd`.
+Um **segredo só** para todos os consumidores (D16): o `VerifySecret` confere o mesmo `EXTERNAL_SECRET` que o price-cd já usa, e o chatbot recebe esse mesmo segredo. As rotas ficam em `routes/api.php`, sem sessão nem cookie (implementado no PR 3).
+
+> **Rede Docker — a decidir antes do PR 4 (R8).** Hoje o nginx entrega `/api/*` pela internet como o resto do site, e só o token protege. Restringir `/api/` à rede Docker (`allow` da sub-rede de `sistema-estoque-cd` no `default.conf`) fecha a porta a quem não está na VPS — o que pesa mais quando o PR 4 passar a devolver o código da entrega. Depende da URL que o price-cd usa para chamar o Estoque (`SISTEMA_ESTOQUE_URL`): se for o domínio público, a restrição o bloquearia também. Lembrar que o deploy não recarrega o nginx ([`agents/deploy.md`](agents/deploy.md)).
+
+Quem chama cada rota (todas com o mesmo segredo):
 
 | Rota | price-cd | chatbot |
 |---|---|---|
@@ -215,11 +220,11 @@ Cada consumidor tem o seu token, para poder ser revogado sozinho: o price-cd seg
 
 ## Segurança
 
-Hoje só a equipe logada vê o código da entrega. Com D5, **quem tiver o `CHATBOT_API_TOKEN` lê a credencial de toda Trade aberta**, e a página de entrega exibe os `key_code` já preenchidos até o import. A contenção que resta é a mesma do ADR 0008 (a credencial morre no import), mais:
+Hoje só a equipe logada vê o código da entrega. Com D5, **quem tiver o `EXTERNAL_SECRET` — o segredo de todos os serviços (D16) — lê a credencial de toda Trade aberta**, e a página de entrega exibe os `key_code` já preenchidos até o import. A contenção que resta é a mesma do ADR 0008 (a credencial morre no import), mais:
 
 - O código só sai na leitura de **uma** Trade pelo uuid, nunca na listagem (rota 3).
-- O token do chatbot é separado e revogável sozinho.
-- As rotas só respondem na rede Docker, não pela internet.
+- O segredo é o mesmo de todos os serviços (D16): vazou em qualquer sistema, troca-se nos três.
+- Restringir `/api/*` à rede Docker no nginx (R8, em "Autenticação").
 
 Essa decisão entra como **ADR 0015** ("o chatbot lê a credencial de entrega pela API"), referenciando o 0008. A guarda das ofertas como registro imutável (D7) entra como **ADR 0016**.
 
@@ -229,8 +234,8 @@ Essa decisão entra como **ADR 0015** ("o chatbot lê a credencial de entrega pe
 |---|---|---|---|
 | 0 | Categoria **Varejo** (`retail`) no `SupplierCategory`, no seletor da aba de Suppliers e no `CONTEXT.md`; percentual inicial por categoria (D9) no Domain; remoção do `initial_offer_pct` (D14) | nada | feito (#117) |
 | 1 | Renomear `delivery_uuid` para `uuid` (D1): coluna, rota da entrega, model, `DeliveryCredential`, testes e docs, incluindo os ADRs 0008 e 0011 | nada | feito (#118) |
-| 2 | Oferta no backend (D6, D7, D10): tabelas `trade_offers` e `trade_offer_lines`, oferta máxima pública em `MinimumMarginPolicy` (`maxInitialCost`), cálculo da primeira oferta no Domain, peça compartilhada com a prospecção, ADR 0016 | 0 | em revisão |
-| 3 | `POST /api/trades` com filtro, moeda com fallback, primeira oferta e resposta `created: false` (D2, D3, D4, D11, D13); `routes/api.php`; `VerifySecret` por consumidor | 1, 2 | a fazer |
+| 2 | Oferta no backend (D6, D7, D10): tabelas `trade_offers` e `trade_offer_lines`, oferta máxima pública em `MinimumMarginPolicy` (`maxInitialCost`), cálculo da primeira oferta no Domain, peça compartilhada com a prospecção, ADR 0016 | 0 | feito (#119) |
+| 3 | `POST /api/trades` com filtro, moeda com fallback, primeira oferta e resposta `created: false` (D2, D3, D4, D11, D13); `routes/api.php` | 1, 2 | em revisão |
 | 4 | Leituras (rotas 2 e 3) com o código da entrega + ADR 0015 (D5) | 3 | a fazer |
 | 5 | Renegociação (rota 4, D12 com os pontos R4.x fechados — o R4.6 decide os degraus) e mensagem enviada (rota 5) | 4 | a fazer |
 | 6 | Aba Trades mostra a oferta enviada e o histórico de rodadas | 2 | a fazer |
@@ -252,4 +257,4 @@ O PR 3 destrava o webhook do price-cd: é ele que devolve o `uuid` que o price-c
 - Os links de entrega já enviados continuam funcionando depois do rename.
 - A leitura pelo uuid traz a oferta vigente (jogos, região, valores, total), a moeda, o link e o código, e nenhum campo interno nem oferta anterior.
 - A listagem traz só as Trades em negociação, da mais recente para a mais antiga, e nenhum código.
-- Sem token, ou com o token de outro consumidor, as rotas respondem `401`.
+- Sem o segredo, ou com um errado, as rotas respondem `401`.

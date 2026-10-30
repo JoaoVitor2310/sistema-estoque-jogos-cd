@@ -226,6 +226,40 @@ O `title` não é só o nome da trade: quando a trade **não tem supplier** e o 
 
 ---
 
+## Trade com oferta — `POST /api/trades`
+
+Endpoint **do sistema-estoque** para a precificação que veio do **chatbot**: cria a trade já com a primeira oferta ao supplier, decidida pelo Estoque. É diferente do callback acima, que continua sendo o destino das listas e da pesquisa de bundle e não filtra nem oferta. Autenticado pelo mesmo Bearer (`VerifySecret`). Rota em `routes/api.php`: sem sessão nem cookie.
+
+```json
+{
+  "supplier_steam_id": "76561198012345678",
+  "currency": "eur",
+  "list_code": "AbC12",
+  "games": [
+    { "name": "Taiji", "market_price_euro": 1.23, "popularity": 542, "region": "", "gamivo_id": "12345" }
+  ]
+}
+```
+
+| Campo | Obrigatório | Observação |
+|---|---|---|
+| `supplier_steam_id` | sim | SteamID64 de conta individual: 17 dígitos, começando por `7656119` (`App\Domain\Suppliers\SteamId`); outro formato responde `422`. A oferta é feita a alguém, e o supplier desconhecido é criado (categoria Normal) |
+| `games[]` | sim, mín. 1 | Mesma forma do callback: `name`, `market_price_euro`, `popularity`, `region`, `gamivo_id` |
+| `currency` | não | `tf2` (padrão), `eur` ou `usd`. Sem cotação da TF2 na moeda, a trade nasce em TF2 |
+| `title`, `list_code` | não | Nome da trade (sem título, vale o nome do supplier) e código da lista |
+
+| Resposta | Quando |
+|---|---|
+| `201 { "uuid", "created_at", "currency" }` | Trade criada. `currency` é a **efetiva** — `tf2` se não havia cotação na pedida. O `uuid` é o que o price-researcher repassa ao chatbot |
+| `200 { "created": false }` | Nada a ofertar (supplier bloqueado, ou nenhum jogo ofertável). Não é erro, e nada é gravado. O motivo não vai na resposta |
+| `422` | Corpo inválido |
+| `401` | Sem token, ou token errado |
+| `503 { "message" }` | Sem cotação da TF2 em euro, de onde toda oferta parte. Nada é gravado |
+
+Regras da oferta em [`PRODUCT.md`](PRODUCT.md#oferta-ao-supplier).
+
+---
+
 ## Comportamento geral de preços
 
 - **Fonte de popularidade:** SteamCharts (pico de jogadores nas últimas 24h)
