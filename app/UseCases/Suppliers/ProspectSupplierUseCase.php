@@ -2,10 +2,12 @@
 
 namespace App\UseCases\Suppliers;
 
+use App\Domain\Enums\PurchaseChannel;
 use App\Domain\Enums\TradeCurrency;
 use App\Domain\Pricing\CurrencyPriceUnavailable;
 use App\Domain\Pricing\IncomeCalculator;
 use App\Domain\Pricing\OfferCalculator;
+use App\Domain\Pricing\SupplierOffer;
 use App\Domain\Trades\CommentPolicy;
 use App\Domain\Trades\DeliveryCredential;
 use App\Domain\Trades\TradeGameComparison;
@@ -161,11 +163,13 @@ class ProspectSupplierUseCase
 
         foreach ($games as $game) {
             $netIncome = IncomeCalculator::forGamivo((float) $game['market_price_euro'], $fee);
-            $tf2Offer = OfferCalculator::tf2Offer($netIncome, OfferCalculator::NEW_SUPPLIER_PROFIT_PERCENT, $tf2Price);
+            $offer = SupplierOffer::line($netIncome, OfferCalculator::NEW_SUPPLIER_PROFIT_PERCENT, $tf2Price, PurchaseChannel::SupplierTrade);
 
-            if ($tf2Offer <= 0) {
+            if ($offer === null) {
                 continue;
             }
+
+            $tf2Offer = $offer->tf2Offer;
 
             $profitable[] = [
                 'name' => $game['name'],

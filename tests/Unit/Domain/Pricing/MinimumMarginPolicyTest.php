@@ -393,3 +393,43 @@ describe('initialMarginRules', function () {
             ->and($rules['bundleStoreMargin'])->toBe(MinimumMarginPolicy::BUNDLE_STORE_MARGIN);
     });
 });
+
+describe('MinimumMarginPolicy::maxInitialCost()', function () {
+
+    it('pays nothing for a game whose income does not cover the fees', function () {
+        expect(MinimumMarginPolicy::maxInitialCost(0.0, PurchaseChannel::SupplierTrade))->toBe(0.0)
+            ->and(MinimumMarginPolicy::maxInitialCost(-0.5, PurchaseChannel::SupplierTrade))->toBe(0.0);
+    });
+
+    it('finds the highest cost each cost tier still accepts', function (float $netIncome, float $expected) {
+        expect(MinimumMarginPolicy::maxInitialCost($netIncome, PurchaseChannel::SupplierTrade))
+            ->toEqualWithDelta($expected, 0.0001);
+    })->with([
+        // 6 / 1,50 = 4,00 cai na faixa padrão; os candidatos das outras faixas caem fora delas
+        'default tier' => [6.0, 6.0 / (1 + MinimumMarginPolicy::DEFAULT_MARGIN)],
+        // 1,2 / 1,50 = 0,80 já seria custo baixo, que exige 55%
+        'low cost tier' => [1.2, 1.2 / (1 + MinimumMarginPolicy::LOW_COST_MARGIN)],
+        // 15 / 1,45 = 10,34 (faixa alta) vence o 15 / 1,50 = 10,00 (faixa padrão)
+        'high cost tier wins over the default one' => [15.0, 15.0 / (1 + MinimumMarginPolicy::HIGH_COST_MARGIN)],
+        'very high cost tier' => [30.0, 30.0 / (1 + MinimumMarginPolicy::VERY_HIGH_COST_MARGIN)],
+    ]);
+
+    it('uses the fixed direct-purchase margin for a bundle store', function () {
+        expect(MinimumMarginPolicy::maxInitialCost(6.0, PurchaseChannel::BundleStore))
+            ->toEqualWithDelta(6.0 / (1 + MinimumMarginPolicy::BUNDLE_STORE_MARGIN), 0.0001);
+    });
+
+    it('stops exactly where the required margin would be broken', function (float $netIncome) {
+        // A régua é a mesma do min_api: no máximo o lucro ainda cobre a margem,
+        // e um centavo acima já não cobre
+        $now = Carbon::now();
+        $max = MinimumMarginPolicy::maxInitialCost($netIncome, PurchaseChannel::SupplierTrade);
+        $above = $max + 0.01;
+
+        $marginAtMax = MinimumMarginPolicy::requiredMargin($max, $now, PurchaseChannel::SupplierTrade, now: $now);
+        $marginAbove = MinimumMarginPolicy::requiredMargin($above, $now, PurchaseChannel::SupplierTrade, now: $now);
+
+        expect($netIncome / $max - 1)->toBeGreaterThanOrEqual($marginAtMax - 1e-9)
+            ->and($netIncome / $above - 1)->toBeLessThan($marginAbove);
+    })->with([0.5, 1.2, 1.55, 6.0, 14.6, 15.0, 15.2, 21.0, 30.0, 100.0]);
+});
