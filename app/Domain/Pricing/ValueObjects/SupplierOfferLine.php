@@ -42,14 +42,36 @@ final class SupplierOfferLine
     }
 
     /**
-     * O valor que o supplier lê, na moeda da oferta, arredondado a 2 casas e
-     * nunca abaixo do piso da moeda: ele não lê "0.00" ao lado de um jogo.
+     * A oferta na moeda da oferta, **sem arredondar**: a TF2 vezes a cotação
+     * em dinheiro, ou a própria TF2. Os dois usos abaixo partem daqui, cada um
+     * com o arredondamento que o seu papel pede.
+     */
+    public function exactPriceIn(TradeCurrency $currency, float $tf2PriceInCurrency): float
+    {
+        return $currency->isCash() ? $this->tf2Offer * $tf2PriceInCurrency : $this->tf2Offer;
+    }
+
+    /**
+     * O valor que o supplier lê: arredondado ao centavo **mais próximo** e
+     * nunca abaixo do piso da moeda — ele não lê "0.00" ao lado de um jogo.
      */
     public function priceIn(TradeCurrency $currency, float $tf2PriceInCurrency): float
     {
-        return $currency->isCash()
-            ? OfferCalculator::inCurrency($this->tf2Offer, $tf2PriceInCurrency)
-            : max(OfferCalculator::MIN_TF2_OFFER, round($this->tf2Offer, OfferCalculator::MONEY_DECIMALS));
+        $minimum = $currency->isCash() ? OfferCalculator::MIN_CASH_OFFER : OfferCalculator::MIN_TF2_OFFER;
+
+        return max($minimum, round($this->exactPriceIn($currency, $tf2PriceInCurrency), OfferCalculator::MONEY_DECIMALS));
+    }
+
+    /**
+     * O limite desta oferta numa contraproposta, em centavos: arredondado
+     * **para baixo**, porque limite que arredonda para cima pode passar meio
+     * centavo da oferta máxima. É o único ponto em que o arredondamento difere
+     * de [[self::priceIn]].
+     */
+    public function limitCentsIn(TradeCurrency $currency, float $tf2PriceInCurrency): int
+    {
+        // A folga absorve o erro de float de um valor exato como 2,61 virar 260,9999…
+        return (int) floor($this->exactPriceIn($currency, $tf2PriceInCurrency) * 100 + 1e-9);
     }
 
     /**

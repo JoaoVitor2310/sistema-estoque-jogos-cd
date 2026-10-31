@@ -135,6 +135,10 @@ _Avoid_: oferta (isoladamente — na Gamivo, "offer" é o anúncio de venda de u
 O máximo que se oferta por um jogo: o maior custo em que a key comprada ainda nasce dentro da margem inicial do min_api. Nenhuma oferta ao supplier passa dela. É limite de segurança, não fim de negociação.
 _Avoid_: teto (é o termo do `max_api`), limite.
 
+**Contraproposta**:
+Uma rodada de oferta depois da primeira, provocada pelo supplier pedindo mais. O Estoque decide o valor: cede um degrau de lucro por rodada, nunca abaixo do que o supplier já leu. Não é o pedido do supplier — esse é o `requested_total` da rodada.
+_Avoid_: contra-oferta, renegociação (é o processo inteiro, não uma rodada).
+
 **Oferta final**:
 A última rodada de uma negociação com o supplier — a 3ª oferta (a inicial e duas contrapropostas). É final pela rodada, não pelo valor: não ser a oferta máxima é o que impede o supplier de aprender onde ela fica.
 _Avoid_: oferta máxima (é outra coisa: o limite de cada jogo), última oferta.

@@ -30,4 +30,24 @@ describe('SupplierOfferLine', function () {
         expect(fn () => new SupplierOfferLine(0.0, 2.0))->toThrow(InvalidArgumentException::class)
             ->and(fn () => new SupplierOfferLine(2.5, 2.0))->toThrow(InvalidArgumentException::class);
     });
+
+    it('converts the exact offer into the currency without rounding', function () {
+        expect((new SupplierOfferLine(1.2349, 2.0))->exactPriceIn(TradeCurrency::Eur, 10.0))->toEqualWithDelta(12.349, 1e-9)
+            ->and((new SupplierOfferLine(1.2349, 2.0))->exactPriceIn(TradeCurrency::Tf2, TradeCurrency::TF2_UNIT_PRICE))->toBe(1.2349);
+    });
+
+    it('rounds the price the supplier reads to the nearest cent, but the counter-offer limit down', function () {
+        // 2,615 TF2: lido como 2,62; como limite, 261 centavos — nunca acima da oferta exata
+        $line = new SupplierOfferLine(2.615, 3.0);
+
+        expect($line->priceIn(TradeCurrency::Tf2, TradeCurrency::TF2_UNIT_PRICE))->toBe(2.62)
+            ->and($line->limitCentsIn(TradeCurrency::Tf2, TradeCurrency::TF2_UNIT_PRICE))->toBe(261)
+            // 1,2349 × 10 € = 12,349 € → limite de 1234 centavos
+            ->and((new SupplierOfferLine(1.2349, 2.0))->limitCentsIn(TradeCurrency::Eur, 10.0))->toBe(1234);
+    });
+
+    it('does not lose a cent to float error when the exact value is a whole cent', function () {
+        // 2,61 em float é 2,6099999…; o limite tem de ser 261, não 260
+        expect((new SupplierOfferLine(2.61, 3.0))->limitCentsIn(TradeCurrency::Tf2, TradeCurrency::TF2_UNIT_PRICE))->toBe(261);
+    });
 });

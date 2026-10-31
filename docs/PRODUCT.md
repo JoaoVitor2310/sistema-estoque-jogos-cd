@@ -106,7 +106,18 @@ Lucro maior é oferta menor: a oferta de um jogo é `renda líquida / (1 + lucro
 | Valor lido | Arredondado a 2 casas, nunca abaixo de 0,01 (em TF2 ou em dinheiro). O jogo cuja oferta máxima não comporta nem 0,01 fica fora |
 | Moeda | A que o supplier escolheu (`tf2`, `eur`, `usd`; sem escolha, `tf2`). **Sem cotação da TF2 nessa moeda, a trade nasce em TF2** (`TradeCurrency::orTf2WithoutPrice`) — ao contrário da prospecção, que falha: aqui o supplier já está na Steam e aceita ao menos uma moeda. Sem a cotação da TF2 **em euro**, de onde toda oferta parte, não há trade (503) |
 | Nada a ofertar | Supplier bloqueado, ou nenhum jogo ofertável: **nada é gravado** — nem trade, nem linhas, nem o supplier novo — e a resposta é `created: false` |
-| Rodadas | No máximo 3 ofertas por trade (a inicial e duas contrapropostas, `SupplierOffer::MAX_ROUNDS`); a 3ª é a **final**, pelo número da rodada e não pelo valor. A primeira oferta é a rodada 1 |
+| Rodadas | No máximo 3 ofertas por trade (a inicial e duas contrapropostas, `SupplierOffer::MAX_ROUNDS`); a 3ª é a **final**, pelo número da rodada e não pelo valor |
+
+**Contraproposta** (`POST /api/trades/{uuid}/offers` → `RequestCounterOfferUseCase`): o supplier pede mais — um total, na moeda da trade — e o Estoque decide a próxima rodada.
+
+| Regra | Como funciona |
+|---|---|
+| Lucro-alvo da rodada | O da primeira oferta, **menos 10 pontos** por contraproposta (`SupplierOffer::ROUND_PROFIT_STEP`): Normal 70 → 60 → 50%, VIP 80 → 70 → 60%, Varejo 60 → 50 → 40%. Vem da primeira oferta, não da categoria atual |
+| Limite de cada jogo | O valor no lucro-alvo, nunca acima da oferta máxima — e **nunca abaixo do que o supplier já leu**: se a cotação mudou e a oferta máxima caiu, o jogo mantém o valor vigente (`CounterOffer::limits`). O limite é arredondado **para baixo** ao centavo (`SupplierOfferLine::limitCentsIn`), para não passar da oferta máxima; o valor lido de uma oferta é arredondado ao centavo mais próximo (`priceIn`) |
+| Pedido que cabe | A oferta é **exatamente o pedido**: cada jogo sobe na mesma proporção, quem chega ao limite para nele e o resto é repartido entre os outros; os centavos fecham no total (`CounterOffer::prices`) |
+| Pedido que passa | Cada jogo no seu limite — o máximo **desta rodada**, não a oferta máxima. Pedir muito não leva direto ao fim |
+| Recusas (nada é gravado) | Rodada final já feita, nenhum jogo pode subir, trade entregue ou importada, trade sem oferta: `409` com o motivo. Pedido que não passa da oferta vigente: `422` — aceitar é pela página da entrega |
+| O que a rodada grava | O lucro-alvo dela (`profit_percent`), o pedido (`requested_total`) e o valor de cada jogo; o nome e a região são os da oferta anterior |
 
 ### Jogo encalhado é sinalizado na trade
 

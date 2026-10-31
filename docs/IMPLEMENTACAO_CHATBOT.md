@@ -52,6 +52,10 @@ Do mais comum para o mais raro:
 | D14 | `initial_offer_pct` | **Removido** (PR 0). O percentual vem só da categoria | Nenhum código o lia, e mantê-lo deixaria duas fontes para o mesmo número |
 | D15 | O que a oferta grava | **Só o que não se recalcula:** por jogo, o valor lido (`price`); na oferta, a rodada, a moeda, o lucro, a cotação da TF2 (`tf2_rate`) e o pedido do Supplier. Final e total são calculados | A oferta é por jogo; o total é soma e o "final" é a rodada. Guardar o que se calcula só abre espaço para os dois divergirem |
 | D16 | Autenticação dos serviços | **Um segredo só** (`EXTERNAL_SECRET`) para o price-cd e o chatbot, conferido pelo `VerifySecret` | Os três sistemas rodam na mesma VPS, sob o mesmo dono. Custo aceito: um vazamento em qualquer um abre as rotas de todos, e revogar exige trocar o segredo nos três — o que pesa mais a partir do PR 4, quando a API devolver o código da entrega |
+| D17 | Quanto o Estoque cede por rodada (era R4.6) | Lucro-alvo **10 pontos** abaixo a cada contraproposta (`SupplierOffer::ROUND_PROFIT_STEP`), a partir do lucro da primeira oferta. A oferta da rodada é o menor entre o pedido e o valor no lucro-alvo, por jogo, nunca acima da oferta máxima | Pedir muito não leva direto à oferta máxima: o supplier não aprende onde ela fica |
+| D18 | Nada a ceder antes da rodada 3 (era R4.7) | `409 nothing_to_concede`, sem gravar | Não grava uma rodada idêntica à anterior |
+| D19 | Cotação mudou entre rodadas (era R4.2) | Nenhum jogo fica **abaixo** do que o supplier já leu: o que teve a oferta máxima reduzida mantém o valor vigente | O supplier nunca vê um jogo cair numa contraproposta |
+| D20 | Pedido da contraproposta | **Um total**, distribuído entre os jogos na mesma proporção da oferta vigente (`CounterOffer::prices`), e não um valor por jogo | Considerado em 2026-10-30 e mantido como está: o chatbot repassa o total que o supplier pede. Consequência aceita: um pedido sobre um jogo só vira aumento proporcional em todos, e um pedido pequeno também consome uma rodada |
 
 ### Categorias de Supplier e percentual inicial (D9)
 
@@ -113,13 +117,10 @@ O canal da Trade do chatbot é `supplier_trade`, então a margem de compra diret
 
 **Arredondamento.** Cada linha é arredondada a 2 casas (`OfferCalculator::MONEY_DECIMALS`), nunca abaixo de `MIN_CASH_OFFER`. Os centavos que sobram ou faltam para o total bater vão para as linhas com maior folga até a oferta máxima. O total da oferta é sempre a soma das linhas já arredondadas, como na prospecção.
 
-### Pontos a definir
+### Pontos de produto (seguem a recomendação, sem código próprio)
 
 | # | Pergunta | Recomendação |
 |---|---|---|
-| R4.6 | **Quanto o Estoque cede em cada rodada.** Com só "oferta exatamente o pedido, ou a máxima se passar", o Supplier que pede muito recebe a oferta máxima já na rodada 2 — e aprende onde ela fica | Cada rodada tem um **lucro-alvo**, que desce um degrau fixo a partir do lucro da categoria (constante no Domain; ex.: 10 pontos). A oferta da rodada é **o menor** entre o pedido e o valor no lucro-alvo da rodada, com cada linha limitada à oferta máxima. Com 10 pontos: VIP 80 → 70 → 60%, Normal 70 → 60 → 50%, Varejo 60 → 50 → 40% (o que ficar abaixo da margem do `min_api` para na oferta máxima). **Os degraus são decisão do negócio** |
-| R4.7 | **Não há o que ceder antes da rodada 3.** Ex.: Varejo com jogos baratos chega à oferta máxima na rodada 2 | Responder que a oferta vigente já é a melhor (`409`, como a final), sem gravar uma rodada igual à anterior |
-| R4.2 | **A cotação mudou entre as rodadas.** As ofertas máximas são recalculadas com a cotação do momento, e podem ficar abaixo de uma linha já ofertada | A nova oferta nunca fica **abaixo** da vigente, linha a linha: a linha cuja oferta máxima caiu mantém o valor vigente |
 | R4.3 | **O Supplier quer vender só parte da lista.** Ex.: aceita 3 dos 5 jogos pelo valor ofertado | Fora do escopo da primeira versão: ele aceita a oferta e entrega só as linhas que quiser pela página da entrega, onde linha em branco já é resposta legítima (ADR 0008) |
 | R4.4 | **Pedido em outra moeda.** A Trade está em TF2 e o Supplier pede em euro | O chatbot repassa só na moeda da Trade; converter é decidir valor. Se a moeda precisar mudar, é outra Trade |
 | R4.5 | **O Supplier aceita uma oferta antiga.** Ex.: aceita a primeira, depois de duas rodadas | Vale sempre a vigente: o chatbot só mostra a vigente, e a página da entrega registra o `amount` que ele informar |
@@ -194,16 +195,21 @@ Corpo: o mesmo do callback atual (`supplier_steam_id`, `list_code`, `title`, `ga
 
 ### 4. `POST /api/trades/{uuid}/offers` — pedir nova oferta (chatbot)
 
+> **Implementado no PR 5.** Contrato vivo em [`CHATBOT.md`](CHATBOT.md) e regras em [`PRODUCT.md`](PRODUCT.md#oferta-ao-supplier). Diferenças: "nada a ceder" tem motivo próprio (`nothing_to_concede`, D18), trade sem oferta responde `409 no_offer`, e o pedido que não passa da vigente responde `422 { "reason": "not_an_increase" }`.
+
 Corpo: `{ "requested_total": 5.0 }`, na moeda da Trade. Regras em "Renegociação".
 
 | Resultado | Resposta |
 |---|---|
 | Nova oferta gravada | `201`, com a Trade no formato da rota 2 |
-| A oferta vigente já é final (rodada 3), ou não há o que ceder (R4.7) | `409 { "reason": "offer_is_final" }`, sem gravar nada |
+| A oferta vigente já é final (rodada 3) | `409 { "reason": "offer_is_final" }`, sem gravar nada |
+| Não há o que ceder (D18) | `409 { "reason": "nothing_to_concede" }`, sem gravar nada |
 | Trade fora de `negotiating` | `409 { "reason": "trade_not_negotiating" }` |
 | Pedido menor ou igual à oferta vigente (ou abaixo do aumento mínimo, se R4.1 for adotado) | `422` |
 
 ### 5. `POST /api/trades/{uuid}/message-sent` — marcar mensagem enviada (chatbot)
+
+> **Implementado no PR 5.** Contrato em [`CHATBOT.md`](CHATBOT.md).
 
 Marca o `message_sent` que a aba já tem. O ADR 0008 diz que ele é "marcado por quem mandou", e quem manda passa a ser o chatbot. Opcional; resposta `204`.
 
@@ -238,8 +244,8 @@ Essa decisão está no [ADR 0015](adr/0015-chatbot-reads-the-delivery-credential
 | 1 | Renomear `delivery_uuid` para `uuid` (D1): coluna, rota da entrega, model, `DeliveryCredential`, testes e docs, incluindo os ADRs 0008 e 0011 | nada | feito (#118) |
 | 2 | Oferta no backend (D6, D7, D10): tabelas `trade_offers` e `trade_offer_lines`, oferta máxima pública em `MinimumMarginPolicy` (`maxInitialCost`), cálculo da primeira oferta no Domain, peça compartilhada com a prospecção, ADR 0016 | 0 | feito (#119) |
 | 3 | `POST /api/trades` com filtro, moeda com fallback, primeira oferta e resposta `created: false` (D2, D3, D4, D11, D13); `routes/api.php` | 1, 2 | feito (#120) |
-| 4 | Leituras (rotas 2 e 3) com o código da entrega + ADR 0015 (D5) | 3 | em revisão |
-| 5 | Renegociação (rota 4, D12 com os pontos R4.x fechados — o R4.6 decide os degraus) e mensagem enviada (rota 5) | 4 | a fazer |
+| 4 | Leituras (rotas 2 e 3) com o código da entrega + ADR 0015 (D5) | 3 | feito (#121) |
+| 5 | Renegociação (rota 4, D12, D17–D19) e mensagem enviada (rota 5) | 4 | em revisão |
 | 6 | Aba Trades mostra a oferta enviada e o histórico de rodadas | 2 | a fazer |
 
 O PR 3 destrava o webhook do price-cd: é ele que devolve o `uuid` que o price-cd repassa ao chatbot.
