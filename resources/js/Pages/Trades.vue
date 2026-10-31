@@ -80,6 +80,23 @@ interface Trade {
   // passaram pelo backfill da migração.
   delivery_url: string | null;
   delivery_token: string | null;
+  // Rodada da oferta vigente ao supplier (integração com o chatbot); nula sem oferta.
+  // Os valores vêm com as linhas, ao abrir o card.
+  offer_round: number | null;
+  offer_is_final: boolean;
+}
+
+// Uma rodada da oferta ao supplier, como `trades.lines.index` a devolve. Registro
+// imutável: a rodada seguinte é outra entrada (docs/adr/0016).
+interface OfferRound {
+  round: number;
+  is_final: boolean;
+  profit_percent: number;
+  currency: TradeCurrency;
+  requested_total: number | null;
+  total_price: number;
+  created_at: string | null;
+  lines: { trade_line_id: number | null; game_name: string; price: number }[];
 }
 
 interface PaginatorPayload<T> {
@@ -211,6 +228,10 @@ interface TradeEntry {
   supplierNotes: string | null;
   deliveryUrl: string | null;
   deliveryToken: string | null;
+  offerRound: number | null;
+  offerIsFinal: boolean;
+  // As rodadas da oferta, buscadas junto com as linhas; vazio até abrir.
+  offers: OfferRound[];
   // Toda trade nasce colapsada e sem linhas; abrir busca as linhas uma vez e
   // guarda. Não persiste (F5 volta a colapsado).
   expanded: boolean;
@@ -410,6 +431,9 @@ function toTradeEntry(t: Trade): TradeEntry {
     supplierNotes: t.supplier_notes ?? null,
     deliveryUrl: t.delivery_url ?? null,
     deliveryToken: t.delivery_token ?? null,
+    offerRound: t.offer_round ?? null,
+    offerIsFinal: t.offer_is_final ?? false,
+    offers: [],
     expanded: false,
     importing: false,
     copiedKey: null,
@@ -1236,6 +1260,7 @@ async function ensureLines(trade: TradeEntry) {
   try {
     const res = await axiosInstance.get(route('trades.lines.index', { trade: trade.id }));
     trade.rows = (res.data.lines as TradeLine[]).map(toRow);
+    trade.offers = (res.data.offers as OfferRound[] | undefined) ?? [];
     trade.linesCount = trade.rows.length;
     trade.linesLoaded = true;
     applyRowSort(trade);
@@ -1304,6 +1329,47 @@ const DELIVERY_BADGES: Record<Trade['delivery_state'], { label: string; css: str
 
 function deliveryBadge(trade: TradeEntry) {
   return DELIVERY_BADGES[trade.deliveryState];
+}
+
+// ─── Oferta ao supplier ──────────────────────────────────────────────────────
+// Só leitura: quem decide e grava a oferta é o servidor (docs/adr/0016). A tela
+// mostra a vigente — a de rodada mais alta — e o histórico.
+
+function currentOffer(trade: TradeEntry): OfferRound | null {
+  return trade.offers.length ? trade.offers[trade.offers.length - 1] : null;
+}
+
+/** O valor enviado ao supplier por este jogo na oferta vigente; nulo se ficou fora dela. */
+function offeredPrice(trade: TradeEntry, row: Row): number | null {
+  return currentOffer(trade)?.lines.find(line => line.trade_line_id === row.id)?.price ?? null;
+}
+
+function offerBadge(trade: TradeEntry): string | null {
+  if (trade.offerRound === null) return null;
+  return trade.offerIsFinal ? `Oferta ${trade.offerRound} · final` : `Oferta ${trade.offerRound}`;
+}
+
+function currencyLabel(currency: TradeCurrency): string {
+  return TRADE_CURRENCY_OPTIONS.find(option => option.value === currency)?.label ?? currency;
+}
+
+// Vírgula decimal, como formatEur/formatTf2: a oferta fica na mesma tabela.
+function formatOfferPrice(value: number): string {
+  return value.toFixed(2).replace('.', ',');
+}
+
+/**
+ * Jogos da oferta vigente que não têm mais linha na trade — a equipe apagou a
+ * linha depois de ofertar. Somam no total enviado, mas nenhuma linha da tabela
+ * os mostra; sem esta lista a coluna não fecharia com o rodapé.
+ */
+function orphanOfferLines(trade: TradeEntry): OfferRound['lines'] {
+  const rowIds = new Set(trade.rows.map(row => row.id));
+  return currentOffer(trade)?.lines.filter(line => line.trade_line_id === null || !rowIds.has(line.trade_line_id)) ?? [];
+}
+
+function formatOfferDate(iso: string | null): string {
+  return iso ? new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
 }
 
 /** Quando o supplier apertou entregar — o primeiro clique, não o último save. */
@@ -1645,6 +1711,14 @@ function formatDeliveredAt(iso: string): string {
               <i class="pi pi-check-circle me-1" />Importada
             </span>
             <span
+              v-if="offerBadge(trade)"
+              class="badge"
+              :class="trade.offerIsFinal ? 'bg-dark' : 'bg-info text-dark'"
+              title="Rodada da oferta enviada ao supplier pelo chatbot. Os valores aparecem ao abrir a trade."
+            >
+              <i class="pi pi-comments me-1" />{{ offerBadge(trade) }}
+            </span>
+            <span
               v-if="deliveryBadge(trade)"
               class="badge"
               :class="deliveryBadge(trade)!.css"
@@ -1805,6 +1879,14 @@ function formatDeliveredAt(iso: string): string {
                     Income líq. <span class="text-muted fw-normal">(€)</span>
                     <i :class="sortIcon('netIncome')" class="sort-icon" />
                   </th>
+                  <th
+                    v-if="currentOffer(trade)"
+                    class="text-end"
+                    style="min-width: 100px;"
+                    title="O que foi oferecido ao supplier por este jogo na oferta vigente. Vazio: o jogo ficou fora da oferta."
+                  >
+                    Oferta enviada <span class="text-muted fw-normal">({{ currencyLabel(currentOffer(trade)!.currency) }})</span>
+                  </th>
 
                   <th
                     v-for="tier in profitTiers"
@@ -1933,6 +2015,10 @@ function formatDeliveredAt(iso: string): string {
                   <td class="text-end text-muted small">
                     {{ formatEur(getNetIncome(row)) }}
                   </td>
+                  <td v-if="currentOffer(trade)" class="text-end small fw-semibold">
+                    <template v-if="offeredPrice(trade, row) !== null">{{ formatOfferPrice(offeredPrice(trade, row)!) }}</template>
+                    <span v-else class="text-muted">—</span>
+                  </td>
 
                   <td
                     v-for="tier in profitTiers"
@@ -2011,6 +2097,9 @@ function formatDeliveredAt(iso: string): string {
                 <tr>
                   <td colspan="8" class="text-end text-muted small fw-semibold pe-3">Total</td>
                   <td class="text-end fw-bold small">{{ formatEur(getNetIncomeTotal(trade)) }}</td>
+                  <td v-if="currentOffer(trade)" class="text-end fw-bold small">
+                    {{ formatOfferPrice(currentOffer(trade)!.total_price) }}
+                  </td>
 
                   <td
                     v-for="tier in profitTiers"
@@ -2030,6 +2119,50 @@ function formatDeliveredAt(iso: string): string {
                   <td></td>
                 </tr>
               </tfoot>
+            </table>
+          </div>
+
+          <!-- Valor enviado por jogo que não está mais na trade: soma no total do rodapé. -->
+          <div v-if="orphanOfferLines(trade).length" class="px-3 py-2 border-top small text-muted">
+            <i class="pi pi-info-circle me-1" />
+            O total da oferta enviada inclui
+            {{ orphanOfferLines(trade).length === 1 ? 'um jogo que não está mais' : `${orphanOfferLines(trade).length} jogos que não estão mais` }}
+            na trade:
+            <span v-for="(line, i) in orphanOfferLines(trade)" :key="i">
+              {{ line.game_name }} ({{ formatOfferPrice(line.price) }}){{ i < orphanOfferLines(trade).length - 1 ? ', ' : '' }}
+            </span>
+          </div>
+
+          <!-- Histórico da oferta ao supplier: uma linha por rodada, a vigente por último. -->
+          <div v-if="trade.offers.length" class="px-3 py-2 border-top">
+            <div class="small fw-semibold text-muted mb-1">
+              <i class="pi pi-comments me-1" />Ofertas enviadas ao supplier
+            </div>
+            <table class="table table-sm mb-0">
+              <thead>
+                <tr>
+                  <th>Rodada</th>
+                  <th>Enviada em</th>
+                  <th class="text-end">Lucro-alvo</th>
+                  <th class="text-end">Pedido do supplier</th>
+                  <th class="text-end">Total ofertado</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="offer in trade.offers" :key="offer.round">
+                  <td>
+                    {{ offer.round }}
+                    <span v-if="offer.is_final" class="badge bg-dark ms-1">final</span>
+                  </td>
+                  <td>{{ formatOfferDate(offer.created_at) }}</td>
+                  <td class="text-end">{{ offer.profit_percent }}%</td>
+                  <td class="text-end">
+                    <template v-if="offer.requested_total !== null">{{ formatOfferPrice(offer.requested_total) }} {{ currencyLabel(offer.currency) }}</template>
+                    <span v-else class="text-muted">—</span>
+                  </td>
+                  <td class="text-end fw-semibold">{{ formatOfferPrice(offer.total_price) }} {{ currencyLabel(offer.currency) }}</td>
+                </tr>
+              </tbody>
             </table>
           </div>
         </div>

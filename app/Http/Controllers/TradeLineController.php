@@ -42,7 +42,12 @@ class TradeLineController extends Controller
      */
     public function index(Trade $trade): JsonResponse
     {
-        return response()->json(['lines' => $this->tradeService->linesFor($trade)], 200);
+        return response()->json([
+            'lines' => $this->tradeService->linesFor($trade),
+            // As rodadas da oferta ao supplier, se houver: a tela mostra o valor
+            // enviado em cada jogo e o histórico das rodadas.
+            'offers' => $this->tradeService->offersFor($trade),
+        ], 200);
     }
 
     public function store(TradeLineRequest $request, Trade $trade): JsonResponse

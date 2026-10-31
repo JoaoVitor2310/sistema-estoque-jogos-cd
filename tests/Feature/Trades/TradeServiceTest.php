@@ -17,7 +17,9 @@
 |
 */
 
+use App\Domain\Enums\TradeCurrency;
 use App\Models\Trade;
+use App\Models\TradeOffer;
 use App\Services\Trades\TradeService;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\TradeFactory;
@@ -384,5 +386,86 @@ describe('TradeService::paginate — pagination', function () {
         expect($page->total())->toBe(25);
         expect($page->perPage())->toBe(10);
         expect(count($page->items()))->toBe(10);
+    });
+});
+
+/** Grava uma rodada da oferta direto, com o valor de cada linha da trade. */
+function recordOfferRound(Trade $trade, int $round, array $prices, ?float $requested = null): TradeOffer
+{
+    $offer = TradeOffer::create([
+        'trade_id' => $trade->id, 'round' => $round, 'profit_percent' => 80 - 10 * $round,
+        'currency' => TradeCurrency::Eur, 'tf2_rate' => 0.95, 'requested_total' => $requested,
+    ]);
+
+    foreach ($trade->lines as $i => $line) {
+        if (array_key_exists($i, $prices)) {
+            $offer->lines()->create(['trade_line_id' => $line->id, 'game_name' => $line->game_name, 'region' => $line->region, 'price' => $prices[$i]]);
+        }
+    }
+
+    return $offer;
+}
+
+describe('TradeService — supplier offer', function () {
+
+    it('tells the listing the round of the current offer, without loading its values', function () {
+        $offered = TradeFactory::withLines(['Portal', 'Quake'], ['date' => '2025-06-01']);
+        recordOfferRound($offered, 1, [0 => 2.00, 1 => 3.00]);
+        recordOfferRound($offered, 2, [0 => 2.20, 1 => 3.30], requested: 6.00);
+        TradeFactory::withLines(['Half-Life'], ['date' => '2025-06-02']);
+
+        $items = collect(app(TradeService::class)->paginate()->items())->keyBy('id');
+
+        expect($items[$offered->id]['offer_round'])->toBe(2)
+            ->and($items[$offered->id]['offer_is_final'])->toBeFalse()
+            ->and($items->first(fn ($item) => $item['id'] !== $offered->id)['offer_round'])->toBeNull();
+    });
+
+    it('marks the third round as final in the listing', function () {
+        $trade = TradeFactory::withLines(['Portal'], ['date' => '2025-06-01']);
+        foreach ([1, 2, 3] as $round) {
+            recordOfferRound($trade, $round, [0 => 1.00 + $round]);
+        }
+
+        expect(app(TradeService::class)->paginate()->items()[0]['offer_is_final'])->toBeTrue();
+    });
+
+    it('presents every round, oldest first, with the value of each line', function () {
+        $trade = TradeFactory::withLines(['Portal', 'Quake', 'Doom'], ['date' => '2025-06-01']);
+        recordOfferRound($trade, 1, [0 => 2.00, 1 => 3.00]);
+        recordOfferRound($trade, 2, [0 => 2.20, 1 => 3.30], requested: 6.00);
+
+        $offers = app(TradeService::class)->offersFor($trade);
+        $lineIds = $trade->lines->pluck('id')->all();
+
+        expect(array_column($offers, 'round'))->toBe([1, 2])
+            ->and($offers[1])->toMatchArray([
+                'is_final' => false,
+                'profit_percent' => 60.0,
+                'currency' => 'eur',
+                'requested_total' => 6.0,
+                'total_price' => 5.5,
+            ])
+            // Doom ficou fora da oferta: não tem valor
+            ->and($offers[1]['lines'])->toBe([
+                ['trade_line_id' => $lineIds[0], 'game_name' => 'Portal', 'price' => 2.2],
+                ['trade_line_id' => $lineIds[1], 'game_name' => 'Quake', 'price' => 3.3],
+            ]);
+    });
+
+    it('keeps the value of a line deleted after the offer, with its name', function () {
+        $trade = TradeFactory::withLines(['Portal', 'Quake'], ['date' => '2025-06-01']);
+        recordOfferRound($trade, 1, [0 => 2.00, 1 => 3.00]);
+        DB::table('trade_lines')->where('id', $trade->lines[1]->id)->delete();
+
+        $offer = app(TradeService::class)->offersFor($trade)[0];
+
+        // Soma no total, e a tela sabe o nome para dizer de onde veio
+        expect($offer['total_price'])->toBe(5.0)
+            ->and($offer['lines'][1])->toBe(['trade_line_id' => null, 'game_name' => 'Quake', 'price' => 3.0]);
+    });
+
+    it('presents no rounds for a trade without an offer', function () {
+        expect(app(TradeService::class)->offersFor(TradeFactory::withLines(['Portal'])))->toBe([]);
     });
 });

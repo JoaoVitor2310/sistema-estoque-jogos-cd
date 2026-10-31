@@ -69,7 +69,7 @@ O token fica **encriptado** (cast `encrypted` em `Trade`), não em hash, porque 
 
 Rota de máquina é autenticada por Bearer conferido pelo `VerifySecret`: **um segredo só** (`EXTERNAL_SECRET` → `services.external_secret`) para todo serviço que chama o Estoque — o price_researcher e, com a integração, o chatbot —, e o mesmo que mandamos ao price_researcher. Decisão consciente: os três sistemas rodam na mesma VPS, sob o mesmo dono. O custo é que um vazamento em qualquer um abre as rotas de todos, e revogar exige trocar o segredo nos três ao mesmo tempo. Segredo não configurado recusa tudo (`401`). As rotas novas de máquina ficam em `routes/api.php`, sem sessão nem cookie. Guarda em `tests/Feature/Api/TradesApiTest.php`.
 
-Hoje essas rotas respondem pela internet, como o resto do site: o que as protege é o segredo. Restringir `/api/*` à rede Docker no nginx é decisão do plano da integração com o chatbot ([`docs/IMPLEMENTACAO_CHATBOT.md`](../IMPLEMENTACAO_CHATBOT.md)), porque depende da URL pela qual o price-researcher chama o Estoque.
+Hoje essas rotas respondem pela internet, como o resto do site: o que as protege é o segredo. Restringir `/api/*` à rede Docker no nginx está pendente em [`docs/IMPROVEMENTS.md`](../IMPROVEMENTS.md), porque depende da URL pela qual o price-researcher chama o Estoque.
 
 ## A API devolve o código da entrega — só trade a trade
 
