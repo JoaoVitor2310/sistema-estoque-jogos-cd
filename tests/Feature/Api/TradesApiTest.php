@@ -90,6 +90,8 @@ describe('POST /api/trades — responses', function () {
 
         // Sem cotação em dólar a trade nasce em TF2, e a resposta diz isso
         expect($response->json('currency'))->toBe('tf2')
+            // Mesma forma de data das leituras da API: ISO 8601 com o fuso do ambiente
+            ->and($response->json('created_at'))->toMatch('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/')
             ->and(Trade::where('uuid', $response->json('uuid'))->exists())->toBeTrue();
     });
 

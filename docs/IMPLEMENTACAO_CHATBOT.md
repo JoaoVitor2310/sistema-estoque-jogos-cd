@@ -171,6 +171,8 @@ Corpo: o mesmo do callback atual (`supplier_steam_id`, `list_code`, `title`, `ga
 
 ### 2. `GET /api/trades/{uuid}` — ler a Trade com a oferta vigente (chatbot)
 
+> **Implementado no PR 4.** Contrato vivo em [`CHATBOT.md`](CHATBOT.md), que vale sobre esta proposta. Diferenças: a oferta traz também `round`; a lista vem em `{ "trades": [...] }`, com `games_count` e `total_price`; caminho desconhecido em `/api` responde `404` em JSON.
+
 | Campo | Observação |
 |---|---|
 | `uuid`, `created_at`, `currency` | |
@@ -226,7 +228,7 @@ Hoje só a equipe logada vê o código da entrega. Com D5, **quem tiver o `EXTER
 - O segredo é o mesmo de todos os serviços (D16): vazou em qualquer sistema, troca-se nos três.
 - Restringir `/api/*` à rede Docker no nginx (R8, em "Autenticação").
 
-Essa decisão entra como **ADR 0015** ("o chatbot lê a credencial de entrega pela API"), referenciando o 0008. A guarda das ofertas como registro imutável (D7) entra como **ADR 0016**.
+Essa decisão está no [ADR 0015](adr/0015-chatbot-reads-the-delivery-credential-through-the-api.md), que referencia o 0008. A guarda das ofertas como registro imutável (D7) entra como **ADR 0016**.
 
 ## PRs
 
@@ -235,8 +237,8 @@ Essa decisão entra como **ADR 0015** ("o chatbot lê a credencial de entrega pe
 | 0 | Categoria **Varejo** (`retail`) no `SupplierCategory`, no seletor da aba de Suppliers e no `CONTEXT.md`; percentual inicial por categoria (D9) no Domain; remoção do `initial_offer_pct` (D14) | nada | feito (#117) |
 | 1 | Renomear `delivery_uuid` para `uuid` (D1): coluna, rota da entrega, model, `DeliveryCredential`, testes e docs, incluindo os ADRs 0008 e 0011 | nada | feito (#118) |
 | 2 | Oferta no backend (D6, D7, D10): tabelas `trade_offers` e `trade_offer_lines`, oferta máxima pública em `MinimumMarginPolicy` (`maxInitialCost`), cálculo da primeira oferta no Domain, peça compartilhada com a prospecção, ADR 0016 | 0 | feito (#119) |
-| 3 | `POST /api/trades` com filtro, moeda com fallback, primeira oferta e resposta `created: false` (D2, D3, D4, D11, D13); `routes/api.php` | 1, 2 | em revisão |
-| 4 | Leituras (rotas 2 e 3) com o código da entrega + ADR 0015 (D5) | 3 | a fazer |
+| 3 | `POST /api/trades` com filtro, moeda com fallback, primeira oferta e resposta `created: false` (D2, D3, D4, D11, D13); `routes/api.php` | 1, 2 | feito (#120) |
+| 4 | Leituras (rotas 2 e 3) com o código da entrega + ADR 0015 (D5) | 3 | em revisão |
 | 5 | Renegociação (rota 4, D12 com os pontos R4.x fechados — o R4.6 decide os degraus) e mensagem enviada (rota 5) | 4 | a fazer |
 | 6 | Aba Trades mostra a oferta enviada e o histórico de rodadas | 2 | a fazer |
 

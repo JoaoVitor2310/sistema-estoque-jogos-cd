@@ -6,6 +6,7 @@ use App\Domain\Enums\PurchaseChannel;
 use App\Domain\Enums\TradeCurrency;
 use App\Domain\Enums\TradeDeliveryState;
 use Illuminate\Contracts\Encryption\DecryptException;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -105,6 +106,16 @@ class Trade extends Model
     public function lines(): HasMany
     {
         return $this->hasMany(TradeLine::class)->orderBy('position');
+    }
+
+    /**
+     * Trades em negociação: o supplier ainda não entregou, e as keys não foram
+     * importadas. É [[TradeDeliveryState::Negotiating]] na forma de consulta —
+     * mudou lá, muda aqui.
+     */
+    public function scopeNegotiating(Builder $query): Builder
+    {
+        return $query->whereNull('delivered_at')->where('is_imported', false);
     }
 
     /** Toda oferta feita nesta trade, da primeira rodada à vigente. */

@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\Suppliers\SteamId;
 use App\Http\Controllers\Api\TradeController;
 use App\Http\Middleware\VerifySecret;
 use Illuminate\Support\Facades\Route;
@@ -21,3 +22,22 @@ use Illuminate\Support\Facades\Route;
 Route::post('/trades', [TradeController::class, 'store'])
     ->name('api.trades.store')
     ->middleware(VerifySecret::class);
+
+// Leituras do chatbot. Trade pelo uuid, nunca pelo id sequencial; uuid ou
+// SteamID64 malformado é recusado no roteador (404), sem chegar ao banco.
+Route::middleware(VerifySecret::class)->group(function () {
+    Route::get('/trades/{uuid}', [TradeController::class, 'show'])
+        ->whereUuid('uuid')
+        ->name('api.trades.show');
+
+    Route::get('/suppliers/{steamId}/trades', [TradeController::class, 'negotiatingForSupplier'])
+        ->where('steamId', SteamId::ROUTE_PATTERN)
+        ->name('api.suppliers.trades');
+});
+
+// O que sobra em /api é 404 em JSON. Sem isto o `Route::fallback` global
+// redireciona para /keys: um consumidor de máquina receberia uma página de
+// login, e um uuid malformado viraria um 302 em vez de "não encontrado".
+Route::any('{path}', fn () => response()->json(['message' => 'Not found.'], 404))
+    ->where('path', '.*')
+    ->name('api.not-found');

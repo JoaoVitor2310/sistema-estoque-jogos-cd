@@ -250,7 +250,7 @@ Endpoint **do sistema-estoque** para a precificação que veio do **chatbot**: c
 
 | Resposta | Quando |
 |---|---|
-| `201 { "uuid", "created_at", "currency" }` | Trade criada. `currency` é a **efetiva** — `tf2` se não havia cotação na pedida. O `uuid` é o que o price-researcher repassa ao chatbot |
+| `201 { "uuid", "created_at", "currency" }` | Trade criada. `created_at` em ISO 8601 com o fuso da aplicação (`APP_TIMEZONE`; ex.: `2026-10-29T22:38:22-03:00`), como nas leituras de [`CHATBOT.md`](CHATBOT.md). `currency` é a **efetiva** — `tf2` se não havia cotação na pedida. O `uuid` é o que o price-researcher repassa ao chatbot |
 | `200 { "created": false }` | Nada a ofertar (supplier bloqueado, ou nenhum jogo ofertável). Não é erro, e nada é gravado. O motivo não vai na resposta |
 | `422` | Corpo inválido |
 | `401` | Sem token, ou token errado |

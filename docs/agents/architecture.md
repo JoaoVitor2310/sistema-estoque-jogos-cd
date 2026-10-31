@@ -213,6 +213,7 @@ app/
 │   ├── Trades/
 │   │   ├── TradeService.php             # paginate() com filtros/sort/paginação; is_stocked scoped-to-page
 │   │   ├── OverstockService.php         # estoque encalhado: marca das linhas + lista da aba
+│   │   ├── TradeApiReadModel.php        # leituras da API: trade pelo uuid e abertas do supplier, colunas escolhidas à mão
 │   │   ├── TradeLineFlagsService.php    # ponto único das marcas de linha (encalhe + giveaway)
 │   │   └── TradeOfferService.php        # grava a oferta ao supplier (registro imutável, ADR 0016)
 │   ├── Financial/
@@ -240,7 +241,8 @@ app/
 │   │   ├── AssetController.php
 │   │   ├── FeeController.php
 │   │   ├── TradeController.php
-│   │   └── Api/TradeController.php     # routes/api.php — POST /api/trades (price_researcher), sem sessão
+│   │   └── Api/TradeController.php     # routes/api.php — POST /api/trades (price_researcher) e as leituras do chatbot, sem sessão
+│   ├── Resources/Api/                  # ApiTradeResource (trade + oferta vigente + acesso à entrega) e ApiTradeSummaryResource (lista, sem acesso)
 │   ├── Middleware/VerifySecret.php     # Bearer de serviço externo: um segredo só (EXTERNAL_SECRET) para todos
 │   └── Requests/
 │

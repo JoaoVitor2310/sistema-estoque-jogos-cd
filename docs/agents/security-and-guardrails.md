@@ -71,6 +71,10 @@ Rota de máquina é autenticada por Bearer conferido pelo `VerifySecret`: **um s
 
 Hoje essas rotas respondem pela internet, como o resto do site: o que as protege é o segredo. Restringir `/api/*` à rede Docker no nginx é decisão do plano da integração com o chatbot ([`docs/IMPLEMENTACAO_CHATBOT.md`](../IMPLEMENTACAO_CHATBOT.md)), porque depende da URL pela qual o price-researcher chama o Estoque.
 
+## A API devolve o código da entrega — só trade a trade
+
+`GET /api/trades/{uuid}` devolve `delivery_url` e `delivery_code`, para o chatbot mandar ao supplier ([ADR 0015](../adr/0015-chatbot-reads-the-delivery-credential-through-the-api.md)). Por isso quem tem o `EXTERNAL_SECRET` lê a credencial de toda trade aberta. Três contenções: o código some com o import; a lista das trades abertas de um supplier (`GET /api/suppliers/{steamId}/trades`) **não** traz acesso, para não virar coleta em lote; e a leitura segue o desenho do ADR 0008 — colunas escolhidas à mão (`TradeApiReadModel`) e formato num Resource próprio —, então nada do que diz quanto o jogo vale para nós sai por ali. O que sobra em `/api` responde `404` em JSON (`routes/api.php`): sem isso o `Route::fallback` global redirecionaria para `/keys`. Guarda em `tests/Feature/Api/TradesReadApiTest.php`.
+
 ## Lote é `whereIn`, não loop
 
 Exclusão/atualização em massa não itera chamando `find()` + `delete()` por item: se um id falha no meio, os anteriores já foram gravados e a resposta de erro descreve um estado que mudou pela metade. Valide a existência **na fronteira** (`exists:tabela,id` no FormRequest, ver `DeleteManyRequest`) e execute num statement só — assim o lote é atômico por construção, sem precisar de transação, e ainda deixa de ser N+1. *(Já aconteceu: 4 dos 5 `destroyArray` apagavam parcialmente e respondiam erro.)*
