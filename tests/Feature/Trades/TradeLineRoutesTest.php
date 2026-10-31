@@ -331,3 +331,27 @@ describe('DELETE /trades/{trade}/lines/{line}', function () {
             ->assertStatus(403);
     });
 });
+
+it('sends the supplier offer rounds along with the lines', function () {
+    $trade = TradeFactory::withLines(['Portal']);
+    $offer = App\Models\TradeOffer::create([
+        'trade_id' => $trade->id, 'round' => 1, 'profit_percent' => 70,
+        'currency' => App\Domain\Enums\TradeCurrency::Tf2, 'tf2_rate' => 1,
+    ]);
+    $offer->lines()->create(['trade_line_id' => $trade->lines->first()->id, 'game_name' => 'Portal', 'region' => null, 'price' => 2.5]);
+
+    $this->actingAs(lineRouteUser())
+        ->getJson("/trades/{$trade->id}/lines")
+        ->assertStatus(200)
+        ->assertJsonPath('offers.0.round', 1)
+        ->assertJsonPath('offers.0.total_price', 2.5)
+        ->assertJsonPath('offers.0.lines.0.trade_line_id', $trade->lines->first()->id);
+});
+
+it('sends an empty list of rounds for a trade without an offer', function () {
+    $trade = TradeFactory::withLines(['Portal']);
+
+    $this->actingAs(lineRouteUser())
+        ->getJson("/trades/{$trade->id}/lines")
+        ->assertJsonPath('offers', []);
+});

@@ -4,6 +4,8 @@ namespace App\Services\Trades;
 
 use App\Models\Trade;
 use App\Models\TradeLine;
+use App\Models\TradeOffer;
+use App\Models\TradeOfferLine;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -68,7 +70,9 @@ class TradeService
         // silêncio, não erro. A lista explícita da entrega existe por outro
         // motivo: lá ela impede a coluna proibida de **sair do banco**, porque o
         // leitor é o supplier (ver [[DeliveryReadModel]]).
-        $query = Trade::with('supplier')->withCount('lines');
+        // A oferta vigente vai junto só pela rodada (uma linha por trade); os
+        // valores dela chegam com as linhas, ao abrir — ver [[self::offersFor]].
+        $query = Trade::with(['supplier', 'currentOffer'])->withCount('lines');
 
         $view = $filters['view'] ?? self::VIEW_OPEN;
 
@@ -95,6 +99,36 @@ class TradeService
     public function linesFor(Trade $trade): array
     {
         return $trade->lines()->get()->map(fn (TradeLine $line) => $this->presentLine($line))->all();
+    }
+
+    /**
+     * As ofertas feitas ao supplier nesta trade, da primeira rodada à vigente,
+     * com o valor de cada jogo — o que a equipe confere ao abrir a trade.
+     *
+     * Leitura da **equipe**: o lucro-alvo e o pedido do supplier vão junto. A
+     * leitura do chatbot é outra ([[TradeApiReadModel]]) e não os mostra.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function offersFor(Trade $trade): array
+    {
+        return $trade->offers()->with('lines')->get()->map(fn (TradeOffer $offer) => [
+            'round' => $offer->round,
+            'is_final' => $offer->isFinal(),
+            'profit_percent' => $offer->profit_percent,
+            'currency' => $offer->currency->value,
+            'requested_total' => $offer->requested_total,
+            'total_price' => $offer->totalPrice(),
+            'created_at' => $offer->created_at?->toIso8601String(),
+            // Pela linha da trade, para a tela pôr cada valor no jogo dele. A
+            // linha apagada depois da oferta fica sem par, mas soma no total —
+            // e o nome (cópia do que o supplier leu) é o que a tela mostra dela.
+            'lines' => $offer->lines->map(fn (TradeOfferLine $line) => [
+                'trade_line_id' => $line->trade_line_id,
+                'game_name' => $line->game_name,
+                'price' => $line->price,
+            ])->all(),
+        ])->all();
     }
 
     private function applyViewFilter(Builder $query, string $view): void
@@ -239,6 +273,10 @@ class TradeService
             // O estado da entrega é derivado, não uma coluna — ver
             // [[App\Domain\Enums\TradeDeliveryState]].
             'delivery_state' => $trade->deliveryState()->value,
+            // Só a rodada da oferta vigente, para o selo do card; os valores
+            // chegam ao abrir ([[self::offersFor]]).
+            'offer_round' => $trade->currentOffer?->round,
+            'offer_is_final' => $trade->currentOffer?->isFinal() ?? false,
             // O par que a equipe copia para o chat. Vai montado daqui porque
             // quem sabe a rota é o servidor; a aba só copia o que recebe. Sai
             // **só** nesta projeção — a da entrega não devolve token nenhum.

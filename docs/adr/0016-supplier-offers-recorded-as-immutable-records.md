@@ -1,6 +1,6 @@
 # A oferta ao supplier é gravada como registro imutável, uma linha por rodada
 
-**Status:** accepted — tabelas, cálculo e gravação da primeira oferta implementados em 2026-10-29. Ainda nenhum fluxo grava oferta: quem vai chamar `TradeOfferService::recordInitial` é a criação de trade pela integração com o chatbot. Plano em [`docs/IMPLEMENTACAO_CHATBOT.md`](../IMPLEMENTACAO_CHATBOT.md).
+**Status:** accepted — implementado entre 2026-10-29 e 2026-10-31: registro e primeira oferta (`POST /api/trades`), contrapropostas (`POST /api/trades/{uuid}/offers`) e a oferta na aba Trades. Contrato em [`docs/CHATBOT.md`](../CHATBOT.md).
 
 Até aqui o sistema não guardava quanto se ofertou a um supplier. A aba Trades calcula as colunas 100/80/60% no navegador, a prospecção calcula a oferta só para o comentário, e o valor negociado ficava na conversa da Steam. Com o chatbot conversando com o supplier, o Estoque passa a ser **o dono da oferta**: decide o valor de cada rodada e o chatbot só o transmite — e, como o chatbot não guarda cópia, a oferta precisa estar gravada aqui.
 

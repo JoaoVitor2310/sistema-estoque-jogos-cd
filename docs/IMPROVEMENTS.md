@@ -225,11 +225,51 @@ mas **só vale depois de rebuild manual da imagem**: o deploy automático não r
 
 ---
 
-## Integração com o chatbot — em andamento
+## Integração com o chatbot — pendências
 
-O plano, as decisões e o estado de cada PR moram em [`IMPLEMENTACAO_CHATBOT.md`](IMPLEMENTACAO_CHATBOT.md) enquanto a integração é implementada. Quando o último PR entrar, este item e aquele arquivo saem juntos.
+A integração está no ar do lado do Estoque ([`CHATBOT.md`](CHATBOT.md), [`PRICE_RESEARCHER.md`](PRICE_RESEARCHER.md#trade-com-oferta--post-apitrades), regras em [`PRODUCT.md`](PRODUCT.md#oferta-ao-supplier)). Ficou de fora:
 
-**Origem:** pedido do `chatbot-steam` de 2026-10-28.
+### 1. Restringir `/api/*` à rede Docker
+
+**Onde:** `docker/nginx/default.conf`.
+
+Hoje o nginx entrega `/api/*` pela internet como o resto do site, e só o `EXTERNAL_SECRET` protege — segredo único de todos os serviços, que dá acesso aos códigos de entrega ([ADR 0015](adr/0015-chatbot-reads-the-delivery-credential-through-the-api.md)).
+
+**Ação:** confirmar a URL que o price-researcher e o chatbot usam para chamar o Estoque (`SISTEMA_ESTOQUE_URL` no price-cd). Se for a rede Docker (`http://web-server-cd`), restringir `location /api/` com `allow` da sub-rede de `sistema-estoque-cd` e `deny all`. Se for o domínio público, a restrição os bloquearia — mudar a URL antes. O deploy não recarrega o nginx ([`agents/deploy.md`](agents/deploy.md)).
+
+### 2. Idempotência do `POST /api/trades`
+
+**Onde:** `CreateTradeWithOfferUseCase`, tabela `trades`, contrato com o price-researcher.
+
+Se o price-researcher repetir a chamada (timeout, retry), o Estoque cria **outra trade**, com outro uuid e outra oferta, e o chatbot pode mostrar duas ao supplier.
+
+**Ação:** o price-researcher manda o id da precificação (`pricing_request_id`, uuid — o chatbot já tem uma `PricingRequest`), gravado com índice único em `trades`; a repetição devolve a trade já criada. Muda o contrato com o price-researcher: combinar antes.
+
+### 3. Conferir as rotas `/api` e a aba de ponta a ponta
+
+**Onde:** ambiente local (`docker compose up -d`).
+
+As rotas e a oferta na aba Trades foram verificadas pela suíte e pelo build, não na aplicação rodando: as leituras e a contraproposta pelo nginx, e o card com selo, coluna "Oferta enviada" e histórico no navegador.
+
+**Ação:** subir o ambiente, criar uma trade por `POST /api/trades`, ler, contrapropor duas vezes, e abrir o card na aba.
+
+### 4. Criar trade repete os mesmos três passos em quatro UseCases
+
+**Onde:** `CreateTradeUseCase`, `StoreListTradeUseCase`, `ProspectSupplierUseCase`, `CreateTradeWithOfferUseCase`.
+
+Os quatro fazem `Trade::create`, `lines()->createMany` e `forceFill(DeliveryCredential::issue())`. "Toda trade nasce com credencial" depende de cada um lembrar.
+
+**Ação:** uma peça só (ex.: `TradeRecorder::create($attrs, $lines)`) que emite a credencial. Ao mexer, separar também a identidade da trade (`uuid`) da credencial de entrega, que hoje `DeliveryCredential::issue()` gera junto.
+
+### 5. A prospecção converte a oferta por outro caminho
+
+**Onde:** `ProspectSupplierUseCase` (usa `OfferCalculator::inCurrency`).
+
+Dá o mesmo valor que `SupplierOfferLine::priceIn`, mas são duas contas para o mesmo fato.
+
+**Ação:** a prospecção usar `SupplierOfferLine::priceIn`. O comentário do SteamTrades em TF2 também ganharia o piso de 0,01 (hoje pode mostrar "0.00 TF2"), o que muda o que vai a público — decidir junto.
+
+**Origem:** pedido do `chatbot-steam` de 2026-10-28 e reviews dos PRs da integração (a partir do #117).
 
 ---
 

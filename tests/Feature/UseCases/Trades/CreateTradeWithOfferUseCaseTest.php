@@ -6,8 +6,8 @@
 |--------------------------------------------------------------------------
 |
 | A trade da lista precificada nasce já com a primeira oferta ao supplier, e
-| quando não há o que ofertar nada fica gravado. Ver
-| docs/IMPLEMENTACAO_CHATBOT.md (D2, D3, D4, D13).
+| quando não há o que ofertar nada fica gravado. Regras em
+| docs/PRODUCT.md ("Oferta ao supplier").
 |
 */
 

@@ -2,7 +2,27 @@
 
 O chatbot (`chatbot-steam`) conversa pela Steam com os suppliers. Ele **não guarda cópia** de trade: lê do Sistema Estoque a oferta e o acesso à entrega, repassa as contrapropostas do supplier, e o Estoque nunca o chama. Quem avisa o chatbot do fim de uma precificação é o price-researcher, por webhook, depois de criar a trade em `POST /api/trades` (contrato em [`PRICE_RESEARCHER.md`](PRICE_RESEARCHER.md#trade-com-oferta--post-apitrades)).
 
-O plano da integração, com as decisões e o que ainda falta, está em [`IMPLEMENTACAO_CHATBOT.md`](IMPLEMENTACAO_CHATBOT.md). As regras da oferta estão em [`PRODUCT.md`](PRODUCT.md#oferta-ao-supplier).
+As regras da oferta estão em [`PRODUCT.md`](PRODUCT.md#oferta-ao-supplier); as decisões de desenho, nos ADRs [0015](adr/0015-chatbot-reads-the-delivery-credential-through-the-api.md) e [0016](adr/0016-supplier-offers-recorded-as-immutable-records.md); o que falta, em [`IMPROVEMENTS.md`](IMPROVEMENTS.md).
+
+## Fluxos
+
+Do mais comum para o mais raro:
+
+| Caso | Estoque | price-cd → chatbot (webhook) | Chatbot → supplier |
+|---|---|---|---|
+| 1. Há jogo a ofertar | Cria a trade com a **primeira oferta** (lucro da categoria do supplier) e responde `201` com o `uuid` | Trade criada, com o `uuid` | Lê `GET /api/trades/{uuid}` e mostra a oferta, o link e o código |
+| 2. Nenhum jogo interessa (nada lucrativo, tudo encalhado ou em giveaway, ou supplier bloqueado) | **Não cria trade** e responde `200 { "created": false }` | `no_trade` | "Unfortunately none of these games fit…" |
+| 3. Supplier pede mais | Decide e grava a próxima rodada (no máximo 3 ofertas) | — (o chatbot chama `POST /api/trades/{uuid}/offers`) | Mostra a oferta nova, ou avisa que a vigente já é a final |
+| 4. Supplier aceita | A oferta não muda: o valor acertado entra em `trades.amount` pela página da entrega | — | Manda link e código; marca `message-sent` |
+
+## Casos de conversa
+
+| Situação | Como tratar |
+|---|---|
+| O supplier quer vender **só parte** da lista | Ele aceita a oferta e entrega só os jogos que quiser pela página da entrega — linha em branco é resposta legítima ([ADR 0008](adr/0008-supplier-fills-trade-through-tokenised-link.md)) |
+| O supplier pede **em outra moeda** | O pedido vai sempre na moeda da trade; converter é decidir valor, e quem decide é o Estoque. Moeda diferente é outra trade |
+| O supplier aceita uma **oferta antiga** | Vale sempre a vigente: o chatbot só mostra a vigente, e a página da entrega registra o `amount` que ele informar |
+| O supplier pede mais por **um jogo só** | A contraproposta recebe um **total**, distribuído entre os jogos na proporção da oferta vigente — não um valor por jogo ([`PRODUCT.md`](PRODUCT.md#oferta-ao-supplier)) |
 
 ## Autenticação e rede
 

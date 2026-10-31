@@ -114,10 +114,13 @@ Lucro maior é oferta menor: a oferta de um jogo é `renda líquida / (1 + lucro
 |---|---|
 | Lucro-alvo da rodada | O da primeira oferta, **menos 10 pontos** por contraproposta (`SupplierOffer::ROUND_PROFIT_STEP`): Normal 70 → 60 → 50%, VIP 80 → 70 → 60%, Varejo 60 → 50 → 40%. Vem da primeira oferta, não da categoria atual |
 | Limite de cada jogo | O valor no lucro-alvo, nunca acima da oferta máxima — e **nunca abaixo do que o supplier já leu**: se a cotação mudou e a oferta máxima caiu, o jogo mantém o valor vigente (`CounterOffer::limits`). O limite é arredondado **para baixo** ao centavo (`SupplierOfferLine::limitCentsIn`), para não passar da oferta máxima; o valor lido de uma oferta é arredondado ao centavo mais próximo (`priceIn`) |
+| Pedido | Um **total**, na moeda da trade — não um valor por jogo. Decisão de 2026-10-30: um pedido sobre um jogo só vira aumento proporcional em todos, e todo pedido, mesmo pequeno, consome uma rodada |
 | Pedido que cabe | A oferta é **exatamente o pedido**: cada jogo sobe na mesma proporção, quem chega ao limite para nele e o resto é repartido entre os outros; os centavos fecham no total (`CounterOffer::prices`) |
 | Pedido que passa | Cada jogo no seu limite — o máximo **desta rodada**, não a oferta máxima. Pedir muito não leva direto ao fim |
 | Recusas (nada é gravado) | Rodada final já feita, nenhum jogo pode subir, trade entregue ou importada, trade sem oferta: `409` com o motivo. Pedido que não passa da oferta vigente: `422` — aceitar é pela página da entrega |
 | O que a rodada grava | O lucro-alvo dela (`profit_percent`), o pedido (`requested_total`) e o valor de cada jogo; o nome e a região são os da oferta anterior |
+
+**Na aba Trades** a oferta é só leitura — quem decide e grava é o Estoque. O card mostra o selo da rodada vigente ("Oferta 2", "Oferta 3 · final"); ao abrir a trade, a coluna **Oferta enviada** traz o valor de cada jogo na oferta vigente (vazio no jogo que ficou fora) com o total no rodapé, e o histórico lista cada rodada com data, lucro-alvo, pedido do supplier e total. As colunas 100/80/60% continuam como ferramenta da equipe, independentes da oferta enviada.
 
 ### Jogo encalhado é sinalizado na trade
 
