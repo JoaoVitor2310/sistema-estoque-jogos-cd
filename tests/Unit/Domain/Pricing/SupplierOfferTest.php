@@ -53,3 +53,20 @@ describe('SupplierOffer::isFinalRound()', function () {
         expect(fn () => SupplierOffer::isFinalRound($round))->toThrow(InvalidArgumentException::class);
     })->with([0, 4]);
 });
+
+describe('SupplierOffer::roundProfitPercent()', function () {
+
+    it('lowers the profit target one step per counter offer', function (float $first, int $round, float $expected) {
+        expect(SupplierOffer::roundProfitPercent($first, $round))->toBe($expected);
+    })->with([
+        'normal, round 1' => [70.0, 1, 70.0],
+        'normal, round 2' => [70.0, 2, 60.0],
+        'normal, round 3' => [70.0, 3, 50.0],
+        'vip, round 3' => [80.0, 3, 60.0],
+        'retail, round 3' => [60.0, 3, 40.0],
+    ]);
+
+    it('refuses a round outside the negotiation', function () {
+        expect(fn () => SupplierOffer::roundProfitPercent(70.0, 4))->toThrow(InvalidArgumentException::class);
+    });
+});

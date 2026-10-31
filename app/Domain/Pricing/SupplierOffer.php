@@ -27,6 +27,13 @@ final class SupplierOffer
     public const MAX_ROUNDS = 3;
 
     /**
+     * Quantos pontos de lucro o Estoque cede a cada contraproposta. Com 10, um
+     * supplier Normal vai de 70% a 60% e depois a 50%. Degrau fixo e pequeno:
+     * pedir muito não leva direto à oferta máxima.
+     */
+    public const ROUND_PROFIT_STEP = 10;
+
+    /**
      * Oferta de um jogo que rende `$netIncome` na Gamivo.
      *
      * `null` quando não há oferta positiva: o jogo não paga as taxas, ou ainda
@@ -46,6 +53,20 @@ final class SupplierOffer
         $max = MinimumMarginPolicy::maxInitialCost($netIncome, $channel) / $tf2EuroPrice;
 
         return new SupplierOfferLine(min($target, $max), $max);
+    }
+
+    /**
+     * O lucro-alvo de uma rodada: o da primeira oferta, menos um degrau por
+     * contraproposta. Pode ficar abaixo da margem do min_api — aí quem segura
+     * o valor de cada jogo é a oferta máxima.
+     *
+     * @throws \InvalidArgumentException para rodada fora de 1..MAX_ROUNDS
+     */
+    public static function roundProfitPercent(float $firstRoundProfitPercent, int $round): float
+    {
+        self::isFinalRound($round);
+
+        return $firstRoundProfitPercent - self::ROUND_PROFIT_STEP * ($round - self::FIRST_ROUND);
     }
 
     /**

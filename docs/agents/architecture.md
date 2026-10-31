@@ -84,7 +84,8 @@ app/
 │   │   ├── ComparisonResult.php / OfferData.php
 │   │   ├── MinMaxPriceCalculator.php
 │   │   ├── MinimumMarginPolicy.php     # fonte única do piso de preço (min_api) e da oferta máxima a supplier
-│   │   ├── SupplierOffer.php            # oferta a supplier por jogo: lucro pedido, limitado à oferta máxima
+│   │   ├── SupplierOffer.php            # oferta a supplier por jogo: lucro pedido, limitado à oferta máxima; rodadas e lucro-alvo
+│   │   ├── CounterOffer.php             # contraproposta: limite de cada jogo e distribuição do pedido, em centavos
 │   │   └── ValueObjects/
 │   │       ├── MarketplaceFee.php
 │   │       └── SupplierOfferLine.php    # oferta exata de um jogo + valor lido em cada moeda
@@ -109,6 +110,7 @@ app/
 │   │   └── SteamId.php                  # formato do SteamID64 de conta individual (17 dígitos, 7656119…)
 │   ├── Trades/
 │   │   ├── CommentPolicy.php            # decide se recomenta um supplier (14 dias / jogos mudaram)
+│   │   ├── CounterOfferRefused.php      # recusa da contraproposta, com o motivo (enum CounterOfferRefusal)
 │   │   ├── DeliveryCredential.php       # link + código da entrega: formato, emissão, limites e prazo
 │   │   ├── GamivoIdentity.php           # quando trocar jogo/região invalida o gamivo_id da linha (e da key, em UpdateKeyUseCase)
 │   │   ├── LineGamePair.php             # quando uma escrita troca o jogo (nome/região) da linha
@@ -178,6 +180,7 @@ app/
 │   │   ├── DTO/TradeWithOfferDTO.php         # lista precificada + moeda escolhida pelo supplier
 │   │   ├── CreateTradeUseCase.php
 │   │   ├── CreateTradeWithOfferUseCase.php   # POST /api/trades: trade + primeira oferta numa transação; sem oferta, desfaz
+│   │   ├── RequestCounterOfferUseCase.php    # POST /api/trades/{uuid}/offers: trava a trade e grava a próxima rodada
 │   │   ├── StoreListTradeUseCase.php         # callback do price_researcher; marca encalhados e giveaways
 │   │   └── UpdateTradeUseCase.php
 │   └── Financial/

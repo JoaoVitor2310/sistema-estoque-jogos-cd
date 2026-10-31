@@ -14,9 +14,9 @@
 
 use App\Domain\Enums\TradeCurrency;
 use App\Models\Trade;
-use App\Models\TradeOffer;
 use App\UseCases\Trades\CreateTradeWithOfferUseCase;
 use App\UseCases\Trades\DTO\TradeWithOfferDTO;
+use App\UseCases\Trades\RequestCounterOfferUseCase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
@@ -123,15 +123,12 @@ describe('GET /api/trades/{uuid}', function () {
     it('shows the offer of the highest round', function () {
         $trade = readApiTrade([['name' => 'Half-Life', 'market_price_euro' => 4.50]]);
 
-        $second = TradeOffer::create([
-            'trade_id' => $trade->id, 'round' => 2, 'profit_percent' => 60,
-            'currency' => TradeCurrency::Tf2, 'tf2_rate' => 1, 'requested_total' => 3,
-        ]);
-        $second->lines()->create(['trade_line_id' => null, 'game_name' => 'Half-Life', 'region' => null, 'price' => 2.80]);
+        // A contraproposta pelo caminho de verdade: rodada 2, no alvo de 60%
+        app(RequestCounterOfferUseCase::class)->execute($trade->uuid, 10000);
 
         expect(readApi("/api/trades/{$trade->uuid}")->json('offer'))
             ->round->toBe(2)
-            ->total_price->toBe(2.8);
+            ->total_price->toBe(2.61);
     });
 
     it('shows a trade without an offer, made by another channel, with the offer empty', function () {
