@@ -12,8 +12,11 @@ namespace App\Domain\Suppliers;
  */
 final class SteamId
 {
+    /** O formato sem delimitadores, para o `where()` de uma rota. */
+    public const ROUTE_PATTERN = '7656119\d{10}';
+
     /** Para a regra `regex:` do FormRequest e para [[self::isValid]]. */
-    public const PATTERN = '/^7656119\d{10}$/';
+    public const PATTERN = '/^'.self::ROUTE_PATTERN.'$/';
 
     public static function isValid(string $steamId): bool
     {
