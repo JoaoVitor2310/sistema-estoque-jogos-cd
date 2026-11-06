@@ -1,6 +1,6 @@
 # Testes
 
-Testes são obrigatórios — nunca entregar uma implementação sem os testes correspondentes no mesmo passo. O projeto usa três camadas de teste, cada uma com responsabilidade distinta:
+Testes são obrigatórios — nunca entregar uma implementação sem os testes correspondentes no mesmo passo. O backend usa três camadas de teste, cada uma com responsabilidade distinta, e o frontend tem as suas funções puras testadas à parte:
 
 | Camada | Localização | O que testa | Exemplo |
 |--------|-------------|-------------|---------|
@@ -8,11 +8,14 @@ Testes são obrigatórios — nunca entregar uma implementação sem os testes c
 | **Integration** | `tests/Feature/UseCases/` | Orquestração de UseCases — chama `app(UseCase::class)->execute()` direto, com banco real | `ProspectSupplierUseCase` retorna `last_commented_at` e `games_changed` corretos |
 | **Feature** | `tests/Feature/` | HTTP ponta a ponta — auth, validação, persistência, estrutura da resposta | `POST /suppliers/prospect` retorna 401 sem token |
 
+| **Frontend** | `resources/js/domain/*.test.ts` | Regra que o Vue precisa recalcular na tela — funções puras, sem montar componente (Vitest, `npm run test`) | `netIncome()` em `tradeOffer.test.ts` |
+
 ## Regras de distribuição
 
 - Lógica de comparação, cálculo ou decisão que vive no Domain → Unit test
 - Comportamento do UseCase (o que orquestra, o que persiste, o que retorna) → Integration test via `app()`
 - Contratos HTTP (status codes, campos da resposta, middleware) → Feature test via HTTP
+- Conta ou regra no frontend → função pura em `resources/js/domain/`, com o `.test.ts` ao lado. Quando ela é projeção de uma regra PHP, o comentário diz o par, e os casos moram num fixture lido pelos dois lados (`tests/Fixtures/trade-offer-cases.json`, por `tradeOffer.test.ts` e `TradeOfferProjectionTest`): mudar a regra de um lado só quebra a suíte do outro
 - **O teste mora no arquivo da unidade que ele exercita** — *o teste tem que estar onde quem mexe no código vai rodar*. Nada de arquivo temático juntando várias unidades: se três UseCases gravam o mesmo campo, cada um asserta o próprio. A asserção repetida custa três linhas; o sinal perdido custa um bug em produção. Arquivo temático só se sustenta para o que não pertence a nenhuma unidade — a forma como uma coluna é guardada, um contrato entre camadas. *(Já aconteceu: `Every trade is born with a delivery credential` centralizava a asserção dos três criadores de trade; `ProspectSupplierUseCase` ficou de fora sem ninguém notar, e quem editasse `CreateTradeUseCase` veria `CreateTradeUseCaseTest` verde com a credencial quebrada.)*
 - Não duplicar **entre camadas**: se a lógica já está coberta no Unit, o Feature test não precisa repetir todos os casos — só o caminho feliz e o erro principal. Isso não contradiz a regra acima: lá a repetição é *entre unidades da mesma camada*, e cada cópia guarda um caminho de código diferente
 - Padrão: Pest. Use `DB::table()` para seeds, nunca Factories quando o dado é simples
@@ -29,4 +32,5 @@ Testes são obrigatórios — nunca entregar uma implementação sem os testes c
 ```bash
 php artisan test --no-coverage   # suíte completa (Pest)
 ./vendor/bin/pest <arquivo>      # arquivo isolado
+npm run test                     # testes do frontend (Vitest)
 ```

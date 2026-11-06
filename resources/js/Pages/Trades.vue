@@ -10,6 +10,15 @@ import Button from 'primevue/button';
 import Paginator from 'primevue/paginator';
 import { useConfirm } from 'primevue/useconfirm';
 import OverstockedGamesDialog from '@/components/trades/OverstockedGamesDialog.vue';
+import {
+  impliedProfitPct,
+  netIncome,
+  profitShortfall,
+  tf2Offer,
+  type MarginRules,
+  type MarketplaceFees,
+  type PurchaseChannel,
+} from '@/domain/tradeOffer';
 
 // ─── Tipos vindos do backend ─────────────────────────────────────────────────
 //
@@ -37,9 +46,6 @@ interface TradeLine {
   // (App\Domain\Games\GiveawayPolicy) — o preço de mercado está no chão.
   is_giveaway: boolean;
 }
-
-// Espelho de App\Domain\Enums\PurchaseChannel — de quem as keys foram compradas.
-type PurchaseChannel = 'supplier_trade' | 'bundle_store' | 'gamivo';
 
 const PURCHASE_CHANNEL_OPTIONS: { value: PurchaseChannel; label: string }[] = [
   { value: 'supplier_trade', label: 'Fornecedor' },
@@ -125,24 +131,9 @@ const props = defineProps<{
   filters: Filters;
   awaitingReviewCount: number;
   tf2Price: number;
-  fees: {
-    percentLow: number;
-    fixedLow: number;
-    percentHigh: number;
-    fixedHigh: number;
-  };
+  fees: MarketplaceFees;
   profitTiers: number[];
-  // Espelho de MinimumMarginPolicy::initialMarginRules() (PHP).
-  marginRules: {
-    lowCostThreshold: number;
-    highCostThreshold: number;
-    veryHighCostThreshold: number;
-    lowCostMargin: number;
-    defaultMargin: number;
-    highCostMargin: number;
-    veryHighCostMargin: number;
-    bundleStoreMargin: number;
-  };
+  marginRules: MarginRules;
 }>();
 
 // ─── Tipos internos ──────────────────────────────────────────────────────────
@@ -463,52 +454,21 @@ function tradePayload(trade: TradeEntry) {
   };
 }
 
-// ─── Cálculos (projeção client-side — fonte da verdade no Domain PHP) ─────────
-
-// Projeção client-side de IncomeCalculator::forGamivo (PHP).
-// A fonte da verdade e os testes unitários estão no Domain PHP.
-// Se alterar a fórmula, atualize os dois lados.
-const MICRO_THRESHOLD = 0.28;
-const MICRO_FIXED_FEE = 0.11;
-const TIER_THRESHOLD = 8.0;
-
-function calcNetIncome(marketPrice: number): number {
-  if (marketPrice < MICRO_THRESHOLD) return marketPrice - MICRO_FIXED_FEE;
-  if (marketPrice < TIER_THRESHOLD) return marketPrice * (1 - props.fees.percentLow) - props.fees.fixedLow;
-  return marketPrice * (1 - props.fees.percentHigh) - props.fees.fixedHigh;
-}
-
-// Projeção client-side de OfferCalculator::tf2Offer (PHP).
-function calcOffer(netIncome: number, profitPct: number): number {
-  if (props.tf2Price <= 0) return 0;
-  return netIncome / (1 + profitPct / 100) / props.tf2Price;
-}
+// ─── Cálculos (as contas moram em @/domain/tradeOffer) ───────────────────────
 
 function getMarketPrice(row: Row): number {
   return parseFloat((row.market_price ?? '').replace(',', '.')) || 0;
 }
 
 function getNetIncome(row: Row): number {
-  return calcNetIncome(getMarketPrice(row));
+  return netIncome(getMarketPrice(row), props.fees);
 }
 
 function getOffer(row: Row, tier: number): number {
-  return calcOffer(getNetIncome(row), tier);
+  return tf2Offer(getNetIncome(row), tier, props.tf2Price);
 }
 
 // ─── Lucro abaixo do min_api ─────────────────────────────────────────────────
-
-// Projeção client-side de MinimumMarginPolicy::initialMargin (PHP), com as
-// regras vindas do backend. Só a margem inicial entra: o tempo de estoque não
-// existe ainda, a key será comprada agora.
-function requiredMarginPct(cost: number, channel: PurchaseChannel): number {
-  const r = props.marginRules;
-  if (channel === 'bundle_store') return r.bundleStoreMargin * 100;
-  if (cost > r.veryHighCostThreshold) return r.veryHighCostMargin * 100;
-  if (cost > r.highCostThreshold) return r.highCostMargin * 100;
-  if (cost < r.lowCostThreshold) return r.lowCostMargin * 100;
-  return r.defaultMargin * 100;
-}
 
 // Tabela exibida no modal de aviso, na ordem de leitura (faixa do meio primeiro).
 const marginTable = computed(() => {
@@ -523,9 +483,6 @@ const marginTable = computed(() => {
   ];
 });
 
-// Tolerância de ponto flutuante: um tier que bate a margem exata não é "abaixo".
-const MARGIN_EPSILON = 1e-6;
-
 interface LowProfit {
   game: string;
   profit: number;
@@ -537,14 +494,9 @@ interface LowProfit {
  * para esse custo, devolve o lucro e o mínimo; senão null.
  */
 function lowProfitOf(trade: TradeEntry, row: Row, tf2Value: number): LowProfit | null {
-  const netIncome = getNetIncome(row);
-  if (tf2Value <= 0 || props.tf2Price <= 0 || netIncome <= 0) return null;
+  const shortfall = profitShortfall(getNetIncome(row), tf2Value, props.tf2Price, trade.purchaseChannel, props.marginRules);
 
-  const cost = tf2Value * props.tf2Price;
-  const profit = (netIncome / cost - 1) * 100;
-  const required = requiredMarginPct(cost, trade.purchaseChannel);
-
-  return profit < required - MARGIN_EPSILON ? { game: row.game_name, profit, required } : null;
+  return shortfall ? { game: row.game_name, ...shortfall } : null;
 }
 
 function isLowTier(trade: TradeEntry, row: Row, tier: number): boolean {
@@ -602,11 +554,8 @@ function getEffectiveCustomTf2(row: Row): number {
 }
 
 function getImpliedProfit(row: Row): number | null {
-  const tf2Val = parseFloat(row.customTf2Override.replace(',', '.'));
-  if (!tf2Val || tf2Val <= 0 || props.tf2Price <= 0) return null;
-  const netIncome = getNetIncome(row);
-  if (netIncome <= 0) return null;
-  return (netIncome / (tf2Val * props.tf2Price) - 1) * 100;
+  const override = parseFloat(row.customTf2Override.replace(',', '.')) || 0;
+  return impliedProfitPct(getNetIncome(row), override, props.tf2Price);
 }
 
 // ─── Autosave (debounce por alvo de gravação) ────────────────────────────────

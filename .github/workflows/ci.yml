@@ -138,3 +138,24 @@ jobs:
 
       - name: vue-tsc
         run: npm run typecheck
+
+  # ── Job 5: Testes do frontend ─────────────────────────────────────────────
+  # Só Node: resources/js/domain/ são funções puras, sem Ziggy nem PHP.
+  frontend-test:
+    name: Vitest
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      - name: Vitest
+        run: npm run test

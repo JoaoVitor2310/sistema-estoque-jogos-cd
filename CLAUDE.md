@@ -9,6 +9,7 @@ composer install && npm install   # setup
 npm run dev                       # frontend (Vite)
 npm run build                     # build de produção
 npm run typecheck                 # tipos do frontend (vue-tsc)
+npm run test                      # testes do frontend (Vitest, resources/js/domain)
 ./vendor/bin/pint --test          # lint PHP (--test = check; sem flag = fix)
 ./vendor/bin/phpstan analyse --configuration=phpstan.neon --memory-limit=512M
 php artisan test --no-coverage    # suíte Pest completa
