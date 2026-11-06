@@ -1,5 +1,10 @@
 {
-  "fees": { "percentLow": 0.06, "fixedLow": 0.25, "percentHigh": 0.08, "fixedHigh": 0.4 },
+  "fees": {
+    "percentLow": 0.06,
+    "fixedLow": 0.25,
+    "percentHigh": 0.08,
+    "fixedHigh": 0.4
+  },
   "marginRules": {
     "lowCostThreshold": 1.0,
     "highCostThreshold": 10.0,
@@ -11,29 +16,155 @@
     "bundleStoreMargin": 0.4
   },
   "netIncome": [
-    { "marketPrice": 0.05, "expected": -0.06 },
-    { "marketPrice": 0.2, "expected": 0.09 },
-    { "marketPrice": 0.27, "expected": 0.16 },
-    { "marketPrice": 0.28, "expected": 0.0132 },
-    { "marketPrice": 4.5, "expected": 3.98 },
-    { "marketPrice": 7.99, "expected": 7.2606 },
-    { "marketPrice": 8, "expected": 6.96 },
-    { "marketPrice": 20, "expected": 18 }
+    {
+      "marketPrice": 0.05,
+      "expected": -0.06
+    },
+    {
+      "marketPrice": 0.2,
+      "expected": 0.09
+    },
+    {
+      "marketPrice": 0.27,
+      "expected": 0.16
+    },
+    {
+      "marketPrice": 0.28,
+      "expected": 0.0132
+    },
+    {
+      "marketPrice": 4.5,
+      "expected": 3.98
+    },
+    {
+      "marketPrice": 7.99,
+      "expected": 7.2606
+    },
+    {
+      "marketPrice": 8,
+      "expected": 6.96
+    },
+    {
+      "marketPrice": 20,
+      "expected": 18
+    }
   ],
   "tf2Offer": [
-    { "income": 3.98, "profitPercent": 70, "tf2EuroPrice": 0.95, "expected": 2.464396 },
-    { "income": 5.39, "profitPercent": 60, "tf2EuroPrice": 0.95, "expected": 3.546053 },
-    { "income": 10, "profitPercent": 100, "tf2EuroPrice": 2, "expected": 2.5 },
-    { "income": 10, "profitPercent": 100, "tf2EuroPrice": 0, "expected": 0 }
+    {
+      "income": 3.98,
+      "profitPercent": 70,
+      "tf2EuroPrice": 0.95,
+      "expected": 2.464396
+    },
+    {
+      "income": 5.39,
+      "profitPercent": 60,
+      "tf2EuroPrice": 0.95,
+      "expected": 3.546053
+    },
+    {
+      "income": 10,
+      "profitPercent": 100,
+      "tf2EuroPrice": 2,
+      "expected": 2.5
+    },
+    {
+      "income": 10,
+      "profitPercent": 100,
+      "tf2EuroPrice": 0,
+      "expected": 0
+    }
   ],
   "requiredMarginPercent": [
-    { "cost": 0.5, "channel": "supplier_trade", "expected": 55 },
-    { "cost": 1, "channel": "supplier_trade", "expected": 50 },
-    { "cost": 10, "channel": "supplier_trade", "expected": 50 },
-    { "cost": 10.01, "channel": "supplier_trade", "expected": 45 },
-    { "cost": 15, "channel": "supplier_trade", "expected": 45 },
-    { "cost": 15.01, "channel": "supplier_trade", "expected": 40 },
-    { "cost": 20, "channel": "gamivo", "expected": 40 },
-    { "cost": 0.5, "channel": "bundle_store", "expected": 40 }
+    {
+      "cost": 0.5,
+      "channel": "supplier_trade",
+      "expected": 55
+    },
+    {
+      "cost": 1,
+      "channel": "supplier_trade",
+      "expected": 50
+    },
+    {
+      "cost": 10,
+      "channel": "supplier_trade",
+      "expected": 50
+    },
+    {
+      "cost": 10.01,
+      "channel": "supplier_trade",
+      "expected": 45
+    },
+    {
+      "cost": 15,
+      "channel": "supplier_trade",
+      "expected": 45
+    },
+    {
+      "cost": 15.01,
+      "channel": "supplier_trade",
+      "expected": 40
+    },
+    {
+      "cost": 20,
+      "channel": "gamivo",
+      "expected": 40
+    },
+    {
+      "cost": 0.5,
+      "channel": "bundle_store",
+      "expected": 40
+    }
+  ],
+  "offerPrice": [
+    {
+      "tf2Offer": 2.464396,
+      "currency": "tf2",
+      "tf2Price": 1,
+      "expected": 2.46
+    },
+    {
+      "tf2Offer": 2.464396,
+      "currency": "eur",
+      "tf2Price": 0.95,
+      "expected": 2.34
+    },
+    {
+      "tf2Offer": 2.464396,
+      "currency": "usd",
+      "tf2Price": 1.1,
+      "expected": 2.71
+    },
+    {
+      "tf2Offer": 1.005,
+      "currency": "tf2",
+      "tf2Price": 1,
+      "expected": 1.01
+    },
+    {
+      "tf2Offer": 8.325,
+      "currency": "tf2",
+      "tf2Price": 1,
+      "expected": 8.33
+    },
+    {
+      "tf2Offer": 10.075,
+      "currency": "tf2",
+      "tf2Price": 1,
+      "expected": 10.08
+    },
+    {
+      "tf2Offer": 0.004,
+      "currency": "tf2",
+      "tf2Price": 1,
+      "expected": 0.01
+    },
+    {
+      "tf2Offer": 0.002,
+      "currency": "eur",
+      "tf2Price": 0.95,
+      "expected": 0.01
+    }
   ]
 }

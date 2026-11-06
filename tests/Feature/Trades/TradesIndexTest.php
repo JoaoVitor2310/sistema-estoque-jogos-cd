@@ -24,6 +24,7 @@ use App\Models\AuthorizedUsers;
 use App\Models\Trade;
 use App\Models\User;
 use Illuminate\Encryption\Encrypter;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\Support\TradeFactory;
@@ -392,4 +393,17 @@ describe('GET /trades — purchase channel', function () {
                 ->where('trades.data.0.purchase_channel', 'bundle_store')
                 ->where('trades.data.0.bundle_id', $bundleId));
     });
+});
+
+it('sends the TF2 price in each cash currency, for the offers in the trade currency', function () {
+    DB::table('assets')->updateOrInsert(['name' => 'TF2'], ['price_euro' => 1.46, 'price_dollar' => 1.70, 'price_brl' => 0.0]);
+    Cache::flush();
+
+    $this->actingAs(makeAuthorizedIndexUser())
+        ->get('/trades')
+        ->assertStatus(200)
+        ->assertInertia(fn ($page) => $page
+            ->where('tf2Prices.eur', 1.46)
+            ->where('tf2Prices.usd', 1.7)
+            ->missing('tf2Price'));
 });

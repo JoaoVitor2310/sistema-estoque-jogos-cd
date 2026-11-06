@@ -61,7 +61,11 @@ class TradeController extends Controller
             // que a aba mostra para a entrega recém-chegada ser notada sem
             // ninguém ir procurar.
             'awaitingReviewCount' => $this->tradeService->awaitingReviewCount(),
-            'tf2Price' => $this->calculationService->getTf2EuroPrice(),
+            // Uma cotação por moeda de dinheiro: as ofertas aparecem na moeda da trade.
+            'tf2Prices' => [
+                'eur' => $this->calculationService->getTf2EuroPrice(),
+                'usd' => $this->calculationService->getTf2DollarPrice(),
+            ],
             'fees' => [
                 'percentLow' => $fee->percentLow,
                 'fixedLow' => $fee->fixedLow,
