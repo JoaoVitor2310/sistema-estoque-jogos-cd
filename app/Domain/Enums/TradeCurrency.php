@@ -8,7 +8,8 @@ namespace App\Domain\Enums;
  * É fato do lote inteiro, como o canal de compra: a quantidade acertada
  * (`trades.amount`) está nesta moeda — TF2 Keys, euros ou dólares. Quem escolhe
  * a moeda de uma lista na prospecção é o price_researcher, lendo o que o
- * fornecedor aceita; a equipe pode corrigi-la na aba. O valor `tf2` é o caso
+ * fornecedor aceita; a equipe pode trocá-la, o que converte o valor
+ * acertado, enquanto a trade não tiver oferta. O valor `tf2` é o caso
  * comum e o default. Fora da trade, o sistema todo segue em TF2 e euro: o import
  * converte o valor acertado para TF2 antes do rateio.
  */

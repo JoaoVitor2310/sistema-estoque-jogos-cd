@@ -320,15 +320,13 @@ O Vitest já roda no CI (`npm run test`), e as contas de oferta da aba Trades es
 
 ## Trade paga em dinheiro — o que a moeda da trade deixou de fora
 
-**Onde:** `resources/js/Pages/Trades.vue`, `resources/js/Pages/Delivery.vue`, `app/Services/Trades/TradeService.php`, `app/Services/Sales/SalesDashboardService.php`.
+**Onde:** `app/Services/Sales/SalesDashboardService.php`, `app/Domain/Pricing/OfferCalculator.php`.
 
 A moeda da trade (`trades.currency`) entrou no contrato da prospecção, no seletor da aba, na página
 de entrega e no import (que converte `trades.amount` para TF2, 2 casas). Ficaram de fora, de propósito:
 
 | Pendência | Detalhe |
 |---|---|
-| Colunas de oferta da aba | As colunas 100%/80%/60%, a copiada e o total continuam em TF2 mesmo numa trade em euro/dólar. O que se cola no chat da Steam precisaria sair na moeda da trade |
-| Filtro e ordenação "Qtd" | Comparam `amount` cru; trade em dinheiro mistura unidades |
 | KPI "TF2 keys gastas" | Soma `keys.tf2_quantity`, que em trade em dinheiro é o **equivalente** pelo preço do dia do import — aceitável, mas não é o que foi pago |
 | Precisão da conversão | O equivalente em TF2 tem 2 casas (padrão do sistema): o custo pode variar em centavos frente ao valor exato pago |
 

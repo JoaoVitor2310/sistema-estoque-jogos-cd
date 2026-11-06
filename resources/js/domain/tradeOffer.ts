@@ -154,6 +154,30 @@ export function offerPriceIn(tf2Value: number, currency: TradeCurrency, prices: 
   return tf2Value > 0 ? Math.max(MIN_OFFER_PRICE, rounded) : rounded;
 }
 
+/** A cotação que falta para converter um valor entre as duas moedas; nula se não falta nenhuma. */
+export function missingConversionQuote(
+  from: TradeCurrency,
+  to: TradeCurrency,
+  prices: Tf2Prices,
+): Exclude<TradeCurrency, 'tf2'> | null {
+  const missing = [from, to].find(currency => tf2PriceIn(currency, prices) <= 0);
+
+  return (missing ?? null) as Exclude<TradeCurrency, 'tf2'> | null;
+}
+
+/**
+ * Projeção de OfferCalculator::convertAmount: o valor na outra moeda, pela razão
+ * entre as cotações da TF2. Um valor positivo nunca vira zero, e sem valor
+ * positivo não há o que converter.
+ */
+export function convertAmount(amount: number, from: TradeCurrency, to: TradeCurrency, prices: Tf2Prices): number {
+  if (amount <= 0) return amount;
+
+  const converted = (amount * tf2PriceIn(to, prices)) / tf2PriceIn(from, prices);
+
+  return Math.max(MIN_OFFER_PRICE, roundToCents(converted));
+}
+
 /** O total lido: a soma dos valores já arredondados, para bater com as linhas. */
 export function offerTotal(values: number[]): number {
   return Math.round(values.reduce((sum, value) => sum + value, 0) * 100) / 100;

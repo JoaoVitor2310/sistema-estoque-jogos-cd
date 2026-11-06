@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   canConvertTo,
+  convertAmount,
   impliedProfitPct,
   incomeIn,
+  missingConversionQuote,
   missingQuote,
   netIncome,
   offerPriceIn,
@@ -26,6 +28,7 @@ const {
   tf2Offer: offerCases,
   requiredMarginPercent: marginCases,
   offerPrice: priceCases,
+  convertAmount: conversionCases,
 } = cases;
 
 const PRICES: Tf2Prices = { eur: 0.95, usd: 1.1 };
@@ -102,6 +105,24 @@ describe('missingQuote', () => {
     expect(missingQuote('tf2', { eur: 0, usd: 1.1 })).toBe('eur');
     expect(missingQuote('usd', { eur: 0, usd: 1.1 })).toBe('eur');
     expect(missingQuote('usd', { eur: 0, usd: 0 })).toBe('eur');
+  });
+});
+
+describe('convertAmount', () => {
+  it.each(conversionCases)('reads $amount $from as $expected $to', ({ amount, from, to, prices, expected }) => {
+    expect(convertAmount(amount, from as TradeCurrency, to as TradeCurrency, prices)).toBeCloseTo(expected, 6);
+  });
+});
+
+describe('missingConversionQuote', () => {
+  it('needs only the quotes of the two currencies', () => {
+    expect(missingConversionQuote('tf2', 'usd', { eur: 0, usd: 1.1 })).toBeNull();
+    expect(missingConversionQuote('eur', 'usd', PRICES)).toBeNull();
+  });
+
+  it('names the quote that is missing, on either side', () => {
+    expect(missingConversionQuote('tf2', 'usd', { eur: 0.95, usd: 0 })).toBe('usd');
+    expect(missingConversionQuote('eur', 'tf2', { eur: 0, usd: 1.1 })).toBe('eur');
   });
 });
 

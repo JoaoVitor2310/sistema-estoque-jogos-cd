@@ -12,6 +12,8 @@ import { useConfirm } from 'primevue/useconfirm';
 import OverstockedGamesDialog from '@/components/trades/OverstockedGamesDialog.vue';
 import {
   canConvertTo,
+  convertAmount,
+  missingConversionQuote,
   missingQuote,
   impliedProfitPct,
   incomeIn,
@@ -454,7 +456,6 @@ function tradePayload(trade: TradeEntry) {
     supplierUrl: trade.supplierUrl,
     date: trade.date,
     amount: trade.amount.replace(',', '.'),
-    currency: trade.currency,
     message_sent: trade.messageSent,
   };
 }
@@ -594,10 +595,97 @@ function getImpliedProfit(trade: TradeEntry, row: Row): number | null {
   });
 }
 
+// ─── Troca de moeda ──────────────────────────────────────────────────────────
+
+const currencyDialog = reactive<{
+  visible: boolean;
+  trade: TradeEntry | null;
+  target: TradeCurrency;
+  saving: boolean;
+  error: string | null;
+}>({ visible: false, trade: null, target: 'tf2', saving: false, error: null });
+
+const currencyDialogMissingQuote = computed(() => {
+  const { trade, target } = currencyDialog;
+  return trade ? missingConversionQuote(trade.currency, target, props.tf2Prices) : null;
+});
+
+const typedCustomRows = (trade: TradeEntry) => trade.rows.filter(row => typedOverride(row) > 0);
+
+function tradeAmount(trade: TradeEntry): number {
+  return parseFloat(trade.amount.replace(',', '.')) || 0;
+}
+
+/** A quantidade da trade como ficará depois de confirmar. */
+function previewAmount(trade: TradeEntry, target: TradeCurrency): string {
+  return formatPrice(convertAmount(tradeAmount(trade), trade.currency, target, props.tf2Prices));
+}
+
+/**
+ * Abre a confirmação. O seletor volta na hora para a moeda atual: ele só muda
+ * quando o servidor gravar, então cancelar não tem o que desfazer.
+ */
+function askCurrencyChange(trade: TradeEntry, event: Event) {
+  const select = event.target as HTMLSelectElement;
+  const target = select.value as TradeCurrency;
+  select.value = trade.currency;
+
+  Object.assign(currencyDialog, { visible: true, trade, target, saving: false, error: null });
+}
+
+async function confirmCurrencyChange() {
+  const { trade, target } = currencyDialog;
+  if (!trade) return;
+
+  currencyDialog.saving = true;
+  currencyDialog.error = null;
+
+  try {
+    // O servidor converte a quantidade gravada. Uma edição ainda no debounce
+    // gravaria depois, por cima da convertida, o valor na moeda antiga. O modal
+    // impede editar enquanto a troca não termina.
+    await flushPendingSaves(trade);
+
+    if (failedSaves.has(`trade:${trade.id}`)) {
+      currencyDialog.error = 'A Qtd ou outro campo da trade não pôde ser salvo. Corrija antes de trocar a moeda.';
+      return;
+    }
+
+    const res = await axiosInstance.post(route('trades.currency', { trade: trade.id }), { currency: target });
+
+    // O `axiosInstance` resolve 4xx em vez de rejeitar: a recusa é lida aqui.
+    if (res.status !== 200) {
+      currencyDialog.error = res.status === 409
+        ? 'Esta trade já tem oferta enviada, e a moeda dela não muda mais.'
+        : 'Não foi possível trocar a moeda.';
+      return;
+    }
+
+    // O valor digitado só existe na tela: é aqui que ele acompanha a moeda.
+    typedCustomRows(trade).forEach(row => {
+      row.customOverride = formatPrice(convertAmount(typedOverride(row), trade.currency, target, props.tf2Prices));
+    });
+    trade.currency = res.data.currency;
+    trade.amount = res.data.amount ?? '';
+    currencyDialog.visible = false;
+  } catch (e: any) {
+    currencyDialog.error = e?.response?.status === 503
+      ? 'A cotação da TF2 não está cadastrada. Cadastre em Recursos e tente de novo.'
+      : 'Não foi possível trocar a moeda.';
+  } finally {
+    currencyDialog.saving = false;
+  }
+}
+
 // ─── Autosave (debounce por alvo de gravação) ────────────────────────────────
 
 /** Gravações em voo, por alvo — a promise permite esperar por elas no flush. */
 const savingInFlight = new Map<string, Promise<void>>();
+/**
+ * Alvos cuja última gravação falhou. Por alvo porque o status do card é um só:
+ * uma linha salva depois apagaria dele a falha da quantidade.
+ */
+const failedSaves = new Set<string>();
 const dirtyDuringSave = new Set<string>();
 
 const SAVE_DEBOUNCE_MS = 800;
@@ -637,6 +725,7 @@ function cancelSave(key: string) {
   if (existing) clearTimeout(existing.timer);
   saveTimers.delete(key);
   dirtyDuringSave.delete(key);
+  failedSaves.delete(key);
 }
 
 function triggerSave(key: string, trade: TradeEntry, save: () => Promise<void>): Promise<void> {
@@ -660,10 +749,12 @@ async function runSave(key: string, trade: TradeEntry, save: () => Promise<void>
 
   try {
     await save();
+    failedSaves.delete(key);
     trade.saveStatus = 'saved';
     trade.lastSavedAt = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   } catch (err) {
     console.error('Erro ao salvar trade:', err);
+    failedSaves.add(key);
     trade.saveStatus = 'error';
   } finally {
     savingInFlight.delete(key);
@@ -679,6 +770,8 @@ async function runSave(key: string, trade: TradeEntry, save: () => Promise<void>
 function saveKeysOf(trade: TradeEntry): string[] {
   return [`trade:${trade.id}`, ...trade.rows.map(row => `line:${row.id}`)];
 }
+
+const hasFailedSave = (trade: TradeEntry) => saveKeysOf(trade).some(key => failedSaves.has(key));
 
 /**
  * Drena as gravações pendentes de uma trade e espera as que estão em voo.
@@ -727,8 +820,12 @@ function scheduleAutosave(trade: TradeEntry) {
  */
 function saveTrade(trade: TradeEntry) {
   return async () => {
-    const { data } = await axiosInstance.put(route('trades.update', { trade: trade.id }), tradePayload(trade));
-    trade.bundleId = data?.bundle_id ?? null;
+    const res = await axiosInstance.put(route('trades.update', { trade: trade.id }), tradePayload(trade));
+
+    // O `axiosInstance` resolve 4xx: sem isto, gravação recusada apareceria como salva.
+    if (res.status >= 400) throw new Error(`Trade save refused with status ${res.status}`);
+
+    trade.bundleId = res.data?.bundle_id ?? null;
   };
 }
 
@@ -737,10 +834,15 @@ function scheduleLineSave(trade: TradeEntry, row: Row) {
   scheduleSave(`line:${row.id}`, trade, async () => {
     const payload = rowPayload(row);
 
-    const { data } = await axiosInstance.patch(
+    const res = await axiosInstance.patch(
       route('trades.lines.update', { trade: trade.id, line: row.id }),
       payload,
     );
+
+    // O `axiosInstance` resolve 4xx: sem isto, gravação recusada apareceria como salva.
+    if (res.status >= 400) throw new Error(`Trade line save refused with status ${res.status}`);
+
+    const { data } = res;
 
     // O servidor apaga o ID Gamivo quando o nome ou a região mudam: o id vale
     // para um par só. Espelhar na tela não é cosmético — esta gravação manda a
@@ -942,7 +1044,7 @@ function deleteTrade(event: Event, trade: TradeEntry) {
 
 async function toggleMessageSent(trade: TradeEntry) {
   trade.messageSent = !trade.messageSent;
-  await saveTrade(trade)();
+  await triggerSave(`trade:${trade.id}`, trade, saveTrade(trade));
 }
 
 // ─── Importação de keys (por trade) ───────────────────────────────────────────
@@ -1001,6 +1103,11 @@ async function runImport(trade: TradeEntry) {
     // O servidor importa o que está gravado. Uma edição ainda no debounce
     // entraria em estoque com o valor antigo, então ela vai antes.
     await flushPendingSaves(trade);
+
+    if (hasFailedSave(trade)) {
+      markImportErrors(trade, { message: 'Há alterações que não foram salvas. Corrija antes de importar.' });
+      return;
+    }
 
     // Sem corpo: o lote sai das linhas da trade, não do navegador.
     const res = await axiosInstance.post(route('trades.import', { trade: trade.id }));
@@ -1675,10 +1782,13 @@ function formatDeliveredAt(iso: string): string {
               <div class="trade-meta-field">
                 <span class="trade-meta-label">Moeda</span>
                 <select
-                  v-model="trade.currency"
+                  :value="trade.currency"
                   class="cell-input trade-meta-input trade-meta-input--currency"
-                  title="Moeda em que a quantidade foi acertada com o fornecedor"
-                  @change="scheduleAutosave(trade)"
+                  :disabled="trade.offerRound !== null"
+                  :title="trade.offerRound !== null
+                    ? 'A trade já tem oferta enviada: a moeda fica a da oferta'
+                    : 'Moeda em que a quantidade foi acertada com o fornecedor'"
+                  @change="askCurrencyChange(trade, $event)"
                 >
                   <option v-for="currency in TRADE_CURRENCY_OPTIONS" :key="currency.value" :value="currency.value">
                     {{ currency.label }}
@@ -2198,6 +2308,47 @@ function formatDeliveredAt(iso: string): string {
     </div>
 
     <OverstockedGamesDialog v-model:visible="overstockedDialogVisible" />
+
+    <Dialog
+      v-model:visible="currencyDialog.visible"
+      modal
+      header="Trocar a moeda da trade"
+      :closable="!currencyDialog.saving"
+      :close-on-escape="!currencyDialog.saving"
+      :style="{ width: '32rem' }"
+    >
+      <template v-if="currencyDialog.trade">
+        <p v-if="currencyDialogMissingQuote" class="text-danger mb-0">
+          Sem cotação da TF2 em {{ currencyLabel(currencyDialogMissingQuote) }}. Cadastre em Recursos para trocar a moeda.
+        </p>
+        <template v-else>
+          <p class="mb-2">
+            Trocar de <strong>{{ currencyLabel(currencyDialog.trade.currency) }}</strong>
+            para <strong>{{ currencyLabel(currencyDialog.target) }}</strong>, pela cotação atual da TF2?
+          </p>
+          <ul class="small mb-0">
+            <li v-if="tradeAmount(currencyDialog.trade) > 0">
+              Qtd: {{ formatPrice(tradeAmount(currencyDialog.trade)) }} {{ currencyLabel(currencyDialog.trade.currency) }}
+              → <strong>{{ previewAmount(currencyDialog.trade, currencyDialog.target) }} {{ currencyLabel(currencyDialog.target) }}</strong>
+            </li>
+            <li v-if="typedCustomRows(currencyDialog.trade).length > 0">
+              {{ typedCustomRows(currencyDialog.trade).length }} valor(es) personalizado(s) também serão convertidos
+            </li>
+            <li>O preço de mercado continua em euro</li>
+          </ul>
+        </template>
+        <p v-if="currencyDialog.error" class="text-danger small mt-2 mb-0">{{ currencyDialog.error }}</p>
+      </template>
+      <template #footer>
+        <Button label="Cancelar" severity="secondary" text :disabled="currencyDialog.saving" @click="currencyDialog.visible = false" />
+        <Button
+          label="Converter"
+          :loading="currencyDialog.saving"
+          :disabled="currencyDialogMissingQuote !== null"
+          @click="confirmCurrencyChange"
+        />
+      </template>
+    </Dialog>
 
     <Dialog
       v-model:visible="lowProfitDialog.visible"

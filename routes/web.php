@@ -77,6 +77,7 @@ Route::prefix('trades')
         Route::get('/overstocked-games', 'overstockedGames')->name('trades.overstocked-games');
         Route::post('/', 'store')->name('trades.store');
         Route::put('/{trade}', 'update')->name('trades.update');
+        Route::post('/{trade}/currency', 'convertCurrency')->name('trades.currency');
         Route::delete('/{trade}', 'destroy')->name('trades.destroy');
         Route::post('/{trade}/import', 'importKeys')->name('trades.import');
     });

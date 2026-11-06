@@ -76,34 +76,16 @@ describe('PUT /trades/{trade} — currency', function () {
             ->and($trade->fresh()->currency)->toBe(TradeCurrency::Tf2);
     });
 
-    it('persists the currency the quantity was agreed in', function () {
-        $trade = Trade::create(['date' => now()->toDateString()]);
-
-        $this->actingAs(authorizedUser())
-            ->putJson("/trades/{$trade->id}", ['currency' => 'usd', 'amount' => '25.00'])
-            ->assertStatus(200);
-
-        expect($trade->fresh()->currency)->toBe(TradeCurrency::Usd);
-    });
-
-    it('keeps the stored currency when the payload does not mention it', function () {
-        // Aba antiga ou cliente que só edita o título não pode reclassificar o valor acertado.
+    it('ignores a currency in the payload: changing it converts the amount, on its own route', function () {
+        // Uma aba aberta antes do deploy ainda manda o campo, e sem a conversão
+        // ela reclassificaria o valor acertado.
         $trade = Trade::create(['date' => now()->toDateString(), 'currency' => 'eur', 'amount' => '30.00']);
 
         $this->actingAs(authorizedUser())
-            ->putJson("/trades/{$trade->id}", ['title' => 'Renamed', 'amount' => '30.00'])
+            ->putJson("/trades/{$trade->id}", ['currency' => 'usd', 'amount' => '30.00'])
             ->assertStatus(200);
 
         expect($trade->fresh()->currency)->toBe(TradeCurrency::Eur);
-    });
-
-    it('rejects a currency outside the enum', function () {
-        $trade = Trade::create(['date' => now()->toDateString()]);
-
-        $this->actingAs(authorizedUser())
-            ->putJson("/trades/{$trade->id}", ['currency' => 'gbp'])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors('currency');
     });
 });
 
