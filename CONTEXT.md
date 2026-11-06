@@ -148,7 +148,7 @@ Um lote de jogos comprado (ou em negociação) de uma só vez. O caso comum é a
 _Avoid_: vip list, lista (isoladamente).
 
 **Moeda da trade** (`currency`):
-A moeda em que a quantidade acertada de uma trade está: TF2 Keys (padrão), euro ou dólar. Fato do lote inteiro, e só da trade: no import o valor vira TF2 pelo preço de hoje, e o resto do sistema (keys, custo, `total_paid`) segue em TF2 e euro. Regras em [`docs/PRODUCT.md`](docs/PRODUCT.md#moeda-da-trade).
+A moeda em que a quantidade acertada de uma trade está: TF2 Keys (padrão), euro ou dólar. Fato do lote inteiro, e só da trade: a aba mostra nela as ofertas, o income e o valor digitado, no import o valor vira TF2 pelo preço de hoje, e o resto do sistema (keys, custo, `total_paid`) segue em TF2 e euro. Regras em [`docs/PRODUCT.md`](docs/PRODUCT.md#moeda-da-trade).
 _Avoid_: forma de pagamento, moeda de oferta (isoladamente — é a moeda pedida pela prospecção, que vira a da trade).
 
 **Canal de compra** (`purchase_channel`):

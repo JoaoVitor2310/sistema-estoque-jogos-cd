@@ -291,6 +291,18 @@ adiado deliberadamente; a conferência humana antes do import é a mitigação a
 
 ---
 
+## Filtro e ordenação por "Qtd" na aba Trades ignoram a moeda
+
+**Onde:** `TradeService::applyTf2Range` e `TradeService::applySort`.
+
+O `amount` é comparado cru: 10 TF2 e € 10 contam igual, então filtrar ou ordenar por quantidade mistura unidades quando há trades em moedas diferentes.
+
+**Ação:** decidir a unidade da comparação (o equivalente em TF2, pela cotação do momento, ou filtrar por moeda) e aplicar nos dois.
+
+**Origem:** análise da moeda na aba Trades (2026-11).
+
+---
+
 ## Teste automatizado de frontend
 
 **Onde:** `resources/js/`.

@@ -11,13 +11,21 @@ import Paginator from 'primevue/paginator';
 import { useConfirm } from 'primevue/useconfirm';
 import OverstockedGamesDialog from '@/components/trades/OverstockedGamesDialog.vue';
 import {
+  canConvertTo,
+  missingQuote,
   impliedProfitPct,
+  incomeIn,
   netIncome,
+  offerPriceIn,
+  offerTotal,
   profitShortfall,
+  tf2FromPrice,
   tf2Offer,
   type MarginRules,
   type MarketplaceFees,
   type PurchaseChannel,
+  type Tf2Prices,
+  type TradeCurrency,
 } from '@/domain/tradeOffer';
 
 // ─── Tipos vindos do backend ─────────────────────────────────────────────────
@@ -52,9 +60,6 @@ const PURCHASE_CHANNEL_OPTIONS: { value: PurchaseChannel; label: string }[] = [
   { value: 'bundle_store', label: 'Compra direta' },
   { value: 'gamivo', label: 'Gamivo' },
 ];
-
-// Espelho de App\Domain\Enums\TradeCurrency — moeda em que a quantidade da trade está.
-type TradeCurrency = 'tf2' | 'eur' | 'usd';
 
 const TRADE_CURRENCY_OPTIONS: { value: TradeCurrency; label: string }[] = [
   { value: 'tf2', label: 'TF2' },
@@ -130,7 +135,7 @@ const props = defineProps<{
   trades: PaginatorPayload<Trade>;
   filters: Filters;
   awaitingReviewCount: number;
-  tf2Price: number;
+  tf2Prices: Tf2Prices;
   fees: MarketplaceFees;
   profitTiers: number[];
   marginRules: MarginRules;
@@ -185,12 +190,12 @@ interface Row extends ServerFlags {
   gamivo_id: string;
   status: RowStatus;
   errorMsg: string;
-  customTf2Override: string;
+  customOverride: string;
 }
 
 /** Só os campos que a linha grava — o resto é estado de tela. */
 // As marcas ficam fora: são do servidor, e a escrita não as aceita.
-type RowPayload = Omit<Row, 'id' | 'position' | 'status' | 'errorMsg' | 'customTf2Override' | keyof ServerFlags>;
+type RowPayload = Omit<Row, 'id' | 'position' | 'status' | 'errorMsg' | 'customOverride' | keyof ServerFlags>;
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -395,7 +400,7 @@ function toRow(l: TradeLine): Row {
     ...serverFlags(l),
     status: 'pending',
     errorMsg: '',
-    customTf2Override: '',
+    customOverride: '',
   };
 }
 
@@ -434,7 +439,7 @@ function toTradeEntry(t: Trade): TradeEntry {
 }
 
 function rowPayload(row: Row): RowPayload {
-  const { id, position, status, errorMsg, customTf2Override, isOverstocked, isGiveaway, ...payload } = row;
+  const { id, position, status, errorMsg, customOverride, isOverstocked, isGiveaway, ...payload } = row;
   return payload;
 }
 
@@ -464,8 +469,21 @@ function getNetIncome(row: Row): number {
   return netIncome(getMarketPrice(row), props.fees);
 }
 
+// A oferta é sempre calculada em TF2, e o custo em euro: é o que mantém a
+// comparação com o min_api certa, porque as faixas são em euro. A moeda da
+// trade só entra no que aparece, no que é digitado e no que é copiado.
 function getOffer(row: Row, tier: number): number {
-  return tf2Offer(getNetIncome(row), tier, props.tf2Price);
+  return tf2Offer(getNetIncome(row), tier, props.tf2Prices.eur);
+}
+
+/** Dá para mostrar as ofertas desta trade? Sem cotação, nada de valor em outra unidade. */
+function hasQuote(trade: TradeEntry): boolean {
+  return canConvertTo(trade.currency, props.tf2Prices);
+}
+
+/** Uma oferta em TF2, como o supplier a lê na moeda da trade. */
+function offerValue(trade: TradeEntry, tf2Value: number): number {
+  return offerPriceIn(tf2Value, trade.currency, props.tf2Prices);
 }
 
 // ─── Lucro abaixo do min_api ─────────────────────────────────────────────────
@@ -494,7 +512,13 @@ interface LowProfit {
  * para esse custo, devolve o lucro e o mínimo; senão null.
  */
 function lowProfitOf(trade: TradeEntry, row: Row, tf2Value: number): LowProfit | null {
-  const shortfall = profitShortfall(getNetIncome(row), tf2Value, props.tf2Price, trade.purchaseChannel, props.marginRules);
+  const shortfall = profitShortfall({
+    income: getNetIncome(row),
+    tf2Value,
+    tf2EuroPrice: props.tf2Prices.eur,
+    channel: trade.purchaseChannel,
+    rules: props.marginRules,
+  });
 
   return shortfall ? { game: row.game_name, ...shortfall } : null;
 }
@@ -504,7 +528,7 @@ function isLowTier(trade: TradeEntry, row: Row, tier: number): boolean {
 }
 
 function isLowCustom(trade: TradeEntry, row: Row): boolean {
-  return lowProfitOf(trade, row, getEffectiveCustomTf2(row)) !== null;
+  return lowProfitOf(trade, row, getEffectiveCustomTf2(trade, row)) !== null;
 }
 
 function lowInTier(trade: TradeEntry, tier: number): LowProfit[] {
@@ -515,7 +539,7 @@ function lowInTier(trade: TradeEntry, tier: number): LowProfit[] {
 
 function lowInCustom(trade: TradeEntry): LowProfit[] {
   return trade.rows
-    .map(row => lowProfitOf(trade, row, getEffectiveCustomTf2(row)))
+    .map(row => lowProfitOf(trade, row, getEffectiveCustomTf2(trade, row)))
     .filter((l): l is LowProfit => l !== null);
 }
 
@@ -544,18 +568,30 @@ async function confirmLowProfitCopy() {
   await proceed?.();
 }
 
-// ─── Override TF2 por linha ───────────────────────────────────────────────────
+// ─── Valor personalizado por linha ───────────────────────────────────────────────────
 
-function getEffectiveCustomTf2(row: Row): number {
-  const override = parseFloat(row.customTf2Override.replace(',', '.'));
-  if (override > 0) return override;
+function typedOverride(row: Row): number {
+  return parseFloat(row.customOverride.replace(',', '.')) || 0;
+}
+
+/** O valor personalizado da linha, em TF2. O campo é digitado na moeda da trade. */
+function getEffectiveCustomTf2(trade: TradeEntry, row: Row): number {
+  if (!hasQuote(trade)) return 0;
+
+  const override = typedOverride(row);
+  if (override > 0) return tf2FromPrice(override, trade.currency, props.tf2Prices);
   if (customTier.value !== null) return getOffer(row, customTier.value);
   return 0;
 }
 
-function getImpliedProfit(row: Row): number | null {
-  const override = parseFloat(row.customTf2Override.replace(',', '.')) || 0;
-  return impliedProfitPct(getNetIncome(row), override, props.tf2Price);
+function getImpliedProfit(trade: TradeEntry, row: Row): number | null {
+  if (!hasQuote(trade) || typedOverride(row) <= 0) return null;
+
+  return impliedProfitPct({
+    income: getNetIncome(row),
+    tf2Value: tf2FromPrice(typedOverride(row), trade.currency, props.tf2Prices),
+    tf2EuroPrice: props.tf2Prices.eur,
+  });
 }
 
 // ─── Autosave (debounce por alvo de gravação) ────────────────────────────────
@@ -680,7 +716,7 @@ async function retrySaves(trade: TradeEntry) {
   await flushPendingSaves(trade);
 }
 
-/** Campos da própria trade — título, data, fornecedor, qtd de TF2. */
+/** Campos da própria trade — título, data, fornecedor, quantidade. */
 function scheduleAutosave(trade: TradeEntry) {
   scheduleSave(`trade:${trade.id}`, trade, saveTrade(trade));
 }
@@ -1039,10 +1075,12 @@ async function copyToClipboard(text: string): Promise<void> {
 }
 
 async function copyCell(trade: TradeEntry, row: Row, value: number, cellKey: string) {
+  if (!hasQuote(trade)) return;
+
   await copyUnlessLowProfit(
     [lowProfitOf(trade, row, value)].filter((l): l is LowProfit => l !== null),
     async () => {
-      await copyToClipboard(`${row.game_name}\t${formatTf2(value)}`);
+      await copyToClipboard(`${row.game_name}\t${formatPrice(offerValue(trade, value))}`);
       trade.copiedKey = cellKey;
       setTimeout(() => { trade.copiedKey = null; }, 1500);
     },
@@ -1050,32 +1088,34 @@ async function copyCell(trade: TradeEntry, row: Row, value: number, cellKey: str
 }
 
 function copyTier(trade: TradeEntry, tier: number) {
+  if (!hasQuote(trade)) return;
+
   return copyUnlessLowProfit(lowInTier(trade, tier), () => doCopyTier(trade, tier));
 }
 
 async function doCopyTier(trade: TradeEntry, tier: number) {
-  const lines = trade.rows.map(row => `${row.game_name}\t${formatTf2(getOffer(row, tier))}`);
-  const total = getTierTotal(trade, tier);
-  lines.push(`total ${formatTf2(total)} tf2`);
+  const lines = trade.rows.map(row => `${row.game_name}\t${formatPrice(offerValue(trade, getOffer(row, tier)))}`);
+  lines.push(`total ${formatPrice(getTierTotal(trade, tier))} ${trade.currency}`);
   await copyToClipboard(lines.join('\n'));
   trade.copiedKey = `tier-${tier}`;
   setTimeout(() => { trade.copiedKey = null; }, 1500);
 }
 
 function copyCustomTier(trade: TradeEntry) {
+  if (!hasQuote(trade)) return;
+
   return copyUnlessLowProfit(lowInCustom(trade), () => doCopyCustomTier(trade));
 }
 
 async function doCopyCustomTier(trade: TradeEntry) {
   const lines = trade.rows
     .map(row => {
-      const val = getEffectiveCustomTf2(row);
-      return val > 0 ? `${row.game_name}\t${formatTf2(val)}` : null;
+      const val = getEffectiveCustomTf2(trade, row);
+      return val > 0 ? `${row.game_name}\t${formatPrice(offerValue(trade, val))}` : null;
     })
     .filter((line): line is string => line !== null);
   if (lines.length === 0) return;
-  const total = getCustomTierTotal(trade);
-  lines.push(`total ${formatTf2(total)} tf2`);
+  lines.push(`total ${formatPrice(getCustomTierTotal(trade))} ${trade.currency}`);
   await copyToClipboard(lines.join('\n'));
   trade.copiedKey = 'tier-custom';
   setTimeout(() => { trade.copiedKey = null; }, 1500);
@@ -1087,8 +1127,24 @@ function formatEur(val: number): string {
   return '€ ' + val.toFixed(2).replace('.', ',');
 }
 
-function formatTf2(val: number): string {
+// Vírgula decimal, em qualquer moeda.
+function formatPrice(val: number): string {
   return val.toFixed(2).replace('.', ',');
+}
+
+/** Uma oferta em TF2, formatada na moeda da trade; traço sem cotação. */
+function formatOffer(trade: TradeEntry, tf2Value: number): string {
+  return hasQuote(trade) ? formatPrice(offerValue(trade, tf2Value)) : '—';
+}
+
+function incomeSymbol(trade: TradeEntry): string {
+  return trade.currency === 'usd' ? '$' : '€';
+}
+
+/** O income, em euro por dentro, na moeda em que a trade o mostra; traço sem cotação. */
+function formatIncome(trade: TradeEntry, income: number): string {
+  const value = incomeIn(income, trade.currency, props.tf2Prices);
+  return value === null ? '—' : `${incomeSymbol(trade)} ${formatPrice(value)}`;
 }
 
 function tierBadgeClass(tier: number): string {
@@ -1170,11 +1226,11 @@ function getNetIncomeTotal(trade: TradeEntry): number {
 }
 
 function getTierTotal(trade: TradeEntry, tier: number): number {
-  return trade.rows.reduce((sum, row) => sum + getOffer(row, tier), 0);
+  return offerTotal(trade.rows.map(row => offerValue(trade, getOffer(row, tier))));
 }
 
 function getCustomTierTotal(trade: TradeEntry): number {
-  return trade.rows.reduce((sum, row) => sum + getEffectiveCustomTf2(row), 0);
+  return offerTotal(trade.rows.map(row => offerValue(trade, getEffectiveCustomTf2(trade, row))));
 }
 
 // ─── Abrir e fechar uma trade ────────────────────────────────────────────────
@@ -1302,11 +1358,6 @@ function currencyLabel(currency: TradeCurrency): string {
   return TRADE_CURRENCY_OPTIONS.find(option => option.value === currency)?.label ?? currency;
 }
 
-// Vírgula decimal, como formatEur/formatTf2: a oferta fica na mesma tabela.
-function formatOfferPrice(value: number): string {
-  return value.toFixed(2).replace('.', ',');
-}
-
 /**
  * Jogos da oferta vigente que não têm mais linha na trade — a equipe apagou a
  * linha depois de ofertar. Somam no total enviado, mas nenhuma linha da tabela
@@ -1351,7 +1402,7 @@ function formatDeliveredAt(iso: string): string {
       >
         <i class="pi pi-exclamation-triangle me-1" />Jogos encalhados
       </button>
-      <span class="badge bg-secondary">TF2 {{ formatEur(tf2Price) }}</span>
+      <span class="badge bg-secondary">TF2 {{ formatEur(tf2Prices.eur) }} · $ {{ formatPrice(tf2Prices.usd) }}</span>
       <span class="text-muted small">
         Taxas Gamivo:
         {{ (fees.percentLow * 100).toFixed(0) }}% + {{ formatEur(fees.fixedLow) }}
@@ -1660,6 +1711,13 @@ function formatDeliveredAt(iso: string): string {
               <i class="pi pi-check-circle me-1" />Importada
             </span>
             <span
+              v-if="!hasQuote(trade)"
+              class="badge bg-danger"
+              title="Cadastre o preço da TF2 nesta moeda em Recursos. Sem ele, os valores não têm como ser mostrados."
+            >
+              <i class="pi pi-exclamation-triangle me-1" />Sem cotação da TF2 em {{ currencyLabel(missingQuote(trade.currency, tf2Prices)!) }}
+            </span>
+            <span
               v-if="offerBadge(trade)"
               class="badge"
               :class="trade.offerIsFinal ? 'bg-dark' : 'bg-info text-dark'"
@@ -1825,7 +1883,7 @@ function formatDeliveredAt(iso: string): string {
                   <th style="min-width: 180px;">Nome do Jogo</th>
                   <th style="width: 90px; min-width: 90px; max-width: 90px; white-space: nowrap;">Gamivo ID</th>
                   <th class="text-end sort-th" style="min-width: 100px;" @click="sortRowsBy('netIncome')">
-                    Income líq. <span class="text-muted fw-normal">(€)</span>
+                    Income líq. <span class="text-muted fw-normal">({{ incomeSymbol(trade) }})</span>
                     <i :class="sortIcon('netIncome')" class="sort-icon" />
                   </th>
                   <th
@@ -1848,10 +1906,12 @@ function formatDeliveredAt(iso: string): string {
                       <span class="badge" :class="tierBadgeClass(tier)">
                         {{ tier }}% <i :class="sortIcon(`tier-${tier}`)" class="sort-icon" />
                       </span>
+                      <span class="text-muted fw-normal small">{{ currencyLabel(trade.currency) }}</span>
                       <button
                         type="button"
                         class="btn btn-sm"
                         :class="trade.copiedKey === `tier-${tier}` ? 'btn-success' : lowInTier(trade, tier).length ? 'btn-outline-danger' : 'btn-outline-secondary'"
+                        :disabled="!hasQuote(trade)"
                         :title="`Copiar todos (${tier}%)`"
                         @click.stop="copyTier(trade, tier)"
                       >
@@ -1872,11 +1932,12 @@ function formatDeliveredAt(iso: string): string {
                           {{ customTier }}% <i :class="sortIcon('tier-custom')" class="sort-icon" />
                         </span>
                       </div>
+                      <span class="text-muted fw-normal small">{{ currencyLabel(trade.currency) }}</span>
                       <button
                         type="button"
                         class="btn btn-sm"
                         :class="trade.copiedKey === 'tier-custom' ? 'btn-success' : lowInCustom(trade).length ? 'btn-outline-danger' : 'btn-outline-secondary'"
-                        :disabled="customTier === null && !trade.rows.some(r => r.customTf2Override)"
+                        :disabled="!hasQuote(trade) || (customTier === null && !trade.rows.some(r => r.customOverride))"
                         title="Copiar todos"
                         @click.stop="copyCustomTier(trade)"
                       >
@@ -1962,10 +2023,10 @@ function formatDeliveredAt(iso: string): string {
                   </td>
 
                   <td class="text-end text-muted small">
-                    {{ formatEur(getNetIncome(row)) }}
+                    {{ formatIncome(trade, getNetIncome(row)) }}
                   </td>
                   <td v-if="currentOffer(trade)" class="text-end small fw-semibold">
-                    <template v-if="offeredPrice(trade, row) !== null">{{ formatOfferPrice(offeredPrice(trade, row)!) }}</template>
+                    <template v-if="offeredPrice(trade, row) !== null">{{ formatPrice(offeredPrice(trade, row)!) }}</template>
                     <span v-else class="text-muted">—</span>
                   </td>
 
@@ -1978,11 +2039,12 @@ function formatDeliveredAt(iso: string): string {
                       type="button"
                       class="btn btn-sm w-100"
                       :class="trade.copiedKey === `${rowIdx}-${tier}` ? 'btn-success' : isLowTier(trade, row, tier) ? 'btn-outline-danger' : 'btn-outline-secondary'"
-                      :title="`Copiar: ${row.game_name} + ${formatTf2(getOffer(row, tier))} TF2`"
+                      :disabled="!hasQuote(trade)"
+                      :title="`Copiar: ${row.game_name} + ${formatOffer(trade, getOffer(row, tier))} ${currencyLabel(trade.currency)}`"
                       @click="copyCell(trade, row, getOffer(row, tier), `${rowIdx}-${tier}`)"
                     >
                       <i v-if="trade.copiedKey === `${rowIdx}-${tier}`" class="pi pi-check me-1" />
-                      {{ formatTf2(getOffer(row, tier)) }}
+                      {{ formatOffer(trade, getOffer(row, tier)) }}
                     </button>
                   </td>
 
@@ -1990,18 +2052,19 @@ function formatDeliveredAt(iso: string): string {
                     <div class="d-flex flex-column align-items-center gap-1">
                       <div class="d-flex align-items-center gap-1">
                         <input
-                          v-model="row.customTf2Override"
-                          class="custom-tf2-row-input"
-                          :placeholder="customTier !== null ? formatTf2(getOffer(row, customTier)) : '—'"
+                          v-model="row.customOverride"
+                          class="custom-row-input"
+                          :disabled="!hasQuote(trade)"
+                          :placeholder="customTier !== null ? formatOffer(trade, getOffer(row, customTier)) : '—'"
                           @click.stop
                         />
                         <button
-                          v-if="getEffectiveCustomTf2(row) > 0"
+                          v-if="getEffectiveCustomTf2(trade, row) > 0"
                           type="button"
                           class="btn btn-sm px-1"
                           :class="trade.copiedKey === `${rowIdx}-custom` ? 'btn-success' : isLowCustom(trade, row) ? 'btn-outline-danger' : 'btn-outline-purple'"
-                          :title="`Copiar: ${row.game_name} + ${formatTf2(getEffectiveCustomTf2(row))} TF2`"
-                          @click="copyCell(trade, row, getEffectiveCustomTf2(row), `${rowIdx}-custom`)"
+                          :title="`Copiar: ${row.game_name} + ${formatOffer(trade, getEffectiveCustomTf2(trade, row))} ${currencyLabel(trade.currency)}`"
+                          @click="copyCell(trade, row, getEffectiveCustomTf2(trade, row), `${rowIdx}-custom`)"
                         >
                           <i
                             :class="trade.copiedKey === `${rowIdx}-custom` ? 'pi pi-check' : 'pi pi-copy'"
@@ -2010,11 +2073,11 @@ function formatDeliveredAt(iso: string): string {
                         </button>
                       </div>
                       <span
-                        v-if="getImpliedProfit(row) !== null"
+                        v-if="getImpliedProfit(trade, row) !== null"
                         class="text-muted"
                         style="font-size: 0.7rem;"
                       >
-                        ≈ {{ getImpliedProfit(row)!.toFixed(1) }}%
+                        ≈ {{ getImpliedProfit(trade, row)!.toFixed(1) }}%
                       </span>
                     </div>
                   </td>
@@ -2045,9 +2108,9 @@ function formatDeliveredAt(iso: string): string {
               <tfoot class="table-light">
                 <tr>
                   <td colspan="8" class="text-end text-muted small fw-semibold pe-3">Total</td>
-                  <td class="text-end fw-bold small">{{ formatEur(getNetIncomeTotal(trade)) }}</td>
+                  <td class="text-end fw-bold small">{{ formatIncome(trade, getNetIncomeTotal(trade)) }}</td>
                   <td v-if="currentOffer(trade)" class="text-end fw-bold small">
-                    {{ formatOfferPrice(currentOffer(trade)!.total_price) }}
+                    {{ formatPrice(currentOffer(trade)!.total_price) }}
                   </td>
 
                   <td
@@ -2055,12 +2118,12 @@ function formatDeliveredAt(iso: string): string {
                     :key="tier"
                     class="text-center fw-bold small"
                   >
-                    {{ formatTf2(getTierTotal(trade, tier)) }}
+                    {{ hasQuote(trade) ? formatPrice(getTierTotal(trade, tier)) : '—' }}
                   </td>
 
                   <td class="text-center fw-bold small">
                     <span v-if="getCustomTierTotal(trade) > 0">
-                      {{ formatTf2(getCustomTierTotal(trade)) }}
+                      {{ formatPrice(getCustomTierTotal(trade)) }}
                     </span>
                     <span v-else class="text-muted">—</span>
                   </td>
@@ -2078,7 +2141,7 @@ function formatDeliveredAt(iso: string): string {
             {{ orphanOfferLines(trade).length === 1 ? 'um jogo que não está mais' : `${orphanOfferLines(trade).length} jogos que não estão mais` }}
             na trade:
             <span v-for="(line, i) in orphanOfferLines(trade)" :key="i">
-              {{ line.game_name }} ({{ formatOfferPrice(line.price) }}){{ i < orphanOfferLines(trade).length - 1 ? ', ' : '' }}
+              {{ line.game_name }} ({{ formatPrice(line.price) }}){{ i < orphanOfferLines(trade).length - 1 ? ', ' : '' }}
             </span>
           </div>
 
@@ -2106,10 +2169,10 @@ function formatDeliveredAt(iso: string): string {
                   <td>{{ formatOfferDate(offer.created_at) }}</td>
                   <td class="text-end">{{ offer.profit_percent }}%</td>
                   <td class="text-end">
-                    <template v-if="offer.requested_total !== null">{{ formatOfferPrice(offer.requested_total) }} {{ currencyLabel(offer.currency) }}</template>
+                    <template v-if="offer.requested_total !== null">{{ formatPrice(offer.requested_total) }} {{ currencyLabel(offer.currency) }}</template>
                     <span v-else class="text-muted">—</span>
                   </td>
-                  <td class="text-end fw-semibold">{{ formatOfferPrice(offer.total_price) }} {{ currencyLabel(offer.currency) }}</td>
+                  <td class="text-end fw-semibold">{{ formatPrice(offer.total_price) }} {{ currencyLabel(offer.currency) }}</td>
                 </tr>
               </tbody>
             </table>
@@ -2411,9 +2474,9 @@ function formatDeliveredAt(iso: string): string {
   color: #6c757d;
 }
 
-/* ── Override TF2 por linha ──────────────────────────────────────────────────── */
+/* ── Valor personalizado por linha ──────────────────────────────────────────────────── */
 
-.custom-tf2-row-input {
+.custom-row-input {
   width: 52px;
   border: none;
   border-bottom: 1px solid #dee2e6;
@@ -2424,13 +2487,13 @@ function formatDeliveredAt(iso: string): string {
   padding: 0 2px;
 }
 
-.custom-tf2-row-input:focus {
+.custom-row-input:focus {
   outline: none;
   border-bottom: 2px solid #8009EF;
   background: #f9f4ff;
 }
 
-.custom-tf2-row-input::placeholder {
+.custom-row-input::placeholder {
   color: #adb5bd;
   font-size: 0.8rem;
 }

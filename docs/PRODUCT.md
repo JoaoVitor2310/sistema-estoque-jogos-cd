@@ -71,13 +71,25 @@ A quantidade acertada de uma trade (`amount`) está numa **moeda** (`trades.curr
 
 A moeda não muda a margem: não há taxa de PayPal para nós, então a oferta em dinheiro tem o mesmo lucro-alvo da oferta em TF2.
 
+**Na aba Trades, tudo que é negociado aparece na moeda da trade.** A moeda só muda o que aparece, o que é digitado e o que é copiado: por dentro a oferta segue em TF2 e o custo em euro, então a importação e o resto do sistema não mudam.
+
+| Valor | Trade em TF2 | Trade em EUR | Trade em USD |
+|---|---|---|---|
+| Colunas 100/80/60% e o total | TF2 | € | $ |
+| Valor personalizado (digitado) | TF2 | € | $ |
+| Income líq. | € | € | $, pela razão entre as cotações da TF2 (dólar ÷ euro) |
+| Texto copiado | `total 12,34 tf2` | `total 12,34 eur` | `total 12,34 usd` |
+| Preço de mercado | € | € | € — é a origem de tudo, gravada em euro |
+
+Cada valor é arredondado por jogo, nunca abaixo de 0,01, e o total soma os já arredondados, para bater com as linhas. A regra é a da oferta gravada (`SupplierOfferLine::priceIn`). **Sem a cotação da TF2 em euro ou na moeda da trade**, os valores aparecem como "—", a cópia fica bloqueada e o card avisa qual cotação falta (o euro vale para toda trade, porque toda oferta parte dele): mostrar em TF2 seria mandar ao fornecedor um número em outra unidade.
+
 ### Copiar oferta com lucro abaixo do `min_api` exige confirmação
 
-Não faz sentido comprar uma key por um preço em que o lucro fica abaixo do que o `min_api` praticaria para ela: a key nasceria encalhada, porque o auto-sell não a lista. Na aba de Trades, a célula de oferta (100%/80%/60%, a coluna personalizada e o override manual de TF2) cujo lucro fique abaixo do mínimo fica **vermelha**, e copiá-la abre um modal de confirmação ("Copiar mesmo assim"). Copiar uma **coluna inteira** pede a mesma confirmação quando ao menos um jogo dela está abaixo do mínimo, listando os jogos.
+Não faz sentido comprar uma key por um preço em que o lucro fica abaixo do que o `min_api` praticaria para ela: a key nasceria encalhada, porque o auto-sell não a lista. Na aba de Trades, a célula de oferta (100%/80%/60%, a coluna personalizada e o valor digitado à mão) cujo lucro fique abaixo do mínimo fica **vermelha**, e copiá-la abre um modal de confirmação ("Copiar mesmo assim"). Copiar uma **coluna inteira** pede a mesma confirmação quando ao menos um jogo dela está abaixo do mínimo, listando os jogos.
 
 | Item | Regra |
 |---|---|
-| Custo comparado | valor exato da célula em TF2 × preço do TF2 |
+| Custo comparado | valor exato da célula em TF2 × preço do TF2 em **euro**, qualquer que seja a moeda da trade: as faixas são em euro |
 | Lucro da célula | `renda líquida / custo − 1` (nos tiers, é o próprio tier) |
 | Mínimo exigido | margem **inicial** do `MinimumMarginPolicy` para o custo: faixa de custo (55% / 50% / 45% / 40%) ou `BUNDLE_STORE_MARGIN` (40%) na compra direta |
 | Tempo de estoque | não entra: a key ainda vai ser comprada |

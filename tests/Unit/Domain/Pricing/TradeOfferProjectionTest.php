@@ -13,10 +13,12 @@
 */
 
 use App\Domain\Enums\PurchaseChannel;
+use App\Domain\Enums\TradeCurrency;
 use App\Domain\Pricing\IncomeCalculator;
 use App\Domain\Pricing\MinimumMarginPolicy;
 use App\Domain\Pricing\OfferCalculator;
 use App\Domain\Pricing\ValueObjects\MarketplaceFee;
+use App\Domain\Pricing\ValueObjects\SupplierOfferLine;
 use Carbon\Carbon;
 
 function tradeOfferCases(): array
@@ -48,6 +50,15 @@ describe('Trade offer projection contract', function () {
 
         expect($margin * 100)->toEqualWithDelta($expected, 0.000001);
     })->with(fn () => array_map(fn (array $case) => [$case['cost'], $case['channel'], $case['expected']], tradeOfferCases()['requiredMarginPercent']));
+
+    it('agrees on the price the supplier reads', function (float $tf2Offer, string $currency, float $tf2Price, float $expected) {
+        $line = new SupplierOfferLine($tf2Offer, $tf2Offer);
+
+        expect($line->priceIn(TradeCurrency::from($currency), $tf2Price))->toEqualWithDelta($expected, 0.000001);
+    })->with(fn () => array_map(
+        fn (array $case) => [$case['tf2Offer'], $case['currency'], $case['tf2Price'], $case['expected']],
+        tradeOfferCases()['offerPrice'],
+    ));
 
     it('uses the margin rules the backend sends to the screen', function () {
         expect(MinimumMarginPolicy::initialMarginRules())->toEqual(tradeOfferCases()['marginRules']);
