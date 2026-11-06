@@ -3,7 +3,6 @@
 namespace App\UseCases\Trades;
 
 use App\Domain\Enums\PurchaseChannel;
-use App\Domain\Enums\TradeCurrency;
 use App\Models\Trade;
 use App\Services\Bundles\BundleService;
 use App\Services\Suppliers\SupplierService;
@@ -19,6 +18,8 @@ class UpdateTradeUseCase
     /**
      * Atualiza só os campos da própria trade. As linhas têm rotas próprias —
      * uma gravação da trade não pode mais substituir o conjunto inteiro delas.
+     * A moeda também não passa por aqui: trocá-la converte a quantidade, e é
+     * [[ConvertTradeCurrencyUseCase]] quem faz isso.
      *
      * O canal de compra decide qual contraparte a trade guarda: a que o canal não
      * usa é descartada, mesmo que o payload a traga. Assim uma trade nunca fica
@@ -30,7 +31,7 @@ class UpdateTradeUseCase
      * bundle nenhum deixa `bundle_id` nulo, e o import recusa a trade por isso —
      * a falha aparece, não passa calada.
      *
-     * @param  array{title?: string|null, purchaseChannel?: string|null, supplierUrl?: string|null, date?: string|null, amount?: string|null, currency?: string|null, message_sent?: bool}  $data
+     * @param  array{title?: string|null, purchaseChannel?: string|null, supplierUrl?: string|null, date?: string|null, amount?: string|null, message_sent?: bool}  $data
      */
     public function execute(Trade $trade, array $data): void
     {
@@ -47,9 +48,6 @@ class UpdateTradeUseCase
                 : null,
             'date' => $this->parseDate($data['date'] ?? null),
             'amount' => ($data['amount'] ?? null) ?: null,
-            // Campo ausente preserva a moeda: gravação que não a menciona (aba antiga,
-            // cliente que só edita título) não pode reclassificar o valor acertado.
-            'currency' => TradeCurrency::tryFrom($data['currency'] ?? '') ?? $trade->currency,
             'message_sent' => (bool) ($data['message_sent'] ?? false),
         ]);
     }

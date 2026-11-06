@@ -31,3 +31,26 @@ describe('OfferCalculator::toTf2Quantity', function () {
         expect(OfferCalculator::toTf2Quantity(3.0, 0.0))->toBe(0.0);
     });
 });
+
+describe('OfferCalculator::convertAmount', function () {
+
+    it('converts by the ratio of the TF2 prices', function () {
+        // 17 USD ÷ $1,70 = 10 TF2 × € 1,46 = € 14,60
+        expect(OfferCalculator::convertAmount(17.0, 1.7, 1.46))->toBe(14.6);
+    });
+
+    it('rounds to the 2 places of trades.amount', function () {
+        // 1 TF2 × $2,205 → 2,21
+        expect(OfferCalculator::convertAmount(1.0, 1.0, 2.205))->toBe(2.21);
+    });
+
+    it('leaves a trade without an agreed amount as it is', function () {
+        expect(OfferCalculator::convertAmount(null, 1.0, 1.7))->toBeNull()
+            ->and(OfferCalculator::convertAmount(0.0, 1.0, 1.7))->toBe(0.0);
+    });
+
+    it('never turns a positive amount into zero', function () {
+        // $ 0,01 ÷ $2,50 = 0,004 TF2
+        expect(OfferCalculator::convertAmount(0.01, 2.5, 1.0))->toBe(0.01);
+    });
+});

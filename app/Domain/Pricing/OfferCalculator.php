@@ -79,4 +79,23 @@ final class OfferCalculator
 
         return round($amount / $tf2PriceInCurrency, self::MONEY_DECIMALS);
     }
+
+    /**
+     * Converte um valor acertado de uma moeda para outra, pela razão entre os
+     * preços da TF2 nas duas, com as 2 casas de `trades.amount`. Um valor positivo
+     * nunca vira zero: a trade perderia a quantidade acertada. Sem valor positivo
+     * não há o que converter, e ele fica como está.
+     *
+     * @param  float|null  $amount  Valor acertado, na moeda de origem
+     * @param  float  $fromTf2Price  Preço de 1 TF2 key na moeda de origem, positivo
+     * @param  float  $toTf2Price  Preço de 1 TF2 key na moeda de destino
+     */
+    public static function convertAmount(?float $amount, float $fromTf2Price, float $toTf2Price): ?float
+    {
+        if ($amount === null || $amount <= 0) {
+            return $amount;
+        }
+
+        return max(self::MIN_CASH_OFFER, round($amount * $toTf2Price / $fromTf2Price, self::MONEY_DECIMALS));
+    }
 }

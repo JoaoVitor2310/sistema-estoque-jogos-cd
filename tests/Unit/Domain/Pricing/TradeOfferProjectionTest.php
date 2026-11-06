@@ -60,6 +60,15 @@ describe('Trade offer projection contract', function () {
         tradeOfferCases()['offerPrice'],
     ));
 
+    it('agrees on converting an amount between currencies', function (float $amount, string $from, string $to, array $prices, float $expected) {
+        $tf2Price = fn (string $currency) => $prices[$currency] ?? TradeCurrency::TF2_UNIT_PRICE;
+
+        expect(OfferCalculator::convertAmount($amount, $tf2Price($from), $tf2Price($to)))->toEqualWithDelta($expected, 0.000001);
+    })->with(fn () => array_map(
+        fn (array $case) => [$case['amount'], $case['from'], $case['to'], $case['prices'], $case['expected']],
+        tradeOfferCases()['convertAmount'],
+    ));
+
     it('uses the margin rules the backend sends to the screen', function () {
         expect(MinimumMarginPolicy::initialMarginRules())->toEqual(tradeOfferCases()['marginRules']);
     });

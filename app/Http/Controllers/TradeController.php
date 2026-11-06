@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Domain\Pricing\CurrencyPriceUnavailable;
 use App\Domain\Pricing\MinimumMarginPolicy;
 use App\Domain\Pricing\OfferCalculator;
 use App\Domain\Trades\OverstockPolicy;
+use App\Domain\Trades\TradeCurrencyLocked;
+use App\Http\Requests\ConvertTradeCurrencyRequest;
 use App\Http\Requests\IndexTradesRequest;
 use App\Http\Requests\StoreListTradeRequest;
 use App\Http\Requests\UpdateTradeRequest;
@@ -13,6 +16,7 @@ use App\Services\Keys\KeyCalculationService;
 use App\Services\Trades\OverstockService;
 use App\Services\Trades\TradeService;
 use App\UseCases\Keys\RegisterKeyUseCase;
+use App\UseCases\Trades\ConvertTradeCurrencyUseCase;
 use App\UseCases\Trades\CreateTradeUseCase;
 use App\UseCases\Trades\StoreListTradeUseCase;
 use App\UseCases\Trades\UpdateTradeUseCase;
@@ -28,6 +32,7 @@ class TradeController extends Controller
         private readonly TradeService $tradeService,
         private readonly CreateTradeUseCase $createTradeUseCase,
         private readonly UpdateTradeUseCase $updateTradeUseCase,
+        private readonly ConvertTradeCurrencyUseCase $convertTradeCurrencyUseCase,
         private readonly StoreListTradeUseCase $storeListTradeUseCase,
         private readonly OverstockService $overstockService,
     ) {}
@@ -123,6 +128,20 @@ class TradeController extends Controller
         // O bundle da compra direta é resolvido aqui, pelo título — a aba não
         // tem como saber se o título casou, e sem isso só descobriria no import.
         return response()->json(['bundle_id' => $trade->bundle_id], 200);
+    }
+
+    /** Responde a moeda e a quantidade como ficaram gravadas, que substituem as da tela. */
+    public function convertCurrency(ConvertTradeCurrencyRequest $request, Trade $trade): JsonResponse
+    {
+        try {
+            $converted = $this->convertTradeCurrencyUseCase->execute($trade, $request->targetCurrency());
+        } catch (TradeCurrencyLocked) {
+            return response()->json(['reason' => 'trade_has_offer'], 409);
+        } catch (CurrencyPriceUnavailable $e) {
+            return response()->json(['message' => $e->getMessage()], 503);
+        }
+
+        return response()->json(['currency' => $converted->currency, 'amount' => $converted->amount]);
     }
 
     public function destroy(Trade $trade): JsonResponse

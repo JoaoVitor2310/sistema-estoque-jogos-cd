@@ -56,7 +56,7 @@ Significa que foi gasto 5,5 TF2 keys para um trade de 8 jogos. Esses 8 jogos ser
 
 ### Moeda da trade
 
-A quantidade acertada de uma trade (`amount`) está numa **moeda** (`trades.currency`, enum `TradeCurrency`): `tf2` (padrão), `eur` ou `usd`. Quem escolhe a moeda de uma lista na prospecção é o `price_researcher`, lendo o que o fornecedor aceita (`offer_currency`); a equipe corrige no seletor "Moeda" ao lado de "Qtd" na aba. A página de entrega rotula o total pela moeda.
+A quantidade acertada de uma trade (`amount`) está numa **moeda** (`trades.currency`, enum `TradeCurrency`): `tf2` (padrão), `eur` ou `usd`. Quem escolhe a moeda de uma lista na prospecção é o `price_researcher`, lendo o que o fornecedor aceita (`offer_currency`); a equipe troca no seletor "Moeda" ao lado de "Qtd" na aba ([regras da troca](#trocar-a-moeda-da-trade)). A página de entrega rotula o total pela moeda.
 
 **A moeda vive só na trade.** No import, o valor acertado vira o equivalente em TF2 pelo preço de hoje (`OfferCalculator::toTf2Quantity`, 2 casas) e dali em diante a key é indistinguível de uma paga em TF2: `keys.tf2_quantity`, `total_paid` ("0.45x TF2 Keys / N") e o `individual_cost` em euro seguem os padrões de sempre, na aba de Keys e no resto do sistema.
 
@@ -82,6 +82,23 @@ A moeda não muda a margem: não há taxa de PayPal para nós, então a oferta e
 | Preço de mercado | € | € | € — é a origem de tudo, gravada em euro |
 
 Cada valor é arredondado por jogo, nunca abaixo de 0,01, e o total soma os já arredondados, para bater com as linhas. A regra é a da oferta gravada (`SupplierOfferLine::priceIn`). **Sem a cotação da TF2 em euro ou na moeda da trade**, os valores aparecem como "—", a cópia fica bloqueada e o card avisa qual cotação falta (o euro vale para toda trade, porque toda oferta parte dele): mostrar em TF2 seria mandar ao fornecedor um número em outra unidade.
+
+#### Trocar a moeda da trade
+
+Trocar a moeda converte o que a trade já tem acertado, depois de uma confirmação que mostra o resultado. Cancelar deixa tudo como estava.
+
+| Item | O que acontece |
+|---|---|
+| Qtd (`amount`) | `quantidade × cotação nova ÷ cotação atual`, 2 casas, nunca zero (`OfferCalculator::convertAmount`), gravada junto com a moeda |
+| Valor personalizado digitado | convertido na tela pela mesma conta; não é gravado |
+| Trade sem Qtd | só a moeda muda |
+| Preço de mercado | não muda: continua em euro |
+| `tf2_quantity`, `total_paid` e import | não mudam: o import segue convertendo a Qtd para TF2 |
+| Trade com oferta | o seletor fica bloqueado, e o servidor recusa (409): a oferta é um registro na moeda em que o supplier a leu |
+| Sem cotação da TF2 em uma das duas moedas | a confirmação avisa qual falta e não converte, e o servidor recusa (503) |
+| Qtd ou outro campo que o servidor recusa ao salvar | a troca não acontece, e o valor digitado continua na tela para corrigir |
+
+A cotação é a da TF2 em Recursos (euro e dólar; em TF2, 1). Quem confirma lê a conta pela cotação carregada na tela, mas a Qtd gravada usa a do servidor, e é ela que aparece depois.
 
 ### Copiar oferta com lucro abaixo do `min_api` exige confirmação
 

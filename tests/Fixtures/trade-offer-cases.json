@@ -117,6 +117,15 @@
       "expected": 40
     }
   ],
+  "convertAmount": [
+    { "amount": 10, "from": "tf2", "to": "eur", "prices": { "eur": 1.46, "usd": 1.7 }, "expected": 14.6 },
+    { "amount": 10, "from": "tf2", "to": "usd", "prices": { "eur": 1.46, "usd": 1.7 }, "expected": 17 },
+    { "amount": 14.6, "from": "eur", "to": "tf2", "prices": { "eur": 1.46, "usd": 1.7 }, "expected": 10 },
+    { "amount": 17, "from": "usd", "to": "eur", "prices": { "eur": 1.46, "usd": 1.7 }, "expected": 14.6 },
+    { "amount": 3.33, "from": "tf2", "to": "eur", "prices": { "eur": 2.5, "usd": 1.7 }, "expected": 8.33 },
+    { "amount": 0.01, "from": "usd", "to": "tf2", "prices": { "eur": 1.46, "usd": 2.5 }, "expected": 0.01 },
+    { "amount": 0, "from": "tf2", "to": "usd", "prices": { "eur": 1.46, "usd": 1.7 }, "expected": 0 }
+  ],
   "offerPrice": [
     {
       "tf2Offer": 2.464396,
