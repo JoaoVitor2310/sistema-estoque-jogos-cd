@@ -293,33 +293,16 @@ adiado deliberadamente; a conferência humana antes do import é a mitigação a
 
 ## Teste automatizado de frontend
 
-**Onde:** `resources/js/`, `package.json` (hoje `dev`, `build` e `typecheck`), `.github/workflows/ci.yml` (quatro jobs: Pint, PHPStan, Pest e vue-tsc).
+**Onde:** `resources/js/`.
 
-O frontend não tem runner nenhum: toda mudança de `.vue` é verificada por `npm run build`, que
-só prova que compila. Isso bastava enquanto o Vue era desenho, mas ele passou a carregar
-**regra**: `Delivery.vue` monta a máscara de `mm/dd/aaaa`, decide o que é validade incompleta e
-desabilita o envio sem `amount`; `Trades.vue` tem `canImport()`, que espelha
-`ImportReadinessPolicy`. Nenhuma dessas linhas tem teste, e a falha típica delas é **silenciosa**:
-um campo que o servidor descarta sem erro (foi o caso de `02012026` virar validade nenhuma com a
-página dizendo "Saved") passa em toda a suíte Pest.
+O Vitest já roda no CI (`npm run test`), e as contas de oferta da aba Trades estão testadas em `resources/js/domain/tradeOffer.ts`. O resto da regra do Vue continua sem teste, e a falha típica dela é **silenciosa**: `Delivery.vue` monta a máscara de `mm/dd/aaaa`, decide o que é validade incompleta e desabilita o envio sem `amount`; `Trades.vue` tem `canImport()`, que espelha `ImportReadinessPolicy`. Um campo que o servidor descarta sem erro (foi o caso de `02012026` virar validade nenhuma com a página dizendo "Saved") passa em toda a suíte Pest.
 
 **Ação:** duas camadas, nesta ordem de retorno.
 
-1. **Vitest + `@vue/test-utils` + jsdom** para a lógica. O pré-requisito é extrair as funções puras
-   dos SFC para módulos próprios (`resources/js/domain/`), importáveis sem montar componente:
-   máscara e validação de data, `hasBadExpiry`, `amountMissing`, `canImport`. Testar montando o
-   componente também funciona, mas amarra o teste ao markup — o teste quebra ao mexer numa classe
-   CSS. A extração dá de brinde um lugar único para anotar que aquela regra é o par TS de uma
-   classe de Domain PHP.
-2. **Playwright** para o fluxo da entrega ponta a ponta (token → preencher → enviar → leitura),
-   que é onde o backend não enxerga: a página é a única superfície com usuário de fora, e o que
-   falha nela falha sem exceção nenhuma no servidor.
+1. Extrair para `resources/js/domain/` as outras funções puras — máscara e validação de data, `hasBadExpiry`, `amountMissing`, `canImport` — com o `.test.ts` ao lado. Testar montando o componente (`@vue/test-utils` + jsdom) também funciona, mas amarra o teste ao markup.
+2. **Playwright** para o fluxo da entrega ponta a ponta (token → preencher → enviar → leitura), que é onde o backend não enxerga: a página é a única superfície com usuário de fora, e o que falha nela falha sem exceção nenhuma no servidor.
 
-Fechar com um `npm run test` e um quarto job no `ci.yml`, ao lado de Pint, PHPStan e Pest — teste
-que não roda no CI vira teste que ninguém roda.
-
-**Origem:** revisão da tela de entrega (2026-08-19) — máscara de validade, larguras de coluna e
-selo de autosave entraram sem teste, verificados só pelo build.
+**Origem:** revisão da tela de entrega (2026-08-19) — máscara de validade, larguras de coluna e selo de autosave entraram sem teste, verificados só pelo build.
 
 ---
 
