@@ -527,3 +527,40 @@ describe('POST /suppliers/prospect — market_price_euro', function () {
             ->and($response->json('profitable.0'))->not->toHaveKey('price_euro');
     });
 });
+
+// ── A trade do comentário, lida pelo chatbot ─────────────────────────────────
+
+describe('POST /suppliers/prospect — the trade it creates, as the chatbot reads it', function () {
+
+    beforeEach(function () {
+        Config::set('services.external_secret', PROSPECT_SECRET);
+        seedProspectDeps();
+    });
+
+    it('serves the first offer with the lines and total the comment showed', function () {
+        // Aceite do item: o supplier que chega pelo comentário vê no chatbot
+        // os mesmos jogos e valores que leu no SteamTrades.
+        $comment = $this->withToken(PROSPECT_SECRET)
+            ->postJson('/suppliers/prospect', validPayload([
+                'list_code' => 'G0eXM',
+                'games' => [
+                    ['name' => 'Half-Life', 'market_price_euro' => 4.50, 'popularity' => 500, 'region' => null],
+                    ['name' => 'Portal', 'market_price_euro' => 3.20, 'popularity' => 900, 'region' => 'EU'],
+                ],
+            ]))
+            ->assertOk()
+            ->json();
+
+        $uuid = Trade::where('list_code', 'G0eXM')->value('uuid');
+
+        $offer = $this->withToken(PROSPECT_SECRET)
+            ->getJson("/api/trades/{$uuid}")
+            ->assertOk()
+            ->json('offer');
+
+        expect($offer)->not->toBeNull()
+            ->and(array_column($offer['lines'], 'game_name'))->toBe(array_column($comment['profitable'], 'name'))
+            ->and(array_column($offer['lines'], 'price'))->toBe(array_column($comment['profitable'], 'tf2_price'))
+            ->and($offer['total_price'])->toEqual($comment['total_tf2_price']);
+    });
+});

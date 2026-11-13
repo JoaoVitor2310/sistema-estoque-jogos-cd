@@ -1,9 +1,11 @@
 <?php
 
 use App\Domain\Bundles\BundleGameLookup;
+use App\Domain\Enums\SupplierCategory;
 use App\Domain\Enums\TradeCurrency;
 use App\Domain\Pricing\CurrencyPriceUnavailable;
 use App\Domain\Trades\OverstockPolicy;
+use App\Models\Supplier;
 use App\Models\Trade;
 use App\UseCases\Suppliers\ProspectSupplierUseCase;
 use Illuminate\Support\Facades\Cache;
@@ -608,5 +610,147 @@ describe('ProspectSupplierUseCase — games in giveaway', function () {
         );
 
         expect(array_column($result['profitable'], 'name'))->toBe(['Dwarven Realms']);
+    });
+});
+
+describe('ProspectSupplierUseCase — first offer round', function () {
+
+    beforeEach(fn () => seedUseCaseDeps());
+
+    /** Supplier que já existe na base, com categoria. */
+    function seedSupplierWithCategory(SupplierCategory $category): void
+    {
+        Supplier::create([
+            'steam_id' => supplierSteamId(),
+            'url' => 'https://steamcommunity.com/profiles/'.supplierSteamId(),
+            'category' => $category,
+        ]);
+    }
+
+    it('records the first offer round on the trade it creates', function () {
+        // Sem a rodada gravada, o chatbot lia a trade do comentário com
+        // `offer: null` e não tinha o que reenviar nem negociar.
+        app(ProspectSupplierUseCase::class)->execute(supplierSteamId(), [profitableGame()], 'G0eXM');
+
+        $offer = Trade::where('list_code', 'G0eXM')->first()->currentOffer;
+
+        expect($offer)->not->toBeNull()
+            ->and($offer->round)->toBe(1)
+            ->and($offer->lines)->toHaveCount(1);
+    });
+
+    it('comments exactly the games and values of the recorded offer', function () {
+        $result = app(ProspectSupplierUseCase::class)->execute(
+            supplierSteamId(),
+            [profitableGame(), ['name' => 'Portal', 'market_price_euro' => 3.20, 'popularity' => 900, 'region' => 'EU']],
+            'G0eXM',
+        );
+
+        $offer = Trade::where('list_code', 'G0eXM')->first()->currentOffer;
+
+        expect(array_column($result['profitable'], 'name'))->toBe($offer->lines->pluck('game_name')->all())
+            ->and(array_column($result['profitable'], 'tf2_price'))->toBe($offer->lines->pluck('price')->all())
+            ->and($result['total_tf2_price'])->toBe(round($offer->lines->sum('price'), 2));
+    });
+
+    it('comments the recorded offer values when the list is in a cash currency', function () {
+        DB::table('assets')->where('name', 'TF2')->update(['price_euro' => 0.95]);
+        Cache::flush();
+
+        $result = app(ProspectSupplierUseCase::class)->execute(supplierSteamId(), [profitableGame()], 'G0eXM', TradeCurrency::Eur);
+
+        $offer = Trade::where('list_code', 'G0eXM')->first()->currentOffer;
+
+        expect($offer->currency)->toBe(TradeCurrency::Eur)
+            ->and($result['profitable'][0]['offer_price'])->toBe($offer->lines->first()->price)
+            ->and($result['total_offer_price'])->toBe(round($offer->lines->sum('price'), 2));
+    });
+
+    it('offers a known supplier at the profit of its category, as the recorded offer does', function () {
+        // Antes a prospecção comentava 70% para todo mundo, e o VIP gravado a
+        // 80% teria no chatbot um valor diferente do que leu no comentário.
+        $normal = app(ProspectSupplierUseCase::class)->execute('76561198000000099', [profitableGame()], 'NORMAL');
+
+        seedSupplierWithCategory(SupplierCategory::Vip);
+        $vip = app(ProspectSupplierUseCase::class)->execute(supplierSteamId(), [profitableGame()], 'VIP01');
+
+        expect($vip['profitable'][0]['tf2_price'])->toBeLessThan($normal['profitable'][0]['tf2_price'])
+            ->and(Trade::where('list_code', 'VIP01')->first()->currentOffer->profit_percent)->toEqual(SupplierCategory::VIP_INITIAL_PROFIT_PERCENT);
+    });
+
+    it('offers a retail supplier at its lower profit', function () {
+        $normal = app(ProspectSupplierUseCase::class)->execute('76561198000000099', [profitableGame()], 'NORMAL');
+
+        seedSupplierWithCategory(SupplierCategory::Retail);
+        $retail = app(ProspectSupplierUseCase::class)->execute(supplierSteamId(), [profitableGame()], 'RET01');
+
+        expect($retail['profitable'][0]['tf2_price'])->toBeGreaterThan($normal['profitable'][0]['tf2_price']);
+    });
+
+    it('offers a known supplier at its category profit in a cash currency too', function () {
+        DB::table('assets')->where('name', 'TF2')->update(['price_euro' => 0.95]);
+        Cache::flush();
+
+        $normal = app(ProspectSupplierUseCase::class)->execute('76561198000000099', [profitableGame()], 'NORMAL', TradeCurrency::Eur);
+
+        seedSupplierWithCategory(SupplierCategory::Vip);
+        $vip = app(ProspectSupplierUseCase::class)->execute(supplierSteamId(), [profitableGame()], 'VIP01', TradeCurrency::Eur);
+
+        $offer = Trade::where('list_code', 'VIP01')->first()->currentOffer;
+
+        expect($vip['profitable'][0]['offer_price'])->toBeLessThan($normal['profitable'][0]['offer_price'])
+            ->and($vip['profitable'][0]['offer_price'])->toBe($offer->lines->first()->price);
+    });
+
+    it('does not comment nor create a trade for a blocked supplier', function () {
+        seedSupplierWithCategory(SupplierCategory::Blocked);
+
+        $result = app(ProspectSupplierUseCase::class)->execute(supplierSteamId(), [profitableGame()], 'G0eXM');
+
+        expect($result['should_comment'])->toBeFalse()
+            ->and($result['profitable'])->toBe([])
+            ->and($result['total_tf2_price'])->toBe(0.0)
+            ->and(Trade::count())->toBe(0);
+    });
+
+    it('still answers the rest of the prospection for a blocked supplier', function () {
+        // Sem oferta, mas a resposta continua completa: o price-cd lê
+        // `is_added` e o resto mesmo quando não comenta.
+        Supplier::create([
+            'steam_id' => supplierSteamId(),
+            'url' => 'https://steamcommunity.com/profiles/'.supplierSteamId(),
+            'category' => SupplierCategory::Blocked,
+            'is_added' => true,
+        ]);
+
+        $result = app(ProspectSupplierUseCase::class)->execute(supplierSteamId(), [profitableGame()], 'G0eXM');
+
+        expect($result['is_added'])->toBeTrue()
+            ->and($result)->toHaveKeys(['last_commented_at', 'games_changed'])
+            ->and(Supplier::where('steam_id', supplierSteamId())->count())->toBe(1);
+    });
+
+    it('never shows a game at 0.00 TF2, and leaves out of the offer a game whose floor does not fit', function () {
+        // €0,115 rende €0,005 líquidos (taxa fixa de €0,11 abaixo de €0,28): a
+        // oferta exata, uns 0,003 TF2, arredonda para zero.
+        // O supplier nunca lê "0.00": o valor sobe ao piso da moeda. E como nem
+        // o piso cabe na oferta máxima (pagá-lo deixaria a key abaixo do
+        // min_api), o jogo sai da oferta gravada — e sem jogo não há comentário.
+        $result = app(ProspectSupplierUseCase::class)->execute(
+            supplierSteamId(),
+            [['name' => 'Cheap Game', 'market_price_euro' => 0.115, 'popularity' => 100, 'region' => null]],
+            'G0eXM',
+        );
+
+        expect($result['profitable'])->toHaveCount(1)
+            ->and($result['profitable'][0]['tf2_price'])->toBe(0.01)
+            ->and($result['should_comment'])->toBeFalse()
+            ->and(Trade::count())->toBe(0);
+    });
+
+    it('does not leak the evaluated offer into the payload', function () {
+        $result = app(ProspectSupplierUseCase::class)->execute(supplierSteamId(), [profitableGame()], 'G0eXM');
+
+        expect($result['profitable'][0])->not->toHaveKeys(['offer', 'tf2_offer']);
     });
 });

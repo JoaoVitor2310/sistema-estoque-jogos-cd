@@ -62,7 +62,7 @@ A quantidade acertada de uma trade (`amount`) está numa **moeda** (`trades.curr
 
 | Item | Regra |
 |---|---|
-| Oferta em dinheiro | oferta em TF2 **exata** (a de sempre, 70% de lucro) × preço da TF2 na moeda, arredondada a 2 casas **por jogo**; o total soma os já arredondados |
+| Oferta em dinheiro | oferta em TF2 **exata** (no lucro da categoria do supplier — ver [Oferta ao supplier](#oferta-ao-supplier)) × preço da TF2 na moeda, arredondada a 2 casas **por jogo**; o total soma os já arredondados |
 | Oferta mínima | `OfferCalculator::MIN_CASH_OFFER` (0,01): arredondar a 0,00 publicaria "Jogo --- 0.00€" |
 | Cotação | linha da TF2 em Recursos (`price_euro`, `price_dollar`), lida **uma vez** por prospecção |
 | Sem cotação | com comentário a postar, a prospecção falha (503) antes de gravar; sem comentário, a oferta em dinheiro é só omitida. No import, a falta de cotação recusa o lote (`MissingCurrencyPrice`) |
@@ -115,7 +115,16 @@ As margens chegam à tela pela prop `marginRules` (`MinimumMarginPolicy::initial
 
 ### Oferta ao supplier
 
-Quando o price_researcher precifica uma lista para um supplier que já negocia conosco pela Steam (integração com o chatbot), a trade nasce **já com a primeira oferta**, decidida pelo Estoque (`POST /api/trades` → `CreateTradeWithOfferUseCase`). A oferta é **por jogo** e fica gravada como registro: cada rodada da negociação é uma oferta nova, e a anterior não muda ([ADR 0016](adr/0016-supplier-offers-recorded-as-immutable-records.md)).
+A trade que nasce de uma oferta ao supplier já vem **com a primeira oferta**, decidida pelo Estoque, pelos dois caminhos:
+
+| Caminho | Quem cria a trade |
+|---|---|
+| Lista precificada para um supplier que já negocia conosco pela Steam (integração com o chatbot) | `POST /api/trades` → `CreateTradeWithOfferUseCase` |
+| Prospecção: o comentário na lista do SteamTrades | `POST /suppliers/prospect` → `ProspectSupplierUseCase` |
+
+Na prospecção, **o comentário é a primeira oferta**: os jogos e valores que o supplier lê no SteamTrades são exatamente os gravados na rodada 1, e o chatbot os mostra iguais depois. Se a oferta gravada não tiver jogo nenhum, não há comentário nem trade.
+
+A oferta é **por jogo** e fica gravada como registro: cada rodada da negociação é uma oferta nova, e a anterior não muda ([ADR 0016](adr/0016-supplier-offers-recorded-as-immutable-records.md)).
 
 O lucro da primeira oferta vem da **categoria do supplier** (`SupplierCategory::initialProfitPercent`):
 
@@ -124,7 +133,7 @@ O lucro da primeira oferta vem da **categoria do supplier** (`SupplierCategory::
 | Normal (sem categoria — todo supplier novo) | 70% |
 | VIP | 80% |
 | Varejo | 60% |
-| Bloqueado | sem oferta: não cria trade |
+| Bloqueado | sem oferta: não cria trade nem é comentado na prospecção |
 
 Lucro maior é oferta menor: a oferta de um jogo é `renda líquida / (1 + lucro) / preço do TF2`, a mesma conta das colunas da aba Trades.
 
@@ -227,7 +236,7 @@ Decisão completa e alternativas descartadas: [`docs/adr/0008`](adr/0008-supplie
 O lucro inicial considerado é de 100% quando é analisado um jogo para ser comprado, porém isso pode mudar para os seguintes casos:
 - Fornecedores de longa data
 - Jogos muito caros
-- Oportunidade de conhecer novos fornecedores — a prospecção automática (`ProspectSupplierUseCase`) usa 70% de lucro (`OfferCalculator::NEW_SUPPLIER_PROFIT_PERCENT`) para tornar a oferta mais atrativa a fornecedores novos
+- Oportunidade de conhecer novos fornecedores — a oferta a supplier sem categoria (todo supplier novo, inclusive o da prospecção automática) usa 70% de lucro (`OfferCalculator::NEW_SUPPLIER_PROFIT_PERCENT`) para ser mais atrativa; supplier já categorizado recebe o lucro da categoria ([Oferta ao supplier](#oferta-ao-supplier))
 
 A ideia é não deixar ficar abaixo de 30%.
 

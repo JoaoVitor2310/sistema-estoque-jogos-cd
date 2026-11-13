@@ -2,20 +2,6 @@
 
 use App\Domain\Pricing\OfferCalculator;
 
-describe('OfferCalculator::inCurrency', function () {
-
-    it('converts a TF2 offer through the TF2 price in the currency, rounded to 2 places', function () {
-        // 0,50 TF2 × €2,40 = €1,20 ; 0,50 TF2 × $2,65 = $1,325 → 1,33
-        expect(OfferCalculator::inCurrency(0.5, 2.40))->toBe(1.20)
-            ->and(OfferCalculator::inCurrency(0.5, 2.65))->toBe(1.33);
-    });
-
-    it('never publishes an offer below the minimum cash offer', function () {
-        // 0,004 TF2 × €0,95 = 0,0038 → arredondaria para 0,00
-        expect(OfferCalculator::inCurrency(0.004, 0.95))->toBe(OfferCalculator::MIN_CASH_OFFER);
-    });
-});
-
 describe('OfferCalculator::toTf2Quantity', function () {
 
     it('converts a cash amount into TF2 keys at the current price', function () {

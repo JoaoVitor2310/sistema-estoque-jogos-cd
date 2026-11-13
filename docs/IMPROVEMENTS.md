@@ -235,7 +235,15 @@ A integração está no ar do lado do Estoque ([`CHATBOT.md`](CHATBOT.md), [`PRI
 
 Hoje o nginx entrega `/api/*` pela internet como o resto do site, e só o `EXTERNAL_SECRET` protege — segredo único de todos os serviços, que dá acesso aos códigos de entrega ([ADR 0015](adr/0015-chatbot-reads-the-delivery-credential-through-the-api.md)).
 
-**Ação:** confirmar a URL que o price-researcher e o chatbot usam para chamar o Estoque (`SISTEMA_ESTOQUE_URL` no price-cd). Se for a rede Docker (`http://web-server-cd`), restringir `location /api/` com `allow` da sub-rede de `sistema-estoque-cd` e `deny all`. Se for o domínio público, a restrição os bloquearia — mudar a URL antes. O deploy não recarrega o nginx ([`agents/deploy.md`](agents/deploy.md)).
+**Ação:** restringir `location /api/` com `allow` da sub-rede de `sistema-estoque-cd` e `deny all`. Antes, três pré-requisitos — sem eles a restrição bloqueia quem precisa passar:
+
+| Pré-requisito | Situação em 2026-11-13 |
+|---|---|
+| O price-cd chamar o Estoque pela rede Docker | **Não chama:** `SISTEMA_ESTOQUE_URL=https://carcadeals.com` no `.env` de produção dele. Trocar para `http://web-server-cd` antes do nginx |
+| O chatbot estar na rede `sistema-estoque-cd` | **Não está:** o `networks` do compose dele está comentado |
+| A sub-rede fixa | **Não é:** o `docker-compose.yml` não fixa a sub-rede, e uma rede recriada pode mudar de faixa e passar a bloquear tudo. Fixar no `ipam` junto com o `allow` |
+
+Decidir junto se `/suppliers/prospect` e `/trades/from-price-researcher` (fora do `/api`, também chamadas pelo price-cd) entram na restrição. O deploy não recarrega o nginx ([`agents/deploy.md`](agents/deploy.md)).
 
 ### 2. Idempotência do `POST /api/trades`
 
@@ -243,7 +251,7 @@ Hoje o nginx entrega `/api/*` pela internet como o resto do site, e só o `EXTER
 
 Se o price-researcher repetir a chamada (timeout, retry), o Estoque cria **outra trade**, com outro uuid e outra oferta, e o chatbot pode mostrar duas ao supplier.
 
-**Ação:** o price-researcher manda o id da precificação (`pricing_request_id`, uuid — o chatbot já tem uma `PricingRequest`), gravado com índice único em `trades`; a repetição devolve a trade já criada. Muda o contrato com o price-researcher: combinar antes.
+**Ação:** o price-researcher manda o id do pedido (`request_uuid`, o nome que o price-cd e o chatbot já usam para a `PricingRequest`), gravado com índice único em `trades`; a repetição devolve a trade já criada. O campo entra opcional, então o Estoque pode subir antes do price-cd mandá-lo (item 22 do backlog do price-cd).
 
 ### 3. Conferir as rotas `/api` e a aba de ponta a ponta
 
@@ -259,17 +267,19 @@ As rotas e a oferta na aba Trades foram verificadas pela suíte e pelo build, n�
 
 Os quatro fazem `Trade::create`, `lines()->createMany` e `forceFill(DeliveryCredential::issue())`. "Toda trade nasce com credencial" depende de cada um lembrar.
 
-**Ação:** uma peça só (ex.: `TradeRecorder::create($attrs, $lines)`) que emite a credencial. Ao mexer, separar também a identidade da trade (`uuid`) da credencial de entrega, que hoje `DeliveryCredential::issue()` gera junto.
+Dois deles (`CreateTradeWithOfferUseCase` e `ProspectSupplierUseCase`) também gravam a primeira oferta e desfazem a transação inteira quando ela sai vazia — o mesmo bloco de `beginTransaction`/`rollBack` copiado.
 
-### 5. A prospecção converte a oferta por outro caminho
+**Ação:** uma peça só (ex.: `TradeRecorder::create($attrs, $lines)`) que emite a credencial, e grava a primeira oferta quando pedida. Ao mexer, separar também a identidade da trade (`uuid`) da credencial de entrega, que hoje `DeliveryCredential::issue()` gera junto.
 
-**Onde:** `ProspectSupplierUseCase` (usa `OfferCalculator::inCurrency`).
+### 5. Token próprio do chatbot
+  
+**Onde:** `VerifySecret`, rotas `/api` que o chatbot usa.
 
-Dá o mesmo valor que `SupplierOfferLine::priceIn`, mas são duas contas para o mesmo fato.
+O chatbot usa o `EXTERNAL_SECRET`, o mesmo de todos os serviços. Quem tiver esse segredo lê qualquer código de entrega. Um token por consumidor (ex.: `CHATBOT_API_SECRET`, aceito só nas rotas que o chatbot usa) permite revogar o do chatbot sem mexer nos outros serviços. Pesa menos se o item 1 for feito.
 
-**Ação:** a prospecção usar `SupplierOfferLine::priceIn`. O comentário do SteamTrades em TF2 também ganharia o piso de 0,01 (hoje pode mostrar "0.00 TF2"), o que muda o que vai a público — decidir junto.
+**Ação:** decisão do dono. Se sim, aceitar o token novo em `GET /api/trades/{uuid}`, `GET /api/suppliers/{steamId}/trades`, `POST /api/trades/{uuid}/offers` e `POST /api/trades/{uuid}/message-sent`.
 
-**Origem:** pedido do `chatbot-steam` de 2026-10-28 e reviews dos PRs da integração (a partir do #117).
+**Origem:** pedido do `chatbot-steam` de 2026-10-28 e reviews dos PRs da integração (a partir do #117). Item 5: revisão do `chatbot-steam` de 2026-11-12.
 
 ---
 
@@ -338,15 +348,29 @@ de entrega e no import (que converte `trades.amount` para TF2, 2 casas). Ficaram
 
 **Onde:** `app/UseCases/Suppliers/ProspectSupplierUseCase.php` (`last_commented_at`), `app/Domain/Trades/CommentPolicy.php`.
 
-A trade e `last_commented_at` são gravados quando `should_comment` é verdadeiro, **antes** de o
-price-cd postar. Se ele não conseguir comentar (rejeita a resposta, SteamTrades fora do ar), a trade
-existe sem comentário e o `CommentPolicy` bloqueia novo comentário nessa lista por 14 dias. Hoje não
-tem efeito prático, mas é um buraco para quando houver falha de cliente frequente.
+A trade, `last_commented_at` e a primeira oferta são gravados quando `should_comment` é verdadeiro,
+**antes** de o price-cd postar. Se ele não conseguir comentar (rejeita a resposta, SteamTrades fora do
+ar), a trade existe sem comentário e o `CommentPolicy` bloqueia novo comentário nessa lista por 14
+dias. Desde que a prospecção grava a oferta (2026-11-13) o efeito é visível: o chatbot mostra ao
+supplier, em "My lists and offers", uma oferta que ele nunca leu no SteamTrades. Resolver antes de o
+chatbot subir em produção.
 
 **Ação:** price-cd confirmar o comentário (ou o Sistema Estoque gravar `last_commented_at` só depois
 da confirmação), ou liberar o bloqueio quando a trade não tiver comentário confirmado.
 
 **Origem:** revisão do contrato `offer_currency` (2026-10-04).
+
+---
+
+## Supplier conhecido só pela URL perde a categoria na prospecção
+
+**Onde:** `ProspectSupplierUseCase` (categoria lida por `steam_id`), `SupplierService::upsert` (casa só por `steam_id`), `SupplierService::upsertByUrl`.
+
+Supplier criado pela URL (`upsertByUrl`, na edição de key ou trade) pode existir sem `steam_id`. Quando a prospecção o encontra pelo `steam_id`, não o acha: o lucro sai o de supplier novo (70%) em vez do da categoria dele — um VIP recebe a oferta de Normal, um bloqueado é comentado —, e o `upsert` cria um segundo registro para a mesma pessoa. O comentário e a oferta gravada continuam batendo entre si (os dois usam o registro novo); o que se perde é a categoria.
+
+**Ação:** casar também pela URL normalizada (`https://steamcommunity.com/profiles/{steamId}`) antes de criar, e preencher o `steam_id` do registro achado. Baixa urgência: no dump de produção de 2026-10-12, nenhum supplier com categoria estava sem `steam_id` (45 sem categoria estavam). O caso só pesa se um supplier criado por URL for categorizado depois.
+
+**Origem:** code-review do PR que grava a primeira oferta na prospecção (2026-11-13).
 
 ---
 
