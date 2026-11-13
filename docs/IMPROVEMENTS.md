@@ -245,15 +245,7 @@ Hoje o nginx entrega `/api/*` pela internet como o resto do site, e só o `EXTER
 
 Decidir junto se `/suppliers/prospect` e `/trades/from-price-researcher` (fora do `/api`, também chamadas pelo price-cd) entram na restrição. O deploy não recarrega o nginx ([`agents/deploy.md`](agents/deploy.md)).
 
-### 2. Idempotência do `POST /api/trades`
-
-**Onde:** `CreateTradeWithOfferUseCase`, tabela `trades`, contrato com o price-researcher.
-
-Se o price-researcher repetir a chamada (timeout, retry), o Estoque cria **outra trade**, com outro uuid e outra oferta, e o chatbot pode mostrar duas ao supplier.
-
-**Ação:** o price-researcher manda o id do pedido (`request_uuid`, o nome que o price-cd e o chatbot já usam para a `PricingRequest`), gravado com índice único em `trades`; a repetição devolve a trade já criada. O campo entra opcional, então o Estoque pode subir antes do price-cd mandá-lo (item 22 do backlog do price-cd).
-
-### 3. Conferir as rotas `/api` e a aba de ponta a ponta
+### 2. Conferir as rotas `/api` e a aba de ponta a ponta
 
 **Onde:** ambiente local (`docker compose up -d`).
 
@@ -261,7 +253,7 @@ As rotas e a oferta na aba Trades foram verificadas pela suíte e pelo build, n�
 
 **Ação:** subir o ambiente, criar uma trade por `POST /api/trades`, ler, contrapropor duas vezes, e abrir o card na aba.
 
-### 4. Criar trade repete os mesmos três passos em quatro UseCases
+### 3. Criar trade repete os mesmos três passos em quatro UseCases
 
 **Onde:** `CreateTradeUseCase`, `StoreListTradeUseCase`, `ProspectSupplierUseCase`, `CreateTradeWithOfferUseCase`.
 
@@ -271,7 +263,7 @@ Dois deles (`CreateTradeWithOfferUseCase` e `ProspectSupplierUseCase`) também g
 
 **Ação:** uma peça só (ex.: `TradeRecorder::create($attrs, $lines)`) que emite a credencial, e grava a primeira oferta quando pedida. Ao mexer, separar também a identidade da trade (`uuid`) da credencial de entrega, que hoje `DeliveryCredential::issue()` gera junto.
 
-### 5. Token próprio do chatbot
+### 4. Token próprio do chatbot
   
 **Onde:** `VerifySecret`, rotas `/api` que o chatbot usa.
 
@@ -279,7 +271,7 @@ O chatbot usa o `EXTERNAL_SECRET`, o mesmo de todos os serviços. Quem tiver ess
 
 **Ação:** decisão do dono. Se sim, aceitar o token novo em `GET /api/trades/{uuid}`, `GET /api/suppliers/{steamId}/trades`, `POST /api/trades/{uuid}/offers` e `POST /api/trades/{uuid}/message-sent`.
 
-**Origem:** pedido do `chatbot-steam` de 2026-10-28 e reviews dos PRs da integração (a partir do #117). Item 5: revisão do `chatbot-steam` de 2026-11-12.
+**Origem:** pedido do `chatbot-steam` de 2026-10-28 e reviews dos PRs da integração (a partir do #117). Item 4: revisão do `chatbot-steam` de 2026-11-12.
 
 ---
 

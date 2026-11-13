@@ -15,6 +15,7 @@ use App\Models\Trade;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 const API_EXTERNAL_SECRET = 'test-price-researcher-token';
 
@@ -77,6 +78,7 @@ describe('POST /api/trades — validation', function () {
         'no games' => [tradesApiPayload(['games' => []]), 'games'],
         'game without a price' => [tradesApiPayload(['games' => [['name' => 'Half-Life', 'popularity' => 500]]]), 'games.0.market_price_euro'],
         'unknown currency' => [tradesApiPayload(['currency' => 'brl']), 'currency'],
+        'request_uuid that is not a uuid' => [tradesApiPayload(['request_uuid' => 'job-42']), 'request_uuid'],
     ]);
 });
 
@@ -118,5 +120,48 @@ describe('POST /api/trades — responses', function () {
         $response = $this->withToken(API_EXTERNAL_SECRET)->postJson('/api/trades', tradesApiPayload());
 
         expect($response->headers->getCookies())->toBe([]);
+    });
+});
+
+describe('POST /api/trades — repeated request', function () {
+
+    it('answers the same 201 for the same request_uuid, so the caller treats the retry as created', function () {
+        // O price_researcher só lê 201 com uuid como "criada": a repetição
+        // precisa responder igual à primeira vez.
+        $payload = tradesApiPayload(['request_uuid' => (string) Str::uuid()]);
+
+        $first = $this->withToken(API_EXTERNAL_SECRET)->postJson('/api/trades', $payload)->assertStatus(201)->json();
+        $again = $this->withToken(API_EXTERNAL_SECRET)->postJson('/api/trades', $payload)->assertStatus(201)->json();
+
+        expect($again)->toBe($first)
+            ->and(Trade::count())->toBe(1);
+    });
+
+    it('treats the same uuid in another letter case as the same request', function () {
+        $requestUuid = (string) Str::uuid();
+
+        $first = $this->withToken(API_EXTERNAL_SECRET)
+            ->postJson('/api/trades', tradesApiPayload(['request_uuid' => $requestUuid]))->json('uuid');
+        $again = $this->withToken(API_EXTERNAL_SECRET)
+            ->postJson('/api/trades', tradesApiPayload(['request_uuid' => strtoupper($requestUuid)]))->json('uuid');
+
+        expect($again)->toBe($first)
+            ->and(Trade::count())->toBe(1);
+    });
+
+    it('answers 422 when the request_uuid already created the trade of another supplier', function () {
+        $requestUuid = (string) Str::uuid();
+
+        $this->withToken(API_EXTERNAL_SECRET)
+            ->postJson('/api/trades', tradesApiPayload(['request_uuid' => $requestUuid]))
+            ->assertStatus(201);
+
+        $this->withToken(API_EXTERNAL_SECRET)
+            ->postJson('/api/trades', tradesApiPayload(['request_uuid' => $requestUuid, 'supplier_steam_id' => '76561198000000099']))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['request_uuid'])
+            ->assertJsonMissingPath('uuid');
+
+        expect(Trade::count())->toBe(1);
     });
 });
