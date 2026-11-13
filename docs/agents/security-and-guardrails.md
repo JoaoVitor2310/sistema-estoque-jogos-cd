@@ -65,15 +65,24 @@ O token fica **encriptado** (cast `encrypted` em `Trade`), não em hash, porque 
 
 **Ler o token nunca pode derrubar a página.** Toda leitura passa por `Trade::readableDeliveryToken()`, que devolve `null` quando o valor guardado não abre com a `APP_KEY` corrente — chave rotacionada, ou um dump de produção aberto em outro ambiente. Sem isso, o cast lança `DecryptException` e, como a projeção lê o token de toda trade da página, **uma** linha ilegível derruba a aba inteira com 500 *(já aconteceu)*. Degradar assim não afrouxa nada: um token que não abre não confere com nada, e a entrega correspondente fica fechada.
 
-## Serviço que chama o Estoque usa um segredo só
+## Cada serviço que chama o Estoque tem o seu segredo
 
-Rota de máquina é autenticada por Bearer conferido pelo `VerifySecret`: **um segredo só** (`EXTERNAL_SECRET` → `services.external_secret`) para todo serviço que chama o Estoque — o price_researcher e, com a integração, o chatbot —, e o mesmo que mandamos ao price_researcher. Decisão consciente: os três sistemas rodam na mesma VPS, sob o mesmo dono. O custo é que um vazamento em qualquer um abre as rotas de todos, e revogar exige trocar o segredo nos três ao mesmo tempo. Segredo não configurado recusa tudo (`401`). As rotas novas de máquina ficam em `routes/api.php`, sem sessão nem cookie. Guarda em `tests/Feature/Api/TradesApiTest.php`.
+Rota de máquina é autenticada por Bearer conferido pelo `VerifySecret`, com o segredo do **consumidor daquela rota**:
+
+| Consumidor | Segredo | Rotas |
+|---|---|---|
+| price_researcher | `EXTERNAL_SECRET` → `services.external_secret` (o mesmo que mandamos a ele em `/api/suppliers/find-new`) | `POST /api/trades`, `POST /suppliers/prospect`, `POST /trades/from-price-researcher` |
+| chatbot | `CHATBOT_API_SECRET` → `services.chatbot_api_secret` (`VerifySecret::chatbot()`) | `GET /api/trades/{uuid}`, `GET /api/suppliers/{steamId}/trades`, `POST /api/trades/{uuid}/offers`, `POST /api/trades/{uuid}/message-sent` |
+
+O `GET /keys/auto-sell` também é guardado pelo `EXTERNAL_SECRET`.
+
+Uma rota aceita **só** o segredo do seu consumidor: o do price_researcher não abre as rotas do chatbot, nem o contrário. É isso que permite revogar o do chatbot — cujas rotas dão acesso aos códigos de entrega — sem mexer no price_researcher. Segredo não configurado recusa tudo (`401`). Consumidor novo ganha o seu segredo e a sua entrada no `VerifySecret`; consumidor desconhecido declarado numa rota lança na hora, em vez de abrir ou fechar a rota em silêncio. As rotas de máquina novas ficam em `routes/api.php`, sem sessão nem cookie. Guarda em `tests/Feature/Security/ApiConsumerSecretsTest.php`.
 
 Hoje essas rotas respondem pela internet, como o resto do site: o que as protege é o segredo. Restringir `/api/*` à rede Docker no nginx está pendente em [`docs/IMPROVEMENTS.md`](../IMPROVEMENTS.md), porque depende da URL pela qual o price-researcher chama o Estoque.
 
 ## A API devolve o código da entrega — só trade a trade
 
-`GET /api/trades/{uuid}` devolve `delivery_url` e `delivery_code`, para o chatbot mandar ao supplier ([ADR 0015](../adr/0015-chatbot-reads-the-delivery-credential-through-the-api.md)). Por isso quem tem o `EXTERNAL_SECRET` lê a credencial de toda trade aberta. Três contenções: o código some com o import; a lista das trades abertas de um supplier (`GET /api/suppliers/{steamId}/trades`) **não** traz acesso, para não virar coleta em lote; e a leitura segue o desenho do ADR 0008 — colunas escolhidas à mão (`TradeApiReadModel`) e formato num Resource próprio —, então nada do que diz quanto o jogo vale para nós sai por ali. O que sobra em `/api` responde `404` em JSON (`routes/api.php`): sem isso o `Route::fallback` global redirecionaria para `/keys`. Guarda em `tests/Feature/Api/TradesReadApiTest.php`.
+`GET /api/trades/{uuid}` devolve `delivery_url` e `delivery_code`, para o chatbot mandar ao supplier ([ADR 0015](../adr/0015-chatbot-reads-the-delivery-credential-through-the-api.md)). Por isso quem tem o `CHATBOT_API_SECRET` lê a credencial de toda trade aberta. Três contenções: o código some com o import; a lista das trades abertas de um supplier (`GET /api/suppliers/{steamId}/trades`) **não** traz acesso, para não virar coleta em lote; e a leitura segue o desenho do ADR 0008 — colunas escolhidas à mão (`TradeApiReadModel`) e formato num Resource próprio —, então nada do que diz quanto o jogo vale para nós sai por ali. O que sobra em `/api` responde `404` em JSON (`routes/api.php`): sem isso o `Route::fallback` global redirecionaria para `/keys`. Guarda em `tests/Feature/Api/TradesReadApiTest.php`.
 
 ## Lote é `whereIn`, não loop
 

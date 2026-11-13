@@ -11,8 +11,8 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 |
 | Rotas de máquina, com o prefixo `/api`: sem sessão nem cookie, autenticadas
-| pelo Bearer de `VerifySecret` (o mesmo segredo para todo serviço). São rotas
-| comuns do Estoque — quem as chama é só um consumidor delas.
+| pelo Bearer de `VerifySecret`, com o segredo do consumidor de cada rota. São
+| rotas comuns do Estoque — quem as chama é só um consumidor delas.
 |
 */
 
@@ -23,9 +23,11 @@ Route::post('/trades', [TradeController::class, 'store'])
     ->name('api.trades.store')
     ->middleware(VerifySecret::class);
 
-// Rotas do chatbot. Trade pelo uuid, nunca pelo id sequencial; uuid ou
-// SteamID64 malformado é recusado no roteador (404), sem chegar ao banco.
-Route::middleware(VerifySecret::class)->group(function () {
+// Rotas do chatbot, com o segredo dele (`CHATBOT_API_SECRET`), não o do
+// price_researcher: o do chatbot é revogável sem mexer nos outros serviços.
+// Trade pelo uuid, nunca pelo id sequencial; uuid ou SteamID64 malformado é
+// recusado no roteador (404), sem chegar ao banco.
+Route::middleware(VerifySecret::chatbot())->group(function () {
     Route::get('/trades/{uuid}', [TradeController::class, 'show'])
         ->whereUuid('uuid')
         ->name('api.trades.show');

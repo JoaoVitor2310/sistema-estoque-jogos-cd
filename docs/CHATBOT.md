@@ -28,7 +28,7 @@ Do mais comum para o mais raro:
 
 | Item | Como é |
 |---|---|
-| Token | `Authorization: Bearer <EXTERNAL_SECRET>` — o mesmo segredo de todos os serviços (`VerifySecret`); sem ele ou errado, `401` |
+| Token | `Authorization: Bearer <CHATBOT_API_SECRET>` — o segredo **do chatbot** (`VerifySecret::chatbot()`), diferente do `EXTERNAL_SECRET` do price-researcher, que não abre estas rotas; sem ele ou errado, `401` |
 | Rotas | `routes/api.php`, prefixo `/api`, sem sessão nem cookie |
 | Caminho desconhecido em `/api` | `404 { "message": "Not found." }`, nunca redirect |
 | Ids | A trade é sempre o `uuid`; o supplier, o SteamID64. Uuid ou SteamID64 malformado é `404` no roteador |

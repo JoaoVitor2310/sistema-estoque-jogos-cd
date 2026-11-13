@@ -246,7 +246,7 @@ app/
 │   │   ├── TradeController.php
 │   │   └── Api/TradeController.php     # routes/api.php — POST /api/trades (price_researcher) e as leituras do chatbot, sem sessão
 │   ├── Resources/Api/                  # ApiTradeResource (trade + oferta vigente + acesso à entrega) e ApiTradeSummaryResource (lista, sem acesso)
-│   ├── Middleware/VerifySecret.php     # Bearer de serviço externo: um segredo só (EXTERNAL_SECRET) para todos
+│   ├── Middleware/VerifySecret.php     # Bearer de serviço externo, com o segredo do consumidor da rota (price_researcher, chatbot)
 │   └── Requests/
 │
 └── Models/                             # Eloquent puro — sem lógica de negócio

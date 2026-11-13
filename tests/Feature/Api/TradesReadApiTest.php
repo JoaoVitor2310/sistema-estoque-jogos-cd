@@ -67,7 +67,10 @@ function readApi(string $uri)
 }
 
 beforeEach(function () {
-    Config::set('services.external_secret', READ_API_SECRET);
+    // As rotas do chatbot abrem com o segredo dele; o do price_researcher é
+    // outro, para nenhum teste passar com o segredo errado.
+    Config::set('services.chatbot_api_secret', READ_API_SECRET);
+    Config::set('services.external_secret', 'the-price-researcher-secret');
     seedReadApiDeps();
 });
 

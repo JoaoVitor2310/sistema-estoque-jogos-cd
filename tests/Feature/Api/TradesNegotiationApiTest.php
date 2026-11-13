@@ -55,7 +55,8 @@ function counterRequest(string $uuid, mixed $requested)
 }
 
 beforeEach(function () {
-    Config::set('services.external_secret', NEGOTIATION_API_SECRET);
+    Config::set('services.chatbot_api_secret', NEGOTIATION_API_SECRET);
+    Config::set('services.external_secret', 'the-price-researcher-secret');
     seedNegotiationApiDeps();
 });
 

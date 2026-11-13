@@ -80,4 +80,8 @@ return [
     ],
 
     'external_secret' => env('EXTERNAL_SECRET'),
+
+    // Bearer das rotas `/api` do chatbot. Separado do EXTERNAL_SECRET para
+    // poder ser revogado sem mexer no price_researcher.
+    'chatbot_api_secret' => env('CHATBOT_API_SECRET'),
 ];
