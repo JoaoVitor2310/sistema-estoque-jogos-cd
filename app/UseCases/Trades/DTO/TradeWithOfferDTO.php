@@ -19,6 +19,8 @@ final class TradeWithOfferDTO
         public readonly TradeCurrency $currency,
         public readonly ?string $title,
         public readonly ?string $listCode,
+        // Id do pedido no price_researcher: a chave de idempotência da criação.
+        public readonly ?string $requestUuid = null,
     ) {}
 
     /**
@@ -39,6 +41,8 @@ final class TradeWithOfferDTO
             currency: TradeCurrency::from($validated['currency'] ?? TradeCurrency::Tf2->value),
             title: $validated['title'] ?? null,
             listCode: $validated['list_code'] ?? null,
+            // Minúsculo: o mesmo uuid em caixas diferentes é o mesmo pedido.
+            requestUuid: isset($validated['request_uuid']) ? strtolower($validated['request_uuid']) : null,
         );
     }
 }

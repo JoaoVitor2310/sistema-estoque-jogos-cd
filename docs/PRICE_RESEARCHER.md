@@ -235,6 +235,7 @@ Endpoint **do sistema-estoque** para a precificação que veio do **chatbot**: c
 ```json
 {
   "supplier_steam_id": "76561198012345678",
+  "request_uuid": "9b2f6c1e-4a7d-4f0e-8c3b-2d5e7a1f9c40",
   "currency": "eur",
   "list_code": "AbC12",
   "games": [
@@ -249,12 +250,14 @@ Endpoint **do sistema-estoque** para a precificação que veio do **chatbot**: c
 | `games[]` | sim, mín. 1 | Mesma forma do callback: `name`, `market_price_euro`, `popularity`, `region`, `gamivo_id` |
 | `currency` | não | `tf2` (padrão), `eur` ou `usd`. Sem cotação da TF2 na moeda, a trade nasce em TF2 |
 | `title`, `list_code` | não | Nome da trade (sem título, vale o nome do supplier) e código da lista |
+| `request_uuid` | não | Id do pedido de precificação (uuid; a caixa não importa). É a chave de idempotência: o mesmo pedido repetido devolve a trade que ele já criou. Vale só para o mesmo `supplier_steam_id`. Sem ele, cada chamada cria uma trade, como antes |
 
 | Resposta | Quando |
 |---|---|
 | `201 { "uuid", "created_at", "currency" }` | Trade criada. `created_at` em ISO 8601 com o fuso da aplicação (`APP_TIMEZONE`; ex.: `2026-10-29T22:38:22-03:00`), como nas leituras de [`CHATBOT.md`](CHATBOT.md). `currency` é a **efetiva** — `tf2` se não havia cotação na pedida. O `uuid` é o que o price-researcher repassa ao chatbot |
-| `200 { "created": false }` | Nada a ofertar (supplier bloqueado, ou nenhum jogo ofertável). Não é erro, e nada é gravado. O motivo não vai na resposta |
-| `422` | Corpo inválido |
+| `201`, o mesmo corpo da primeira vez | Repetição de um `request_uuid` que já criou trade: devolve **a mesma** trade e não grava nada. Fora o supplier, o resto do corpo não é comparado — o pedido é o mesmo. Vale também para duas chamadas simultâneas do mesmo pedido: o índice único barra a segunda, que responde com a trade da primeira. Trade apagada não segura o pedido: a repetição cria outra |
+| `200 { "created": false }` | Nada a ofertar (supplier bloqueado, ou nenhum jogo ofertável). Não é erro, e nada é gravado — por isso a repetição do mesmo `request_uuid` é avaliada de novo. O motivo não vai na resposta |
+| `422` | Corpo inválido. Também quando o `request_uuid` já criou a trade de **outro** supplier (`errors.request_uuid`): devolver a trade alheia entregaria a oferta e o código de entrega de outra pessoa. Não tentar de novo — o id foi reaproveitado por engano |
 | `401` | Sem token, ou token errado |
 | `503 { "message" }` | Sem cotação da TF2 em euro, de onde toda oferta parte. Nada é gravado |
 

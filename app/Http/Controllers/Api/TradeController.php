@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Domain\Enums\CounterOfferRefusal;
 use App\Domain\Pricing\CurrencyPriceUnavailable;
 use App\Domain\Trades\CounterOfferRefused;
+use App\Domain\Trades\RequestReusedForAnotherSupplier;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CounterOfferRequest;
 use App\Http\Requests\StoreTradeWithOfferRequest;
@@ -50,8 +51,10 @@ class TradeController extends Controller
     }
 
     /**
-     * 201 com o uuid da trade; 200 `created: false` quando não há o que ofertar
-     * — não é erro, é a resposta "nenhum jogo nos interessa".
+     * 201 com o uuid da trade (também na repetição do mesmo `request_uuid`); 200
+     * `created: false` quando não há o que ofertar — não é erro, é a resposta
+     * "nenhum jogo nos interessa"; 422 quando o `request_uuid` já criou a trade
+     * de outro supplier.
      */
     public function store(StoreTradeWithOfferRequest $request): JsonResponse
     {
@@ -59,6 +62,13 @@ class TradeController extends Controller
             $trade = $this->createTradeWithOffer->execute($request->toDTO());
         } catch (CurrencyPriceUnavailable $e) {
             return response()->json(['message' => $e->getMessage()], 503);
+        } catch (RequestReusedForAnotherSupplier $e) {
+            // 422, no formato de validação: o pedido em si é inválido, e o
+            // price_researcher não deve tentar de novo.
+            return response()->json([
+                'message' => $e->getMessage(),
+                'errors' => ['request_uuid' => [$e->getMessage()]],
+            ], 422);
         }
 
         if ($trade === null) {

@@ -15,6 +15,9 @@ use Illuminate\Validation\Rule;
  * é obrigatório — a oferta é feita a alguém —, e precisa ser um SteamID64 de
  * verdade ([[SteamId]]): com ele se cria o supplier novo e a URL do perfil. A
  * moeda é opcional.
+ *
+ * `request_uuid` é o id do pedido no price_researcher, opcional: com ele, o
+ * mesmo pedido repetido devolve a trade já criada.
  */
 class StoreTradeWithOfferRequest extends FormRequest
 {
@@ -30,6 +33,7 @@ class StoreTradeWithOfferRequest extends FormRequest
     {
         return [
             'supplier_steam_id' => ['required', 'string', 'regex:'.SteamId::PATTERN],
+            'request_uuid' => ['nullable', 'uuid'],
             'currency' => ['nullable', Rule::enum(TradeCurrency::class)],
             'title' => ['nullable', 'string', 'max:255'],
             'list_code' => ['nullable', 'string', 'max:255'],
