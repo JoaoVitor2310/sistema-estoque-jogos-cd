@@ -160,7 +160,7 @@ Compra das keys na própria loja do bundle (Humble, Fanatical, Green Man Gaming�
 _Avoid_: key de bundle, compra de bundle (os dois se confundem com a origem da key).
 
 **Prospecção**:
-Avaliar a lucratividade dos jogos oferecidos por um supplier e decidir se vale comentar (de novo) naquela lista.
+Avaliar a lucratividade dos jogos oferecidos por um supplier e decidir se vale comentar (de novo) naquela lista. Quando comenta, o comentário é a primeira oferta da trade, gravada com os mesmos jogos e valores.
 _Avoid_: scouting.
 
 **Região global**:

@@ -10,9 +10,9 @@ Da identificação de um fornecedor até a key entrar no estoque.
 |---|---|---|---|
 | 1 | Identificar o supplier | Perfil na SteamTrades; captura dos jogos da seção *"I have"* | manual |
 | 2 | Pesquisar preços | Busca preço e popularidade de cada jogo da lista | `price_researcher` (serviço externo) |
-| 3 | Avaliar lucratividade | Calcula o income líquido após taxas Gamivo e quantas TF2 Keys oferecer; jogo **encalhado** ou **em giveaway** sai da oferta | `ProspectSupplierUseCase` + `OfferCalculator` + `OverstockPolicy` + `GiveawayPolicy` |
+| 3 | Avaliar lucratividade | Calcula o income líquido após taxas Gamivo e quantas TF2 Keys oferecer, no lucro da categoria do supplier; jogo **encalhado** ou **em giveaway** sai da oferta; supplier **bloqueado** não recebe oferta | `ProspectSupplierUseCase` + `SupplierOffer` + `OverstockPolicy` + `GiveawayPolicy` |
 | 4 | Decidir se comenta | Se vale (re)comentar na lista do supplier | `CommentPolicy` |
-| 5 | Registrar a trade | Persiste a lista pesquisada e a data do comentário; o jogo encalhado ou em giveaway vira linha marcada, mesmo sem ter sido ofertado | `Trade` + `OverstockPolicy` + `GiveawayPolicy` |
+| 5 | Registrar a trade | Persiste a lista pesquisada, a data do comentário e a **primeira oferta**, que é o próprio comentário; o jogo encalhado ou em giveaway vira linha marcada, mesmo sem ter sido ofertado | `Trade` + `TradeOfferService::recordInitial` |
 | 6 | Negociar | Acerto final de preço com o supplier | manual, na Steam |
 | 7 | Receber as keys | O supplier preenche `key_code`, região e validade por linha, mais o total acertado (obrigatório para enviar), no link com código que a trade já traz; ou a equipe transcreve do chat | `/deliveries/{uuid}` |
 | 8 | Conferir | A entrega sobe ao topo de Abertas; a equipe revisa antes de importar | aba de Trades |
@@ -45,11 +45,10 @@ Daí em diante é o fluxo normal, a partir da etapa 5. A pesquisa não decide o 
 | Padrão | 100% de lucro (dobrar o investido) | ÷ 2,0 |
 | Negociação mais competitiva | 80% | ÷ 1,8 |
 | Negociação mais competitiva | 60% | ÷ 1,6 |
-| Prospecção **automática** de supplier novo | 70% (`OfferCalculator::NEW_SUPPLIER_PROFIT_PERCENT`) | ÷ 1,7 |
-| Oferta gravada na trade pela integração com o chatbot (`POST /api/trades`) | pela **categoria do supplier** — VIP, Normal ou Varejo; Bloqueado não recebe oferta | valores em [`docs/PRODUCT.md`](../PRODUCT.md#oferta-ao-supplier) |
+| Oferta gravada na trade — prospecção automática e integração com o chatbot (`POST /api/trades`) | pela **categoria do supplier** — Normal (todo supplier novo) 70%, VIP ou Varejo; Bloqueado não recebe oferta | ÷ 1,7 no Normal; valores em [`docs/PRODUCT.md`](../PRODUCT.md#oferta-ao-supplier) |
 
 **Pontos que costumam escapar:**
-- Os 70% fixos valem na prospecção automática; a oferta pela integração com o chatbot usa o percentual da categoria do supplier; a negociação manual na aba usa a margem que fizer sentido no caso.
+- A prospecção automática e a integração com o chatbot usam o percentual da categoria do supplier (70% para o supplier novo); a negociação manual na aba usa a margem que fizer sentido no caso.
 - `individual_cost` sai do rateio do lote inteiro da trade (proporcional ao income de cada jogo). Se o `market_price` de uma key for editado depois, o custo e os lucros de compra do **lote inteiro** são recalculados (ver [docs/adr/0004](../adr/0004-recalculate-trade-on-key-edit.md)).
 - Importar as keys por uma trade (`POST /trades/{trade}/import`) grava o `trade_id` nas keys e marca a trade como `is_imported` — ela sai da view padrão (Abertas) da aba de Trades mas **permanece no banco** (não é excluída), para o vínculo `trade_id` seguir válido; continua acessível pelas views **Importadas** / **Todas**. Todo card da aba nasce com a tabela de jogos fechada (o cabeçalho fica à vista) e busca suas linhas ao ser aberto — ver [`docs/adr/0009`](../adr/0009-trade-lines-loaded-on-demand.md).
 - A importação é **tudo ou nada**: se qualquer key do lote falhar, nenhuma é cadastrada e a trade continua na aba, com todos os erros marcados de uma vez nas linhas correspondentes — evita reimportar em partes e um rateio de custo calculado sobre um lote incompleto.

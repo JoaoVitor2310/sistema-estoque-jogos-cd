@@ -2,7 +2,7 @@
 
 **Status:** accepted — implementado entre 2026-10-29 e 2026-10-31: registro e primeira oferta (`POST /api/trades`), contrapropostas (`POST /api/trades/{uuid}/offers`) e a oferta na aba Trades. Contrato em [`docs/CHATBOT.md`](../CHATBOT.md).
 
-Até aqui o sistema não guardava quanto se ofertou a um supplier. A aba Trades calcula as colunas 100/80/60% no navegador, a prospecção calcula a oferta só para o comentário, e o valor negociado ficava na conversa da Steam. Com o chatbot conversando com o supplier, o Estoque passa a ser **o dono da oferta**: decide o valor de cada rodada e o chatbot só o transmite — e, como o chatbot não guarda cópia, a oferta precisa estar gravada aqui.
+Até aqui o sistema não guardava quanto se ofertou a um supplier. A aba Trades calcula as colunas 100/80/60% no navegador, a prospecção calculava a oferta só para o comentário (desde 2026-11-13 ela grava o comentário como a rodada 1, pelo mesmo `recordInitial`), e o valor negociado ficava na conversa da Steam. Com o chatbot conversando com o supplier, o Estoque passa a ser **o dono da oferta**: decide o valor de cada rodada e o chatbot só o transmite — e, como o chatbot não guarda cópia, a oferta precisa estar gravada aqui.
 
 A decisão: cada oferta feita é **um registro em `trade_offers`**, com o valor de cada jogo em `trade_offer_lines`. O registro é **imutável** — uma nova rodada de negociação cria outra oferta, e a vigente é a de rodada mais alta (`Trade::currentOffer`). Os models recusam a gravação de uma alteração.
 
