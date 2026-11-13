@@ -4,7 +4,7 @@
 
 Até aqui só a equipe logada via o código da entrega: ele fica à vista na aba Trades, e quem copia link e código para a conversa da Steam é uma pessoa ([ADR 0008](0008-supplier-fills-trade-through-tokenised-link.md)). Com a integração do chatbot, quem conversa com o supplier e manda o acesso à entrega passa a ser o chatbot — e ele não guarda cópia da trade, então precisa ler link e código do Estoque.
 
-A decisão: a leitura de **uma** trade pelo uuid (`GET /api/trades/{uuid}`) devolve `delivery_url` e `delivery_code`, autenticada pelo segredo dos serviços (`EXTERNAL_SECRET`, `VerifySecret`). O código é o mesmo que a aba mostra (`Trade::readableDeliveryToken`), e some com o import, como a faixa da aba — a partir dele a credencial não vale mais.
+A decisão: a leitura de **uma** trade pelo uuid (`GET /api/trades/{uuid}`) devolve `delivery_url` e `delivery_code`, autenticada pelo segredo do chatbot (`CHATBOT_API_SECRET`, `VerifySecret::chatbot()`; até 2026-11-13 era o `EXTERNAL_SECRET`, comum a todos os serviços). O código é o mesmo que a aba mostra (`Trade::readableDeliveryToken`), e some com o import, como a faixa da aba — a partir dele a credencial não vale mais.
 
 ## Considered Options
 
@@ -15,6 +15,6 @@ A decisão: a leitura de **uma** trade pelo uuid (`GET /api/trades/{uuid}`) devo
 
 ## Consequences
 
-- **O segredo dos serviços passa a dar acesso aos códigos de entrega.** Quem tiver o `EXTERNAL_SECRET` lê a credencial de toda trade aberta, e a página de entrega exibe os `key_code` já preenchidos até o import. Como o segredo é o mesmo para todos os serviços ([`docs/agents/security-and-guardrails.md`](../agents/security-and-guardrails.md#serviço-que-chama-o-estoque-usa-um-segredo-só)), um vazamento em qualquer um deles expõe isso. A contenção é a do ADR 0008 — a credencial morre no import — e restringir `/api/*` à rede Docker, pendente em [`docs/IMPROVEMENTS.md`](../IMPROVEMENTS.md).
+- **O segredo do chatbot dá acesso aos códigos de entrega.** Quem tiver o `CHATBOT_API_SECRET` lê a credencial de toda trade aberta, e a página de entrega exibe os `key_code` já preenchidos até o import. O segredo é só do chatbot ([`docs/agents/security-and-guardrails.md`](../agents/security-and-guardrails.md#cada-serviço-que-chama-o-estoque-tem-o-seu-segredo)): um vazamento no price_researcher não expõe isso, e o do chatbot se revoga sozinho. A contenção é a do ADR 0008 — a credencial morre no import — e restringir `/api/*` à rede Docker, pendente em [`docs/IMPROVEMENTS.md`](../IMPROVEMENTS.md).
 - **A lista não traz acesso.** `GET /api/suppliers/{steamId}/trades` devolve só o resumo de cada trade; o código sai apenas trade a trade.
 - **Nada do que diz quanto o jogo vale para nós sai pela API.** A leitura segue o desenho do ADR 0008: consulta com as colunas escolhidas à mão (`TradeApiReadModel`) e formato num Resource próprio (`ApiTradeResource`). A oferta vigente traz só jogo, região e o valor ofertado.

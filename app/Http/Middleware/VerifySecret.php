@@ -9,14 +9,42 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * Verifica se o request de serviço externo carrega o Bearer token correto.
  *
- * Um segredo só (`EXTERNAL_SECRET`) para todos os serviços que chamam o
- * Estoque — price_researcher e chatbot. hash_equals() previne timing attacks.
+ * Cada consumidor tem o seu segredo, para um vazado ser revogado sem mexer nos
+ * outros serviços:
+ *
+ * | Consumidor | Segredo | Rotas |
+ * |---|---|---|
+ * | `external` (padrão) | `EXTERNAL_SECRET` | as do price_researcher |
+ * | `chatbot` | `CHATBOT_API_SECRET` | as que o chatbot lê e escreve em `/api` |
+ *
+ * Uma rota aceita **só** o segredo do seu consumidor: o do price_researcher
+ * não abre as rotas do chatbot, e vice-versa. Segredo não configurado recusa
+ * tudo. hash_equals() previne timing attacks.
  */
 class VerifySecret
 {
-    public function handle(Request $request, Closure $next): Response
+    public const EXTERNAL = 'external';
+
+    public const CHATBOT = 'chatbot';
+
+    /** Chave de configuração do segredo de cada consumidor. */
+    private const SECRET_CONFIG = [
+        self::EXTERNAL => 'services.external_secret',
+        self::CHATBOT => 'services.chatbot_api_secret',
+    ];
+
+    /** O middleware das rotas do chatbot. */
+    public static function chatbot(): string
     {
-        $expected = config('services.external_secret');
+        return self::class.':'.self::CHATBOT;
+    }
+
+    public function handle(Request $request, Closure $next, string $consumer = self::EXTERNAL): Response
+    {
+        $configKey = self::SECRET_CONFIG[$consumer]
+            ?? throw new \InvalidArgumentException("Unknown API consumer: {$consumer}");
+
+        $expected = config($configKey);
         $provided = $request->bearerToken();
 
         if (empty($expected) || empty($provided) || ! hash_equals($expected, $provided)) {

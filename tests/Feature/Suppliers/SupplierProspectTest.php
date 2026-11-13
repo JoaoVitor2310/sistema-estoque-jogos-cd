@@ -534,6 +534,7 @@ describe('POST /suppliers/prospect — the trade it creates, as the chatbot read
 
     beforeEach(function () {
         Config::set('services.external_secret', PROSPECT_SECRET);
+        Config::set('services.chatbot_api_secret', 'test-chatbot-secret');
         seedProspectDeps();
     });
 
@@ -553,7 +554,8 @@ describe('POST /suppliers/prospect — the trade it creates, as the chatbot read
 
         $uuid = Trade::where('list_code', 'G0eXM')->value('uuid');
 
-        $offer = $this->withToken(PROSPECT_SECRET)
+        // Quem lê é o chatbot, com o segredo dele.
+        $offer = $this->withToken('test-chatbot-secret')
             ->getJson("/api/trades/{$uuid}")
             ->assertOk()
             ->json('offer');

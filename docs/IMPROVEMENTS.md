@@ -233,7 +233,7 @@ A integração está no ar do lado do Estoque ([`CHATBOT.md`](CHATBOT.md), [`PRI
 
 **Onde:** `docker/nginx/default.conf`.
 
-Hoje o nginx entrega `/api/*` pela internet como o resto do site, e só o `EXTERNAL_SECRET` protege — segredo único de todos os serviços, que dá acesso aos códigos de entrega ([ADR 0015](adr/0015-chatbot-reads-the-delivery-credential-through-the-api.md)).
+Hoje o nginx entrega `/api/*` pela internet como o resto do site, e só o Bearer protege — nas rotas do chatbot, o `CHATBOT_API_SECRET`, que dá acesso aos códigos de entrega ([ADR 0015](adr/0015-chatbot-reads-the-delivery-credential-through-the-api.md)).
 
 **Ação:** restringir `location /api/` com `allow` da sub-rede de `sistema-estoque-cd` e `deny all`. Antes, três pré-requisitos — sem eles a restrição bloqueia quem precisa passar:
 
@@ -263,15 +263,7 @@ Dois deles (`CreateTradeWithOfferUseCase` e `ProspectSupplierUseCase`) também g
 
 **Ação:** uma peça só (ex.: `TradeRecorder::create($attrs, $lines)`) que emite a credencial, e grava a primeira oferta quando pedida. Ao mexer, separar também a identidade da trade (`uuid`) da credencial de entrega, que hoje `DeliveryCredential::issue()` gera junto.
 
-### 4. Token próprio do chatbot
-  
-**Onde:** `VerifySecret`, rotas `/api` que o chatbot usa.
-
-O chatbot usa o `EXTERNAL_SECRET`, o mesmo de todos os serviços. Quem tiver esse segredo lê qualquer código de entrega. Um token por consumidor (ex.: `CHATBOT_API_SECRET`, aceito só nas rotas que o chatbot usa) permite revogar o do chatbot sem mexer nos outros serviços. Pesa menos se o item 1 for feito.
-
-**Ação:** decisão do dono. Se sim, aceitar o token novo em `GET /api/trades/{uuid}`, `GET /api/suppliers/{steamId}/trades`, `POST /api/trades/{uuid}/offers` e `POST /api/trades/{uuid}/message-sent`.
-
-**Origem:** pedido do `chatbot-steam` de 2026-10-28 e reviews dos PRs da integração (a partir do #117). Item 4: revisão do `chatbot-steam` de 2026-11-12.
+**Origem:** pedido do `chatbot-steam` de 2026-10-28 e reviews dos PRs da integração (a partir do #117).
 
 ---
 
