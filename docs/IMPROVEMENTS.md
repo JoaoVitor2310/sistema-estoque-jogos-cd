@@ -229,21 +229,22 @@ mas **só vale depois de rebuild manual da imagem**: o deploy automático não r
 
 A integração está no ar do lado do Estoque ([`CHATBOT.md`](CHATBOT.md), [`PRICE_RESEARCHER.md`](PRICE_RESEARCHER.md#trade-com-oferta--post-apitrades), regras em [`PRODUCT.md`](PRODUCT.md#oferta-ao-supplier)). Ficou de fora:
 
-### 1. Restringir `/api/*` à rede Docker
+### 1. Fechar as rotas de máquina no domínio público
 
-**Onde:** `docker/nginx/default.conf`.
+**Onde:** `docker/nginx/default.conf` (bloco `listen 443`), `.env` do price-cd na VPS, compose do chatbot.
 
-Hoje o nginx entrega `/api/*` pela internet como o resto do site, e só o Bearer protege — nas rotas do chatbot, o `CHATBOT_API_SECRET`, que dá acesso aos códigos de entrega ([ADR 0015](adr/0015-chatbot-reads-the-delivery-credential-through-the-api.md)).
+As rotas de máquina respondem pela internet, e só o Bearer as protege — nas do chatbot, o `CHATBOT_API_SECRET`, que dá acesso aos códigos de entrega ([ADR 0015](adr/0015-chatbot-reads-the-delivery-credential-through-the-api.md)). O nginx já tem a porta interna 8080, que só a rede `sistema-estoque-cd` alcança ([`agents/security-and-guardrails.md`](agents/security-and-guardrails.md#cada-serviço-que-chama-o-estoque-tem-o-seu-segredo)); falta passar os serviços para ela e fechar o caminho público.
 
-**Ação:** restringir `location /api/` com `allow` da sub-rede de `sistema-estoque-cd` e `deny all`. Antes, três pré-requisitos — sem eles a restrição bloqueia quem precisa passar:
+**Ação**, nesta ordem — fechar antes de trocar a URL derruba a integração:
 
-| Pré-requisito | Situação em 2026-11-13 |
-|---|---|
-| O price-cd chamar o Estoque pela rede Docker | **Não chama:** `SISTEMA_ESTOQUE_URL=https://carcadeals.com` no `.env` de produção dele. Trocar para `http://web-server-cd` antes do nginx |
-| O chatbot estar na rede `sistema-estoque-cd` | **Não está:** o `networks` do compose dele está comentado |
-| A sub-rede fixa | **Não é:** o `docker-compose.yml` não fixa a sub-rede, e uma rede recriada pode mudar de faixa e passar a bloquear tudo. Fixar no `ipam` junto com o `allow` |
+| # | Passo | Situação em 2026-11-13 |
+|---|---|---|
+| 1 | Ativar a porta interna: `docker exec web-server-cd nginx -t && docker exec web-server-cd nginx -s reload`. Conferir de dentro da rede, antes do passo 2: `docker run --rm --network sistema-estoque-cd --entrypoint wget nginx:stable-alpine -S -O /dev/null http://web-server-cd:8080/api/trades/00000000-0000-4000-8000-000000000000` deve mostrar `HTTP/1.1 401 Unauthorized` (o Laravel respondendo, sem token). Conexão recusada é reload que não pegou | Pendente, depois do merge do PR que a criou |
+| 2 | Trocar `SISTEMA_ESTOQUE_URL` no `.env` do price-cd para `http://web-server-cd:8080` e reiniciá-lo | Hoje é `https://carcadeals.com` |
+| 3 | Pôr o chatbot na rede `sistema-estoque-cd` e apontá-lo para `http://web-server-cd:8080` | O `networks` do compose dele está comentado |
+| 4 | No bloco público, responder `404` em `location ^~ /api/` e em `/suppliers/prospect` e `/trades/from-price-researcher` (as duas de `web.php` que o price-cd chama). O `GET /keys/auto-sell` fica de fora até saber quem o chama | Depois dos passos 2 e 3 |
 
-Decidir junto se `/suppliers/prospect` e `/trades/from-price-researcher` (fora do `/api`, também chamadas pelo price-cd) entram na restrição. O deploy não recarrega o nginx ([`agents/deploy.md`](agents/deploy.md)).
+O bloco interno não usa `allow`/`deny` por sub-rede: a rede é `external`, criada à mão, e não tem faixa fixa. Quem fecha o acesso é a porta não publicada. O deploy não recarrega o nginx ([`agents/deploy.md`](agents/deploy.md)).
 
 ### 2. Conferir as rotas `/api` e a aba de ponta a ponta
 

@@ -78,7 +78,11 @@ O `GET /keys/auto-sell` também é guardado pelo `EXTERNAL_SECRET`.
 
 Uma rota aceita **só** o segredo do seu consumidor: o do price_researcher não abre as rotas do chatbot, nem o contrário. É isso que permite revogar o do chatbot — cujas rotas dão acesso aos códigos de entrega — sem mexer no price_researcher. Segredo não configurado recusa tudo (`401`). Consumidor novo ganha o seu segredo e a sua entrada no `VerifySecret`; consumidor desconhecido declarado numa rota lança na hora, em vez de abrir ou fechar a rota em silêncio. As rotas de máquina novas ficam em `routes/api.php`, sem sessão nem cookie. Guarda em `tests/Feature/Security/ApiConsumerSecretsTest.php`.
 
-Hoje essas rotas respondem pela internet, como o resto do site: o que as protege é o segredo. Restringir `/api/*` à rede Docker no nginx está pendente em [`docs/IMPROVEMENTS.md`](../IMPROVEMENTS.md), porque depende da URL pela qual o price-researcher chama o Estoque.
+**O caminho dos serviços é a porta interna**, `http://web-server-cd:8080`: um bloco do nginx na porta 8080, que **não** é publicada no host (`docker/nginx/default.conf`). Só alcança essa porta quem está na rede `sistema-estoque-cd` — a proteção é a porta não publicada, não uma lista de IPs, porque a rede é `external` e não tem faixa fixa. Nunca publicar a 8080 no `ports` do `web-cd`; guarda em `tests/Feature/EnvironmentTest.php` ("never publishes the internal nginx port to the host").
+
+**Os serviços ainda não migraram para ela.** Hoje o price-researcher chama o Estoque pelo domínio público (`SISTEMA_ESTOQUE_URL=https://carcadeals.com`) e o chatbot não está na rede. Até a migração, as rotas de máquina respondem pela internet, e o que as protege é só o segredo. **Não fechar o domínio público antes**: as chamadas do price-researcher passariam a receber `404`. A ordem dos passos está em [`docs/IMPROVEMENTS.md`](../IMPROVEMENTS.md).
+
+**Link que sai pela API usa o `APP_URL`, nunca o host da requisição.** Pela porta interna, o `route()` montaria `http://web-server-cd:8080/...` — e o `delivery_url` vai para o supplier, que só alcança o domínio público. Por isso `ApiTradeResource` monta o link a partir do `APP_URL`, que em produção precisa ser `https://carcadeals.com`. Guarda em `tests/Feature/Api/TradesReadApiTest.php` ("builds the delivery link on the public URL even when read through the internal port").
 
 ## A API devolve o código da entrega — só trade a trade
 

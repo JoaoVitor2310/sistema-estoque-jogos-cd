@@ -74,6 +74,8 @@ services:
     container_name: web-server-cd
     image: nginx:stable-alpine
     restart: always
+    # A 8080 (bloco interno do default.conf) fica fora de propósito: publicá-la
+    # abriria à internet o caminho que só a rede Docker deve ter.
     ports:
       - "80:80"
       - "443:443"

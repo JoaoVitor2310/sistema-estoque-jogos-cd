@@ -187,3 +187,68 @@ it('ships the php ini that disables session upload progress', function () {
         ->and(file_get_contents(base_path('Dockerfile')))
         ->toContain('COPY docker/php/zz-security.ini /usr/local/etc/php/conf.d/zz-security.ini');
 });
+
+/*
+|--------------------------------------------------------------------------
+| Porta interna do nginx — só na rede Docker
+|--------------------------------------------------------------------------
+|
+| O bloco `listen 8080` do default.conf serve a aplicação inteira em HTTP
+| puro para o price-researcher e o chatbot. O que o fecha à internet é a 8080
+| **não** estar publicada no host: sem lista de IPs, porque a rede é
+| `external` e não tem faixa fixa. Publicá-la (para depurar, por exemplo)
+| abriria esse caminho sem nada quebrar. Ver security-and-guardrails.md.
+|
+*/
+
+/**
+ * As portas de container publicadas no host pelo compose: o lado direito de
+ * cada item de `ports:` ("80:80" → 80, "127.0.0.1:170:80" → 80).
+ *
+ * Parser mínimo de propósito: o projeto não tem YAML como dependência própria.
+ *
+ * @return list<int>
+ */
+function publishedContainerPorts(string $compose): array
+{
+    $ports = [];
+    $portsIndent = null;
+
+    foreach (explode("\n", $compose) as $line) {
+        if (trim($line) === '' || str_starts_with(ltrim($line), '#')) {
+            continue;
+        }
+
+        $indent = strlen($line) - strlen(ltrim($line));
+
+        if (preg_match('/^\s*ports:\s*$/', $line)) {
+            $portsIndent = $indent;
+
+            continue;
+        }
+
+        if ($portsIndent !== null && $indent > $portsIndent && preg_match('/^\s*-\s*["\']?([^"\'\s]+)["\']?/', $line, $match)) {
+            $parts = explode(':', explode('/', $match[1])[0]);
+            $ports[] = (int) end($parts);
+
+            continue;
+        }
+
+        $portsIndent = null;
+    }
+
+    return $ports;
+}
+
+it('reads the container side of each published port', function () {
+    $compose = "services:\n  web:\n    ports:\n      - \"80:80\"\n      - '127.0.0.1:170:8080'\n      - 443:443/tcp\n    volumes:\n      - .:/app\n";
+
+    expect(publishedContainerPorts($compose))->toBe([80, 8080, 443]);
+});
+
+it('never publishes the internal nginx port to the host', function () {
+    expect(file_get_contents(base_path('docker/nginx/default.conf')))->toMatch('/^\s*listen 8080;/m')
+        ->and(publishedContainerPorts(file_get_contents(base_path('docker-compose.yml'))))
+        ->not->toBeEmpty()
+        ->not->toContain(8080);
+});

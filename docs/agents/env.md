@@ -1,6 +1,11 @@
 # Variáveis de ambiente
 
 ```env
+# URL pública do Estoque. Em produção, https://carcadeals.com: o link da entrega
+# que a API devolve ao chatbot (e que vai para o supplier) é montado a partir
+# daqui, não do host da requisição — que pela rede Docker é web-server-cd:8080.
+APP_URL=
+
 # Serviço externo de pesquisa de preços
 API_PRICE_RESEARCHER=
 DEV_API_PRICE_RESEARCHER=
