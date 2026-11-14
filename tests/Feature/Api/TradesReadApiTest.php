@@ -99,6 +99,21 @@ describe('GET /api/trades/{uuid}', function () {
             ->and($json['delivery_code'])->toBe($trade->fresh()->readableDeliveryToken());
     });
 
+    it('builds the delivery link on the public URL even when read through the internal port', function () {
+        // O chatbot lê pela rede Docker, mas o link vai para o supplier, que só
+        // alcança o domínio público. Com o host da requisição ele receberia
+        // `http://web-server-cd:8080/deliveries/...`, que não abre fora da VPS.
+        Config::set('app.url', 'https://carcadeals.com');
+        $trade = readApiTrade([['name' => 'Half-Life', 'market_price_euro' => 4.50]]);
+
+        $json = test()->withToken(READ_API_SECRET)
+            ->getJson("http://web-server-cd:8080/api/trades/{$trade->uuid}")
+            ->assertStatus(200)
+            ->json();
+
+        expect($json['delivery_url'])->toBe("https://carcadeals.com/deliveries/{$trade->uuid}");
+    });
+
     it('never shows what a game is worth to us, nor what was left out of the offer', function () {
         GiveawayFactory::active('Dwarven Realms');
         $trade = readApiTrade([

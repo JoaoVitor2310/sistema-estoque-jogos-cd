@@ -15,7 +15,7 @@ Os dois sistemas rodam em containers Docker na mesma VPS, ligados pela rede `sis
 
 A porta publicada no host é configurável via `HOST_PORT` no `.env` do price-researcher (default `5555`). A porta interna do container é sempre `5555`, fixa no `docker-compose.yml` — é ela que vale na rede `sistema-estoque-cd`, qualquer que seja o `HOST_PORT`.
 
-No sentido contrário (callbacks), o price-researcher chama o Sistema-Estoque pela URL de `SISTEMA_ESTOQUE_URL` no `.env` dele.
+No sentido contrário (callbacks), o price-researcher chama o Sistema-Estoque pela URL de `SISTEMA_ESTOQUE_URL` no `.env` dele. O endereço certo é o da rede, **`http://web-server-cd:8080`**: a porta interna do nginx, que só a rede `sistema-estoque-cd` alcança e que serve a aplicação sem redirecionar para HTTPS. `http://web-server-cd` (porta 80) não serve: é o bloco do domínio público, que redireciona para `https://web-server-cd` e falha no certificado.
 
 ---
 

@@ -36,9 +36,21 @@ class ApiTradeResource extends JsonResource
             'currency' => $this->currency->value,
             'state' => $state->value,
             'offer' => $this->currentOffer === null ? null : self::offer($this->currentOffer),
-            'delivery_url' => $deliveryOpen ? route('deliveries.show', ['trade' => $this->uuid]) : null,
+            'delivery_url' => $deliveryOpen ? self::publicUrl(route('deliveries.show', ['trade' => $this->uuid], false)) : null,
             'delivery_code' => $deliveryOpen ? $this->readableDeliveryToken() : null,
         ];
+    }
+
+    /**
+     * O endereço público de um caminho, a partir do `APP_URL`.
+     *
+     * Não do host da requisição, como o `route()` faria: quem lê a API chama
+     * pela rede Docker (`http://web-server-cd:8080`), e o link vai para o
+     * supplier, que só alcança o domínio público.
+     */
+    private static function publicUrl(string $path): string
+    {
+        return rtrim((string) config('app.url'), '/').$path;
     }
 
     /** @return array<string, mixed> */
