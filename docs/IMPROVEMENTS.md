@@ -229,22 +229,24 @@ mas **só vale depois de rebuild manual da imagem**: o deploy automático não r
 
 A integração está no ar do lado do Estoque ([`CHATBOT.md`](CHATBOT.md), [`PRICE_RESEARCHER.md`](PRICE_RESEARCHER.md#trade-com-oferta--post-apitrades), regras em [`PRODUCT.md`](PRODUCT.md#oferta-ao-supplier)). Ficou de fora:
 
-### 1. Fechar as rotas de máquina no domínio público
+### 1. Ativar o fechamento das rotas de máquina no domínio público
 
-**Onde:** `docker/nginx/default.conf` (bloco `listen 443`), `.env` do price-cd na VPS, compose do chatbot.
+**Onde:** VPS (nginx, `.env` do price-cd), compose do chatbot.
 
-As rotas de máquina respondem pela internet, e só o Bearer as protege — nas do chatbot, o `CHATBOT_API_SECRET`, que dá acesso aos códigos de entrega ([ADR 0015](adr/0015-chatbot-reads-the-delivery-credential-through-the-api.md)). O nginx já tem a porta interna 8080, que só a rede `sistema-estoque-cd` alcança ([`agents/security-and-guardrails.md`](agents/security-and-guardrails.md#cada-serviço-que-chama-o-estoque-tem-o-seu-segredo)); falta passar os serviços para ela e fechar o caminho público.
+O código já fecha as rotas de máquina no domínio público e abre a porta interna 8080 ([`agents/security-and-guardrails.md`](agents/security-and-guardrails.md#cada-serviço-que-chama-o-estoque-tem-o-seu-segredo)). Falta a VPS chegar lá **nesta ordem**: o fechamento liga no primeiro reload ou reinício do nginx depois do `git pull` que o trouxer — reboot incluído —, e fechar antes de o price-cd migrar faz a prospecção e as pesquisas de bundle receberem `404`.
 
-**Ação**, nesta ordem — fechar antes de trocar a URL derruba a integração:
-
-| # | Passo | Situação em 2026-11-13 |
+| # | Passo | Como conferir |
 |---|---|---|
-| 1 | Ativar a porta interna: `docker exec web-server-cd nginx -t && docker exec web-server-cd nginx -s reload`. Conferir de dentro da rede, antes do passo 2: `docker run --rm --network sistema-estoque-cd --entrypoint wget nginx:stable-alpine -S -O /dev/null http://web-server-cd:8080/api/trades/00000000-0000-4000-8000-000000000000` deve mostrar `HTTP/1.1 401 Unauthorized` (o Laravel respondendo, sem token). Conexão recusada é reload que não pegou | Pendente, depois do merge do PR que a criou |
-| 2 | Trocar `SISTEMA_ESTOQUE_URL` no `.env` do price-cd para `http://web-server-cd:8080` e reiniciá-lo | Hoje é `https://carcadeals.com` |
-| 3 | Pôr o chatbot na rede `sistema-estoque-cd` e apontá-lo para `http://web-server-cd:8080` | O `networks` do compose dele está comentado |
-| 4 | No bloco público, responder `404` em `location ^~ /api/` e em `/suppliers/prospect` e `/trades/from-price-researcher` (as duas de `web.php` que o price-cd chama). O `GET /keys/auto-sell` fica de fora até saber quem o chama | Depois dos passos 2 e 3 |
+| 1 | Ativar a porta interna (PR que a criou): `docker exec web-server-cd nginx -t && docker exec web-server-cd nginx -s reload` | `docker run --rm --network sistema-estoque-cd --entrypoint wget nginx:stable-alpine -S -O /dev/null http://web-server-cd:8080/api/trades/00000000-0000-4000-8000-000000000000` mostra `HTTP/1.1 401 Unauthorized`. Conexão recusada é reload que não pegou |
+| 2 | Trocar `SISTEMA_ESTOQUE_URL` no `.env` do price-cd para `http://web-server-cd:8080` e reiniciá-lo | Um "Procurar novos" na aba Suppliers chega ao Estoque (log do price-cd sem erro de `POST /suppliers/prospect`) |
+| 3 | **Só então** fazer o merge do PR que fecha o domínio público, e recarregar o nginx | `https://carcadeals.com/api/trades/<uuid>` responde `404`, e o passo 1 continua dando `401` |
+| 4 | Quando o chatbot subir: pô-lo na rede `sistema-estoque-cd`, apontado para `http://web-server-cd:8080` | — (pelo domínio público ele levaria `404`) |
 
-O bloco interno não usa `allow`/`deny` por sub-rede: a rede é `external`, criada à mão, e não tem faixa fixa. Quem fecha o acesso é a porta não publicada. O deploy não recarrega o nginx ([`agents/deploy.md`](agents/deploy.md)).
+Passos 1 e 2 feitos em 2026-11-13: a porta interna responde `401` de dentro do price-cd, e o `SISTEMA_ESTOQUE_URL` dele já é `http://web-server-cd:8080`.
+
+O bloco interno não usa `allow`/`deny` por sub-rede: a rede é `external`, criada à mão, e não tem faixa fixa. Quem fecha o acesso é a porta não publicada.
+
+**Depois de ativado:** em produção, a falta do parâmetro `ESTOQUE_ENTRY` só pode ser config errada do nginx, e hoje o `InternalNetworkOnly` deixa passar nesse caso. Avaliar recusar (`APP_ENV=production` sem o parâmetro → `404`) — não antes do passo 3, porque é justamente a ausência que mantém o price-cd funcionando até lá.
 
 ### 2. Conferir as rotas `/api` e a aba de ponta a ponta
 

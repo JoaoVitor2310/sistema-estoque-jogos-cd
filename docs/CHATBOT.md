@@ -29,7 +29,7 @@ Do mais comum para o mais raro:
 | Item | Como é |
 |---|---|
 | Token | `Authorization: Bearer <CHATBOT_API_SECRET>` — o segredo **do chatbot** (`VerifySecret::chatbot()`), diferente do `EXTERNAL_SECRET` do price-researcher, que não abre estas rotas; sem ele ou errado, `401` |
-| Endereço | `http://web-server-cd:8080`, pela rede `sistema-estoque-cd` — a porta interna do nginx, não publicada no host |
+| Endereço | `http://web-server-cd:8080`, pela rede `sistema-estoque-cd` — a porta interna do nginx, não publicada no host. Pelo domínio público, toda rota `/api` responde `404` |
 | Rotas | `routes/api.php`, prefixo `/api`, sem sessão nem cookie |
 | `delivery_url` | Sempre no domínio público (`APP_URL`), mesmo lido pela porta interna: é o link que vai para o supplier |
 | Caminho desconhecido em `/api` | `404 { "message": "Not found." }`, nunca redirect |

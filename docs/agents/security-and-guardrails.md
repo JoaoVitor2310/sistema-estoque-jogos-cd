@@ -80,7 +80,16 @@ Uma rota aceita **só** o segredo do seu consumidor: o do price_researcher não 
 
 **O caminho dos serviços é a porta interna**, `http://web-server-cd:8080`: um bloco do nginx na porta 8080, que **não** é publicada no host (`docker/nginx/default.conf`). Só alcança essa porta quem está na rede `sistema-estoque-cd` — a proteção é a porta não publicada, não uma lista de IPs, porque a rede é `external` e não tem faixa fixa. Nunca publicar a 8080 no `ports` do `web-cd`; guarda em `tests/Feature/EnvironmentTest.php` ("never publishes the internal nginx port to the host").
 
-**Os serviços ainda não migraram para ela.** Hoje o price-researcher chama o Estoque pelo domínio público (`SISTEMA_ESTOQUE_URL=https://carcadeals.com`) e o chatbot não está na rede. Até a migração, as rotas de máquina respondem pela internet, e o que as protege é só o segredo. **Não fechar o domínio público antes**: as chamadas do price-researcher passariam a receber `404`. A ordem dos passos está em [`docs/IMPROVEMENTS.md`](../IMPROVEMENTS.md).
+**Pelo domínio público, as rotas de máquina respondem `404`.** São todas as de `routes/api.php` (o grupo `api` roda o `InternalNetworkOnly`, então rota nova já nasce fechada) e as duas de `web.php` que o price-researcher chama: `POST /suppliers/prospect` e `POST /trades/from-price-researcher`. O `GET /keys/auto-sell` segue aberto até saber quem o chama. O `404` vem antes da autenticação: o domínio público não revela nem que a rota existe.
+
+| Peça | Papel |
+|---|---|
+| nginx | Cada `server` grava de onde a requisição veio (`set $estoque_entry public` no `443`, `internal` na 8080), e o snippet repassa ao PHP como parâmetro FastCGI `ESTOQUE_ENTRY`. O cliente não forja: header HTTP chega ao PHP como `HTTP_*` |
+| `App\Http\Middleware\InternalNetworkOnly` | `404` quando a entrada é `public`. Sem o parâmetro (testes, `artisan serve`, nginx com config antiga), deixa passar |
+
+**A decisão mora no Laravel, não num `location` do nginx**, porque o caminho não é confiável lá: `/index.php/api/...` não casa com `location /api/`, cai no `index.php`, e o roteador resolve para a mesma rota. *(Conferido ao desenhar: pelo domínio público, `/index.php/api/trades/{uuid}` chegava à autenticação.)* Guardas em `tests/Feature/Security/InternalNetworkOnlyTest.php` (o middleware) e `tests/Feature/EnvironmentTest.php` (todo `server` que serve a aplicação diz de onde a requisição veio).
+
+**O bloqueio liga com a config, não com o merge**: no primeiro reload **ou reinício** do nginx depois do `git pull` — inclusive um reboot da VPS. Por isso o price-researcher precisa já chamar pela porta interna antes de esta config chegar à VPS; a ordem está em [`docs/IMPROVEMENTS.md`](../IMPROVEMENTS.md).
 
 **Link que sai pela API usa o `APP_URL`, nunca o host da requisição.** Pela porta interna, o `route()` montaria `http://web-server-cd:8080/...` — e o `delivery_url` vai para o supplier, que só alcança o domínio público. Por isso `ApiTradeResource` monta o link a partir do `APP_URL`, que em produção precisa ser `https://carcadeals.com`. Guarda em `tests/Feature/Api/TradesReadApiTest.php` ("builds the delivery link on the public URL even when read through the internal port").
 

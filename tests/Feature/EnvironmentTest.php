@@ -252,3 +252,82 @@ it('never publishes the internal nginx port to the host', function () {
         ->not->toBeEmpty()
         ->not->toContain(8080);
 });
+
+/*
+|--------------------------------------------------------------------------
+| Entrada de cada server do nginx — rotas de máquina fechadas no público
+|--------------------------------------------------------------------------
+|
+| O InternalNetworkOnly fecha as rotas de máquina quando o nginx diz que a
+| requisição entrou pelo domínio público (ESTOQUE_ENTRY = public), e deixa
+| passar quando não diz nada. Um `server` que inclua a aplicação sem o
+| `set $estoque_entry` manda o valor vazio e fica aberto sem nada quebrar.
+|
+*/
+
+/**
+ * Os blocos `server { ... }` de uma config do nginx, com o conteúdo de cada um.
+ *
+ * @return list<string>
+ */
+function nginxServerBlocks(string $config): array
+{
+    $blocks = [];
+    $offset = 0;
+
+    while (preg_match('/^\s*server\s*\{/m', $config, $match, PREG_OFFSET_CAPTURE, $offset)) {
+        $start = $match[0][1] + strlen($match[0][0]);
+        $depth = 1;
+        $position = $start;
+
+        while ($depth > 0 && $position < strlen($config)) {
+            $depth += match ($config[$position]) {
+                '{' => 1,
+                '}' => -1,
+                default => 0,
+            };
+            $position++;
+        }
+
+        $blocks[] = substr($config, $start, $position - $start - 1);
+        $offset = $position;
+    }
+
+    return $blocks;
+}
+
+it('passes the entry of the request from the app snippet to php', function () {
+    expect(file_get_contents(base_path('docker/nginx/snippets/laravel-app.conf')))
+        ->toMatch('/^\s*fastcgi_param ESTOQUE_ENTRY \$estoque_entry;/m');
+});
+
+it('says where the request came from in every server that serves the app', function (string $file) {
+    $servingApp = array_filter(
+        nginxServerBlocks(file_get_contents(base_path($file))),
+        fn (string $block) => str_contains($block, 'snippets/laravel-app.conf'),
+    );
+
+    expect($servingApp)->not->toBeEmpty();
+
+    foreach ($servingApp as $block) {
+        expect($block)->toMatch('/^\s*set \$estoque_entry (public|internal);/m');
+    }
+})->with(['docker/nginx/default.conf', 'docker/nginx/default.dev.conf']);
+
+it('marks the public server as public and the internal port as internal in production', function () {
+    $blocks = nginxServerBlocks(file_get_contents(base_path('docker/nginx/default.conf')));
+
+    $entryOf = function (string $listen) use ($blocks): ?string {
+        foreach ($blocks as $block) {
+            if (preg_match('/^\s*listen '.preg_quote($listen, '/').';/m', $block)
+                && preg_match('/^\s*set \$estoque_entry (\w+);/m', $block, $match)) {
+                return $match[1];
+            }
+        }
+
+        return null;
+    };
+
+    expect($entryOf('443 ssl'))->toBe('public')
+        ->and($entryOf('8080'))->toBe('internal');
+});

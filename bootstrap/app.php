@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\CheckAdmin;
 use App\Http\Middleware\CheckPermission;
+use App\Http\Middleware\InternalNetworkOnly;
 use App\Http\Middleware\RequireTeam;
 use App\Models\Asset;
 use App\Models\Bundle;
@@ -28,6 +29,10 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\HandleInertiaRequests::class,
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
         ]);
+
+        // Toda rota de `routes/api.php` é de máquina: pelo domínio público, 404.
+        // No grupo, e não rota a rota, para a rota nova já nascer fechada.
+        $middleware->api(prepend: [InternalNetworkOnly::class]);
 
         $middleware->validateCsrfTokens(except: ['*']);
 

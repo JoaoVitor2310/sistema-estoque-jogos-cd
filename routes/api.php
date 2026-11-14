@@ -14,6 +14,9 @@ use Illuminate\Support\Facades\Route;
 | pelo Bearer de `VerifySecret`, com o segredo do consumidor de cada rota. São
 | rotas comuns do Estoque — quem as chama é só um consumidor delas.
 |
+| Só pela rede Docker: o grupo `api` roda o InternalNetworkOnly (ver
+| bootstrap/app.php), e pelo domínio público toda rota daqui responde 404.
+|
 */
 
 // Trade com a primeira oferta ao supplier (integração com o chatbot). O

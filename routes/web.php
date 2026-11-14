@@ -18,6 +18,7 @@ use App\Http\Controllers\TradeLineController;
 use App\Http\Middleware\CheckAdmin;
 use App\Http\Middleware\CheckPermission;
 use App\Http\Middleware\EnsureDeliverySession;
+use App\Http\Middleware\InternalNetworkOnly;
 use App\Http\Middleware\RequireTeam;
 use App\Http\Middleware\ValidateDeliveryCsrfToken;
 use App\Http\Middleware\VerifySecret;
@@ -175,14 +176,15 @@ Route::post('/keys/search', [KeyController::class, 'search'])
     ->middleware(CheckPermission::class);
 
 // API externa — Price Researcher
-// Autenticado via Bearer token (EXTERNAL_SECRET). Guest: 401. can-edit: não exigido.
+// Só pela rede Docker (InternalNetworkOnly: 404 pelo domínio público, antes de
+// autenticar), e com Bearer token (EXTERNAL_SECRET). Guest: 401. can-edit: não exigido.
 Route::post('/suppliers/prospect', [SupplierController::class, 'prospect'])
     ->name('suppliers.prospect')
-    ->middleware(VerifySecret::class);
+    ->middleware([InternalNetworkOnly::class, VerifySecret::class]);
 
 Route::post('/trades/from-price-researcher', [TradeController::class, 'storeFromPriceResearcher'])
     ->name('trades.from-price-researcher')
-    ->middleware(VerifySecret::class);
+    ->middleware([InternalNetworkOnly::class, VerifySecret::class]);
 
 Route::get('/acesso', [AuthorizedUsersController::class, 'index'])->name('acesso')->middleware(RequireTeam::class);
 
