@@ -31,7 +31,11 @@ const MyPreset = definePreset(Aura, {
     }
 });
 
-const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+// O nome que o servidor escreveu no <title> (config('app.name'), do APP_NAME
+// do .env). Lido aqui, e não de uma variável VITE_: essas são gravadas no
+// JavaScript durante o build, que roda no CI sem .env — a aba mostrava o
+// fallback em produção. Assim o nome tem um lugar só e muda sem novo build.
+const appName = document.title || 'Carca Deals';
 
 createInertiaApp({
     title: (title) => `${appName}`,

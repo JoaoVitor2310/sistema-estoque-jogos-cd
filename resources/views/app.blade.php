@@ -10,7 +10,7 @@
         @if ($page['component'] === 'Delivery')
             <meta name="robots" content="noindex, nofollow">
         @endif
-        <title inertia>{{ config('app.name', 'Laravel') }}</title>
+        <title inertia>{{ config('app.name') }}</title>
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
