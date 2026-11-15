@@ -9,9 +9,9 @@
  * Daí a barra roxa e o logo, os mesmos da NavBar interna — a página tem de ser
  * reconhecível como nossa à primeira vista.
  *
- * A marca vem escrita, não de `VITE_APP_NAME`: aquilo é o nome do sistema
- * interno, e quem recebe o link nos conhece por CarcaDeals — mesmo critério do
- * `Footer` da aplicação.
+ * A marca vem escrita, não do `APP_NAME`: aquilo é configuração de ambiente, e
+ * quem recebe o link nos conhece por CarcaDeals — mesmo critério do `Footer` da
+ * aplicação.
  * 
  * 
  *
