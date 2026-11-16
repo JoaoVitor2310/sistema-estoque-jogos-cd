@@ -20,6 +20,7 @@ use App\Models\TradeOffer;
 use App\Services\Bundles\BundleService;
 use App\Services\Keys\KeyCalculationService;
 use App\Services\Suppliers\SupplierService;
+use App\Services\Trades\SupplierTradeNumbering;
 use App\Services\Trades\TradeLineFlagsService;
 use App\Services\Trades\TradeOfferService;
 use Illuminate\Support\Arr;
@@ -36,6 +37,7 @@ class ProspectSupplierUseCase
         private readonly BundleService $bundleService,
         private readonly TradeLineFlagsService $flagsService,
         private readonly TradeOfferService $offerService,
+        private readonly SupplierTradeNumbering $numbering,
     ) {}
 
     /**
@@ -182,7 +184,11 @@ class ProspectSupplierUseCase
             $trade->lines()->createMany($lines);
 
             // Toda trade nasce com credencial de entrega — ver docs/adr/0008.
-            $trade->forceFill(DeliveryCredential::issue())->save();
+            $trade->forceFill([
+                ...DeliveryCredential::issue(),
+                // O número do supplier, reservado nesta transação.
+                ...$this->numbering->for($trade->supplier_id),
+            ])->save();
 
             $offer = $this->offerService->recordInitial($trade);
 

@@ -754,3 +754,24 @@ describe('ProspectSupplierUseCase — first offer round', function () {
         expect($result['profitable'][0])->not->toHaveKeys(['offer', 'tf2_offer']);
     });
 });
+
+describe('ProspectSupplierUseCase — supplier trade number', function () {
+
+    beforeEach(fn () => seedUseCaseDeps());
+
+    it('numbers the trade of each comment within the supplier', function () {
+        app(ProspectSupplierUseCase::class)->execute(supplierSteamId(), [profitableGame()], 'LIST1');
+        app(ProspectSupplierUseCase::class)->execute(supplierSteamId(), [profitableGame()], 'LIST2');
+
+        expect(Trade::where('list_code', 'LIST1')->value('supplier_trade_number'))->toBe(1)
+            ->and(Trade::where('list_code', 'LIST2')->value('supplier_trade_number'))->toBe(2);
+    });
+
+    it('spends no number when there is nothing to comment', function () {
+        // Sem comentário não há trade, e o número não pode ficar reservado à toa.
+        app(ProspectSupplierUseCase::class)->execute(supplierSteamId(), [['name' => 'Free Game', 'market_price_euro' => 0.05, 'popularity' => 500, 'region' => null]], 'NOTHING');
+        app(ProspectSupplierUseCase::class)->execute(supplierSteamId(), [profitableGame()], 'LIST1');
+
+        expect(Trade::where('list_code', 'LIST1')->value('supplier_trade_number'))->toBe(1);
+    });
+});

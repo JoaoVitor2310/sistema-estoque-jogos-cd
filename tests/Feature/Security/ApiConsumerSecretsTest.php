@@ -29,7 +29,7 @@ beforeEach(function () {
 });
 
 /**
- * As quatro rotas do chatbot, com o status que cada uma dá quando passa da
+ * As rotas do chatbot, com o status que cada uma dá quando passa da
  * autenticação: o uuid não existe e o corpo vai vazio.
  */
 function chatbotRoutes(): array
@@ -39,6 +39,7 @@ function chatbotRoutes(): array
     return [
         'read the trade' => ['GET', "/api/trades/{$uuid}", 404],
         'read the supplier trades' => ['GET', '/api/suppliers/76561198000000001/trades', 200],
+        'read a supplier trade by number' => ['GET', '/api/suppliers/76561198000000001/trades/1', 404],
         'counter offer' => ['POST', "/api/trades/{$uuid}/offers", 422],
         'message sent' => ['POST', "/api/trades/{$uuid}/message-sent", 404],
     ];

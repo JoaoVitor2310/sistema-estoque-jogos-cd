@@ -41,6 +41,7 @@ Do mais comum para o mais raro:
 ```json
 {
   "uuid": "1fd5f585-5e5b-4f2e-9283-579aa744d82a",
+  "number": 2,
   "created_at": "2026-10-29T22:38:22-03:00",
   "currency": "eur",
   "state": "negotiating",
@@ -61,6 +62,7 @@ Do mais comum para o mais raro:
 
 | Campo | Observação |
 |---|---|
+| `number` | O **número da trade** no supplier: a primeira trade dele é 1, a segunda 2. É o que o supplier digita para escolher a trade (ver `GET /api/suppliers/{steamId}/trades/{number}`). Nunca muda e nunca é reaproveitado, nem quando a trade é importada ou apagada — lacunas são normais. `null` só em trade sem supplier |
 | `currency` | Moeda da trade (e da oferta): `tf2`, `eur` ou `usd` |
 | `state` | `negotiating`, `awaiting_review` (entregue, esperando a equipe) ou `imported` |
 | `offer` | A oferta vigente — a de rodada mais alta. `null` quando a trade não tem oferta (criada por outro caminho) |
@@ -76,7 +78,7 @@ Do mais comum para o mais raro:
 ```json
 {
   "trades": [
-    { "uuid": "…", "created_at": "…", "currency": "tf2", "games_count": 2, "total_price": 5.8 }
+    { "uuid": "…", "number": 2, "created_at": "…", "currency": "tf2", "games_count": 2, "total_price": 5.8 }
   ]
 }
 ```
@@ -86,6 +88,14 @@ Do mais comum para o mais raro:
 - `games_count` e `total_price` são da oferta vigente (`0` e `null` sem oferta).
 - **Sem acesso à entrega:** para o link e o código, ler a trade pelo `uuid`.
 - Supplier sem trades abertas, ou desconhecido: `200` com a lista vazia.
+
+## `GET /api/suppliers/{steamId}/trades/{number}` — a trade que o supplier escolheu
+
+A trade daquele supplier com aquele número, **no mesmo formato de `GET /api/trades/{uuid}`**. É o que o chatbot chama quando o supplier responde com o número de uma trade da lista: o par (supplier, número) é estável, então o chatbot não precisa guardar qual número correspondia a qual uuid em cada tela.
+
+- **Qualquer estado**, importada inclusive — ao contrário da lista. O `state` diz o que responder ("essa trade já foi entregue") em vez de "número inválido".
+- `404` quando o supplier não tem trade com esse número, quando ela foi apagada, ou quando o número é de outro supplier.
+- Número que não é inteiro positivo (`0`, `-1`, texto) é `404` no roteador.
 
 ## `POST /api/trades/{uuid}/offers` — contraproposta
 

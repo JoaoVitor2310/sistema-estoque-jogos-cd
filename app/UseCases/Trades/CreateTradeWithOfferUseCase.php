@@ -10,6 +10,7 @@ use App\Models\Trade;
 use App\Services\Bundles\BundleService;
 use App\Services\Keys\KeyCalculationService;
 use App\Services\Suppliers\SupplierService;
+use App\Services\Trades\SupplierTradeNumbering;
 use App\Services\Trades\TradeLineFlagsService;
 use App\Services\Trades\TradeOfferService;
 use App\UseCases\Trades\DTO\TradeWithOfferDTO;
@@ -42,6 +43,7 @@ class CreateTradeWithOfferUseCase
         private readonly TradeLineFlagsService $flagsService,
         private readonly KeyCalculationService $calculationService,
         private readonly TradeOfferService $offerService,
+        private readonly SupplierTradeNumbering $numbering,
     ) {}
 
     /**
@@ -126,7 +128,12 @@ class CreateTradeWithOfferUseCase
             // Gravado **antes** da oferta de propósito: numa corrida, é aqui que
             // o índice único barra a segunda chamada, antes de ela calcular e
             // gravar uma oferta que seria desfeita.
-            $trade->forceFill([...DeliveryCredential::issue(), 'request_uuid' => $data->requestUuid])->save();
+            $trade->forceFill([
+                ...DeliveryCredential::issue(),
+                'request_uuid' => $data->requestUuid,
+                // O número do supplier, reservado nesta transação.
+                ...$this->numbering->for($trade->supplier_id),
+            ])->save();
 
             $offer = $this->offerService->recordInitial($trade);
 

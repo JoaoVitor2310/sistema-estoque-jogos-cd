@@ -40,6 +40,18 @@ class TradeController extends Controller
         return (new ApiTradeResource($trade))->response();
     }
 
+    /** A trade de um supplier pelo número dela, no formato da leitura pelo uuid. */
+    public function showForSupplier(string $steamId, int $number): JsonResponse
+    {
+        $trade = $this->readModel->findForSupplierByNumber($steamId, $number);
+
+        if ($trade === null) {
+            return response()->json(['message' => 'Trade not found.'], 404);
+        }
+
+        return (new ApiTradeResource($trade))->response();
+    }
+
     /** As trades em negociação de um supplier, da mais recente para a mais antiga. */
     public function negotiatingForSupplier(string $steamId): JsonResponse
     {

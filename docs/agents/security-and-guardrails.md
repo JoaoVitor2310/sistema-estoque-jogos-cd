@@ -72,7 +72,7 @@ Rota de máquina é autenticada por Bearer conferido pelo `VerifySecret`, com o 
 | Consumidor | Segredo | Rotas |
 |---|---|---|
 | price_researcher | `EXTERNAL_SECRET` → `services.external_secret` (o mesmo que mandamos a ele em `/api/suppliers/find-new`) | `POST /api/trades`, `POST /suppliers/prospect`, `POST /trades/from-price-researcher` |
-| chatbot | `CHATBOT_API_SECRET` → `services.chatbot_api_secret` (`VerifySecret::chatbot()`) | `GET /api/trades/{uuid}`, `GET /api/suppliers/{steamId}/trades`, `POST /api/trades/{uuid}/offers`, `POST /api/trades/{uuid}/message-sent` |
+| chatbot | `CHATBOT_API_SECRET` → `services.chatbot_api_secret` (`VerifySecret::chatbot()`) | `GET /api/trades/{uuid}`, `GET /api/suppliers/{steamId}/trades`, `GET /api/suppliers/{steamId}/trades/{number}`, `POST /api/trades/{uuid}/offers`, `POST /api/trades/{uuid}/message-sent` |
 
 O `GET /keys/auto-sell` também é guardado pelo `EXTERNAL_SECRET`.
 

@@ -113,6 +113,20 @@ Não faz sentido comprar uma key por um preço em que o lucro fica abaixo do que
 
 As margens chegam à tela pela prop `marginRules` (`MinimumMarginPolicy::initialMarginRules()`); a tela só projeta a escolha da faixa, como já faz com a renda líquida.
 
+### Número da trade
+
+Cada trade de um supplier tem um número dentro dele: a primeira é a **#1**, a segunda a **#2**. É o que o supplier digita no chat para escolher a trade da lista ("My lists and offers"), e a equipe pode usá-lo para falar com ele. O `id` da trade não serve para isso: é interno, e contaria ao supplier quantas trades a CarcaDeals já fez.
+
+| Situação | Número |
+|---|---|
+| Trade criada com supplier (qualquer caminho) | O próximo do supplier |
+| Trade sem supplier (compra direta no bundle, compra na Gamivo) | Nenhum |
+| Trade importada ou apagada | Continua com o dela; o número não volta para o supplier |
+| A equipe troca o supplier da trade | O próximo do supplier novo; o número antigo não é reaproveitado pelo supplier antigo |
+| A trade perde o supplier (o canal muda) | Fica sem número |
+
+Lacunas na sequência são normais: o supplier pode ver a #4 e a #2 porque a #3 já foi importada. O próximo número sai de um contador do supplier que só sobe, por isso nenhum número se repete. As trades criadas antes da numeração foram numeradas pela data de criação, apagadas incluídas.
+
 ### Oferta ao supplier
 
 A trade que nasce de uma oferta ao supplier já vem **com a primeira oferta**, decidida pelo Estoque, pelos dois caminhos:

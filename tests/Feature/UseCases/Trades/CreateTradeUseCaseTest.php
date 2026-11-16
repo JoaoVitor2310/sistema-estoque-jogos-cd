@@ -38,3 +38,20 @@ describe('CreateTradeUseCase', function () {
             ->and($line->key_code)->toBeNull();
     });
 });
+
+describe('CreateTradeUseCase — supplier trade number', function () {
+
+    it('numbers the trade within its supplier', function () {
+        $url = 'https://steamcommunity.com/profiles/76561198000000601';
+
+        $first = app(CreateTradeUseCase::class)->execute(['supplierUrl' => $url]);
+        $second = app(CreateTradeUseCase::class)->execute(['supplierUrl' => $url]);
+
+        expect($first->fresh()->supplier_trade_number)->toBe(1)
+            ->and($second->fresh()->supplier_trade_number)->toBe(2);
+    });
+
+    it('gives no number to a trade without supplier', function () {
+        expect(app(CreateTradeUseCase::class)->execute([])->fresh()->supplier_trade_number)->toBeNull();
+    });
+});

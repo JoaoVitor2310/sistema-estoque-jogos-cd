@@ -28,6 +28,20 @@ final class TradeApiReadModel
     }
 
     /**
+     * A trade de um supplier pelo número dela, com a oferta vigente — em
+     * qualquer estado, importada inclusive: o supplier escolhe pelo número que
+     * viu, e quem chama responde pelo `state`. `null` se não existe ou foi
+     * apagada.
+     */
+    public function findForSupplierByNumber(string $steamId, int $number): ?Trade
+    {
+        return $this->withCurrentOffer(Trade::query())
+            ->where('supplier_trade_number', $number)
+            ->whereHas('supplier', fn (Builder $query) => $query->where('steam_id', $steamId))
+            ->first();
+    }
+
+    /**
      * As trades em negociação de um supplier, da mais recente para a mais
      * antiga, cada uma com a oferta vigente.
      *

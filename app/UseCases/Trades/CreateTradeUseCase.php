@@ -5,6 +5,7 @@ namespace App\UseCases\Trades;
 use App\Domain\Trades\DeliveryCredential;
 use App\Models\Trade;
 use App\Services\Suppliers\SupplierService;
+use App\Services\Trades\SupplierTradeNumbering;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -12,6 +13,7 @@ class CreateTradeUseCase
 {
     public function __construct(
         private readonly SupplierService $supplierService,
+        private readonly SupplierTradeNumbering $numbering,
     ) {}
 
     /**
@@ -39,7 +41,11 @@ class CreateTradeUseCase
             // vista na aba, prontos para copiar (ver docs/adr/0008). Fora do
             // `create` porque as colunas não são fillable de propósito — nada
             // vindo de payload pode alcançá-las.
-            $trade->forceFill(DeliveryCredential::issue())->save();
+            $trade->forceFill([
+                ...DeliveryCredential::issue(),
+                // O número do supplier, reservado nesta transação.
+                ...$this->numbering->for($trade->supplier_id),
+            ])->save();
 
             return $trade;
         });

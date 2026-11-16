@@ -32,6 +32,9 @@ class ApiTradeResource extends JsonResource
 
         return [
             'uuid' => $this->uuid,
+            // O número que o supplier digita no chat para escolher a trade: único
+            // dentro do supplier, nunca reaproveitado. Nulo em trade sem supplier.
+            'number' => $this->supplier_trade_number,
             'created_at' => $this->created_at?->toIso8601String(),
             'currency' => $this->currency->value,
             'state' => $state->value,

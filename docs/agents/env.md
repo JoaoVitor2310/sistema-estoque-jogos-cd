@@ -44,7 +44,7 @@ GOOGLE_REDIRECT_URI=
 # log). Obrigatória em todo ambiente, inclusive no .env.example que o CI copia.
 ADMIN_EMAIL=carcadeals@gmail.com
 EXTERNAL_SECRET=            # Bearer exigido do price_researcher quando chama o Sistema Estoque, e enviado a ele em /api/suppliers/find-new — sentido inverso do INTERNAL_SECRET
-CHATBOT_API_SECRET=         # Bearer exigido do chatbot nas rotas /api dele (GET /api/trades/{uuid}, GET /api/suppliers/{steamId}/trades, POST .../offers e .../message-sent). Só ele abre essas rotas; diferente do EXTERNAL_SECRET, para ser revogado sozinho. Em branco: 401 em tudo
+CHATBOT_API_SECRET=         # Bearer exigido do chatbot nas rotas /api dele (GET /api/trades/{uuid}, GET /api/suppliers/{steamId}/trades[/{number}], POST .../offers e .../message-sent). Só ele abre essas rotas; diferente do EXTERNAL_SECRET, para ser revogado sozinho. Em branco: 401 em tudo
 ```
 
 Ver também [`security-and-guardrails.md`](security-and-guardrails.md) para o raciocínio por trás da separação `admin_email`/`admin_gate_email` e da ausência de fallback.
