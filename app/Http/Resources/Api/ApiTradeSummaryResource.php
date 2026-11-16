@@ -21,6 +21,7 @@ class ApiTradeSummaryResource extends JsonResource
 
         return [
             'uuid' => $this->uuid,
+            'number' => $this->supplier_trade_number,
             'created_at' => $this->created_at?->toIso8601String(),
             'currency' => $this->currency->value,
             'games_count' => $offer?->lines->count() ?? 0,

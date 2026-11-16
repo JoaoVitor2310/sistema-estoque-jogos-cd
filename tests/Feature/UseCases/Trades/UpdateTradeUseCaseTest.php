@@ -14,6 +14,7 @@
 use App\Domain\Enums\PurchaseChannel;
 use App\Models\Bundle;
 use App\Models\Trade;
+use App\UseCases\Trades\CreateTradeUseCase;
 use App\UseCases\Trades\UpdateTradeUseCase;
 use Illuminate\Support\Facades\DB;
 
@@ -117,5 +118,65 @@ describe('UpdateTradeUseCase — purchase channel', function () {
             ->and($trade->supplier_id)->toBeNull()
             ->and($trade->bundle_id)->toBeNull()
             ->and(DB::table('suppliers')->count())->toBe(0);
+    });
+});
+
+describe('UpdateTradeUseCase — supplier trade number', function () {
+
+    /** Uma trade criada pelo caminho de verdade, já numerada no supplier. */
+    function numberedTrade(string $steamId): Trade
+    {
+        return app(CreateTradeUseCase::class)->execute(['supplierUrl' => "https://steamcommunity.com/profiles/{$steamId}"])->fresh();
+    }
+
+    it('gives the trade the next number of the new supplier', function () {
+        $moved = numberedTrade('76561198000000701');
+        numberedTrade('76561198000000702');
+        numberedTrade('76561198000000702');
+
+        app(UpdateTradeUseCase::class)->execute($moved, ['supplierUrl' => 'https://steamcommunity.com/profiles/76561198000000702']);
+
+        expect($moved->fresh()->supplier_trade_number)->toBe(3);
+    });
+
+    it('does not collide when the new supplier already has the number of the trade', function () {
+        // Supplier e número vão juntos no mesmo save: gravar o supplier novo
+        // com o número antigo bateria no índice único (supplier, número).
+        $moved = numberedTrade('76561198000000701');
+        $existing = numberedTrade('76561198000000702');
+
+        expect($moved->supplier_trade_number)->toBe(1)
+            ->and($existing->supplier_trade_number)->toBe(1);
+
+        app(UpdateTradeUseCase::class)->execute($moved, ['supplierUrl' => 'https://steamcommunity.com/profiles/76561198000000702']);
+
+        expect($moved->fresh()->supplier_trade_number)->toBe(2);
+    });
+
+    it('does not give the old number back to the old supplier', function () {
+        $moved = numberedTrade('76561198000000701');
+
+        app(UpdateTradeUseCase::class)->execute($moved, ['supplierUrl' => 'https://steamcommunity.com/profiles/76561198000000702']);
+
+        expect(numberedTrade('76561198000000701')->supplier_trade_number)->toBe(2);
+    });
+
+    it('keeps the number when the supplier stays the same', function () {
+        $trade = numberedTrade('76561198000000701');
+
+        app(UpdateTradeUseCase::class)->execute($trade, [
+            'supplierUrl' => 'https://steamcommunity.com/profiles/76561198000000701',
+            'title' => 'Renamed',
+        ]);
+
+        expect($trade->fresh()->supplier_trade_number)->toBe(1);
+    });
+
+    it('drops the number when the trade loses its supplier', function () {
+        $trade = numberedTrade('76561198000000701');
+
+        app(UpdateTradeUseCase::class)->execute($trade, ['purchaseChannel' => 'gamivo']);
+
+        expect($trade->fresh()->supplier_trade_number)->toBeNull();
     });
 });

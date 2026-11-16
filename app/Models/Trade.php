@@ -20,13 +20,14 @@ class Trade extends Model
     protected $table = 'trades';
 
     /**
-     * `uuid`, `request_uuid`, `delivery_token` e `delivered_at` ficam **fora**
-     * de propósito: quem os grava são UseCases, por atribuição explícita — os
-     * que criam a trade gravam o `uuid` e o `delivery_token` (e, pela API, o
-     * `request_uuid` do pedido), e o envio da entrega grava o `delivered_at`.
-     * São a identidade da trade (que também endereça a entrega), o pedido que a
-     * criou, o segredo e o marco da entrega — nada que chegue de um payload
-     * deve alcançá-los por atribuição em massa.
+     * `uuid`, `request_uuid`, `supplier_trade_number`, `delivery_token` e
+     * `delivered_at` ficam **fora** de propósito: quem os grava são UseCases,
+     * por atribuição explícita — os que criam a trade gravam o `uuid`, o
+     * `delivery_token` e o número do supplier (e, pela API, o `request_uuid` do
+     * pedido), a troca de supplier regrava o número, e o envio da entrega grava
+     * o `delivered_at`. São a identidade da trade (que também endereça a
+     * entrega), o pedido que a criou, o segredo e o marco da entrega — nada que
+     * chegue de um payload deve alcançá-los por atribuição em massa.
      */
     protected $fillable = ['supplier_id', 'purchase_channel', 'bundle_id', 'list_code', 'last_commented_at', 'title', 'date', 'message_sent', 'is_imported', 'amount', 'currency', 'supplier_notes'];
 
@@ -51,6 +52,7 @@ class Trade extends Model
         'currency' => TradeCurrency::class,
         'message_sent' => 'boolean',
         'is_imported' => 'boolean',
+        'supplier_trade_number' => 'integer',
         'last_commented_at' => 'datetime',
         'date' => 'date',
         'amount' => 'decimal:2',

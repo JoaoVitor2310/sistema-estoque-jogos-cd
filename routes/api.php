@@ -39,6 +39,13 @@ Route::middleware(VerifySecret::chatbot())->group(function () {
         ->where('steamId', SteamId::ROUTE_PATTERN)
         ->name('api.suppliers.trades');
 
+    // A trade que o supplier escolheu no chat pelo número. Número que não é
+    // inteiro positivo é recusado no roteador (404).
+    Route::get('/suppliers/{steamId}/trades/{number}', [TradeController::class, 'showForSupplier'])
+        ->where('steamId', SteamId::ROUTE_PATTERN)
+        ->where('number', '[1-9][0-9]{0,8}')
+        ->name('api.suppliers.trades.show');
+
     // Escritas do chatbot: a contraproposta (a próxima rodada da oferta) e o
     // registro de que o acesso à entrega foi mandado.
     Route::post('/trades/{uuid}/offers', [TradeController::class, 'counter'])

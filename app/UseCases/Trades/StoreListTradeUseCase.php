@@ -7,6 +7,7 @@ use App\Domain\Trades\TradeLineBuilder;
 use App\Models\Trade;
 use App\Services\Bundles\BundleService;
 use App\Services\Suppliers\SupplierService;
+use App\Services\Trades\SupplierTradeNumbering;
 use App\Services\Trades\TradeLineFlagsService;
 use Illuminate\Support\Facades\DB;
 
@@ -16,6 +17,7 @@ class StoreListTradeUseCase
         private readonly SupplierService $supplierService,
         private readonly BundleService $bundleService,
         private readonly TradeLineFlagsService $flagsService,
+        private readonly SupplierTradeNumbering $numbering,
     ) {}
 
     /**
@@ -61,7 +63,11 @@ class StoreListTradeUseCase
             $trade->lines()->createMany($lines);
 
             // Toda trade nasce com credencial de entrega — ver docs/adr/0008.
-            $trade->forceFill(DeliveryCredential::issue())->save();
+            $trade->forceFill([
+                ...DeliveryCredential::issue(),
+                // O número do supplier, reservado nesta transação.
+                ...$this->numbering->for($trade->supplier_id),
+            ])->save();
 
             return $trade;
         });

@@ -401,3 +401,22 @@ describe('StoreListTradeUseCase — games in giveaway', function () {
         expect($trade->lines->first()->is_giveaway)->toBeTrue();
     });
 });
+
+describe('StoreListTradeUseCase — supplier trade number', function () {
+
+    it('numbers the trade within its supplier', function () {
+        $list = ['supplier_steam_id' => '76561198000000602', 'games' => listTradeGames()];
+
+        $first = app(StoreListTradeUseCase::class)->execute($list);
+        $second = app(StoreListTradeUseCase::class)->execute($list);
+
+        expect($first->fresh()->supplier_trade_number)->toBe(1)
+            ->and($second->fresh()->supplier_trade_number)->toBe(2);
+    });
+
+    it('gives no number to the trade of a bundle research, which has no supplier', function () {
+        $trade = app(StoreListTradeUseCase::class)->execute(['games' => listTradeGames()]);
+
+        expect($trade->fresh()->supplier_trade_number)->toBeNull();
+    });
+});

@@ -260,34 +260,13 @@ As rotas e a oferta na aba Trades foram verificadas pela suíte e pelo build, n�
 
 **Onde:** `CreateTradeUseCase`, `StoreListTradeUseCase`, `ProspectSupplierUseCase`, `CreateTradeWithOfferUseCase`.
 
-Os quatro fazem `Trade::create`, `lines()->createMany` e `forceFill(DeliveryCredential::issue())`. "Toda trade nasce com credencial" depende de cada um lembrar.
+Os quatro fazem `Trade::create`, `lines()->createMany` e um `forceFill` com a credencial (`DeliveryCredential::issue()`) e o número da trade no supplier (`SupplierTradeNumbering::for`). "Toda trade nasce com credencial e número" depende de cada um lembrar.
 
 Dois deles (`CreateTradeWithOfferUseCase` e `ProspectSupplierUseCase`) também gravam a primeira oferta e desfazem a transação inteira quando ela sai vazia — o mesmo bloco de `beginTransaction`/`rollBack` copiado.
 
-**Ação:** uma peça só (ex.: `TradeRecorder::create($attrs, $lines)`) que emite a credencial, e grava a primeira oferta quando pedida. Ao mexer, separar também a identidade da trade (`uuid`) da credencial de entrega, que hoje `DeliveryCredential::issue()` gera junto.
+**Ação:** uma peça só (ex.: `TradeRecorder::create($attrs, $lines)`) que emite a credencial e o número, e grava a primeira oferta quando pedida. Ao mexer, separar também a identidade da trade (`uuid`) da credencial de entrega, que hoje `DeliveryCredential::issue()` gera junto.
 
-### 4. Número da trade por supplier, para o supplier escolher a trade no chat
-
-**Onde:** tabela `trades`, os quatro UseCases que criam trade (ver item 3), `TradeController` (`show`, `negotiatingForSupplier`), `routes/api.php`, [`CHATBOT.md`](CHATBOT.md), [`agents/domain-map.md`](agents/domain-map.md).
-
-**Por quê.** No chatbot, a opção 3 do menu ("My lists and offers") lista as trades do supplier e ele responde com o número da que quer ver. Hoje a trade não tem identificador que o supplier consiga digitar: o `uuid` é longo demais, o `id` é interno (e contaria ao supplier quantas trades a CarcaDeals já fez) e o `delivery_code` é segredo. Sem isso, o chatbot teria de guardar, a cada tela mostrada, qual número correspondia a qual uuid, e o número mudaria de sentido se uma trade nova aparecesse entre a tela e a resposta.
-
-**O que é.** Um número sequencial **dentro de cada supplier**: a primeira trade do supplier é 1, a segunda é 2. Uma vez dado, o número **nunca muda e nunca é reaproveitado**, nem quando a trade é importada ou apagada (soft delete). É público: o supplier o vê no chat ("Trade #2") e a equipe pode usá-lo para falar com ele. Lacunas na sequência (o supplier vê #4 e #2, porque a #3 já foi importada) são normais.
-
-**Ação:**
-
-1. **Coluna** em `trades`, ex.: `supplier_trade_number` (inteiro, nulável), com índice único em (`supplier_id`, `supplier_trade_number`). Nula quando a trade não tem supplier (`bundle_store`, `gamivo`).
-2. **Atribuir na criação**, em toda trade com `supplier_id`: o maior número daquele supplier (contando as apagadas) mais 1. Fica no ponto único de criação do item 3, se ele for feito antes; senão, nos quatro UseCases. Duas criações simultâneas para o mesmo supplier batem no índice único: repetir a atribuição dentro da transação.
-3. **Backfill** na migração: numerar as trades existentes de cada supplier por data de criação (`created_at`, depois `id`), incluindo as apagadas.
-4. **Expor o número** nas respostas de `GET /api/trades/{uuid}` e de `GET /api/suppliers/{steamId}/trades` (ex.: campo `number`).
-5. **Rota nova** `GET /api/suppliers/{steamId}/trades/{number}`: a trade daquele supplier com aquele número, no mesmo formato de `GET /api/trades/{uuid}` (com `state`, para o chatbot responder "essa trade já foi entregue" em vez de "número inválido"). `404` quando o supplier não tem trade com esse número. Mesma autenticação das outras rotas do chatbot (`CHATBOT_API_SECRET`). Não precisa listar trades fora de negociação: a listagem continua só com as em negociação.
-6. **Documentar** em [`CHATBOT.md`](CHATBOT.md) e no [`agents/domain-map.md`](agents/domain-map.md).
-
-**Decidir junto:** a equipe pode trocar o supplier de uma trade (`PUT /trades/{trade}`). Sugestão: a trade mantém o número que tinha e, se o novo supplier já tiver esse número, recebe o próximo livre dele. O chatbot só precisa que o par (supplier, número) seja único e estável.
-
-**Aceite:** a primeira trade de um supplier novo nasce com o número 1, a seguinte com 2; uma trade importada ou apagada não libera o número; `GET /api/suppliers/{steamId}/trades/{number}` devolve a trade certa, inclusive importada, e `404` para número inexistente; as trades antigas têm número depois do backfill.
-
-**Origem:** pedido do `chatbot-steam` de 2026-10-28 e reviews dos PRs da integração (a partir do #117). Item 4: desenho do banco do chatbot, 2026-11-14 (substitui guardar no chatbot a tela mostrada).
+**Origem:** pedido do `chatbot-steam` de 2026-10-28 e reviews dos PRs da integração (a partir do #117).
 
 ---
 

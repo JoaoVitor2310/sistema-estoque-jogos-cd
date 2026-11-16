@@ -147,6 +147,10 @@ _Avoid_: oferta máxima (é outra coisa: o limite de cada jogo), última oferta.
 Um lote de jogos comprado (ou em negociação) de uma só vez. O caso comum é a lista comentada/ofertada a um supplier em um momento específico; mas o **canal de compra** diz de quem o lote veio — a trade também registra uma compra direta na loja de um bundle ou uma compra na Gamivo.
 _Avoid_: vip list, lista (isoladamente).
 
+**Número da trade** (`supplier_trade_number`):
+A posição da trade entre as trades de um supplier: a primeira dele é a #1, a segunda a #2. É público — o supplier o vê e o digita no chat para escolher a trade. Uma vez dado, nunca muda e nunca é reaproveitado; trade sem supplier não tem número. Regras em [`docs/PRODUCT.md`](docs/PRODUCT.md#número-da-trade).
+_Avoid_: id da trade (o `id` é interno), código da trade (confunde com o código da entrega).
+
 **Moeda da trade** (`currency`):
 A moeda em que a quantidade acertada de uma trade está: TF2 Keys (padrão), euro ou dólar. Fato do lote inteiro, e só da trade: a aba mostra nela as ofertas, o income e o valor digitado, trocá-la converte a quantidade (só em trade sem oferta), no import o valor vira TF2 pelo preço de hoje, e o resto do sistema (keys, custo, `total_paid`) segue em TF2 e euro. Regras em [`docs/PRODUCT.md`](docs/PRODUCT.md#moeda-da-trade).
 _Avoid_: forma de pagamento, moeda de oferta (isoladamente — é a moeda pedida pela prospecção, que vira a da trade).

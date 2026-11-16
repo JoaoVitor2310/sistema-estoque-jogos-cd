@@ -287,3 +287,35 @@ describe('CreateTradeWithOfferUseCase — idempotency by request_uuid', function
             ->and(TradeOffer::count())->toBe(2);
     });
 });
+
+describe('CreateTradeWithOfferUseCase — supplier trade number', function () {
+
+    beforeEach(fn () => seedWithOfferDeps());
+
+    it('numbers the trade within its supplier', function () {
+        $first = createTradeWithOffer([withOfferGame('Half-Life', 4.50)]);
+        $second = createTradeWithOffer([withOfferGame('Half-Life', 4.50)]);
+
+        expect($first->fresh()->supplier_trade_number)->toBe(1)
+            ->and($second->fresh()->supplier_trade_number)->toBe(2);
+    });
+
+    it('spends no number on a retry of the same request', function () {
+        // A repetição devolve a trade já criada: reservar outro número
+        // deixaria um buraco a cada retry do price-researcher.
+        $requestUuid = (string) Str::uuid();
+        createTradeWithOffer([withOfferGame('Half-Life', 4.50)], requestUuid: $requestUuid);
+        createTradeWithOffer([withOfferGame('Half-Life', 4.50)], requestUuid: $requestUuid);
+
+        $next = createTradeWithOffer([withOfferGame('Half-Life', 4.50)]);
+
+        expect($next->fresh()->supplier_trade_number)->toBe(2);
+    });
+
+    it('spends no number when there is nothing to offer', function () {
+        // A transação é desfeita, e o contador volta junto.
+        expect(createTradeWithOffer([withOfferGame('Free Game', 0.05)]))->toBeNull();
+
+        expect(createTradeWithOffer([withOfferGame('Half-Life', 4.50)])->fresh()->supplier_trade_number)->toBe(1);
+    });
+});

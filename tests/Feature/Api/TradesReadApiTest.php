@@ -127,7 +127,7 @@ describe('GET /api/trades/{uuid}', function () {
         // O jogo ofertado sai pelo valor da oferta, não pelo de mercado
         expect($response->json('offer.lines.0.price'))->not->toBe(READ_API_MARKET_PRICE);
 
-        expect(array_keys($response->json()))->toBe(['uuid', 'created_at', 'currency', 'state', 'offer', 'delivery_url', 'delivery_code'])
+        expect(array_keys($response->json()))->toBe(['uuid', 'number', 'created_at', 'currency', 'state', 'offer', 'delivery_url', 'delivery_code'])
             ->and(array_keys($response->json('offer')))->toBe(['round', 'is_final', 'created_at', 'total_price', 'lines'])
             ->and(array_keys($response->json('offer.lines.0')))->toBe(['game_name', 'region', 'price'])
             ->and($body)->not->toContain('Dwarven Realms')
@@ -225,7 +225,7 @@ describe('GET /api/suppliers/{steamId}/trades', function () {
 
         $response = readApi('/api/suppliers/'.READ_API_STEAM_ID.'/trades');
 
-        expect(array_keys($response->json('trades.0')))->toBe(['uuid', 'created_at', 'currency', 'games_count', 'total_price'])
+        expect(array_keys($response->json('trades.0')))->toBe(['uuid', 'number', 'created_at', 'currency', 'games_count', 'total_price'])
             ->and($response->getContent())->not->toContain('deliveries');
     });
 
@@ -246,4 +246,61 @@ describe('GET /api/suppliers/{steamId}/trades', function () {
     it('refuses a request without the secret', function () {
         $this->getJson('/api/suppliers/'.READ_API_STEAM_ID.'/trades')->assertStatus(401);
     });
+});
+
+describe('the supplier trade number', function () {
+
+    it('comes in the trade and in the list of the supplier', function () {
+        $first = readApiTrade([['name' => 'Half-Life', 'market_price_euro' => 4.50]]);
+        $second = readApiTrade([['name' => 'Portal', 'market_price_euro' => 6.00]]);
+
+        expect(readApi("/api/trades/{$second->uuid}")->json('number'))->toBe(2)
+            ->and(collect(readApi('/api/suppliers/'.READ_API_STEAM_ID.'/trades')->json('trades'))->pluck('number', 'uuid')->all())
+            ->toBe([$second->uuid => 2, $first->uuid => 1]);
+    });
+});
+
+describe('GET /api/suppliers/{steamId}/trades/{number}', function () {
+
+    it('serves the trade the supplier picked by number, as the read by uuid', function () {
+        readApiTrade([['name' => 'Half-Life', 'market_price_euro' => 4.50]]);
+        $picked = readApiTrade([['name' => 'Portal', 'market_price_euro' => 6.00]]);
+
+        $byNumber = readApi('/api/suppliers/'.READ_API_STEAM_ID.'/trades/2')->assertStatus(200)->json();
+
+        expect($byNumber)->toBe(readApi("/api/trades/{$picked->uuid}")->json());
+    });
+
+    it('serves an imported trade too, so the chatbot can say it was delivered', function () {
+        // A lista só traz as em negociação; pelo número, qualquer estado — o
+        // `state` diz ao chatbot o que responder.
+        $trade = readApiTrade([['name' => 'Half-Life', 'market_price_euro' => 4.50]]);
+        $trade->update(['is_imported' => true]);
+
+        expect(readApi('/api/suppliers/'.READ_API_STEAM_ID.'/trades/1')->assertStatus(200)->json('state'))->toBe('imported');
+    });
+
+    it('answers 404 for a number the supplier does not have', function () {
+        readApiTrade([['name' => 'Half-Life', 'market_price_euro' => 4.50]]);
+
+        readApi('/api/suppliers/'.READ_API_STEAM_ID.'/trades/2')->assertStatus(404);
+    });
+
+    it('never serves the trade of another supplier with the same number', function () {
+        readApiTrade([['name' => 'Half-Life', 'market_price_euro' => 4.50]], steamId: '76561198000000999');
+
+        readApi('/api/suppliers/'.READ_API_STEAM_ID.'/trades/1')->assertStatus(404);
+    });
+
+    it('answers 404 for a deleted trade', function () {
+        readApiTrade([['name' => 'Half-Life', 'market_price_euro' => 4.50]])->delete();
+
+        readApi('/api/suppliers/'.READ_API_STEAM_ID.'/trades/1')->assertStatus(404);
+    });
+
+    it('refuses in the router a number that is not a positive integer', function (string $number) {
+        readApi('/api/suppliers/'.READ_API_STEAM_ID."/trades/{$number}")
+            ->assertStatus(404)
+            ->assertExactJson(['message' => 'Not found.']);
+    })->with(['zero' => '0', 'text' => 'abc', 'negative' => '-1', 'too long' => '12345678901']);
 });
