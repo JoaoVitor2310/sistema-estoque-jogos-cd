@@ -29,3 +29,6 @@ docker/postgres/
 dump-*
 *.dump
 docker-compose.override.yml
+# Rascunhos da skill pr-open: a descrição do PR, os comentários e as imagens de
+# antes e depois, e o worktree limpo das verificações. Nunca vão para a main.
+/.pr/

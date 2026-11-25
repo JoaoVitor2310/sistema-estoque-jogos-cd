@@ -6,6 +6,8 @@ Instaladas em `.claude/skills/` (symlinks) → `.agents/skills/` (conteúdo real
 
 **⚠️ Colisão de nome:** este pacote instala uma skill própria chamada `code-review`, que **sobrepõe** o `/code-review` nativo do Claude Code. Neste repositório, `/code-review` agora roda a versão do mattpocock: duas revisões em paralelo (Standards + Spec) contra um ponto fixo (commit/branch/PR) — não mais a revisão de efficiency/correctness por nível de esforço.
 
+**A revisão que vale para PR é a `/pr-review`**, skill própria deste repositório (`.claude/skills/pr-review/`, pasta real, fora do pacote). Ela julga contra as regras escritas daqui (camadas, Gamivo, segurança, Postgres × SQLite, contratos, documentação viva), confirma cada achado antes de reportar e só lê. A `/pr-open` (`.claude/skills/pr-open/`) a roda depois das verificações do CI, corrige o que ela recomenda e abre o PR — o dono só faz o commit. O `/code-review` do pacote continua instalado, mas não é o passo antes do PR.
+
 ## Fluxo principal — ideia → entrega
 
 1. **`/grill-with-docs`** — entrevista para lapidar a ideia; mantém estado em `CONTEXT.md`/ADRs. Ponto de partida padrão (há codebase). *(Sem codebase → `/grill-me`, mesmo motor `/grilling`, mas sem persistir nada.)*
@@ -14,7 +16,7 @@ Instaladas em `.claude/skills/` (symlinks) → `.agents/skills/` (conteúdo real
    - **Não** (multi-sessão) → `/to-spec` (vira spec) → `/to-tickets` (quebra em tickets com dependências declaradas) → `/implement` **por ticket**, limpando o contexto entre eles.
    - **Sim** → `/implement` direto, na mesma janela.
 
-   Em ambos os casos, `/implement` roda `/tdd` internamente (um ciclo vermelho-verde por fatia) e fecha com `/code-review` antes de commitar — lembrando: nunca commitar sem o usuário pedir, por instrução do `CLAUDE.md`.
+   Em ambos os casos, `/implement` roda `/tdd` internamente (um ciclo vermelho-verde por fatia) e termina pedindo `/code-review`. Neste repositório, rode no lugar dele a `/pr-review` (o `CLAUDE.md` diz qual revisão vale; o `SKILL.md` do pacote não é editado). O commit é sempre do dono; para publicar, `/pr-open`.
 
    **Higiene de contexto:** manter os passos 1–3 na mesma janela sem compactar — só depois do `/to-tickets`. Cada `/implement` recomeça do zero, a partir do ticket.
 
@@ -61,6 +63,8 @@ Instaladas em `.claude/skills/` (symlinks) → `.agents/skills/` (conteúdo real
 | `tdd` | Automático | Construir uma funcionalidade concreta, teste-first |
 | `diagnosing-bugs` | Automático | Bug difícil, intermitente, regressão |
 | `code-review` | Automático (ver colisão acima) | Revisar branch/PR contra padrões + spec |
+| `pr-review` | Manual (`/pr-review`) | **Revisão antes do PR** — regras deste repo; skill própria |
+| `pr-open` | Manual (`/pr-open`) | CI local + `pr-review` + correção + descrição + PR; o dono só commita |
 | `codebase-design` | Automático | Desenhar/melhorar interface de um módulo |
 | `improve-codebase-architecture` | Manual | Manutenção periódica de arquitetura |
 | `triage` | Manual | Processar issues/PRs externos |
