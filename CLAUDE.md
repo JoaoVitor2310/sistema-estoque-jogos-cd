@@ -44,6 +44,7 @@ php artisan test --no-coverage    # suíte Pest completa
 - [`docs/agents/deploy.md`](docs/agents/deploy.md) — CI/CD e deploy automático
 - [`docs/agents/env.md`](docs/agents/env.md) — variáveis de ambiente
 - [`docs/agents/skills-workflow.md`](docs/agents/skills-workflow.md) — fluxo das skills mattpocock/skills (`/grill-with-docs` → `/to-spec` → `/to-tickets` → `/implement`), issue tracker e triage labels
+- [`.claude/skills/pr-review/SKILL.md`](.claude/skills/pr-review/SKILL.md) e [`.claude/skills/pr-open/SKILL.md`](.claude/skills/pr-open/SKILL.md) — revisão de mudança e abertura de PR
 
 ### Manter a documentação viva — obrigatório
 
@@ -83,7 +84,8 @@ Atue sempre como arquiteto de software sênior com conhecimento profundo de Lara
 - Ao sugerir onde um novo arquivo deve viver, justifique com base na camada correta (ver [`docs/agents/architecture.md`](docs/agents/architecture.md))
 - **Nunca coloque lógica de negócio fora do Domain.** Números mágicos são lógica de negócio — qualquer literal numérico com significado de domínio (janelas de tempo, limiares, limites de preço) é uma constante `public const` na classe de Domain correspondente, nunca um literal espalhado em Services/UseCases. Camadas e critérios completos: [`docs/agents/architecture.md`](docs/agents/architecture.md)
 - **Testes são obrigatórios** — nunca entregar uma implementação sem os testes correspondentes no mesmo passo. O teste mora no arquivo da unidade que ele exercita — onde quem mexe no código vai rodar. Distribuição por camada (Unit/Integration/Feature) e armadilhas conhecidas: [`docs/agents/testing.md`](docs/agents/testing.md)
-- **Nunca faça commits automáticos** — apenas prepare as alterações e informe o que foi modificado. O commit é sempre feito pelo usuário
+- **Nunca rode `git commit`** (nem `--amend`, nem `git commit-tree`). O dono do projeto faz todos os commits e decide a divisão deles. O agente altera os arquivos, deixa o working tree pronto com os testes passando e, quando útil, sugere como separar os commits (mensagens e arquivos). O resto do git o agente pode fazer: branch, stage, push e PR pelo `gh`. Para abrir um PR, use a skill `/pr-open`, que só faz o push e abre depois de o dono confirmar o título e a descrição
+- **A revisão que vale para PR é a `/pr-review`**, não o `/code-review` (do pacote mattpocock, que sobrepõe o nativo) — inclusive quando o `/implement` pede `/code-review` no fim. A `/pr-open` a roda antes de abrir
 - **API Gamivo é produção real.** `API_KEY_GAMIVO`/`API_GAMIVO_URL` apontam para produção; qualquer chamada real pode afetar estoque e vendas imediatamente. Nunca chamar um endpoint Gamivo sem autorização explícita do usuário na sessão. Regras completas: [`docs/agents/security-and-guardrails.md`](docs/agents/security-and-guardrails.md)
 - Código segue o preset Pint `laravel`: [`docs/agents/code-style.md`](docs/agents/code-style.md)
 
@@ -97,3 +99,5 @@ Atue sempre como arquiteto de software sênior com conhecimento profundo de Lara
 ## Agent skills
 
 `/setup-matt-pocock-skills` já foi executado neste repositório — issue tracker, rótulos de triagem e layout de docs de domínio estão configurados. Detalhes: [`docs/agents/skills-workflow.md#agent-skills`](docs/agents/skills-workflow.md#agent-skills).
+
+Skills próprias deste repositório, em `.claude/skills/` (pastas reais, não symlinks do pacote): [`pr-review`](.claude/skills/pr-review/SKILL.md) (revisa a mudança contra as regras escritas daqui; só lê) e [`pr-open`](.claude/skills/pr-open/SKILL.md) (roda o CI no container e a `pr-review`, corrige o recomendado, escreve a descrição e abre o PR depois do commit do dono).

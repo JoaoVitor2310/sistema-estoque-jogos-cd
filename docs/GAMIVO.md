@@ -74,10 +74,13 @@ Dia 0          Dia 21              Dia 120+
 | **Low value products** | preço < €8 | 6% | €0,25 |
 | PlayStation Network e Plus Cards | — | 5% | €0,20 |
 | Xbox Subscriptions, Cards e Gift Cards | — | 5% | €0,20 |
-| Steam GC, Spotify, Nintendo eShop, Google Play, etc. | — | 3% | €0,40 |
+| Gift cards de **somente estas marcas**: Steam, Spotify, Skype, Nintendo eShop, Nexon NXcash, Google Play, Battle.net, Facebook, iTunes, Amazon | — | 3% | €0,40 |
+| **Demais gift cards e assinaturas** (ex: Uber Eats) | — | tier do supplier | tier do supplier |
 | Software (Antivirus, Cloud, Office, Windows…) | — | 40% | €0,40 |
 | Reembolso ao comprador | por pedido | 0% | €1,00 |
 | Reembolso de produto revogado | por pedido | 0% | €10,00 |
+
+> **Gift cards fora da lista de 3%** seguem o tier do supplier, não a taxa reduzida (nota de rodapé do PDF). Na nossa conta isso dá a comissão geral: uma oferta de Uber Eats Gift Card 25 USD (produto `81192`) a €26,29 mostrou no painel 8% + €0,40 = €2,50 de comissão.
 
 #### Wholesale
 
