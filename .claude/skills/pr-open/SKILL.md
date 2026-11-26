@@ -1,6 +1,6 @@
 ---
 name: pr-open
-description: Prepara e abre um PR do Sistema Estoque. Separa os arquivos da mudança, confere que nada sensível vai para o repositório público, roda as mesmas verificações do CI no container (Pint, PHPStan, Pest, vue-tsc, Vitest), roda a pr-review e corrige o que ela recomendar. Depois escreve o título e a descrição num arquivo, lista as imagens de antes e depois quando a tela muda, cria o branch, prepara o stage e entrega o comando de commit para o dono rodar. Com o commit feito, faz o push, abre o PR (ou atualiza a descrição) e posta os comentários das imagens. Nunca faz commit e nunca chama a Gamivo. Use quando o usuário pedir "prepara o PR", "abre o PR", "vamos abrir o PR", "escreve a descrição do PR", "atualiza a descrição do PR", "como divido os commits" ou invocar /pr-open.
+description: Prepara e abre um PR do Sistema Estoque. Separa os arquivos da mudança, confere que nada sensível vai para o repositório público, roda as mesmas verificações do CI no container (Pint, PHPStan, Pest, vue-tsc, Vitest), roda a pr-review e corrige o que ela recomendar. Depois escreve o título e a descrição num arquivo, lista as imagens de antes e depois quando a tela muda, cria o branch, prepara o stage e entrega o comando de commit para o dono rodar. Com o commit feito, faz o push, abre o PR (ou atualiza a descrição), posta os comentários das imagens e liga o auto-merge quando a regra da main exige os checks do CI — o PR entra na main, e em produção, quando o CI passa. Nunca faz commit e nunca chama a Gamivo. Use quando o usuário pedir "prepara o PR", "abre o PR", "vamos abrir o PR", "escreve a descrição do PR", "atualiza a descrição do PR", "como divido os commits" ou invocar /pr-open.
 ---
 
 # Abrir o PR: Sistema Estoque
@@ -153,7 +153,20 @@ O normal é um commit só, porque o squash junta tudo. Proponha mais de um só q
 1. **Confira o GitHub.** `git fetch -q origin <branch>` e `git rev-list --left-right --count origin/<branch>...HEAD` tem de dar `0 0`, e `git status --porcelain` não lista nenhum arquivo do PR. Local à frente: falta o push. Remoto à frente: alguém empurrou algo não revisado; pare e diga ao dono.
 2. **Abra ou atualize.** `gh pr create --base main --head <branch> --title "<título>" --body-file .pr/<arquivo>.md`, como rascunho só se o dono pedir; ou `gh pr edit <N> --title "<título>" --body-file .pr/<arquivo>.md`.
 3. **Imagens.** Entregue ao dono o comando do passo 4a já com o número do PR. Depois que ele confirmar, poste um comentário por estado com `gh pr comment <N> --body-file <arquivo>`.
-4. **CI.** O app acompanha os checks do PR; não fique consultando.
-5. **Responda em poucas linhas:** o link do PR, o que ficou em "Open points", o que falta testar à mão e o que o deploy pede. Ofereça apagar os arquivos de `.pr/` e parar o `app-cd` se a skill o subiu.
+4. **Auto-merge.** O PR entra na `main` sozinho quando o CI passa — e o merge na `main` é deploy. Ligue só se a regra da `main` exige os checks do CI:
+
+   ```bash
+   gh api repos/JoaoVitor2310/sistema-estoque-jogos-cd/rules/branches/main \
+     --jq '[.[] | select(.type == "required_status_checks") | .parameters.required_status_checks[].context] | sort | join(",")'
+   ```
+
+   - Saiu `PHPStan,Pest,Pint,Vitest,vue-tsc` (os jobs do `ci.yml`): `gh pr merge <N> --auto --squash`. O título e a descrição confirmados no passo 4 são os do commit na `main`.
+   - Saiu outra coisa, ou nada: **não ligue**. Sem a regra, o GitHub considera o PR pronto na hora e o auto-merge mergearia antes do CI. Diga ao dono o que falta na regra (Settings → Rules → "Protect main"). Job novo ou renomeado no `ci.yml` também precisa entrar na regra, senão ninguém o exige.
+   - PR em rascunho, ou o dono pediu para não mergear: não ligue.
+   - A regra exige o branch atualizado com a `main`. Se a `main` andou, o PR fica parado até alguém clicar em "Update branch" no PR; isso cria um commit no branch, então é do dono.
+
+   Depois disso o app acompanha os checks; não fique consultando.
+5. **Apague os rascunhos.** Com o PR aberto e os comentários das imagens postados, apague os arquivos deste PR em `.pr/`, sem perguntar: o que vale já está no GitHub, e uma atualização reescreve a descrição a partir do PR.
+6. **Responda em poucas linhas:** o link do PR, o que ficou em "Open points", o que falta testar à mão e o que o deploy pede. Ofereça parar o `app-cd` se a skill o subiu.
 
 O PR não é anunciado em lugar nenhum, e o parecer da revisão não é postado nele: o parecer é do autor.
