@@ -23,7 +23,7 @@ Regras próprias do chat (`App\Domain\Trades\ChatDelivery`):
 
 - **Rotas pelo par (supplier, número), com o mesmo caminho de escrita da página** — escolhido. O número já é o que o chatbot usa para a trade no chat (o modelo começa com `Keys for trade #N:`), e o SteamID na rota faz a trade de outro supplier dar `404` sem regra a mais.
 - **Rotas pelo uuid** — rejeitado. O chatbot teria de resolver o número em uuid antes de cada escrita, e a conferência de que a trade é daquele supplier viraria responsabilidade dele.
-- **Uma rota só, que grava e entrega** — rejeitado. O supplier confirma o que o bot entendeu antes de fechar, como na página; com uma rota só, a confirmação teria de acontecer antes de a key chegar ao Estoque, e o chatbot guardaria key em claro até lá — o que o ADR 0006 dele recusa.
+- **Uma rota só, que grava e entrega** — rejeitado. O supplier confirma o que o bot entendeu antes de fechar, como na página; com uma rota só, a confirmação teria de acontecer antes de a key chegar ao Estoque, e o chatbot teria de guardar a key como dado até lá, um segundo registro dela além do Estoque — o que o ADR 0006 dele recusa (lá a key fica só no histórico da conversa, como texto da mensagem).
 - **O chatbot mandar o total aceito** — rejeitado. Repetiria do lado de lá um valor que o Estoque já tem, e o Estoque é o dono da oferta ([ADR 0016](0016-supplier-offers-recorded-as-immutable-records.md)).
 - **Entrega parcial pelo chat** — rejeitado por ora: precisaria distinguir "não quero vender este" de "esqueci de colar este".
 
