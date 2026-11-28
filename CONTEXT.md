@@ -196,7 +196,11 @@ Condição da trade inteira para virar keys: toda linha preenchida com nome, pre
 _Avoid_: trade válida, trade completa.
 
 **Entrega**:
-O ato do supplier de repassar os `key_code` negociados de uma trade, junto da região, da validade e do total acertado. Não confundir com **trade em estoque**: entregue significa que ele mandou os códigos; em estoque significa que já importamos as keys.
+O ato do supplier de repassar os `key_code` negociados de uma trade, junto da região, da validade e do total acertado. Não confundir com **trade em estoque**: entregue significa que ele mandou os códigos; em estoque significa que já importamos as keys. Tem dois canais: a **página da entrega** (link e token) e a **entrega pelo chat**.
+
+**Entrega pelo chat**:
+A entrega em que o supplier cola uma key por jogo da oferta no chat da Steam, e o chatbot as repassa ao Estoque linha a linha. Só completa, só com a key (região e validade ficam com a equipe), e com o total da oferta vigente como valor acertado: mandar as keys é aceitar a oferta.
+_Avoid_: entrega pelo bot, entrega automática.
 _Avoid_: preenchimento, submissão, envio.
 
 **Token de entrega**:

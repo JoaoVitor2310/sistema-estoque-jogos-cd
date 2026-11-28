@@ -40,6 +40,8 @@ function chatbotRoutes(): array
         'read the trade' => ['GET', "/api/trades/{$uuid}", 404],
         'read the supplier trades' => ['GET', '/api/suppliers/76561198000000001/trades', 200],
         'read a supplier trade by number' => ['GET', '/api/suppliers/76561198000000001/trades/1', 404],
+        'fill the keys pasted in the chat' => ['PATCH', '/api/suppliers/76561198000000001/trades/1/keys', 422],
+        'deliver from the chat' => ['POST', '/api/suppliers/76561198000000001/trades/1/deliver', 404],
         'counter offer' => ['POST', "/api/trades/{$uuid}/offers", 422],
         'message sent' => ['POST', "/api/trades/{$uuid}/message-sent", 404],
     ];

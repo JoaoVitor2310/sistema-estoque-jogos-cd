@@ -6,13 +6,15 @@ use App\Domain\Trades\ImportReadinessPolicy;
 use App\Mail\TradeDeliveredMail;
 use App\Models\Trade;
 use App\Models\TradeLine;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 class MarkTradeDeliveredUseCase
 {
     /**
-     * O botão de entregar do supplier.
+     * O fechamento da entrega pelo supplier: o botão da página, ou a
+     * confirmação no chat ([[DeliverTradeFromChatUseCase]]).
      *
      * Guarda o **primeiro** clique, e é ele que fecha a entrega para escrita
      * (ver [[App\Domain\Enums\TradeDeliveryState::acceptsSupplierWrites]]). A
@@ -46,7 +48,9 @@ class MarkTradeDeliveredUseCase
         $trade->delivered_at = now();
         $trade->save();
 
-        $this->notifyTeam($trade);
+        // Depois do commit quando há transação em volta (a entrega pelo chat
+        // fecha dentro de uma); sem transação, na hora.
+        DB::afterCommit(fn () => $this->notifyTeam($trade));
 
         return true;
     }
@@ -54,8 +58,8 @@ class MarkTradeDeliveredUseCase
     /**
      * Avisa a equipe de que a entrega chegou.
      *
-     * Depois do save e nunca antes: o aviso é consequência do fato, e um e-mail
-     * anunciando uma entrega que não gravou seria pior que aviso nenhum.
+     * Depois de gravada e nunca antes: o aviso é consequência do fato, e um
+     * e-mail anunciando uma entrega que não gravou seria pior que aviso nenhum.
      *
      * Falha de envio não derruba a entrega. Quem está do outro lado é o
      * supplier, que não tem o que fazer com um erro de SMTP — e o dado dele já

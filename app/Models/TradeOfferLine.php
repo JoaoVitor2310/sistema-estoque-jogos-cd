@@ -21,6 +21,7 @@ class TradeOfferLine extends Model
     protected $fillable = ['trade_offer_id', 'trade_line_id', 'game_name', 'region', 'price'];
 
     protected $casts = [
+        'trade_line_id' => 'integer',
         'price' => 'float',
     ];
 

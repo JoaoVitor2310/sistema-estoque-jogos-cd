@@ -83,6 +83,8 @@ describe('GET /api/trades/{uuid}', function () {
         ]);
 
         $json = readApi("/api/trades/{$trade->uuid}")->assertStatus(200)->json();
+        // A linha da trade de cada jogo: é por ela que o chatbot manda a key.
+        $lines = $trade->lines()->pluck('id', 'game_name')->all();
 
         expect($json['uuid'])->toBe($trade->uuid)
             ->and($json['currency'])->toBe('tf2')
@@ -90,9 +92,9 @@ describe('GET /api/trades/{uuid}', function () {
             ->and($json['offer']['round'])->toBe(1)
             ->and($json['offer']['is_final'])->toBeFalse()
             ->and($json['offer']['lines'])->toBe([
-                ['game_name' => 'Half-Life', 'region' => 'EU', 'price' => 2.46],
+                ['line_id' => $lines['Half-Life'], 'game_name' => 'Half-Life', 'region' => 'EU', 'price' => 2.46],
                 // Região vazia é key global
-                ['game_name' => 'Portal', 'region' => '', 'price' => 3.34],
+                ['line_id' => $lines['Portal'], 'game_name' => 'Portal', 'region' => '', 'price' => 3.34],
             ])
             ->and($json['offer']['total_price'])->toBe(5.8)
             ->and($json['delivery_url'])->toBe(route('deliveries.show', ['trade' => $trade->uuid]))
@@ -129,13 +131,23 @@ describe('GET /api/trades/{uuid}', function () {
 
         expect(array_keys($response->json()))->toBe(['uuid', 'number', 'created_at', 'currency', 'state', 'offer', 'delivery_url', 'delivery_code'])
             ->and(array_keys($response->json('offer')))->toBe(['round', 'is_final', 'created_at', 'total_price', 'lines'])
-            ->and(array_keys($response->json('offer.lines.0')))->toBe(['game_name', 'region', 'price'])
+            ->and(array_keys($response->json('offer.lines.0')))->toBe(['line_id', 'game_name', 'region', 'price'])
             ->and($body)->not->toContain('Dwarven Realms')
             ->and($body)->not->toContain((string) READ_API_MARKET_PRICE)
             ->and($body)->not->toContain('4321')
             ->and($body)->not->toContain(READ_API_GAMIVO_ID)
             ->and($body)->not->toContain('profit')
             ->and($body)->not->toContain('market');
+    });
+
+    it('shows a null line for a game the team removed from the trade after the offer', function () {
+        $trade = readApiTrade([['name' => 'Half-Life', 'market_price_euro' => 4.50]]);
+        DB::table('trade_lines')->where('trade_id', $trade->id)->delete();
+
+        // A oferta continua dizendo o que foi ofertado; o jogo só não é mais entregue.
+        readApi("/api/trades/{$trade->uuid}")
+            ->assertJsonPath('offer.lines.0.line_id', null)
+            ->assertJsonPath('offer.lines.0.game_name', 'Half-Life');
     });
 
     it('shows the offer of the highest round', function () {

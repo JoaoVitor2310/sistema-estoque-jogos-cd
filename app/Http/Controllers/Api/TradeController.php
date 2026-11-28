@@ -2,18 +2,24 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Domain\Enums\ChatDeliveryRefusal;
 use App\Domain\Enums\CounterOfferRefusal;
 use App\Domain\Pricing\CurrencyPriceUnavailable;
+use App\Domain\Trades\ChatDeliveryRefused;
 use App\Domain\Trades\CounterOfferRefused;
 use App\Domain\Trades\RequestReusedForAnotherSupplier;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CounterOfferRequest;
+use App\Http\Requests\FillTradeKeysRequest;
 use App\Http\Requests\StoreTradeWithOfferRequest;
 use App\Http\Resources\Api\ApiTradeResource;
 use App\Http\Resources\Api\ApiTradeSummaryResource;
 use App\Models\Trade;
+use App\Services\Trades\ChatDeliveryQueries;
 use App\Services\Trades\TradeApiReadModel;
 use App\UseCases\Trades\CreateTradeWithOfferUseCase;
+use App\UseCases\Trades\DeliverTradeFromChatUseCase;
+use App\UseCases\Trades\FillTradeKeysFromChatUseCase;
 use App\UseCases\Trades\RequestCounterOfferUseCase;
 use Illuminate\Http\JsonResponse;
 
@@ -26,6 +32,9 @@ class TradeController extends Controller
         private readonly CreateTradeWithOfferUseCase $createTradeWithOffer,
         private readonly TradeApiReadModel $readModel,
         private readonly RequestCounterOfferUseCase $requestCounterOffer,
+        private readonly FillTradeKeysFromChatUseCase $fillTradeKeys,
+        private readonly DeliverTradeFromChatUseCase $deliverTradeFromChat,
+        private readonly ChatDeliveryQueries $chatDeliveryQueries,
     ) {}
 
     /** A trade pelo uuid, com a oferta vigente e o acesso à entrega. */
@@ -122,8 +131,65 @@ class TradeController extends Controller
     }
 
     /**
-     * Registra que o acesso à entrega foi mandado ao supplier — o mesmo
-     * `message_sent` que a equipe marca na aba. Repetir não muda nada.
+     * As keys que o supplier colou no chat: 200 com as linhas da oferta que
+     * ainda estão sem key — vazio quer dizer que a entrega pode ser confirmada.
+     * A key nunca volta na resposta.
+     */
+    public function fillKeys(FillTradeKeysRequest $request, string $steamId, int $number): JsonResponse
+    {
+        try {
+            $trade = $this->fillTradeKeys->execute($steamId, $number, $request->toDTO());
+        } catch (ChatDeliveryRefused $e) {
+            return $this->chatDeliveryRefused($e);
+        }
+
+        if ($trade === null) {
+            return response()->json(['message' => 'Trade not found.'], 404);
+        }
+
+        return response()->json(['missing_line_ids' => $this->chatDeliveryQueries->linesWithoutKey($trade)]);
+    }
+
+    /**
+     * O supplier confirmou a entrega no chat: 200 com a trade, já aguardando
+     * conferência e com o total da oferta como valor acertado.
+     */
+    public function deliverFromChat(string $steamId, int $number): JsonResponse
+    {
+        try {
+            $trade = $this->deliverTradeFromChat->execute($steamId, $number);
+        } catch (ChatDeliveryRefused $e) {
+            return $this->chatDeliveryRefused($e);
+        }
+
+        if ($trade === null) {
+            return response()->json(['message' => 'Trade not found.'], 404);
+        }
+
+        return (new ApiTradeResource($this->readModel->findByUuid($trade->uuid)))->response();
+    }
+
+    /**
+     * 422 para o pedido mal montado (linha fora da oferta: erro de quem chama, e
+     * repetir não adianta); 409 para o estado da trade. As linhas que causaram
+     * a recusa voltam junto, para o chatbot dizer ao supplier quais jogos faltam.
+     */
+    private function chatDeliveryRefused(ChatDeliveryRefused $e): JsonResponse
+    {
+        $status = $e->reason === ChatDeliveryRefusal::LineNotInOffer ? 422 : 409;
+        $body = ['reason' => $e->reason->value];
+
+        if ($e->lineIds !== []) {
+            $body['line_ids'] = $e->lineIds;
+        }
+
+        return response()->json($body, $status);
+    }
+
+    /**
+     * Registra que o supplier recebeu como entregar — o modelo do chat ou o
+     * acesso à página —, o mesmo `message_sent` que a equipe marca na aba.
+     * Repetir não muda nada.
      */
     public function markMessageSent(string $uuid): JsonResponse
     {

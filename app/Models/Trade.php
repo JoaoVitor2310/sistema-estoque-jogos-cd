@@ -121,6 +121,17 @@ class Trade extends Model
         return $query->whereNull('delivered_at')->where('is_imported', false);
     }
 
+    /**
+     * A trade de um supplier pelo número dela — o par (supplier, número) que o
+     * supplier digita no chat. O supplier é o SteamID64, não o id interno.
+     */
+    public function scopeOfSupplierNumber(Builder $query, string $steamId, int $number): Builder
+    {
+        return $query
+            ->where('supplier_trade_number', $number)
+            ->whereHas('supplier', fn (Builder $supplier) => $supplier->where('steam_id', $steamId));
+    }
+
     /** Toda oferta feita nesta trade, da primeira rodada à vigente. */
     public function offers(): HasMany
     {
