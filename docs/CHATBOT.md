@@ -1,6 +1,6 @@
 # Chatbot — referência de integração
 
-O chatbot (`chatbot-steam`) conversa pela Steam com os suppliers. Ele **não guarda cópia** de trade nem de key: lê do Sistema Estoque a oferta, repassa as contrapropostas e as keys que o supplier cola no chat, e o Estoque nunca o chama. Quem avisa o chatbot do fim de uma precificação é o price-researcher, por webhook, depois de criar a trade em `POST /api/trades` (contrato em [`PRICE_RESEARCHER.md`](PRICE_RESEARCHER.md#trade-com-oferta--post-apitrades)).
+O chatbot (`chatbot-steam`) conversa pela Steam com os suppliers. Ele **não guarda cópia** de trade nem registra key como dado (a key que o supplier cola fica só no histórico da conversa do chatbot, como texto da mensagem): lê do Sistema Estoque a oferta, repassa as contrapropostas e as keys que o supplier cola no chat, e o Estoque nunca o chama. Quem avisa o chatbot do fim de uma precificação é o price-researcher, por webhook, depois de criar a trade em `POST /api/trades` (contrato em [`PRICE_RESEARCHER.md`](PRICE_RESEARCHER.md#trade-com-oferta--post-apitrades)).
 
 As regras da oferta estão em [`PRODUCT.md`](PRODUCT.md#oferta-ao-supplier); as decisões de desenho, nos ADRs [0015](adr/0015-chatbot-reads-the-delivery-credential-through-the-api.md), [0016](adr/0016-supplier-offers-recorded-as-immutable-records.md) e [0017](adr/0017-supplier-delivers-keys-through-the-chatbot.md); o que falta, em [`IMPROVEMENTS.md`](IMPROVEMENTS.md).
 
