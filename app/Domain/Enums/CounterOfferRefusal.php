@@ -17,7 +17,7 @@ enum CounterOfferRefusal: string
     /** A vigente é a da última rodada (`SupplierOffer::MAX_ROUNDS`). */
     case OfferIsFinal = 'offer_is_final';
 
-    /** O pedido não passa da oferta vigente: aceitar é pela página da entrega. */
+    /** O pedido não passa da oferta vigente: aceitar é mandar as keys. */
     case NotAnIncrease = 'not_an_increase';
 
     /** Nenhum jogo pode subir nesta rodada: a vigente já é o melhor que se oferta. */

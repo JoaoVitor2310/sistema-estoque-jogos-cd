@@ -18,8 +18,12 @@ use Illuminate\Database\Eloquent\Collection;
  */
 final class TradeApiReadModel
 {
-    /** As colunas da linha da oferta que saem; `id` e `trade_offer_id` só ligam a relação. */
-    public const OFFER_LINE_COLUMNS = ['id', 'trade_offer_id', 'game_name', 'region', 'price'];
+    /**
+     * As colunas da linha da oferta que saem; `id` e `trade_offer_id` só ligam a
+     * relação. `trade_line_id` sai como `line_id`: é por ela que o chatbot diz
+     * em que linha vai cada key colada no chat (docs/adr/0017).
+     */
+    public const OFFER_LINE_COLUMNS = ['id', 'trade_offer_id', 'trade_line_id', 'game_name', 'region', 'price'];
 
     /** A trade pelo uuid, com a oferta vigente; `null` se não existe ou foi apagada. */
     public function findByUuid(string $uuid): ?Trade
@@ -35,10 +39,7 @@ final class TradeApiReadModel
      */
     public function findForSupplierByNumber(string $steamId, int $number): ?Trade
     {
-        return $this->withCurrentOffer(Trade::query())
-            ->where('supplier_trade_number', $number)
-            ->whereHas('supplier', fn (Builder $query) => $query->where('steam_id', $steamId))
-            ->first();
+        return $this->withCurrentOffer(Trade::query())->ofSupplierNumber($steamId, $number)->first();
     }
 
     /**

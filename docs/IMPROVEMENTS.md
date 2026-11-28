@@ -252,9 +252,9 @@ O bloco interno não usa `allow`/`deny` por sub-rede: a rede é `external`, cria
 
 **Onde:** ambiente local (`docker compose up -d`).
 
-As rotas e a oferta na aba Trades foram verificadas pela suíte e pelo build, não na aplicação rodando: as leituras e a contraproposta pelo nginx, e o card com selo, coluna "Oferta enviada" e histórico no navegador.
+As rotas e a oferta na aba Trades foram verificadas pela suíte e pelo build, não na aplicação rodando: as leituras, a contraproposta e a entrega pelo chat pelo nginx, e o card com selo, coluna "Oferta enviada" e histórico no navegador.
 
-**Ação:** subir o ambiente, criar uma trade por `POST /api/trades`, ler, contrapropor duas vezes, e abrir o card na aba.
+**Ação:** subir o ambiente, criar uma trade por `POST /api/trades`, ler, contrapropor duas vezes, colar as keys e entregar pelo chat (`PATCH`/`POST /api/suppliers/{steamId}/trades/{number}/keys`/`deliver`), e abrir o card na aba: a trade entregue tem de subir para a fila de conferência com o total da oferta.
 
 ### 3. Criar trade repete os mesmos três passos em quatro UseCases
 

@@ -72,7 +72,7 @@ Rota de máquina é autenticada por Bearer conferido pelo `VerifySecret`, com o 
 | Consumidor | Segredo | Rotas |
 |---|---|---|
 | price_researcher | `EXTERNAL_SECRET` → `services.external_secret` (o mesmo que mandamos a ele em `/api/suppliers/find-new`) | `POST /api/trades`, `POST /suppliers/prospect`, `POST /trades/from-price-researcher` |
-| chatbot | `CHATBOT_API_SECRET` → `services.chatbot_api_secret` (`VerifySecret::chatbot()`) | `GET /api/trades/{uuid}`, `GET /api/suppliers/{steamId}/trades`, `GET /api/suppliers/{steamId}/trades/{number}`, `POST /api/trades/{uuid}/offers`, `POST /api/trades/{uuid}/message-sent` |
+| chatbot | `CHATBOT_API_SECRET` → `services.chatbot_api_secret` (`VerifySecret::chatbot()`) | `GET /api/trades/{uuid}`, `GET /api/suppliers/{steamId}/trades`, `GET /api/suppliers/{steamId}/trades/{number}`, `PATCH /api/suppliers/{steamId}/trades/{number}/keys`, `POST /api/suppliers/{steamId}/trades/{number}/deliver`, `POST /api/trades/{uuid}/offers`, `POST /api/trades/{uuid}/message-sent` |
 
 O `GET /keys/auto-sell` também é guardado pelo `EXTERNAL_SECRET`.
 
@@ -95,7 +95,7 @@ Uma rota aceita **só** o segredo do seu consumidor: o do price_researcher não 
 
 ## A API devolve o código da entrega — só trade a trade
 
-`GET /api/trades/{uuid}` devolve `delivery_url` e `delivery_code`, para o chatbot mandar ao supplier ([ADR 0015](../adr/0015-chatbot-reads-the-delivery-credential-through-the-api.md)). Por isso quem tem o `CHATBOT_API_SECRET` lê a credencial de toda trade aberta. Três contenções: o código some com o import; a lista das trades abertas de um supplier (`GET /api/suppliers/{steamId}/trades`) **não** traz acesso, para não virar coleta em lote; e a leitura segue o desenho do ADR 0008 — colunas escolhidas à mão (`TradeApiReadModel`) e formato num Resource próprio —, então nada do que diz quanto o jogo vale para nós sai por ali. O que sobra em `/api` responde `404` em JSON (`routes/api.php`): sem isso o `Route::fallback` global redirecionaria para `/keys`. Guarda em `tests/Feature/Api/TradesReadApiTest.php`.
+`GET /api/trades/{uuid}` devolve `delivery_url` e `delivery_code`, para o chatbot mandar ao supplier ([ADR 0015](../adr/0015-chatbot-reads-the-delivery-credential-through-the-api.md)). Por isso quem tem o `CHATBOT_API_SECRET` lê a credencial de toda trade aberta. Três contenções: o código some com o import; a lista das trades abertas de um supplier (`GET /api/suppliers/{steamId}/trades`) **não** traz acesso, para não virar coleta em lote; e a leitura segue o desenho do ADR 0008 — colunas escolhidas à mão (`TradeApiReadModel`) e formato num Resource próprio —, então nada do que diz quanto o jogo vale para nós sai por ali. A entrega pelo chat ([ADR 0017](../adr/0017-supplier-delivers-keys-through-the-chatbot.md)) **recebe** key, mas nunca a devolve: o preenchimento responde só quais linhas faltam (`missing_line_ids`), e a entrega devolve a trade sem `key_code`. O que sobra em `/api` responde `404` em JSON (`routes/api.php`): sem isso o `Route::fallback` global redirecionaria para `/keys`. Guarda em `tests/Feature/Api/TradesReadApiTest.php`.
 
 ## Lote é `whereIn`, não loop
 

@@ -14,7 +14,7 @@ Da identificação de um fornecedor até a key entrar no estoque.
 | 4 | Decidir se comenta | Se vale (re)comentar na lista do supplier | `CommentPolicy` |
 | 5 | Registrar a trade | Persiste a lista pesquisada, a data do comentário e a **primeira oferta**, que é o próprio comentário; o jogo encalhado ou em giveaway vira linha marcada, mesmo sem ter sido ofertado | `Trade` + `TradeOfferService::recordInitial` |
 | 6 | Negociar | Acerto final de preço com o supplier | manual, na Steam |
-| 7 | Receber as keys | O supplier preenche `key_code`, região e validade por linha, mais o total acertado (obrigatório para enviar), no link com código que a trade já traz; ou a equipe transcreve do chat | `/deliveries/{uuid}` |
+| 7 | Receber as keys | No caso comum, o supplier cola uma key por jogo no chat e confirma: o chatbot grava as keys e fecha a entrega com o total da oferta. Quem prefere a página recebe da equipe o link com código e preenche `key_code`, região, validade e o total acertado. Ou a equipe transcreve do chat | chatbot → `PATCH`/`POST /api/suppliers/{steamId}/trades/{number}/keys`/`deliver`; `/deliveries/{uuid}` |
 | 8 | Conferir | A entrega sobe ao topo de Abertas; a equipe revisa antes de importar | aba de Trades |
 | 9 | Importar as keys da trade | Entrada no estoque, com `individual_cost` rateado pelo lote — **único** caminho de entrada de keys | `POST /trades/{trade}/import` → `RegisterKeyUseCase` |
 
@@ -60,7 +60,7 @@ Daí em diante é o fluxo normal, a partir da etapa 5. A pesquisa não decide o 
 
 ### Entrega pelo supplier (passos 7–8)
 
-Detalhe da decisão em [`docs/adr/0008`](../adr/0008-supplier-fills-trade-through-tokenised-link.md).
+Dois canais escrevem nas mesmas linhas, pelo mesmo caminho: o chat ([`docs/adr/0017`](../adr/0017-supplier-delivers-keys-through-the-chatbot.md), regras em [`PRODUCT.md`](../PRODUCT.md#entrega-pelo-chat)) e a página com link e código ([`docs/adr/0008`](../adr/0008-supplier-fills-trade-through-tokenised-link.md)). Vale a última escrita por linha, e a primeira entrega fecha os dois. Os pontos abaixo são da página.
 
 | Estado da trade | Como se reconhece | O que a equipe vê |
 |---|---|---|

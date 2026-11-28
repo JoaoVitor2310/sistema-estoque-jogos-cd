@@ -169,7 +169,7 @@ Lucro maior é oferta menor: a oferta de um jogo é `renda líquida / (1 + lucro
 | Pedido | Um **total**, na moeda da trade — não um valor por jogo. Decisão de 2026-10-30: um pedido sobre um jogo só vira aumento proporcional em todos, e todo pedido, mesmo pequeno, consome uma rodada |
 | Pedido que cabe | A oferta é **exatamente o pedido**: cada jogo sobe na mesma proporção, quem chega ao limite para nele e o resto é repartido entre os outros; os centavos fecham no total (`CounterOffer::prices`) |
 | Pedido que passa | Cada jogo no seu limite — o máximo **desta rodada**, não a oferta máxima. Pedir muito não leva direto ao fim |
-| Recusas (nada é gravado) | Rodada final já feita, nenhum jogo pode subir, trade entregue ou importada, trade sem oferta: `409` com o motivo. Pedido que não passa da oferta vigente: `422` — aceitar é pela página da entrega |
+| Recusas (nada é gravado) | Rodada final já feita, nenhum jogo pode subir, trade entregue ou importada, trade sem oferta: `409` com o motivo. Pedido que não passa da oferta vigente: `422` — aceitar é mandar as keys ([entrega pelo chat](#entrega-pelo-chat)) |
 | O que a rodada grava | O lucro-alvo dela (`profit_percent`), o pedido (`requested_total`) e o valor de cada jogo; o nome e a região são os da oferta anterior |
 
 **Na aba Trades** a oferta é só leitura — quem decide e grava é o Estoque. O card mostra o selo da rodada vigente ("Oferta 2", "Oferta 3 · final"); ao abrir a trade, a coluna **Oferta enviada** traz o valor de cada jogo na oferta vigente (vazio no jogo que ficou fora) com o total no rodapé, e o histórico lista cada rodada com data, lucro-alvo, pedido do supplier e total. As colunas 100/80/60% continuam como ferramenta da equipe, independentes da oferta enviada.
@@ -245,6 +245,23 @@ Fechada a negociação, quem digita os `key_code` pode ser o próprio supplier: 
 | A página do supplier abre com a marca, o logo e o roxo da CarcaDeals | ela é a única prova de origem que um impostor não consegue copiar; o texto do chat, sim |
 
 Decisão completa e alternativas descartadas: [`docs/adr/0008`](adr/0008-supplier-fills-trade-through-tokenised-link.md).
+
+### Entrega pelo chat
+
+O caminho padrão desde 2026-11-27: depois da oferta, o chatbot manda um modelo com os jogos dela, o supplier cola uma key depois de cada nome, confere o que o bot entendeu e confirma. O chatbot **não manda mais o link e o código**; a equipe os manda a quem pedir, e a página continua valendo. Contrato em [`docs/CHATBOT.md`](CHATBOT.md#entrega-pelo-chat).
+
+| Regra | Por quê |
+|---|---|
+| Mandar as keys é **aceitar a oferta vigente**: o valor acertado (`amount`) é o total dela, gravado pelo Estoque, e substitui um valor digitado antes | no chat não há pergunta "aceita?" nem total digitado; o Estoque é o dono da oferta |
+| O total soma por centavo o valor de cada jogo entregue | é a soma que o supplier leu linha a linha |
+| Só a **key** vem pelo chat; região, bundle, validade e recado ficam com a equipe na conferência | corrigir esses campos é o que a página oferece, e no chat seria texto livre a interpretar |
+| Só os jogos da oferta vigente recebem key, endereçados pela linha da trade | casar pelo nome que o supplier escreveu poria a key no jogo errado sem ninguém perceber |
+| A entrega é **só completa**: com algum jogo sem key, nada é entregue | distinguir "não quero vender este" de "esqueci de colar" exige conversa; parcial é com a equipe |
+| Jogo que a equipe tirou da trade depois da oferta não é entregue nem entra no total | não há linha para receber a key, e o que não foi entregue não é pago |
+| Colar de novo antes de confirmar substitui a key das linhas coladas; depois de confirmar, correção é com a equipe | é o mesmo fechamento da página: entregue, a trade espera a conferência |
+| A confirmação repetida não muda nada e não é erro para o supplier | o chatbot pode reenviar; o marco é o da primeira confirmação, e o e-mail à equipe sai uma vez |
+
+Decisão completa: [`docs/adr/0017`](adr/0017-supplier-delivers-keys-through-the-chatbot.md).
 
 ## Lucro esperado
 O lucro inicial considerado é de 100% quando é analisado um jogo para ser comprado, porém isso pode mudar para os seguintes casos:

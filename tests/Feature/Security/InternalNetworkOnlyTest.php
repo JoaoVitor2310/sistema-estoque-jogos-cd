@@ -34,6 +34,8 @@ function machineRoutes(): array
         'read the trade' => ['GET', "/api/trades/{$uuid}", ENTRY_CHATBOT_SECRET],
         'read the supplier trades' => ['GET', '/api/suppliers/76561198000000001/trades', ENTRY_CHATBOT_SECRET],
         'read a supplier trade by number' => ['GET', '/api/suppliers/76561198000000001/trades/1', ENTRY_CHATBOT_SECRET],
+        'fill the keys pasted in the chat' => ['PATCH', '/api/suppliers/76561198000000001/trades/1/keys', ENTRY_CHATBOT_SECRET],
+        'deliver from the chat' => ['POST', '/api/suppliers/76561198000000001/trades/1/deliver', ENTRY_CHATBOT_SECRET],
         'counter offer' => ['POST', "/api/trades/{$uuid}/offers", ENTRY_CHATBOT_SECRET],
         'message sent' => ['POST', "/api/trades/{$uuid}/message-sent", ENTRY_CHATBOT_SECRET],
         'unknown path under /api' => ['GET', '/api/anything', ENTRY_CHATBOT_SECRET],

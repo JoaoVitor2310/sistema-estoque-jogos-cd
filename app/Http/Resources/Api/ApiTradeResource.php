@@ -65,6 +65,10 @@ class ApiTradeResource extends JsonResource
             'created_at' => $offer->created_at?->toIso8601String(),
             'total_price' => $offer->totalPrice(),
             'lines' => $offer->lines->map(fn (TradeOfferLine $line) => [
+                // A linha da trade que recebe a key deste jogo na entrega pelo
+                // chat. Nula quando a equipe apagou a linha depois da oferta:
+                // o jogo não é mais entregue (docs/adr/0017).
+                'line_id' => $line->trade_line_id,
                 'game_name' => $line->game_name,
                 // Vazio é key global, como no resto da integração.
                 'region' => $line->region ?? '',

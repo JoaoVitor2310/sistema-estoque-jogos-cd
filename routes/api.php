@@ -46,6 +46,18 @@ Route::middleware(VerifySecret::chatbot())->group(function () {
         ->where('number', '[1-9][0-9]{0,8}')
         ->name('api.suppliers.trades.show');
 
+    // A entrega das keys pelo chat (docs/adr/0017): preencher as keys coladas
+    // e confirmar a entrega, pela trade do supplier com aquele número.
+    Route::patch('/suppliers/{steamId}/trades/{number}/keys', [TradeController::class, 'fillKeys'])
+        ->where('steamId', SteamId::ROUTE_PATTERN)
+        ->where('number', '[1-9][0-9]{0,8}')
+        ->name('api.suppliers.trades.keys');
+
+    Route::post('/suppliers/{steamId}/trades/{number}/deliver', [TradeController::class, 'deliverFromChat'])
+        ->where('steamId', SteamId::ROUTE_PATTERN)
+        ->where('number', '[1-9][0-9]{0,8}')
+        ->name('api.suppliers.trades.deliver');
+
     // Escritas do chatbot: a contraproposta (a próxima rodada da oferta) e o
     // registro de que o acesso à entrega foi mandado.
     Route::post('/trades/{uuid}/offers', [TradeController::class, 'counter'])

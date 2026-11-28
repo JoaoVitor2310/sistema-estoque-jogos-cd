@@ -14,6 +14,7 @@
 
 use App\Mail\TradeDeliveredMail;
 use App\UseCases\Trades\MarkTradeDeliveredUseCase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Tests\Support\TradeFactory;
 
@@ -116,6 +117,31 @@ describe('MarkTradeDeliveredUseCase', function () {
         $body = (new TradeDeliveredMail($trade, 1, 1))->render();
 
         expect($body)->toMatch('/<a[^>]+style="[^"]*color:\s*#ffffff[^"]*"/i');
+    });
+
+    it('alerts the team only once the delivery is committed', function () {
+        // A entrega pelo chat fecha dentro de uma transação: se ela desfizer
+        // tudo depois, o e-mail anunciaria uma entrega que não existe.
+        Mail::fake();
+
+        $trade = TradeFactory::withLines(['Portal'], ['amount' => '10']);
+
+        try {
+            DB::transaction(function () use ($trade) {
+                app(MarkTradeDeliveredUseCase::class)->execute($trade);
+                Mail::assertNothingSent();
+
+                throw new RuntimeException('rolled back');
+            });
+        } catch (RuntimeException) {
+        }
+
+        Mail::assertNothingSent();
+        expect($trade->fresh()->delivered_at)->toBeNull();
+
+        DB::transaction(fn () => app(MarkTradeDeliveredUseCase::class)->execute($trade->fresh()));
+
+        Mail::assertSentCount(1);
     });
 
     it('does not alert twice when the button is clicked again', function () {
